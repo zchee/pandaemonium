@@ -1,4 +1,4 @@
-package codexappserver
+package protocol
 
 import (
 	"testing"

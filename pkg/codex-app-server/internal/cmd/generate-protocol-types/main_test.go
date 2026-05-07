@@ -80,6 +80,26 @@ func TestTypeForSchema(t *testing.T) {
 	}
 }
 
+func TestValidPackageName(t *testing.T) {
+	tests := map[string]struct {
+		input string
+		want  bool
+	}{
+		"success: normal package":     {input: "protocol", want: true},
+		"success: underscore package": {input: "protocol_v2", want: true},
+		"error: leading digit":        {input: "2protocol"},
+		"error: keyword":              {input: "type"},
+		"error: dash":                 {input: "protocol-v2"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := validPackageName(tt.input); got != tt.want {
+				t.Fatalf("validPackageName(%q) = %v, want %v", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGenerateRepresentativeTypes(t *testing.T) {
 	definitions := map[string]*jsonschema.Schema{
 		"SampleStatus": {Type: "string", Enum: []any{"ready", "needs_input"}},
@@ -96,12 +116,13 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		},
 	}
 	g := newGenerator(definitions)
-	gotBytes, err := g.generate("schema.json")
+	gotBytes, err := g.generate("schema.json", "protocol")
 	if err != nil {
 		t.Fatalf("generate() error = %v", err)
 	}
 	got := string(gotBytes)
 	wantFragments := []string{
+		"package protocol",
 		"type SampleStatus string",
 		"SampleStatusNeedsInput SampleStatus = \"needs_input\"",
 		"Enabled *bool `json:\"enabled,omitzero\"`",
