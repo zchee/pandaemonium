@@ -31,6 +31,8 @@ import (
 
 	json "github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+
+	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
 )
 
 const sdkVersion = "0.116.0a1-go"
@@ -208,14 +210,16 @@ func (c *Client) Close() error {
 
 // Initialize performs the initialize/initialized handshake.
 func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
-	params := Object{
-		"clientInfo": Object{
-			"name":    c.config.ClientName,
-			"title":   c.config.ClientTitle,
-			"version": c.config.ClientVersion,
+	experimentalAPI := c.experimentalAPI()
+	clientTitle := c.config.ClientTitle
+	params := protocol.InitializeParams{
+		ClientInfo: protocol.ClientInfo{
+			Name:    c.config.ClientName,
+			Title:   &clientTitle,
+			Version: c.config.ClientVersion,
 		},
-		"capabilities": Object{
-			"experimentalApi": c.experimentalAPI(),
+		Capabilities: &protocol.InitializeCapabilities{
+			ExperimentalAPI: &experimentalAPI,
 		},
 	}
 	resp, err := Request[InitializeResponse](ctx, c, "initialize", params)

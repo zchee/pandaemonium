@@ -18,6 +18,8 @@ import (
 	"context"
 	"fmt"
 	"strings"
+
+	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
 )
 
 // Codex is the high-level synchronous Go SDK surface for app-server v2.
@@ -63,7 +65,7 @@ func (c *Codex) ThreadStart(ctx context.Context, params *ThreadStartParams) (*Th
 }
 
 // ThreadList lists threads.
-func (c *Codex) ThreadList(ctx context.Context, params *ThreadListParams) (ThreadListResponse, error) {
+func (c *Codex) ThreadList(ctx context.Context, params *ThreadListParams) (protocol.ThreadListResponse, error) {
 	return c.client.ThreadList(ctx, params)
 }
 
@@ -86,7 +88,7 @@ func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *ThreadF
 }
 
 // ThreadArchive archives a thread.
-func (c *Codex) ThreadArchive(ctx context.Context, threadID string) (ThreadArchiveResponse, error) {
+func (c *Codex) ThreadArchive(ctx context.Context, threadID string) (protocol.ThreadArchiveResponse, error) {
 	return c.client.ThreadArchive(ctx, threadID)
 }
 
@@ -100,7 +102,7 @@ func (c *Codex) ThreadUnarchive(ctx context.Context, threadID string) (*Thread, 
 }
 
 // Models lists available models.
-func (c *Codex) Models(ctx context.Context, includeHidden bool) (ModelListResponse, error) {
+func (c *Codex) Models(ctx context.Context, includeHidden bool) (protocol.ModelListResponse, error) {
 	return c.client.ModelList(ctx, includeHidden)
 }
 
@@ -137,17 +139,17 @@ func (t *Thread) Turn(ctx context.Context, input any, params *TurnStartParams) (
 }
 
 // Read reads thread state.
-func (t *Thread) Read(ctx context.Context, includeTurns bool) (ThreadReadResponse, error) {
+func (t *Thread) Read(ctx context.Context, includeTurns bool) (protocol.ThreadReadResponse, error) {
 	return t.client.ThreadRead(ctx, t.id, includeTurns)
 }
 
 // SetName sets the thread name.
-func (t *Thread) SetName(ctx context.Context, name string) (ThreadSetNameResponse, error) {
+func (t *Thread) SetName(ctx context.Context, name string) (protocol.ThreadSetNameResponse, error) {
 	return t.client.ThreadSetName(ctx, t.id, name)
 }
 
 // Compact starts compaction for the thread.
-func (t *Thread) Compact(ctx context.Context) (ThreadCompactStartResponse, error) {
+func (t *Thread) Compact(ctx context.Context) (protocol.ThreadCompactStartResponse, error) {
 	return t.client.ThreadCompact(ctx, t.id)
 }
 
@@ -162,12 +164,12 @@ type TurnHandle struct {
 func (h *TurnHandle) ID() string { return h.turnID }
 
 // Steer sends additional input to the active turn.
-func (h *TurnHandle) Steer(ctx context.Context, input any) (TurnSteerResponse, error) {
+func (h *TurnHandle) Steer(ctx context.Context, input any) (protocol.TurnSteerResponse, error) {
 	return h.client.TurnSteer(ctx, h.threadID, h.turnID, input)
 }
 
 // Interrupt interrupts the active turn.
-func (h *TurnHandle) Interrupt(ctx context.Context) (TurnInterruptResponse, error) {
+func (h *TurnHandle) Interrupt(ctx context.Context) (protocol.TurnInterruptResponse, error) {
 	return h.client.TurnInterrupt(ctx, h.threadID, h.turnID)
 }
 
@@ -194,7 +196,7 @@ func (h *TurnHandle) Stream(ctx context.Context) (<-chan Notification, <-chan er
 				errs <- ctx.Err()
 				return
 			}
-			completed, ok, err := decodeNotification[TurnCompletedNotification](notification, "turn/completed")
+			completed, ok, err := decodeNotification[protocol.TurnCompletedNotification](notification, "turn/completed")
 			if err != nil {
 				errs <- err
 				return

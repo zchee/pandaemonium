@@ -27,7 +27,23 @@ import (
 	json "github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/google/go-cmp/cmp"
+
+	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
 )
+
+func TestRootAPIUsesProtocolTypesDirectly(t *testing.T) {
+	client := NewClient(nil, nil)
+	var modelList func(context.Context, bool) (protocol.ModelListResponse, error) = client.ModelList
+	var threadStart func(context.Context, *ThreadStartParams) (protocol.ThreadStartResponse, error) = client.ThreadStart
+
+	var runResult RunResult
+	var _ []protocol.ThreadItem = runResult.Items
+	var _ *protocol.ThreadTokenUsage = runResult.Usage
+	var _ protocol.Turn = runResult.Turn
+
+	_ = modelList
+	_ = threadStart
+}
 
 func TestNormalizeInput(t *testing.T) {
 	tests := map[string]struct {
@@ -266,7 +282,7 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	if result.Usage == nil || result.Usage.Total.TotalTokens != 6 {
 		t.Fatalf("usage = %#v, want total tokens 6", result.Usage)
 	}
-	if result.Turn.ID != "turn_run" || result.Turn.Status != TurnStatusCompleted {
+	if result.Turn.ID != "turn_run" || result.Turn.Status != protocol.TurnStatusCompleted {
 		t.Fatalf("turn = %#v, want completed turn_run", result.Turn)
 	}
 }

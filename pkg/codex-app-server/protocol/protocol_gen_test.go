@@ -8,6 +8,8 @@ import (
 )
 
 func TestGeneratedProtocolTypesJSON(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		value any
 		want  string
@@ -15,10 +17,10 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 		"success: command exec params preserve wire fields": {
 			value: CommandExecParams{
 				Command:            []string{"printf", "hello"},
-				Cwd:                stringPtr("/tmp/work"),
-				Env:                map[string]*string{"EMPTY": nil, "FOO": stringPtr("bar")},
-				StreamStdoutStderr: boolPtr(true),
-				TimeoutMs:          int64Ptr(2500),
+				Cwd:                new("/tmp/work"),
+				Env:                map[string]*string{"EMPTY": nil, "FOO": new("bar")},
+				StreamStdoutStderr: new(true),
+				TimeoutMs:          new(int64(2500)),
 			},
 			want: `{"command":["printf","hello"],"cwd":"/tmp/work","env":{"EMPTY":null,"FOO":"bar"},"streamStdoutStderr":true,"timeoutMs":2500}`,
 		},
@@ -33,6 +35,8 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			got, err := json.Marshal(tt.value)
 			if err != nil {
 				t.Fatalf("json.Marshal() error = %v", err)
@@ -45,6 +49,8 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 }
 
 func TestGeneratedProtocolTypesDecode(t *testing.T) {
+	t.Parallel()
+
 	tests := map[string]struct {
 		input string
 		want  CommandExecParams
@@ -53,14 +59,16 @@ func TestGeneratedProtocolTypesDecode(t *testing.T) {
 			input: `{"command":["echo","ok"],"disableTimeout":true,"env":{"FOO":"bar","REMOVE":null},"timeoutMs":123}`,
 			want: CommandExecParams{
 				Command:        []string{"echo", "ok"},
-				DisableTimeout: boolPtr(true),
-				Env:            map[string]*string{"FOO": stringPtr("bar"), "REMOVE": nil},
-				TimeoutMs:      int64Ptr(123),
+				DisableTimeout: new(true),
+				Env:            map[string]*string{"FOO": new("bar"), "REMOVE": nil},
+				TimeoutMs:      new(int64(123)),
 			},
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
 			var got CommandExecParams
 			if err := json.Unmarshal([]byte(tt.input), &got); err != nil {
 				t.Fatalf("json.Unmarshal() error = %v", err)
@@ -71,7 +79,3 @@ func TestGeneratedProtocolTypesDecode(t *testing.T) {
 		})
 	}
 }
-
-func stringPtr(value string) *string { return &value }
-func boolPtr(value bool) *bool       { return &value }
-func int64Ptr(value int64) *int64    { return &value }

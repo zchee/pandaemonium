@@ -28,21 +28,42 @@ type TextInput struct {
 	Text string
 }
 
-func (i TextInput) wireInputItem() Object { return Object{"type": "text", "text": i.Text} }
+var _ InputItem = (*TextInput)(nil)
+
+func (i TextInput) wireInputItem() Object {
+	return Object{
+		"type": "text",
+		"text": i.Text,
+	}
+}
 
 // ImageInput is a remote image URL turn input.
 type ImageInput struct {
 	URL string
 }
 
-func (i ImageInput) wireInputItem() Object { return Object{"type": "image", "url": i.URL} }
+var _ InputItem = (*ImageInput)(nil)
+
+func (i ImageInput) wireInputItem() Object {
+	return Object{
+		"type": "image",
+		"url":  i.URL,
+	}
+}
 
 // LocalImageInput is a local image path turn input.
 type LocalImageInput struct {
 	Path string
 }
 
-func (i LocalImageInput) wireInputItem() Object { return Object{"type": "localImage", "path": i.Path} }
+var _ InputItem = (*LocalImageInput)(nil)
+
+func (i LocalImageInput) wireInputItem() Object {
+	return Object{
+		"type": "localImage",
+		"path": i.Path,
+	}
+}
 
 // SkillInput references a skill by name and path.
 type SkillInput struct {
@@ -50,8 +71,14 @@ type SkillInput struct {
 	Path string
 }
 
+var _ InputItem = (*SkillInput)(nil)
+
 func (i SkillInput) wireInputItem() Object {
-	return Object{"type": "skill", "name": i.Name, "path": i.Path}
+	return Object{
+		"type": "skill",
+		"name": i.Name,
+		"path": i.Path,
+	}
 }
 
 // MentionInput references a mention by name and path.
@@ -60,29 +87,49 @@ type MentionInput struct {
 	Path string
 }
 
+var _ InputItem = (*MentionInput)(nil)
+
 func (i MentionInput) wireInputItem() Object {
-	return Object{"type": "mention", "name": i.Name, "path": i.Path}
+	return Object{
+		"type": "mention",
+		"name": i.Name,
+		"path": i.Path,
+	}
 }
 
 func normalizeInput(input any) ([]Object, error) {
-	switch typed := input.(type) {
+	switch input := input.(type) {
 	case string:
-		return []Object{{"type": "text", "text": typed}}, nil
+		return []Object{
+			{
+				"type": "text",
+				"text": input,
+			},
+		}, nil
+
 	case InputItem:
-		return []Object{typed.wireInputItem()}, nil
+		return []Object{
+			input.wireInputItem(),
+		}, nil
+
 	case []InputItem:
-		out := make([]Object, 0, len(typed))
-		for _, item := range typed {
-			out = append(out, item.wireInputItem())
+		out := make([]Object, len(input))
+		for i, item := range input {
+			out[i] = item.wireInputItem()
 		}
 		return out, nil
+
 	case []Object:
-		return typed, nil
+		return input, nil
+
 	case Object:
-		return []Object{typed}, nil
+		return []Object{
+			input,
+		}, nil
+
 	case []any:
-		out := make([]Object, 0, len(typed))
-		for _, item := range typed {
+		out := make([]Object, 0, len(input))
+		for _, item := range input {
 			normalized, err := normalizeInput(item)
 			if err != nil {
 				return nil, err
@@ -90,7 +137,8 @@ func normalizeInput(input any) ([]Object, error) {
 			out = append(out, normalized...)
 		}
 		return out, nil
+
 	default:
-		return nil, fmt.Errorf("unsupported input type %T", input)
+		return nil, fmt.Errorf("unsupported input type: %T", input)
 	}
 }

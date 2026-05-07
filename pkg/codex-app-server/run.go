@@ -20,26 +20,28 @@ import (
 	"maps"
 
 	json "github.com/go-json-experiment/json"
+
+	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
 )
 
 // RunResult is the high-level result from Thread.Run or TurnHandle.Run.
 type RunResult struct {
 	FinalResponse string
-	Items         []ThreadItem
-	Usage         *ThreadTokenUsage
-	Turn          Turn
+	Items         []protocol.ThreadItem
+	Usage         *protocol.ThreadTokenUsage
+	Turn          protocol.Turn
 }
 
 func collectRunResult(ctx context.Context, client *Client, turnID string) (RunResult, error) {
-	var completed *TurnCompletedNotification
-	items := []ThreadItem{}
-	var usage *ThreadTokenUsage
+	var completed *protocol.TurnCompletedNotification
+	items := []protocol.ThreadItem{}
+	var usage *protocol.ThreadTokenUsage
 	for {
 		notification, err := client.NextNotification(ctx)
 		if err != nil {
 			return RunResult{}, err
 		}
-		itemCompleted, ok, err := decodeNotification[ItemCompletedNotification](notification, "item/completed")
+		itemCompleted, ok, err := decodeNotification[protocol.ItemCompletedNotification](notification, "item/completed")
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -47,7 +49,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			items = append(items, itemCompleted.Item)
 			continue
 		}
-		usageUpdated, ok, err := decodeNotification[ThreadTokenUsageUpdatedNotification](notification, "thread/tokenUsage/updated")
+		usageUpdated, ok, err := decodeNotification[protocol.ThreadTokenUsageUpdatedNotification](notification, "thread/tokenUsage/updated")
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -56,7 +58,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			usage = &copy
 			continue
 		}
-		turnCompleted, ok, err := decodeNotification[TurnCompletedNotification](notification, "turn/completed")
+		turnCompleted, ok, err := decodeNotification[protocol.TurnCompletedNotification](notification, "turn/completed")
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -65,12 +67,13 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			break
 		}
 	}
-	if completed.Turn.Status == TurnStatusFailed {
+	if completed.Turn.Status == protocol.TurnStatusFailed {
 		if completed.Turn.Error != nil && completed.Turn.Error.Message != "" {
 			return RunResult{}, fmt.Errorf("%s", completed.Turn.Error.Message)
 		}
 		return RunResult{}, fmt.Errorf("turn failed with status %s", completed.Turn.Status)
 	}
+
 	return RunResult{
 		FinalResponse: finalAssistantResponse(items),
 		Items:         items,
@@ -79,11 +82,11 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 	}, nil
 }
 
-func finalAssistantResponse(items []ThreadItem) string {
+func finalAssistantResponse(items []protocol.ThreadItem) string {
 	lastUnknownPhase := ""
 	for i := len(items) - 1; i >= 0; i-- {
-		item := items[i]
-		if !isAgentMessage(item) {
+		item, ok := decodeThreadItem(items[i])
+		if !ok || !item.agentMessage() {
 			continue
 		}
 		if item.Phase == "final_answer" || item.Phase == "finalAnswer" {
@@ -96,19 +99,25 @@ func finalAssistantResponse(items []ThreadItem) string {
 	return lastUnknownPhase
 }
 
-func isAgentMessage(item ThreadItem) bool {
+type decodedThreadItem struct {
+	Type  string `json:"type"`
+	Text  string `json:"text"`
+	Phase string `json:"phase"`
+}
+
+func decodeThreadItem(raw protocol.ThreadItem) (decodedThreadItem, bool) {
+	var item decodedThreadItem
+	if len(raw) == 0 || json.Unmarshal(raw, &item) != nil {
+		return decodedThreadItem{}, false
+	}
+	return item, true
+}
+
+func (item decodedThreadItem) agentMessage() bool {
 	if item.Type == "agentMessage" || item.Type == "agent_message" {
 		return true
 	}
-	if item.Text == "" {
-		return false
-	}
-	var raw map[string]any
-	if len(item.Raw) == 0 || json.Unmarshal(item.Raw, &raw) != nil {
-		return false
-	}
-	kind, _ := raw["type"].(string)
-	return kind == "agentMessage" || kind == "agent_message"
+	return item.Text != "" && item.Type == ""
 }
 
 func mergeParams(params any, base Object) Object {
