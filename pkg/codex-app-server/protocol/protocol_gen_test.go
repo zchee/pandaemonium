@@ -41,10 +41,24 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 			if err != nil {
 				t.Fatalf("json.Marshal() error = %v", err)
 			}
-			if diff := cmp.Diff(tt.want, string(got)); diff != "" {
-				t.Fatalf("json output mismatch (-want +got):\n%s", diff)
-			}
+			assertJSONEqual(t, tt.want, got)
 		})
+	}
+}
+
+func assertJSONEqual(t *testing.T, want string, got []byte) {
+	t.Helper()
+
+	var wantValue any
+	if err := json.Unmarshal([]byte(want), &wantValue); err != nil {
+		t.Fatalf("json.Unmarshal(want) error = %v", err)
+	}
+	var gotValue any
+	if err := json.Unmarshal(got, &gotValue); err != nil {
+		t.Fatalf("json.Unmarshal(got) error = %v; got %s", err, got)
+	}
+	if diff := cmp.Diff(wantValue, gotValue); diff != "" {
+		t.Fatalf("json output mismatch (-want +got):\n%s\nraw got: %s", diff, got)
 	}
 }
 
