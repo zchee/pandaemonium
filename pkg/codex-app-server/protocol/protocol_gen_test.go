@@ -4,7 +4,7 @@ import (
 	"testing"
 
 	json "github.com/go-json-experiment/json"
-	"github.com/google/go-cmp/cmp"
+	gocmp "github.com/google/go-cmp/cmp"
 )
 
 func TestGeneratedProtocolTypesJSON(t *testing.T) {
@@ -57,7 +57,7 @@ func assertJSONEqual(t *testing.T, want string, got []byte) {
 	if err := json.Unmarshal(got, &gotValue); err != nil {
 		t.Fatalf("json.Unmarshal(got) error = %v; got %s", err, got)
 	}
-	if diff := cmp.Diff(wantValue, gotValue); diff != "" {
+	if diff := gocmp.Diff(wantValue, gotValue); diff != "" {
 		t.Fatalf("json output mismatch (-want +got):\n%s\nraw got: %s", diff, got)
 	}
 }
@@ -87,7 +87,7 @@ func TestGeneratedProtocolTypesDecode(t *testing.T) {
 			if err := json.Unmarshal([]byte(tt.input), &got); err != nil {
 				t.Fatalf("json.Unmarshal() error = %v", err)
 			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := gocmp.Diff(tt.want, got); diff != "" {
 				t.Fatalf("decoded params mismatch (-want +got):\n%s", diff)
 			}
 		})

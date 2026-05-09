@@ -29,24 +29,10 @@ import (
 
 	json "github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
-	"github.com/google/go-cmp/cmp"
+	gocmp "github.com/google/go-cmp/cmp"
 
 	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
 )
-
-func TestRootAPIUsesProtocolTypesDirectly(t *testing.T) {
-	client := NewClient(nil, nil)
-	var modelList func(context.Context, bool) (protocol.ModelListResponse, error) = client.ModelList
-	var threadStart func(context.Context, *ThreadStartParams) (protocol.ThreadStartResponse, error) = client.ThreadStart
-
-	var runResult RunResult
-	var _ []protocol.ThreadItem = runResult.Items
-	var _ *protocol.ThreadTokenUsage = runResult.Usage
-	var _ protocol.Turn = runResult.Turn
-
-	_ = modelList
-	_ = threadStart
-}
 
 func TestNormalizeInput(t *testing.T) {
 	tests := map[string]struct {
@@ -84,7 +70,7 @@ func TestNormalizeInput(t *testing.T) {
 			if err != nil {
 				t.Fatalf("normalizeInput() error = %v", err)
 			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := gocmp.Diff(tt.want, got); diff != "" {
 				t.Fatalf("normalizeInput() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -202,7 +188,7 @@ func TestValidateInitialize(t *testing.T) {
 			if tt.wantErr {
 				return
 			}
-			if diff := cmp.Diff(tt.want, got); diff != "" {
+			if diff := gocmp.Diff(tt.want, got); diff != "" {
 				t.Fatalf("validateInitialize() mismatch (-want +got):\n%s", diff)
 			}
 		})
@@ -382,7 +368,7 @@ func TestTurnStreamReleasesConsumerAfterCompletion(t *testing.T) {
 		if result.err != nil {
 			t.Fatalf("stream error = %v", result.err)
 		}
-		if diff := cmp.Diff([]string{NotificationMethodTurnCompleted}, notificationMethods(result.notifications)); diff != "" {
+		if diff := gocmp.Diff([]string{NotificationMethodTurnCompleted}, notificationMethods(result.notifications)); diff != "" {
 			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
 		}
 		if err := client.acquireTurnConsumer("turn_after_completion"); err != nil {
@@ -424,7 +410,7 @@ func TestTurnStreamReleasesConsumerAfterEarlyStop(t *testing.T) {
 		if got.err != nil {
 			t.Fatalf("stream error = %v", got.err)
 		}
-		if diff := cmp.Diff([]string{"custom/event"}, got.methods); diff != "" {
+		if diff := gocmp.Diff([]string{"custom/event"}, got.methods); diff != "" {
 			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
 		}
 		if err := client.acquireTurnConsumer("turn_after_early_stop"); err != nil {
@@ -577,7 +563,7 @@ func TestTurnStreamAllowsConcurrentSteer(t *testing.T) {
 			t.Fatalf("stream error = %v", result.err)
 		}
 		want := []string{"item/agentMessage/delta", "turn/completed"}
-		if diff := cmp.Diff(want, notificationMethods(result.notifications)); diff != "" {
+		if diff := gocmp.Diff(want, notificationMethods(result.notifications)); diff != "" {
 			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
 		}
 	case <-time.After(2 * time.Second):

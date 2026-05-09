@@ -19,7 +19,7 @@ import (
 
 	json "github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
-	"github.com/google/go-cmp/cmp"
+	gocmp "github.com/google/go-cmp/cmp"
 
 	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
 )
@@ -78,7 +78,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if err != nil || !ok {
 					t.Fatalf("Notification.ItemCompleted() = (%#v, %v, %v), want success", value, ok, err)
 				}
-				if diff := cmp.Diff(got, value); diff != "" {
+				if diff := gocmp.Diff(got, value); diff != "" {
 					t.Fatalf("wrapper mismatch (-want +got):\n%s", diff)
 				}
 				known, matched, err := DecodeKnownNotification(tt.notification)
@@ -91,10 +91,10 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if known.Method != NotificationMethodItemCompleted {
 					t.Fatalf("known.Method = %q, want %q", known.Method, NotificationMethodItemCompleted)
 				}
-				if diff := cmp.Diff(got, known.Value); diff != "" {
+				if diff := gocmp.Diff(got, known.Value); diff != "" {
 					t.Fatalf("known.Value mismatch (-want +got):\n%s", diff)
 				}
-				if diff := cmp.Diff(tt.notification, known.Raw); diff != "" {
+				if diff := gocmp.Diff(tt.notification, known.Raw); diff != "" {
 					t.Fatalf("known.Raw mismatch (-want +got):\n%s", diff)
 				}
 			case NotificationMethodTurnCompleted:
@@ -112,7 +112,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if err != nil || !ok {
 					t.Fatalf("Notification.TurnCompleted() = (%#v, %v, %v), want success", value, ok, err)
 				}
-				if diff := cmp.Diff(got, value); diff != "" {
+				if diff := gocmp.Diff(got, value); diff != "" {
 					t.Fatalf("wrapper mismatch (-want +got):\n%s", diff)
 				}
 				known, matched, err := DecodeKnownNotification(tt.notification)
@@ -122,7 +122,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if !matched {
 					t.Fatalf("DecodeKnownNotification() matched = false, want true")
 				}
-				if diff := cmp.Diff(got, known.Value); diff != "" {
+				if diff := gocmp.Diff(got, known.Value); diff != "" {
 					t.Fatalf("known.Value mismatch (-want +got):\n%s", diff)
 				}
 			default:
@@ -133,7 +133,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if matched {
 					t.Fatalf("DecodeKnownNotification() matched = true, want false")
 				}
-				if diff := cmp.Diff(tt.notification, known.Raw); diff != "" {
+				if diff := gocmp.Diff(tt.notification, known.Raw); diff != "" {
 					t.Fatalf("unknown raw mismatch (-want +got):\n%s", diff)
 				}
 			}
@@ -154,7 +154,7 @@ func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	if ok {
 		t.Fatalf("DecodeNotification() mismatch ok = true, want false")
 	}
-	if diff := cmp.Diff(protocol.ErrorNotification{}, mismatch); diff != "" {
+	if diff := gocmp.Diff(protocol.ErrorNotification{}, mismatch); diff != "" {
 		t.Fatalf("DecodeNotification() mismatch value (-want +got):\n%s", diff)
 	}
 
