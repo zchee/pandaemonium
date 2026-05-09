@@ -106,8 +106,15 @@ type decodedThreadItem struct {
 }
 
 func decodeThreadItem(raw protocol.ThreadItem) (decodedThreadItem, bool) {
+	if raw == nil {
+		return decodedThreadItem{}, false
+	}
+	encoded, err := json.Marshal(raw)
+	if err != nil || len(encoded) == 0 {
+		return decodedThreadItem{}, false
+	}
 	var item decodedThreadItem
-	if len(raw) == 0 || json.Unmarshal(raw, &item) != nil {
+	if err := json.Unmarshal(encoded, &item); err != nil {
 		return decodedThreadItem{}, false
 	}
 	return item, true

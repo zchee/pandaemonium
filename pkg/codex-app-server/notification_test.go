@@ -30,7 +30,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 	itemParams, err := json.Marshal(protocol.ItemCompletedNotification{
 		ThreadID: "thr-1",
 		TurnID:   "turn-1",
-		Item:     protocol.ThreadItem(`{"type":"agentMessage","text":"hello"}`),
+		Item:     protocol.RawThreadItem(`{"type":"agentMessage","text":"hello"}`),
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal() item params error = %v", err)
@@ -167,6 +167,62 @@ func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	}
 	if err == nil {
 		t.Fatalf("DecodeErrorNotification() malformed err = nil, want error")
+	}
+}
+
+func TestDecodeKnownNotificationUnknownMethodPreservesNestedRaw(t *testing.T) {
+	t.Parallel()
+
+	notification := Notification{
+		Method: "item/custom",
+		Params: jsontext.Value([]byte(`{"items":[{"id":"one"},{"id":"two"}],"nested":{"values":[1,null,2]}}`)),
+	}
+
+	known, matched, err := DecodeKnownNotification(notification)
+	if err != nil {
+		t.Fatalf("DecodeKnownNotification() error = %v", err)
+	}
+	if matched {
+		t.Fatalf("DecodeKnownNotification() matched = true, want false")
+	}
+	if diff := gocmp.Diff(notification, known.Raw); diff != "" {
+		t.Fatalf("DecodeKnownNotification() raw mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestTurnCompletedNotificationRoundTripPreservesThreadItemSlices(t *testing.T) {
+	t.Parallel()
+
+	original := protocol.TurnCompletedNotification{
+		ThreadID: "thr-1",
+		Turn: protocol.Turn{
+			ID:     "turn-1",
+			Status: protocol.TurnStatusCompleted,
+			Items: []protocol.ThreadItem{
+				protocol.RawThreadItem(jsontext.Value(`{"type":"agentMessage","text":"hello","meta":{"source":"assistant"}}`)),
+				protocol.RawThreadItem(jsontext.Value(`["nested",{"kind":"union"}]`)),
+			},
+		},
+	}
+
+	raw, err := json.Marshal(original)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+
+	var decoded protocol.TurnCompletedNotification
+	if err := json.Unmarshal(raw, &decoded); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if diff := gocmp.Diff(original, decoded); diff != "" {
+		t.Fatalf("turn completed round-trip mismatch (-want +got):\n%s", diff)
+	}
+	nestedRaw, err := json.Marshal(decoded.Turn.Items[1])
+	if err != nil {
+		t.Fatalf("json.Marshal() nested item error = %v", err)
+	}
+	if got := string(nestedRaw); got != `["nested",{"kind":"union"}]` {
+		t.Fatalf("nested slice item = %s, want preserved raw json", got)
 	}
 }
 

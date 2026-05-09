@@ -3,13 +3,57 @@
 
 package protocol
 
-import "github.com/go-json-experiment/json/jsontext"
+import (
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
+)
 
 // AbsolutePathBuf is generated from the AbsolutePathBuf schema definition.
 type AbsolutePathBuf = string
 
 // Account is generated from the Account schema definition.
-type Account = jsontext.Value
+type Account interface {
+	isAccount()
+}
+
+// RawAccount preserves an uninterpreted Account JSON value.
+type RawAccount jsontext.Value
+
+func (RawAccount) isAccount() {}
+
+var _ json.MarshalerTo = RawAccount{}
+var _ json.UnmarshalerFrom = (*RawAccount)(nil)
+
+func (value RawAccount) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawAccount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (APIKeyAccount) isAccount() {}
+
+// APIKeyAccount is generated from the ApiKeyAccount schema definition.
+type APIKeyAccount struct {
+	TypeValue string `json:"type"`
+}
+
+func (ChatgptAccount) isAccount() {}
+
+// ChatgptAccount is generated from the ChatgptAccount schema definition.
+type ChatgptAccount struct {
+	Email     string   `json:"email"`
+	PlanType  PlanType `json:"planType"`
+	TypeValue string   `json:"type"`
+}
+
+func (AmazonBedrockAccount) isAccount() {}
+
+// AmazonBedrockAccount is generated from the AmazonBedrockAccount schema definition.
+type AmazonBedrockAccount struct {
+	TypeValue string `json:"type"`
+}
 
 // AccountLoginCompletedNotification is generated from the AccountLoginCompletedNotification schema definition.
 type AccountLoginCompletedNotification struct {
@@ -36,8 +80,17 @@ type ActivePermissionProfile struct {
 	Modifications []ActivePermissionProfileModification `json:"modifications,omitzero"`
 }
 
+// AdditionalWritableRootActivePermissionProfileModification is generated from the AdditionalWritableRootActivePermissionProfileModification schema definition.
+type AdditionalWritableRootActivePermissionProfileModification struct {
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
 // ActivePermissionProfileModification is generated from the ActivePermissionProfileModification schema definition.
-type ActivePermissionProfileModification = jsontext.Value
+type ActivePermissionProfileModification = AdditionalWritableRootActivePermissionProfileModification
+
+func (AdditionalWritableRootActivePermissionProfileModification) isActivePermissionProfileModification() {
+}
 
 // AddCreditsNudgeCreditType is generated from the AddCreditsNudgeCreditType schema definition.
 type AddCreditsNudgeCreditType string
@@ -186,7 +239,18 @@ type AppToolConfig struct {
 }
 
 // AppToolsConfig is generated from the AppToolsConfig schema definition.
-type AppToolsConfig = jsontext.Value
+type AppToolsConfig jsontext.Value
+
+var _ json.MarshalerTo = AppToolsConfig{}
+var _ json.UnmarshalerFrom = (*AppToolsConfig)(nil)
+
+func (value AppToolsConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *AppToolsConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ApprovalsReviewer is generated from the ApprovalsReviewer schema definition.
 type ApprovalsReviewer string
@@ -227,10 +291,32 @@ type AppsListResponse struct {
 }
 
 // AskForApproval is generated from the AskForApproval schema definition.
-type AskForApproval = jsontext.Value
+type AskForApproval jsontext.Value
+
+var _ json.MarshalerTo = AskForApproval{}
+var _ json.UnmarshalerFrom = (*AskForApproval)(nil)
+
+func (value AskForApproval) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *AskForApproval) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // AuthMode is generated from the AuthMode schema definition.
-type AuthMode = jsontext.Value
+type AuthMode jsontext.Value
+
+var _ json.MarshalerTo = AuthMode{}
+var _ json.UnmarshalerFrom = (*AuthMode)(nil)
+
+func (value AuthMode) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *AuthMode) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // AutoReviewDecisionSource is generated from the AutoReviewDecisionSource schema definition.
 type AutoReviewDecisionSource string
@@ -274,10 +360,760 @@ type ClientInfo struct {
 }
 
 // ClientRequest is generated from the ClientRequest schema definition.
-type ClientRequest = jsontext.Value
+type ClientRequest interface {
+	isClientRequest()
+}
+
+// RawClientRequest preserves an uninterpreted ClientRequest JSON value.
+type RawClientRequest jsontext.Value
+
+func (RawClientRequest) isClientRequest() {}
+
+var _ json.MarshalerTo = RawClientRequest{}
+var _ json.UnmarshalerFrom = (*RawClientRequest)(nil)
+
+func (value RawClientRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawClientRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (InitializeRequest) isClientRequest() {}
+
+// InitializeRequest is generated from the InitializeRequest schema definition.
+type InitializeRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params InitializeParams `json:"params"`
+}
+
+func (ThreadStartRequest) isClientRequest() {}
+
+// ThreadStartRequest is generated from the Thread/startRequest schema definition.
+type ThreadStartRequest struct {
+	ID     string            `json:"id"`
+	Method string            `json:"method"`
+	Params ThreadStartParams `json:"params"`
+}
+
+func (ThreadResumeRequest) isClientRequest() {}
+
+// ThreadResumeRequest is generated from the Thread/resumeRequest schema definition.
+type ThreadResumeRequest struct {
+	ID     string             `json:"id"`
+	Method string             `json:"method"`
+	Params ThreadResumeParams `json:"params"`
+}
+
+func (ThreadForkRequest) isClientRequest() {}
+
+// ThreadForkRequest is generated from the Thread/forkRequest schema definition.
+type ThreadForkRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params ThreadForkParams `json:"params"`
+}
+
+func (ThreadArchiveRequest) isClientRequest() {}
+
+// ThreadArchiveRequest is generated from the Thread/archiveRequest schema definition.
+type ThreadArchiveRequest struct {
+	ID     string              `json:"id"`
+	Method string              `json:"method"`
+	Params ThreadArchiveParams `json:"params"`
+}
+
+func (ThreadUnsubscribeRequest) isClientRequest() {}
+
+// ThreadUnsubscribeRequest is generated from the Thread/unsubscribeRequest schema definition.
+type ThreadUnsubscribeRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params ThreadUnsubscribeParams `json:"params"`
+}
+
+func (ThreadNameSetRequest) isClientRequest() {}
+
+// ThreadNameSetRequest is generated from the Thread/name/setRequest schema definition.
+type ThreadNameSetRequest struct {
+	ID     string              `json:"id"`
+	Method string              `json:"method"`
+	Params ThreadSetNameParams `json:"params"`
+}
+
+func (ThreadMetadataUpdateRequest) isClientRequest() {}
+
+// ThreadMetadataUpdateRequest is generated from the Thread/metadata/updateRequest schema definition.
+type ThreadMetadataUpdateRequest struct {
+	ID     string                     `json:"id"`
+	Method string                     `json:"method"`
+	Params ThreadMetadataUpdateParams `json:"params"`
+}
+
+func (ThreadUnarchiveRequest) isClientRequest() {}
+
+// ThreadUnarchiveRequest is generated from the Thread/unarchiveRequest schema definition.
+type ThreadUnarchiveRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params ThreadUnarchiveParams `json:"params"`
+}
+
+func (ThreadCompactStartRequest) isClientRequest() {}
+
+// ThreadCompactStartRequest is generated from the Thread/compact/startRequest schema definition.
+type ThreadCompactStartRequest struct {
+	ID     string                   `json:"id"`
+	Method string                   `json:"method"`
+	Params ThreadCompactStartParams `json:"params"`
+}
+
+func (ThreadShellCommandRequest) isClientRequest() {}
+
+// ThreadShellCommandRequest is generated from the Thread/shellCommandRequest schema definition.
+type ThreadShellCommandRequest struct {
+	ID     string                   `json:"id"`
+	Method string                   `json:"method"`
+	Params ThreadShellCommandParams `json:"params"`
+}
+
+func (ThreadApproveGuardianDeniedActionRequest) isClientRequest() {}
+
+// ThreadApproveGuardianDeniedActionRequest is generated from the Thread/approveGuardianDeniedActionRequest schema definition.
+type ThreadApproveGuardianDeniedActionRequest struct {
+	ID     string                                  `json:"id"`
+	Method string                                  `json:"method"`
+	Params ThreadApproveGuardianDeniedActionParams `json:"params"`
+}
+
+func (ThreadRollbackRequest) isClientRequest() {}
+
+// ThreadRollbackRequest is generated from the Thread/rollbackRequest schema definition.
+type ThreadRollbackRequest struct {
+	ID     string               `json:"id"`
+	Method string               `json:"method"`
+	Params ThreadRollbackParams `json:"params"`
+}
+
+func (ThreadListRequest) isClientRequest() {}
+
+// ThreadListRequest is generated from the Thread/listRequest schema definition.
+type ThreadListRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params ThreadListParams `json:"params"`
+}
+
+func (ThreadLoadedListRequest) isClientRequest() {}
+
+// ThreadLoadedListRequest is generated from the Thread/loaded/listRequest schema definition.
+type ThreadLoadedListRequest struct {
+	ID     string                 `json:"id"`
+	Method string                 `json:"method"`
+	Params ThreadLoadedListParams `json:"params"`
+}
+
+func (ThreadReadRequest) isClientRequest() {}
+
+// ThreadReadRequest is generated from the Thread/readRequest schema definition.
+type ThreadReadRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params ThreadReadParams `json:"params"`
+}
+
+func (ThreadInjectItemsRequest) isClientRequest() {}
+
+// ThreadInjectItemsRequest is generated from the Thread/injectItemsRequest schema definition.
+type ThreadInjectItemsRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params ThreadInjectItemsParams `json:"params"`
+}
+
+func (SkillsListRequest) isClientRequest() {}
+
+// SkillsListRequest is generated from the Skills/listRequest schema definition.
+type SkillsListRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params SkillsListParams `json:"params"`
+}
+
+func (HooksListRequest) isClientRequest() {}
+
+// HooksListRequest is generated from the Hooks/listRequest schema definition.
+type HooksListRequest struct {
+	ID     string          `json:"id"`
+	Method string          `json:"method"`
+	Params HooksListParams `json:"params"`
+}
+
+func (MarketplaceAddRequest) isClientRequest() {}
+
+// MarketplaceAddRequest is generated from the Marketplace/addRequest schema definition.
+type MarketplaceAddRequest struct {
+	ID     string               `json:"id"`
+	Method string               `json:"method"`
+	Params MarketplaceAddParams `json:"params"`
+}
+
+func (MarketplaceRemoveRequest) isClientRequest() {}
+
+// MarketplaceRemoveRequest is generated from the Marketplace/removeRequest schema definition.
+type MarketplaceRemoveRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params MarketplaceRemoveParams `json:"params"`
+}
+
+func (MarketplaceUpgradeRequest) isClientRequest() {}
+
+// MarketplaceUpgradeRequest is generated from the Marketplace/upgradeRequest schema definition.
+type MarketplaceUpgradeRequest struct {
+	ID     string                   `json:"id"`
+	Method string                   `json:"method"`
+	Params MarketplaceUpgradeParams `json:"params"`
+}
+
+func (PluginListRequest) isClientRequest() {}
+
+// PluginListRequest is generated from the Plugin/listRequest schema definition.
+type PluginListRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params PluginListParams `json:"params"`
+}
+
+func (PluginReadRequest) isClientRequest() {}
+
+// PluginReadRequest is generated from the Plugin/readRequest schema definition.
+type PluginReadRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params PluginReadParams `json:"params"`
+}
+
+func (PluginSkillReadRequest) isClientRequest() {}
+
+// PluginSkillReadRequest is generated from the Plugin/skill/readRequest schema definition.
+type PluginSkillReadRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params PluginSkillReadParams `json:"params"`
+}
+
+func (PluginShareSaveRequest) isClientRequest() {}
+
+// PluginShareSaveRequest is generated from the Plugin/share/saveRequest schema definition.
+type PluginShareSaveRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params PluginShareSaveParams `json:"params"`
+}
+
+func (PluginShareUpdateTargetsRequest) isClientRequest() {}
+
+// PluginShareUpdateTargetsRequest is generated from the Plugin/share/updateTargetsRequest schema definition.
+type PluginShareUpdateTargetsRequest struct {
+	ID     string                         `json:"id"`
+	Method string                         `json:"method"`
+	Params PluginShareUpdateTargetsParams `json:"params"`
+}
+
+func (PluginShareListRequest) isClientRequest() {}
+
+// PluginShareListRequest is generated from the Plugin/share/listRequest schema definition.
+type PluginShareListRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params PluginShareListParams `json:"params"`
+}
+
+func (PluginShareDeleteRequest) isClientRequest() {}
+
+// PluginShareDeleteRequest is generated from the Plugin/share/deleteRequest schema definition.
+type PluginShareDeleteRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params PluginShareDeleteParams `json:"params"`
+}
+
+func (AppListRequest) isClientRequest() {}
+
+// AppListRequest is generated from the App/listRequest schema definition.
+type AppListRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params AppsListParams `json:"params"`
+}
+
+func (DeviceKeyCreateRequest) isClientRequest() {}
+
+// DeviceKeyCreateRequest is generated from the Device/key/createRequest schema definition.
+type DeviceKeyCreateRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params DeviceKeyCreateParams `json:"params"`
+}
+
+func (DeviceKeyPublicRequest) isClientRequest() {}
+
+// DeviceKeyPublicRequest is generated from the Device/key/publicRequest schema definition.
+type DeviceKeyPublicRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params DeviceKeyPublicParams `json:"params"`
+}
+
+func (DeviceKeySignRequest) isClientRequest() {}
+
+// DeviceKeySignRequest is generated from the Device/key/signRequest schema definition.
+type DeviceKeySignRequest struct {
+	ID     string              `json:"id"`
+	Method string              `json:"method"`
+	Params DeviceKeySignParams `json:"params"`
+}
+
+func (FsReadFileRequest) isClientRequest() {}
+
+// FsReadFileRequest is generated from the Fs/readFileRequest schema definition.
+type FsReadFileRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params FsReadFileParams `json:"params"`
+}
+
+func (FsWriteFileRequest) isClientRequest() {}
+
+// FsWriteFileRequest is generated from the Fs/writeFileRequest schema definition.
+type FsWriteFileRequest struct {
+	ID     string            `json:"id"`
+	Method string            `json:"method"`
+	Params FsWriteFileParams `json:"params"`
+}
+
+func (FsCreateDirectoryRequest) isClientRequest() {}
+
+// FsCreateDirectoryRequest is generated from the Fs/createDirectoryRequest schema definition.
+type FsCreateDirectoryRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params FsCreateDirectoryParams `json:"params"`
+}
+
+func (FsGetMetadataRequest) isClientRequest() {}
+
+// FsGetMetadataRequest is generated from the Fs/getMetadataRequest schema definition.
+type FsGetMetadataRequest struct {
+	ID     string              `json:"id"`
+	Method string              `json:"method"`
+	Params FsGetMetadataParams `json:"params"`
+}
+
+func (FsReadDirectoryRequest) isClientRequest() {}
+
+// FsReadDirectoryRequest is generated from the Fs/readDirectoryRequest schema definition.
+type FsReadDirectoryRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params FsReadDirectoryParams `json:"params"`
+}
+
+func (FsRemoveRequest) isClientRequest() {}
+
+// FsRemoveRequest is generated from the Fs/removeRequest schema definition.
+type FsRemoveRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params FsRemoveParams `json:"params"`
+}
+
+func (FsCopyRequest) isClientRequest() {}
+
+// FsCopyRequest is generated from the Fs/copyRequest schema definition.
+type FsCopyRequest struct {
+	ID     string       `json:"id"`
+	Method string       `json:"method"`
+	Params FsCopyParams `json:"params"`
+}
+
+func (FsWatchRequest) isClientRequest() {}
+
+// FsWatchRequest is generated from the Fs/watchRequest schema definition.
+type FsWatchRequest struct {
+	ID     string        `json:"id"`
+	Method string        `json:"method"`
+	Params FsWatchParams `json:"params"`
+}
+
+func (FsUnwatchRequest) isClientRequest() {}
+
+// FsUnwatchRequest is generated from the Fs/unwatchRequest schema definition.
+type FsUnwatchRequest struct {
+	ID     string          `json:"id"`
+	Method string          `json:"method"`
+	Params FsUnwatchParams `json:"params"`
+}
+
+func (SkillsConfigWriteRequest) isClientRequest() {}
+
+// SkillsConfigWriteRequest is generated from the Skills/config/writeRequest schema definition.
+type SkillsConfigWriteRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params SkillsConfigWriteParams `json:"params"`
+}
+
+func (PluginInstallRequest) isClientRequest() {}
+
+// PluginInstallRequest is generated from the Plugin/installRequest schema definition.
+type PluginInstallRequest struct {
+	ID     string              `json:"id"`
+	Method string              `json:"method"`
+	Params PluginInstallParams `json:"params"`
+}
+
+func (PluginUninstallRequest) isClientRequest() {}
+
+// PluginUninstallRequest is generated from the Plugin/uninstallRequest schema definition.
+type PluginUninstallRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params PluginUninstallParams `json:"params"`
+}
+
+func (TurnStartRequest) isClientRequest() {}
+
+// TurnStartRequest is generated from the Turn/startRequest schema definition.
+type TurnStartRequest struct {
+	ID     string          `json:"id"`
+	Method string          `json:"method"`
+	Params TurnStartParams `json:"params"`
+}
+
+func (TurnSteerRequest) isClientRequest() {}
+
+// TurnSteerRequest is generated from the Turn/steerRequest schema definition.
+type TurnSteerRequest struct {
+	ID     string          `json:"id"`
+	Method string          `json:"method"`
+	Params TurnSteerParams `json:"params"`
+}
+
+func (TurnInterruptRequest) isClientRequest() {}
+
+// TurnInterruptRequest is generated from the Turn/interruptRequest schema definition.
+type TurnInterruptRequest struct {
+	ID     string              `json:"id"`
+	Method string              `json:"method"`
+	Params TurnInterruptParams `json:"params"`
+}
+
+func (ReviewStartRequest) isClientRequest() {}
+
+// ReviewStartRequest is generated from the Review/startRequest schema definition.
+type ReviewStartRequest struct {
+	ID     string            `json:"id"`
+	Method string            `json:"method"`
+	Params ReviewStartParams `json:"params"`
+}
+
+func (ModelListRequest) isClientRequest() {}
+
+// ModelListRequest is generated from the Model/listRequest schema definition.
+type ModelListRequest struct {
+	ID     string          `json:"id"`
+	Method string          `json:"method"`
+	Params ModelListParams `json:"params"`
+}
+
+func (ModelProviderCapabilitiesReadRequest) isClientRequest() {}
+
+// ModelProviderCapabilitiesReadRequest is generated from the ModelProvider/capabilities/readRequest schema definition.
+type ModelProviderCapabilitiesReadRequest struct {
+	ID     string                              `json:"id"`
+	Method string                              `json:"method"`
+	Params ModelProviderCapabilitiesReadParams `json:"params"`
+}
+
+func (ExperimentalFeatureListRequest) isClientRequest() {}
+
+// ExperimentalFeatureListRequest is generated from the ExperimentalFeature/listRequest schema definition.
+type ExperimentalFeatureListRequest struct {
+	ID     string                        `json:"id"`
+	Method string                        `json:"method"`
+	Params ExperimentalFeatureListParams `json:"params"`
+}
+
+func (ExperimentalFeatureEnablementSetRequest) isClientRequest() {}
+
+// ExperimentalFeatureEnablementSetRequest is generated from the ExperimentalFeature/enablement/setRequest schema definition.
+type ExperimentalFeatureEnablementSetRequest struct {
+	ID     string                                 `json:"id"`
+	Method string                                 `json:"method"`
+	Params ExperimentalFeatureEnablementSetParams `json:"params"`
+}
+
+func (MCPServerOAuthLoginRequest) isClientRequest() {}
+
+// MCPServerOAuthLoginRequest is generated from the McpServer/oauth/loginRequest schema definition.
+type MCPServerOAuthLoginRequest struct {
+	ID     string                    `json:"id"`
+	Method string                    `json:"method"`
+	Params MCPServerOAuthLoginParams `json:"params"`
+}
+
+func (ConfigMCPServerReloadRequest) isClientRequest() {}
+
+// ConfigMCPServerReloadRequest is generated from the Config/mcpServer/reloadRequest schema definition.
+type ConfigMCPServerReloadRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params jsontext.Value `json:"params,omitzero"`
+}
+
+func (MCPServerStatusListRequest) isClientRequest() {}
+
+// MCPServerStatusListRequest is generated from the McpServerStatus/listRequest schema definition.
+type MCPServerStatusListRequest struct {
+	ID     string                    `json:"id"`
+	Method string                    `json:"method"`
+	Params ListMCPServerStatusParams `json:"params"`
+}
+
+func (MCPServerResourceReadRequest) isClientRequest() {}
+
+// MCPServerResourceReadRequest is generated from the McpServer/resource/readRequest schema definition.
+type MCPServerResourceReadRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params MCPResourceReadParams `json:"params"`
+}
+
+func (MCPServerToolCallRequest) isClientRequest() {}
+
+// MCPServerToolCallRequest is generated from the McpServer/tool/callRequest schema definition.
+type MCPServerToolCallRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params MCPServerToolCallParams `json:"params"`
+}
+
+func (WindowsSandboxSetupStartRequest) isClientRequest() {}
+
+// WindowsSandboxSetupStartRequest is generated from the WindowsSandbox/setupStartRequest schema definition.
+type WindowsSandboxSetupStartRequest struct {
+	ID     string                         `json:"id"`
+	Method string                         `json:"method"`
+	Params WindowsSandboxSetupStartParams `json:"params"`
+}
+
+func (WindowsSandboxReadinessRequest) isClientRequest() {}
+
+// WindowsSandboxReadinessRequest is generated from the WindowsSandbox/readinessRequest schema definition.
+type WindowsSandboxReadinessRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params jsontext.Value `json:"params,omitzero"`
+}
+
+func (AccountLoginStartRequest) isClientRequest() {}
+
+// AccountLoginStartRequest is generated from the Account/login/startRequest schema definition.
+type AccountLoginStartRequest struct {
+	ID     string             `json:"id"`
+	Method string             `json:"method"`
+	Params LoginAccountParams `json:"params"`
+}
+
+func (value *AccountLoginStartRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ID     string         `json:"id"`
+		Method string         `json:"method"`
+		Params jsontext.Value `json:"params"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ID = raw.ID
+	value.Method = raw.Method
+	if raw.Params == nil {
+		value.Params = nil
+	} else {
+		value.Params = RawLoginAccountParams(raw.Params)
+	}
+	return nil
+}
+
+func (AccountLoginCancelRequest) isClientRequest() {}
+
+// AccountLoginCancelRequest is generated from the Account/login/cancelRequest schema definition.
+type AccountLoginCancelRequest struct {
+	ID     string                   `json:"id"`
+	Method string                   `json:"method"`
+	Params CancelLoginAccountParams `json:"params"`
+}
+
+func (AccountLogoutRequest) isClientRequest() {}
+
+// AccountLogoutRequest is generated from the Account/logoutRequest schema definition.
+type AccountLogoutRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params jsontext.Value `json:"params,omitzero"`
+}
+
+func (AccountRateLimitsReadRequest) isClientRequest() {}
+
+// AccountRateLimitsReadRequest is generated from the Account/rateLimits/readRequest schema definition.
+type AccountRateLimitsReadRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params jsontext.Value `json:"params,omitzero"`
+}
+
+func (AccountSendAddCreditsNudgeEmailRequest) isClientRequest() {}
+
+// AccountSendAddCreditsNudgeEmailRequest is generated from the Account/sendAddCreditsNudgeEmailRequest schema definition.
+type AccountSendAddCreditsNudgeEmailRequest struct {
+	ID     string                         `json:"id"`
+	Method string                         `json:"method"`
+	Params SendAddCreditsNudgeEmailParams `json:"params"`
+}
+
+func (FeedbackUploadRequest) isClientRequest() {}
+
+// FeedbackUploadRequest is generated from the Feedback/uploadRequest schema definition.
+type FeedbackUploadRequest struct {
+	ID     string               `json:"id"`
+	Method string               `json:"method"`
+	Params FeedbackUploadParams `json:"params"`
+}
+
+func (CommandExecRequest) isClientRequest() {}
+
+// CommandExecRequest is generated from the Command/execRequest schema definition.
+type CommandExecRequest struct {
+	ID     string            `json:"id"`
+	Method string            `json:"method"`
+	Params CommandExecParams `json:"params"`
+}
+
+func (CommandExecWriteRequest) isClientRequest() {}
+
+// CommandExecWriteRequest is generated from the Command/exec/writeRequest schema definition.
+type CommandExecWriteRequest struct {
+	ID     string                 `json:"id"`
+	Method string                 `json:"method"`
+	Params CommandExecWriteParams `json:"params"`
+}
+
+func (CommandExecTerminateRequest) isClientRequest() {}
+
+// CommandExecTerminateRequest is generated from the Command/exec/terminateRequest schema definition.
+type CommandExecTerminateRequest struct {
+	ID     string                     `json:"id"`
+	Method string                     `json:"method"`
+	Params CommandExecTerminateParams `json:"params"`
+}
+
+func (CommandExecResizeRequest) isClientRequest() {}
+
+// CommandExecResizeRequest is generated from the Command/exec/resizeRequest schema definition.
+type CommandExecResizeRequest struct {
+	ID     string                  `json:"id"`
+	Method string                  `json:"method"`
+	Params CommandExecResizeParams `json:"params"`
+}
+
+func (ConfigReadRequest) isClientRequest() {}
+
+// ConfigReadRequest is generated from the Config/readRequest schema definition.
+type ConfigReadRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params ConfigReadParams `json:"params"`
+}
+
+func (ExternalAgentConfigDetectRequest) isClientRequest() {}
+
+// ExternalAgentConfigDetectRequest is generated from the ExternalAgentConfig/detectRequest schema definition.
+type ExternalAgentConfigDetectRequest struct {
+	ID     string                          `json:"id"`
+	Method string                          `json:"method"`
+	Params ExternalAgentConfigDetectParams `json:"params"`
+}
+
+func (ExternalAgentConfigImportRequest) isClientRequest() {}
+
+// ExternalAgentConfigImportRequest is generated from the ExternalAgentConfig/importRequest schema definition.
+type ExternalAgentConfigImportRequest struct {
+	ID     string                          `json:"id"`
+	Method string                          `json:"method"`
+	Params ExternalAgentConfigImportParams `json:"params"`
+}
+
+func (ConfigValueWriteRequest) isClientRequest() {}
+
+// ConfigValueWriteRequest is generated from the Config/value/writeRequest schema definition.
+type ConfigValueWriteRequest struct {
+	ID     string                 `json:"id"`
+	Method string                 `json:"method"`
+	Params ConfigValueWriteParams `json:"params"`
+}
+
+func (ConfigBatchWriteRequest) isClientRequest() {}
+
+// ConfigBatchWriteRequest is generated from the Config/batchWriteRequest schema definition.
+type ConfigBatchWriteRequest struct {
+	ID     string                 `json:"id"`
+	Method string                 `json:"method"`
+	Params ConfigBatchWriteParams `json:"params"`
+}
+
+func (ConfigRequirementsReadRequest) isClientRequest() {}
+
+// ConfigRequirementsReadRequest is generated from the ConfigRequirements/readRequest schema definition.
+type ConfigRequirementsReadRequest struct {
+	ID     string         `json:"id"`
+	Method string         `json:"method"`
+	Params jsontext.Value `json:"params,omitzero"`
+}
+
+func (AccountReadRequest) isClientRequest() {}
+
+// AccountReadRequest is generated from the Account/readRequest schema definition.
+type AccountReadRequest struct {
+	ID     string           `json:"id"`
+	Method string           `json:"method"`
+	Params GetAccountParams `json:"params"`
+}
+
+func (FuzzyFileSearchRequest) isClientRequest() {}
+
+// FuzzyFileSearchRequest is generated from the FuzzyFileSearchRequest schema definition.
+type FuzzyFileSearchRequest struct {
+	ID     string                `json:"id"`
+	Method string                `json:"method"`
+	Params FuzzyFileSearchParams `json:"params"`
+}
 
 // CodexErrorInfo is generated from the CodexErrorInfo schema definition.
-type CodexErrorInfo = jsontext.Value
+type CodexErrorInfo jsontext.Value
+
+var _ json.MarshalerTo = CodexErrorInfo{}
+var _ json.UnmarshalerFrom = (*CodexErrorInfo)(nil)
+
+func (value CodexErrorInfo) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *CodexErrorInfo) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // CollabAgentState is generated from the CollabAgentState schema definition.
 type CollabAgentState struct {
@@ -348,7 +1184,62 @@ type CollaborationModeMask struct {
 }
 
 // CommandAction is generated from the CommandAction schema definition.
-type CommandAction = jsontext.Value
+type CommandAction interface {
+	isCommandAction()
+}
+
+// RawCommandAction preserves an uninterpreted CommandAction JSON value.
+type RawCommandAction jsontext.Value
+
+func (RawCommandAction) isCommandAction() {}
+
+var _ json.MarshalerTo = RawCommandAction{}
+var _ json.UnmarshalerFrom = (*RawCommandAction)(nil)
+
+func (value RawCommandAction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawCommandAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (ReadCommandAction) isCommandAction() {}
+
+// ReadCommandAction is generated from the ReadCommandAction schema definition.
+type ReadCommandAction struct {
+	Command   string `json:"command"`
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
+func (ListFilesCommandAction) isCommandAction() {}
+
+// ListFilesCommandAction is generated from the ListFilesCommandAction schema definition.
+type ListFilesCommandAction struct {
+	Command   string  `json:"command"`
+	Path      *string `json:"path,omitzero"`
+	TypeValue string  `json:"type"`
+}
+
+func (SearchCommandAction) isCommandAction() {}
+
+// SearchCommandAction is generated from the SearchCommandAction schema definition.
+type SearchCommandAction struct {
+	Command   string  `json:"command"`
+	Path      *string `json:"path,omitzero"`
+	Query     *string `json:"query,omitzero"`
+	TypeValue string  `json:"type"`
+}
+
+func (UnknownCommandAction) isCommandAction() {}
+
+// UnknownCommandAction is generated from the UnknownCommandAction schema definition.
+type UnknownCommandAction struct {
+	Command   string `json:"command"`
+	TypeValue string `json:"type"`
+}
 
 // CommandExecOutputDeltaNotification is generated from the CommandExecOutputDeltaNotification schema definition.
 type CommandExecOutputDeltaNotification struct {
@@ -359,7 +1250,18 @@ type CommandExecOutputDeltaNotification struct {
 }
 
 // CommandExecOutputStream is generated from the CommandExecOutputStream schema definition.
-type CommandExecOutputStream = jsontext.Value
+type CommandExecOutputStream jsontext.Value
+
+var _ json.MarshalerTo = CommandExecOutputStream{}
+var _ json.UnmarshalerFrom = (*CommandExecOutputStream)(nil)
+
+func (value CommandExecOutputStream) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *CommandExecOutputStream) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // CommandExecParams is generated from the CommandExecParams schema definition.
 type CommandExecParams struct {
@@ -378,6 +1280,46 @@ type CommandExecParams struct {
 	TTY                *bool                    `json:"tty,omitzero"`
 }
 
+func (value *CommandExecParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Command            []string                 `json:"command"`
+		Cwd                *string                  `json:"cwd,omitzero"`
+		DisableOutputCap   *bool                    `json:"disableOutputCap,omitzero"`
+		DisableTimeout     *bool                    `json:"disableTimeout,omitzero"`
+		Env                map[string]*string       `json:"env,omitzero"`
+		OutputBytesCap     *uint                    `json:"outputBytesCap,omitzero"`
+		ProcessID          *string                  `json:"processId,omitzero"`
+		SandboxPolicy      jsontext.Value           `json:"sandboxPolicy,omitzero"`
+		Size               *CommandExecTerminalSize `json:"size,omitzero"`
+		StreamStdin        *bool                    `json:"streamStdin,omitzero"`
+		StreamStdoutStderr *bool                    `json:"streamStdoutStderr,omitzero"`
+		TimeoutMs          *int64                   `json:"timeoutMs,omitzero"`
+		TTY                *bool                    `json:"tty,omitzero"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Command = raw.Command
+	value.Cwd = raw.Cwd
+	value.DisableOutputCap = raw.DisableOutputCap
+	value.DisableTimeout = raw.DisableTimeout
+	value.Env = raw.Env
+	value.OutputBytesCap = raw.OutputBytesCap
+	value.ProcessID = raw.ProcessID
+	if raw.SandboxPolicy == nil {
+		value.SandboxPolicy = nil
+	} else {
+		sandboxPolicy := SandboxPolicy(RawSandboxPolicy(raw.SandboxPolicy))
+		value.SandboxPolicy = &sandboxPolicy
+	}
+	value.Size = raw.Size
+	value.StreamStdin = raw.StreamStdin
+	value.StreamStdoutStderr = raw.StreamStdoutStderr
+	value.TimeoutMs = raw.TimeoutMs
+	value.TTY = raw.TTY
+	return nil
+}
+
 // CommandExecResizeParams is generated from the CommandExecResizeParams schema definition.
 type CommandExecResizeParams struct {
 	ProcessID string                  `json:"processId"`
@@ -385,7 +1327,18 @@ type CommandExecResizeParams struct {
 }
 
 // CommandExecResizeResponse is generated from the CommandExecResizeResponse schema definition.
-type CommandExecResizeResponse = jsontext.Value
+type CommandExecResizeResponse jsontext.Value
+
+var _ json.MarshalerTo = CommandExecResizeResponse{}
+var _ json.UnmarshalerFrom = (*CommandExecResizeResponse)(nil)
+
+func (value CommandExecResizeResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *CommandExecResizeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // CommandExecResponse is generated from the CommandExecResponse schema definition.
 type CommandExecResponse struct {
@@ -406,7 +1359,18 @@ type CommandExecTerminateParams struct {
 }
 
 // CommandExecTerminateResponse is generated from the CommandExecTerminateResponse schema definition.
-type CommandExecTerminateResponse = jsontext.Value
+type CommandExecTerminateResponse jsontext.Value
+
+var _ json.MarshalerTo = CommandExecTerminateResponse{}
+var _ json.UnmarshalerFrom = (*CommandExecTerminateResponse)(nil)
+
+func (value CommandExecTerminateResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *CommandExecTerminateResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // CommandExecWriteParams is generated from the CommandExecWriteParams schema definition.
 type CommandExecWriteParams struct {
@@ -416,7 +1380,18 @@ type CommandExecWriteParams struct {
 }
 
 // CommandExecWriteResponse is generated from the CommandExecWriteResponse schema definition.
-type CommandExecWriteResponse = jsontext.Value
+type CommandExecWriteResponse jsontext.Value
+
+var _ json.MarshalerTo = CommandExecWriteResponse{}
+var _ json.UnmarshalerFrom = (*CommandExecWriteResponse)(nil)
+
+func (value CommandExecWriteResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *CommandExecWriteResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // CommandExecutionOutputDeltaNotification is generated from the CommandExecutionOutputDeltaNotification schema definition.
 type CommandExecutionOutputDeltaNotification struct {
@@ -509,14 +1484,125 @@ type ConfigLayer struct {
 	Version        string            `json:"version"`
 }
 
+func (value *ConfigLayer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Config         jsontext.Value `json:"config"`
+		DisabledReason *string        `json:"disabledReason,omitzero"`
+		Name           jsontext.Value `json:"name"`
+		Version        string         `json:"version"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Config = raw.Config
+	value.DisabledReason = raw.DisabledReason
+	if raw.Name == nil {
+		value.Name = nil
+	} else {
+		value.Name = RawConfigLayerSource(raw.Name)
+	}
+	value.Version = raw.Version
+	return nil
+}
+
 // ConfigLayerMetadata is generated from the ConfigLayerMetadata schema definition.
 type ConfigLayerMetadata struct {
 	Name    ConfigLayerSource `json:"name"`
 	Version string            `json:"version"`
 }
 
+func (value *ConfigLayerMetadata) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Name    jsontext.Value `json:"name"`
+		Version string         `json:"version"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Name == nil {
+		value.Name = nil
+	} else {
+		value.Name = RawConfigLayerSource(raw.Name)
+	}
+	value.Version = raw.Version
+	return nil
+}
+
 // ConfigLayerSource is generated from the ConfigLayerSource schema definition.
-type ConfigLayerSource = jsontext.Value
+type ConfigLayerSource interface {
+	isConfigLayerSource()
+}
+
+// RawConfigLayerSource preserves an uninterpreted ConfigLayerSource JSON value.
+type RawConfigLayerSource jsontext.Value
+
+func (RawConfigLayerSource) isConfigLayerSource() {}
+
+var _ json.MarshalerTo = RawConfigLayerSource{}
+var _ json.UnmarshalerFrom = (*RawConfigLayerSource)(nil)
+
+func (value RawConfigLayerSource) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawConfigLayerSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (MdmConfigLayerSource) isConfigLayerSource() {}
+
+// MdmConfigLayerSource is generated from the MdmConfigLayerSource schema definition.
+type MdmConfigLayerSource struct {
+	Domain    string `json:"domain"`
+	Key       string `json:"key"`
+	TypeValue string `json:"type"`
+}
+
+func (SystemConfigLayerSource) isConfigLayerSource() {}
+
+// SystemConfigLayerSource is generated from the SystemConfigLayerSource schema definition.
+type SystemConfigLayerSource struct {
+	File      string `json:"file"`
+	TypeValue string `json:"type"`
+}
+
+func (UserConfigLayerSource) isConfigLayerSource() {}
+
+// UserConfigLayerSource is generated from the UserConfigLayerSource schema definition.
+type UserConfigLayerSource struct {
+	File      string `json:"file"`
+	TypeValue string `json:"type"`
+}
+
+func (ProjectConfigLayerSource) isConfigLayerSource() {}
+
+// ProjectConfigLayerSource is generated from the ProjectConfigLayerSource schema definition.
+type ProjectConfigLayerSource struct {
+	DotCodexFolder string `json:"dotCodexFolder"`
+	TypeValue      string `json:"type"`
+}
+
+func (SessionFlagsConfigLayerSource) isConfigLayerSource() {}
+
+// SessionFlagsConfigLayerSource is generated from the SessionFlagsConfigLayerSource schema definition.
+type SessionFlagsConfigLayerSource struct {
+	TypeValue string `json:"type"`
+}
+
+func (LegacyManagedConfigTomlFromFileConfigLayerSource) isConfigLayerSource() {}
+
+// LegacyManagedConfigTomlFromFileConfigLayerSource is generated from the LegacyManagedConfigTomlFromFileConfigLayerSource schema definition.
+type LegacyManagedConfigTomlFromFileConfigLayerSource struct {
+	File      string `json:"file"`
+	TypeValue string `json:"type"`
+}
+
+func (LegacyManagedConfigTomlFromMdmConfigLayerSource) isConfigLayerSource() {}
+
+// LegacyManagedConfigTomlFromMdmConfigLayerSource is generated from the LegacyManagedConfigTomlFromMdmConfigLayerSource schema definition.
+type LegacyManagedConfigTomlFromMdmConfigLayerSource struct {
+	TypeValue string `json:"type"`
+}
 
 // ConfigReadParams is generated from the ConfigReadParams schema definition.
 type ConfigReadParams struct {
@@ -571,7 +1657,50 @@ type ConfigWriteResponse struct {
 }
 
 // ConfiguredHookHandler is generated from the ConfiguredHookHandler schema definition.
-type ConfiguredHookHandler = jsontext.Value
+type ConfiguredHookHandler interface {
+	isConfiguredHookHandler()
+}
+
+// RawConfiguredHookHandler preserves an uninterpreted ConfiguredHookHandler JSON value.
+type RawConfiguredHookHandler jsontext.Value
+
+func (RawConfiguredHookHandler) isConfiguredHookHandler() {}
+
+var _ json.MarshalerTo = RawConfiguredHookHandler{}
+var _ json.UnmarshalerFrom = (*RawConfiguredHookHandler)(nil)
+
+func (value RawConfiguredHookHandler) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawConfiguredHookHandler) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (CommandConfiguredHookHandler) isConfiguredHookHandler() {}
+
+// CommandConfiguredHookHandler is generated from the CommandConfiguredHookHandler schema definition.
+type CommandConfiguredHookHandler struct {
+	Async         bool    `json:"async"`
+	Command       string  `json:"command"`
+	StatusMessage *string `json:"statusMessage,omitzero"`
+	TimeoutSec    *uint64 `json:"timeoutSec,omitzero"`
+	TypeValue     string  `json:"type"`
+}
+
+func (PromptConfiguredHookHandler) isConfiguredHookHandler() {}
+
+// PromptConfiguredHookHandler is generated from the PromptConfiguredHookHandler schema definition.
+type PromptConfiguredHookHandler struct {
+	TypeValue string `json:"type"`
+}
+
+func (AgentConfiguredHookHandler) isConfiguredHookHandler() {}
+
+// AgentConfiguredHookHandler is generated from the AgentConfiguredHookHandler schema definition.
+type AgentConfiguredHookHandler struct {
+	TypeValue string `json:"type"`
+}
 
 // ConfiguredHookMatcherGroup is generated from the ConfiguredHookMatcherGroup schema definition.
 type ConfiguredHookMatcherGroup struct {
@@ -579,8 +1708,73 @@ type ConfiguredHookMatcherGroup struct {
 	Matcher *string                 `json:"matcher,omitzero"`
 }
 
+func (value *ConfiguredHookMatcherGroup) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Hooks   []jsontext.Value `json:"hooks"`
+		Matcher *string          `json:"matcher,omitzero"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Hooks == nil {
+		value.Hooks = nil
+	} else {
+		value.Hooks = make([]ConfiguredHookHandler, len(raw.Hooks))
+		for i, item := range raw.Hooks {
+			if item != nil {
+				value.Hooks[i] = RawConfiguredHookHandler(item)
+			}
+		}
+	}
+	value.Matcher = raw.Matcher
+	return nil
+}
+
 // ContentItem is generated from the ContentItem schema definition.
-type ContentItem = jsontext.Value
+type ContentItem interface {
+	isContentItem()
+}
+
+// RawContentItem preserves an uninterpreted ContentItem JSON value.
+type RawContentItem jsontext.Value
+
+func (RawContentItem) isContentItem() {}
+
+var _ json.MarshalerTo = RawContentItem{}
+var _ json.UnmarshalerFrom = (*RawContentItem)(nil)
+
+func (value RawContentItem) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawContentItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (InputTextContentItem) isContentItem() {}
+
+// InputTextContentItem is generated from the InputTextContentItem schema definition.
+type InputTextContentItem struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
+
+func (InputImageContentItem) isContentItem() {}
+
+// InputImageContentItem is generated from the InputImageContentItem schema definition.
+type InputImageContentItem struct {
+	Detail    *ImageDetail `json:"detail,omitzero"`
+	ImageURL  string       `json:"image_url"`
+	TypeValue string       `json:"type"`
+}
+
+func (OutputTextContentItem) isContentItem() {}
+
+// OutputTextContentItem is generated from the OutputTextContentItem schema definition.
+type OutputTextContentItem struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
 
 // ContextCompactedNotification is generated from the ContextCompactedNotification schema definition.
 type ContextCompactedNotification struct {
@@ -665,8 +1859,76 @@ type DeviceKeySignParams struct {
 	Payload DeviceKeySignPayload `json:"payload"`
 }
 
+func (value *DeviceKeySignParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		KeyID   string         `json:"keyId"`
+		Payload jsontext.Value `json:"payload"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.KeyID = raw.KeyID
+	if raw.Payload == nil {
+		value.Payload = nil
+	} else {
+		value.Payload = RawDeviceKeySignPayload(raw.Payload)
+	}
+	return nil
+}
+
 // DeviceKeySignPayload is generated from the DeviceKeySignPayload schema definition.
-type DeviceKeySignPayload = jsontext.Value
+type DeviceKeySignPayload interface {
+	isDeviceKeySignPayload()
+}
+
+// RawDeviceKeySignPayload preserves an uninterpreted DeviceKeySignPayload JSON value.
+type RawDeviceKeySignPayload jsontext.Value
+
+func (RawDeviceKeySignPayload) isDeviceKeySignPayload() {}
+
+var _ json.MarshalerTo = RawDeviceKeySignPayload{}
+var _ json.UnmarshalerFrom = (*RawDeviceKeySignPayload)(nil)
+
+func (value RawDeviceKeySignPayload) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawDeviceKeySignPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (RemoteControlClientConnectionDeviceKeySignPayload) isDeviceKeySignPayload() {}
+
+// RemoteControlClientConnectionDeviceKeySignPayload is generated from the RemoteControlClientConnectionDeviceKeySignPayload schema definition.
+type RemoteControlClientConnectionDeviceKeySignPayload struct {
+	AccountUserID        string                                `json:"accountUserId"`
+	Audience             RemoteControlClientConnectionAudience `json:"audience"`
+	ClientID             string                                `json:"clientId"`
+	Nonce                string                                `json:"nonce"`
+	Scopes               []string                              `json:"scopes"`
+	SessionID            string                                `json:"sessionId"`
+	TargetOrigin         string                                `json:"targetOrigin"`
+	TargetPath           string                                `json:"targetPath"`
+	TokenExpiresAt       int64                                 `json:"tokenExpiresAt"`
+	TokenSha256Base64url string                                `json:"tokenSha256Base64url"`
+	TypeValue            string                                `json:"type"`
+}
+
+func (RemoteControlClientEnrollmentDeviceKeySignPayload) isDeviceKeySignPayload() {}
+
+// RemoteControlClientEnrollmentDeviceKeySignPayload is generated from the RemoteControlClientEnrollmentDeviceKeySignPayload schema definition.
+type RemoteControlClientEnrollmentDeviceKeySignPayload struct {
+	AccountUserID                 string                                `json:"accountUserId"`
+	Audience                      RemoteControlClientEnrollmentAudience `json:"audience"`
+	ChallengeExpiresAt            int64                                 `json:"challengeExpiresAt"`
+	ChallengeID                   string                                `json:"challengeId"`
+	ClientID                      string                                `json:"clientId"`
+	DeviceIDentitySha256Base64url string                                `json:"deviceIdentitySha256Base64url"`
+	Nonce                         string                                `json:"nonce"`
+	TargetOrigin                  string                                `json:"targetOrigin"`
+	TargetPath                    string                                `json:"targetPath"`
+	TypeValue                     string                                `json:"type"`
+}
 
 // DeviceKeySignResponse is generated from the DeviceKeySignResponse schema definition.
 type DeviceKeySignResponse struct {
@@ -676,7 +1938,41 @@ type DeviceKeySignResponse struct {
 }
 
 // DynamicToolCallOutputContentItem is generated from the DynamicToolCallOutputContentItem schema definition.
-type DynamicToolCallOutputContentItem = jsontext.Value
+type DynamicToolCallOutputContentItem interface {
+	isDynamicToolCallOutputContentItem()
+}
+
+// RawDynamicToolCallOutputContentItem preserves an uninterpreted DynamicToolCallOutputContentItem JSON value.
+type RawDynamicToolCallOutputContentItem jsontext.Value
+
+func (RawDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
+
+var _ json.MarshalerTo = RawDynamicToolCallOutputContentItem{}
+var _ json.UnmarshalerFrom = (*RawDynamicToolCallOutputContentItem)(nil)
+
+func (value RawDynamicToolCallOutputContentItem) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawDynamicToolCallOutputContentItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (InputTextDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
+
+// InputTextDynamicToolCallOutputContentItem is generated from the InputTextDynamicToolCallOutputContentItem schema definition.
+type InputTextDynamicToolCallOutputContentItem struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
+
+func (InputImageDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
+
+// InputImageDynamicToolCallOutputContentItem is generated from the InputImageDynamicToolCallOutputContentItem schema definition.
+type InputImageDynamicToolCallOutputContentItem struct {
+	ImageURL  string `json:"imageUrl"`
+	TypeValue string `json:"type"`
+}
 
 // DynamicToolCallStatus is generated from the DynamicToolCallStatus schema definition.
 type DynamicToolCallStatus string
@@ -741,7 +2037,18 @@ type ExperimentalFeatureListResponse struct {
 }
 
 // ExperimentalFeatureStage is generated from the ExperimentalFeatureStage schema definition.
-type ExperimentalFeatureStage = jsontext.Value
+type ExperimentalFeatureStage jsontext.Value
+
+var _ json.MarshalerTo = ExperimentalFeatureStage{}
+var _ json.UnmarshalerFrom = (*ExperimentalFeatureStage)(nil)
+
+func (value ExperimentalFeatureStage) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ExperimentalFeatureStage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ExternalAgentConfigDetectParams is generated from the ExternalAgentConfigDetectParams schema definition.
 type ExternalAgentConfigDetectParams struct {
@@ -755,7 +2062,18 @@ type ExternalAgentConfigDetectResponse struct {
 }
 
 // ExternalAgentConfigImportCompletedNotification is generated from the ExternalAgentConfigImportCompletedNotification schema definition.
-type ExternalAgentConfigImportCompletedNotification = jsontext.Value
+type ExternalAgentConfigImportCompletedNotification jsontext.Value
+
+var _ json.MarshalerTo = ExternalAgentConfigImportCompletedNotification{}
+var _ json.UnmarshalerFrom = (*ExternalAgentConfigImportCompletedNotification)(nil)
+
+func (value ExternalAgentConfigImportCompletedNotification) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ExternalAgentConfigImportCompletedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ExternalAgentConfigImportParams is generated from the ExternalAgentConfigImportParams schema definition.
 type ExternalAgentConfigImportParams struct {
@@ -763,7 +2081,18 @@ type ExternalAgentConfigImportParams struct {
 }
 
 // ExternalAgentConfigImportResponse is generated from the ExternalAgentConfigImportResponse schema definition.
-type ExternalAgentConfigImportResponse = jsontext.Value
+type ExternalAgentConfigImportResponse jsontext.Value
+
+var _ json.MarshalerTo = ExternalAgentConfigImportResponse{}
+var _ json.UnmarshalerFrom = (*ExternalAgentConfigImportResponse)(nil)
+
+func (value ExternalAgentConfigImportResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ExternalAgentConfigImportResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ExternalAgentConfigMigrationItem is generated from the ExternalAgentConfigMigrationItem schema definition.
 type ExternalAgentConfigMigrationItem struct {
@@ -841,7 +2170,66 @@ const (
 )
 
 // FileSystemPath is generated from the FileSystemPath schema definition.
-type FileSystemPath = jsontext.Value
+type FileSystemPath interface {
+	isFileSystemPath()
+}
+
+// RawFileSystemPath preserves an uninterpreted FileSystemPath JSON value.
+type RawFileSystemPath jsontext.Value
+
+func (RawFileSystemPath) isFileSystemPath() {}
+
+var _ json.MarshalerTo = RawFileSystemPath{}
+var _ json.UnmarshalerFrom = (*RawFileSystemPath)(nil)
+
+func (value RawFileSystemPath) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawFileSystemPath) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (PathFileSystemPath) isFileSystemPath() {}
+
+// PathFileSystemPath is generated from the PathFileSystemPath schema definition.
+type PathFileSystemPath struct {
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
+func (GlobPatternFileSystemPath) isFileSystemPath() {}
+
+// GlobPatternFileSystemPath is generated from the GlobPatternFileSystemPath schema definition.
+type GlobPatternFileSystemPath struct {
+	Pattern   string `json:"pattern"`
+	TypeValue string `json:"type"`
+}
+
+func (SpecialFileSystemPath) isFileSystemPath() {}
+
+// SpecialFileSystemPath is generated from the SpecialFileSystemPath schema definition.
+type SpecialFileSystemPath struct {
+	TypeValue string                `json:"type"`
+	Value     FileSystemSpecialPath `json:"value"`
+}
+
+func (value *SpecialFileSystemPath) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		TypeValue string         `json:"type"`
+		Value     jsontext.Value `json:"value"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.TypeValue = raw.TypeValue
+	if raw.Value == nil {
+		value.Value = nil
+	} else {
+		value.Value = RawFileSystemSpecialPath(raw.Value)
+	}
+	return nil
+}
 
 // FileSystemSandboxEntry is generated from the FileSystemSandboxEntry schema definition.
 type FileSystemSandboxEntry struct {
@@ -849,14 +2237,113 @@ type FileSystemSandboxEntry struct {
 	Path   FileSystemPath       `json:"path"`
 }
 
+func (value *FileSystemSandboxEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Access FileSystemAccessMode `json:"access"`
+		Path   jsontext.Value       `json:"path"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Access = raw.Access
+	if raw.Path == nil {
+		value.Path = nil
+	} else {
+		value.Path = RawFileSystemPath(raw.Path)
+	}
+	return nil
+}
+
 // FileSystemSpecialPath is generated from the FileSystemSpecialPath schema definition.
-type FileSystemSpecialPath = jsontext.Value
+type FileSystemSpecialPath interface {
+	isFileSystemSpecialPath()
+}
+
+// RawFileSystemSpecialPath preserves an uninterpreted FileSystemSpecialPath JSON value.
+type RawFileSystemSpecialPath jsontext.Value
+
+func (RawFileSystemSpecialPath) isFileSystemSpecialPath() {}
+
+var _ json.MarshalerTo = RawFileSystemSpecialPath{}
+var _ json.UnmarshalerFrom = (*RawFileSystemSpecialPath)(nil)
+
+func (value RawFileSystemSpecialPath) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawFileSystemSpecialPath) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (RootFileSystemSpecialPath) isFileSystemSpecialPath() {}
+
+// RootFileSystemSpecialPath is generated from the RootFileSystemSpecialPath schema definition.
+type RootFileSystemSpecialPath struct {
+	Kind string `json:"kind"`
+}
+
+func (MinimalFileSystemSpecialPath) isFileSystemSpecialPath() {}
+
+// MinimalFileSystemSpecialPath is generated from the MinimalFileSystemSpecialPath schema definition.
+type MinimalFileSystemSpecialPath struct {
+	Kind string `json:"kind"`
+}
+
+func (KindFileSystemSpecialPath) isFileSystemSpecialPath() {}
+
+// KindFileSystemSpecialPath is generated from the KindFileSystemSpecialPath schema definition.
+type KindFileSystemSpecialPath struct {
+	Kind    string  `json:"kind"`
+	Subpath *string `json:"subpath,omitzero"`
+}
+
+func (TmpdirFileSystemSpecialPath) isFileSystemSpecialPath() {}
+
+// TmpdirFileSystemSpecialPath is generated from the TmpdirFileSystemSpecialPath schema definition.
+type TmpdirFileSystemSpecialPath struct {
+	Kind string `json:"kind"`
+}
+
+func (SlashTmpFileSystemSpecialPath) isFileSystemSpecialPath() {}
+
+// SlashTmpFileSystemSpecialPath is generated from the SlashTmpFileSystemSpecialPath schema definition.
+type SlashTmpFileSystemSpecialPath struct {
+	Kind string `json:"kind"`
+}
+
+func (FileSystemSpecialPathKind) isFileSystemSpecialPath() {}
+
+// FileSystemSpecialPathKind is generated from the FileSystemSpecialPathKind schema definition.
+type FileSystemSpecialPathKind struct {
+	Kind    string  `json:"kind"`
+	Path    string  `json:"path"`
+	Subpath *string `json:"subpath,omitzero"`
+}
 
 // FileUpdateChange is generated from the FileUpdateChange schema definition.
 type FileUpdateChange struct {
 	Diff string          `json:"diff"`
 	Kind PatchChangeKind `json:"kind"`
 	Path string          `json:"path"`
+}
+
+func (value *FileUpdateChange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Diff string         `json:"diff"`
+		Kind jsontext.Value `json:"kind"`
+		Path string         `json:"path"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Diff = raw.Diff
+	if raw.Kind == nil {
+		value.Kind = nil
+	} else {
+		value.Kind = RawPatchChangeKind(raw.Kind)
+	}
+	value.Path = raw.Path
+	return nil
 }
 
 // ForcedLoginMethod is generated from the ForcedLoginMethod schema definition.
@@ -883,7 +2370,18 @@ type FsCopyParams struct {
 }
 
 // FsCopyResponse is generated from the FsCopyResponse schema definition.
-type FsCopyResponse = jsontext.Value
+type FsCopyResponse jsontext.Value
+
+var _ json.MarshalerTo = FsCopyResponse{}
+var _ json.UnmarshalerFrom = (*FsCopyResponse)(nil)
+
+func (value FsCopyResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *FsCopyResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // FsCreateDirectoryParams is generated from the FsCreateDirectoryParams schema definition.
 type FsCreateDirectoryParams struct {
@@ -892,7 +2390,18 @@ type FsCreateDirectoryParams struct {
 }
 
 // FsCreateDirectoryResponse is generated from the FsCreateDirectoryResponse schema definition.
-type FsCreateDirectoryResponse = jsontext.Value
+type FsCreateDirectoryResponse jsontext.Value
+
+var _ json.MarshalerTo = FsCreateDirectoryResponse{}
+var _ json.UnmarshalerFrom = (*FsCreateDirectoryResponse)(nil)
+
+func (value FsCreateDirectoryResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *FsCreateDirectoryResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // FsGetMetadataParams is generated from the FsGetMetadataParams schema definition.
 type FsGetMetadataParams struct {
@@ -943,7 +2452,18 @@ type FsRemoveParams struct {
 }
 
 // FsRemoveResponse is generated from the FsRemoveResponse schema definition.
-type FsRemoveResponse = jsontext.Value
+type FsRemoveResponse jsontext.Value
+
+var _ json.MarshalerTo = FsRemoveResponse{}
+var _ json.UnmarshalerFrom = (*FsRemoveResponse)(nil)
+
+func (value FsRemoveResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *FsRemoveResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // FsUnwatchParams is generated from the FsUnwatchParams schema definition.
 type FsUnwatchParams struct {
@@ -951,7 +2471,18 @@ type FsUnwatchParams struct {
 }
 
 // FsUnwatchResponse is generated from the FsUnwatchResponse schema definition.
-type FsUnwatchResponse = jsontext.Value
+type FsUnwatchResponse jsontext.Value
+
+var _ json.MarshalerTo = FsUnwatchResponse{}
+var _ json.UnmarshalerFrom = (*FsUnwatchResponse)(nil)
+
+func (value FsUnwatchResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *FsUnwatchResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // FsWatchParams is generated from the FsWatchParams schema definition.
 type FsWatchParams struct {
@@ -971,13 +2502,70 @@ type FsWriteFileParams struct {
 }
 
 // FsWriteFileResponse is generated from the FsWriteFileResponse schema definition.
-type FsWriteFileResponse = jsontext.Value
+type FsWriteFileResponse jsontext.Value
+
+var _ json.MarshalerTo = FsWriteFileResponse{}
+var _ json.UnmarshalerFrom = (*FsWriteFileResponse)(nil)
+
+func (value FsWriteFileResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *FsWriteFileResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // FunctionCallOutputBody is generated from the FunctionCallOutputBody schema definition.
-type FunctionCallOutputBody = jsontext.Value
+type FunctionCallOutputBody jsontext.Value
+
+var _ json.MarshalerTo = FunctionCallOutputBody{}
+var _ json.UnmarshalerFrom = (*FunctionCallOutputBody)(nil)
+
+func (value FunctionCallOutputBody) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *FunctionCallOutputBody) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // FunctionCallOutputContentItem is generated from the FunctionCallOutputContentItem schema definition.
-type FunctionCallOutputContentItem = jsontext.Value
+type FunctionCallOutputContentItem interface {
+	isFunctionCallOutputContentItem()
+}
+
+// RawFunctionCallOutputContentItem preserves an uninterpreted FunctionCallOutputContentItem JSON value.
+type RawFunctionCallOutputContentItem jsontext.Value
+
+func (RawFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
+
+var _ json.MarshalerTo = RawFunctionCallOutputContentItem{}
+var _ json.UnmarshalerFrom = (*RawFunctionCallOutputContentItem)(nil)
+
+func (value RawFunctionCallOutputContentItem) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawFunctionCallOutputContentItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (InputTextFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
+
+// InputTextFunctionCallOutputContentItem is generated from the InputTextFunctionCallOutputContentItem schema definition.
+type InputTextFunctionCallOutputContentItem struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
+
+func (InputImageFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
+
+// InputImageFunctionCallOutputContentItem is generated from the InputImageFunctionCallOutputContentItem schema definition.
+type InputImageFunctionCallOutputContentItem struct {
+	Detail    *ImageDetail `json:"detail,omitzero"`
+	ImageURL  string       `json:"image_url"`
+	TypeValue string       `json:"type"`
+}
 
 // FuzzyFileSearchMatchType is generated from the FuzzyFileSearchMatchType schema definition.
 type FuzzyFileSearchMatchType string
@@ -1035,6 +2623,24 @@ type GetAccountResponse struct {
 	RequiresOpenaiAuth bool     `json:"requiresOpenaiAuth"`
 }
 
+func (value *GetAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Account            jsontext.Value `json:"account,omitzero"`
+		RequiresOpenaiAuth bool           `json:"requiresOpenaiAuth"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Account == nil {
+		value.Account = nil
+	} else {
+		account := Account(RawAccount(raw.Account))
+		value.Account = &account
+	}
+	value.RequiresOpenaiAuth = raw.RequiresOpenaiAuth
+	return nil
+}
+
 // GitInfo is generated from the GitInfo schema definition.
 type GitInfo struct {
 	Branch    *string `json:"branch,omitzero"`
@@ -1051,7 +2657,87 @@ type GuardianApprovalReview struct {
 }
 
 // GuardianApprovalReviewAction is generated from the GuardianApprovalReviewAction schema definition.
-type GuardianApprovalReviewAction = jsontext.Value
+type GuardianApprovalReviewAction interface {
+	isGuardianApprovalReviewAction()
+}
+
+// RawGuardianApprovalReviewAction preserves an uninterpreted GuardianApprovalReviewAction JSON value.
+type RawGuardianApprovalReviewAction jsontext.Value
+
+func (RawGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+var _ json.MarshalerTo = RawGuardianApprovalReviewAction{}
+var _ json.UnmarshalerFrom = (*RawGuardianApprovalReviewAction)(nil)
+
+func (value RawGuardianApprovalReviewAction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawGuardianApprovalReviewAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (CommandGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+// CommandGuardianApprovalReviewAction is generated from the CommandGuardianApprovalReviewAction schema definition.
+type CommandGuardianApprovalReviewAction struct {
+	Command   string                `json:"command"`
+	Cwd       string                `json:"cwd"`
+	Source    GuardianCommandSource `json:"source"`
+	TypeValue string                `json:"type"`
+}
+
+func (ExecveGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+// ExecveGuardianApprovalReviewAction is generated from the ExecveGuardianApprovalReviewAction schema definition.
+type ExecveGuardianApprovalReviewAction struct {
+	Argv      []string              `json:"argv"`
+	Cwd       string                `json:"cwd"`
+	Program   string                `json:"program"`
+	Source    GuardianCommandSource `json:"source"`
+	TypeValue string                `json:"type"`
+}
+
+func (ApplyPatchGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+// ApplyPatchGuardianApprovalReviewAction is generated from the ApplyPatchGuardianApprovalReviewAction schema definition.
+type ApplyPatchGuardianApprovalReviewAction struct {
+	Cwd       string   `json:"cwd"`
+	Files     []string `json:"files"`
+	TypeValue string   `json:"type"`
+}
+
+func (NetworkAccessGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+// NetworkAccessGuardianApprovalReviewAction is generated from the NetworkAccessGuardianApprovalReviewAction schema definition.
+type NetworkAccessGuardianApprovalReviewAction struct {
+	Host      string                  `json:"host"`
+	Port      int64                   `json:"port"`
+	Protocol  NetworkApprovalProtocol `json:"protocol"`
+	Target    string                  `json:"target"`
+	TypeValue string                  `json:"type"`
+}
+
+func (MCPToolCallGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+// MCPToolCallGuardianApprovalReviewAction is generated from the McpToolCallGuardianApprovalReviewAction schema definition.
+type MCPToolCallGuardianApprovalReviewAction struct {
+	ConnectorID   *string `json:"connectorId,omitzero"`
+	ConnectorName *string `json:"connectorName,omitzero"`
+	Server        string  `json:"server"`
+	ToolName      string  `json:"toolName"`
+	ToolTitle     *string `json:"toolTitle,omitzero"`
+	TypeValue     string  `json:"type"`
+}
+
+func (RequestPermissionsGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+
+// RequestPermissionsGuardianApprovalReviewAction is generated from the RequestPermissionsGuardianApprovalReviewAction schema definition.
+type RequestPermissionsGuardianApprovalReviewAction struct {
+	Permissions RequestPermissionProfile `json:"permissions"`
+	Reason      *string                  `json:"reason,omitzero"`
+	TypeValue   string                   `json:"type"`
+}
 
 // GuardianApprovalReviewStatus is generated from the GuardianApprovalReviewStatus schema definition.
 type GuardianApprovalReviewStatus string
@@ -1358,7 +3044,18 @@ type InitializeParams struct {
 }
 
 // InputModality is generated from the InputModality schema definition.
-type InputModality = jsontext.Value
+type InputModality jsontext.Value
+
+var _ json.MarshalerTo = InputModality{}
+var _ json.UnmarshalerFrom = (*InputModality)(nil)
+
+func (value InputModality) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *InputModality) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ItemCompletedNotification is generated from the ItemCompletedNotification schema definition.
 type ItemCompletedNotification struct {
@@ -1366,6 +3063,27 @@ type ItemCompletedNotification struct {
 	Item          ThreadItem `json:"item"`
 	ThreadID      string     `json:"threadId"`
 	TurnID        string     `json:"turnId"`
+}
+
+func (value *ItemCompletedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		CompletedAtMs int64          `json:"completedAtMs"`
+		Item          jsontext.Value `json:"item"`
+		ThreadID      string         `json:"threadId"`
+		TurnID        string         `json:"turnId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.CompletedAtMs = raw.CompletedAtMs
+	if raw.Item == nil {
+		value.Item = nil
+	} else {
+		value.Item = RawThreadItem(raw.Item)
+	}
+	value.ThreadID = raw.ThreadID
+	value.TurnID = raw.TurnID
+	return nil
 }
 
 // ItemGuardianApprovalReviewCompletedNotification is generated from the ItemGuardianApprovalReviewCompletedNotification schema definition.
@@ -1379,6 +3097,33 @@ type ItemGuardianApprovalReviewCompletedNotification struct {
 	TurnID         string                       `json:"turnId"`
 }
 
+func (value *ItemGuardianApprovalReviewCompletedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Action         jsontext.Value           `json:"action"`
+		DecisionSource AutoReviewDecisionSource `json:"decisionSource"`
+		Review         GuardianApprovalReview   `json:"review"`
+		ReviewID       string                   `json:"reviewId"`
+		TargetItemID   *string                  `json:"targetItemId,omitzero"`
+		ThreadID       string                   `json:"threadId"`
+		TurnID         string                   `json:"turnId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Action == nil {
+		value.Action = nil
+	} else {
+		value.Action = RawGuardianApprovalReviewAction(raw.Action)
+	}
+	value.DecisionSource = raw.DecisionSource
+	value.Review = raw.Review
+	value.ReviewID = raw.ReviewID
+	value.TargetItemID = raw.TargetItemID
+	value.ThreadID = raw.ThreadID
+	value.TurnID = raw.TurnID
+	return nil
+}
+
 // ItemGuardianApprovalReviewStartedNotification is generated from the ItemGuardianApprovalReviewStartedNotification schema definition.
 type ItemGuardianApprovalReviewStartedNotification struct {
 	Action       GuardianApprovalReviewAction `json:"action"`
@@ -1389,12 +3134,58 @@ type ItemGuardianApprovalReviewStartedNotification struct {
 	TurnID       string                       `json:"turnId"`
 }
 
+func (value *ItemGuardianApprovalReviewStartedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Action       jsontext.Value         `json:"action"`
+		Review       GuardianApprovalReview `json:"review"`
+		ReviewID     string                 `json:"reviewId"`
+		TargetItemID *string                `json:"targetItemId,omitzero"`
+		ThreadID     string                 `json:"threadId"`
+		TurnID       string                 `json:"turnId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Action == nil {
+		value.Action = nil
+	} else {
+		value.Action = RawGuardianApprovalReviewAction(raw.Action)
+	}
+	value.Review = raw.Review
+	value.ReviewID = raw.ReviewID
+	value.TargetItemID = raw.TargetItemID
+	value.ThreadID = raw.ThreadID
+	value.TurnID = raw.TurnID
+	return nil
+}
+
 // ItemStartedNotification is generated from the ItemStartedNotification schema definition.
 type ItemStartedNotification struct {
 	Item        ThreadItem `json:"item"`
 	StartedAtMs int64      `json:"startedAtMs"`
 	ThreadID    string     `json:"threadId"`
 	TurnID      string     `json:"turnId"`
+}
+
+func (value *ItemStartedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Item        jsontext.Value `json:"item"`
+		StartedAtMs int64          `json:"startedAtMs"`
+		ThreadID    string         `json:"threadId"`
+		TurnID      string         `json:"turnId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Item == nil {
+		value.Item = nil
+	} else {
+		value.Item = RawThreadItem(raw.Item)
+	}
+	value.StartedAtMs = raw.StartedAtMs
+	value.ThreadID = raw.ThreadID
+	value.TurnID = raw.TurnID
+	return nil
 }
 
 // ListMCPServerStatusParams is generated from the ListMcpServerStatusParams schema definition.
@@ -1410,8 +3201,20 @@ type ListMCPServerStatusResponse struct {
 	NextCursor *string           `json:"nextCursor,omitzero"`
 }
 
+// ExecLocalShellAction is generated from the ExecLocalShellAction schema definition.
+type ExecLocalShellAction struct {
+	Command          []string          `json:"command"`
+	Env              map[string]string `json:"env,omitzero"`
+	TimeoutMs        *uint64           `json:"timeout_ms,omitzero"`
+	TypeValue        string            `json:"type"`
+	User             *string           `json:"user,omitzero"`
+	WorkingDirectory *string           `json:"working_directory,omitzero"`
+}
+
 // LocalShellAction is generated from the LocalShellAction schema definition.
-type LocalShellAction = jsontext.Value
+type LocalShellAction = ExecLocalShellAction
+
+func (ExecLocalShellAction) isLocalShellAction() {}
 
 // LocalShellStatus is generated from the LocalShellStatus schema definition.
 type LocalShellStatus string
@@ -1426,13 +3229,126 @@ const (
 )
 
 // LoginAccountParams is generated from the LoginAccountParams schema definition.
-type LoginAccountParams = jsontext.Value
+type LoginAccountParams interface {
+	isLoginAccountParams()
+}
+
+// RawLoginAccountParams preserves an uninterpreted LoginAccountParams JSON value.
+type RawLoginAccountParams jsontext.Value
+
+func (RawLoginAccountParams) isLoginAccountParams() {}
+
+var _ json.MarshalerTo = RawLoginAccountParams{}
+var _ json.UnmarshalerFrom = (*RawLoginAccountParams)(nil)
+
+func (value RawLoginAccountParams) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawLoginAccountParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (APIKeyv2LoginAccountParams) isLoginAccountParams() {}
+
+// APIKeyv2LoginAccountParams is generated from the ApiKeyv2::LoginAccountParams schema definition.
+type APIKeyv2LoginAccountParams struct {
+	APIKey    string `json:"apiKey"`
+	TypeValue string `json:"type"`
+}
+
+func (Chatgptv2LoginAccountParams) isLoginAccountParams() {}
+
+// Chatgptv2LoginAccountParams is generated from the Chatgptv2::LoginAccountParams schema definition.
+type Chatgptv2LoginAccountParams struct {
+	CodexStreamlinedLogin *bool  `json:"codexStreamlinedLogin,omitzero"`
+	TypeValue             string `json:"type"`
+}
+
+func (ChatgptDeviceCodev2LoginAccountParams) isLoginAccountParams() {}
+
+// ChatgptDeviceCodev2LoginAccountParams is generated from the ChatgptDeviceCodev2::LoginAccountParams schema definition.
+type ChatgptDeviceCodev2LoginAccountParams struct {
+	TypeValue string `json:"type"`
+}
+
+func (ChatgptAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
+
+// ChatgptAuthTokensv2LoginAccountParams is generated from the ChatgptAuthTokensv2::LoginAccountParams schema definition.
+type ChatgptAuthTokensv2LoginAccountParams struct {
+	AccessToken      string  `json:"accessToken"`
+	ChatgptAccountID string  `json:"chatgptAccountId"`
+	ChatgptPlanType  *string `json:"chatgptPlanType,omitzero"`
+	TypeValue        string  `json:"type"`
+}
 
 // LoginAccountResponse is generated from the LoginAccountResponse schema definition.
-type LoginAccountResponse = jsontext.Value
+type LoginAccountResponse interface {
+	isLoginAccountResponse()
+}
+
+// RawLoginAccountResponse preserves an uninterpreted LoginAccountResponse JSON value.
+type RawLoginAccountResponse jsontext.Value
+
+func (RawLoginAccountResponse) isLoginAccountResponse() {}
+
+var _ json.MarshalerTo = RawLoginAccountResponse{}
+var _ json.UnmarshalerFrom = (*RawLoginAccountResponse)(nil)
+
+func (value RawLoginAccountResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawLoginAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (APIKeyv2LoginAccountResponse) isLoginAccountResponse() {}
+
+// APIKeyv2LoginAccountResponse is generated from the ApiKeyv2::LoginAccountResponse schema definition.
+type APIKeyv2LoginAccountResponse struct {
+	TypeValue string `json:"type"`
+}
+
+func (Chatgptv2LoginAccountResponse) isLoginAccountResponse() {}
+
+// Chatgptv2LoginAccountResponse is generated from the Chatgptv2::LoginAccountResponse schema definition.
+type Chatgptv2LoginAccountResponse struct {
+	AuthURL   string `json:"authUrl"`
+	LoginID   string `json:"loginId"`
+	TypeValue string `json:"type"`
+}
+
+func (ChatgptDeviceCodev2LoginAccountResponse) isLoginAccountResponse() {}
+
+// ChatgptDeviceCodev2LoginAccountResponse is generated from the ChatgptDeviceCodev2::LoginAccountResponse schema definition.
+type ChatgptDeviceCodev2LoginAccountResponse struct {
+	LoginID         string `json:"loginId"`
+	TypeValue       string `json:"type"`
+	UserCode        string `json:"userCode"`
+	VerificationURL string `json:"verificationUrl"`
+}
+
+func (ChatgptAuthTokensv2LoginAccountResponse) isLoginAccountResponse() {}
+
+// ChatgptAuthTokensv2LoginAccountResponse is generated from the ChatgptAuthTokensv2::LoginAccountResponse schema definition.
+type ChatgptAuthTokensv2LoginAccountResponse struct {
+	TypeValue string `json:"type"`
+}
 
 // LogoutAccountResponse is generated from the LogoutAccountResponse schema definition.
-type LogoutAccountResponse = jsontext.Value
+type LogoutAccountResponse jsontext.Value
+
+var _ json.MarshalerTo = LogoutAccountResponse{}
+var _ json.UnmarshalerFrom = (*LogoutAccountResponse)(nil)
+
+func (value LogoutAccountResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *LogoutAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ManagedHooksRequirements is generated from the ManagedHooksRequirements schema definition.
 type ManagedHooksRequirements struct {
@@ -1528,6 +3444,26 @@ type MCPResourceReadResponse struct {
 	Contents []ResourceContent `json:"contents"`
 }
 
+func (value *MCPResourceReadResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Contents []jsontext.Value `json:"contents"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Contents == nil {
+		value.Contents = nil
+	} else {
+		value.Contents = make([]ResourceContent, len(raw.Contents))
+		for i, item := range raw.Contents {
+			if item != nil {
+				value.Contents[i] = RawResourceContent(item)
+			}
+		}
+	}
+	return nil
+}
+
 // MCPServerMigration is generated from the McpServerMigration schema definition.
 type MCPServerMigration struct {
 	Name string `json:"name"`
@@ -1553,7 +3489,18 @@ type MCPServerOAuthLoginResponse struct {
 }
 
 // MCPServerRefreshResponse is generated from the McpServerRefreshResponse schema definition.
-type MCPServerRefreshResponse = jsontext.Value
+type MCPServerRefreshResponse jsontext.Value
+
+var _ json.MarshalerTo = MCPServerRefreshResponse{}
+var _ json.UnmarshalerFrom = (*MCPServerRefreshResponse)(nil)
+
+func (value MCPServerRefreshResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *MCPServerRefreshResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // MCPServerStartupState is generated from the McpServerStartupState schema definition.
 type MCPServerStartupState string
@@ -1669,7 +3616,18 @@ const (
 )
 
 // MessagePhase is generated from the MessagePhase schema definition.
-type MessagePhase = jsontext.Value
+type MessagePhase jsontext.Value
+
+var _ json.MarshalerTo = MessagePhase{}
+var _ json.UnmarshalerFrom = (*MessagePhase)(nil)
+
+func (value MessagePhase) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *MessagePhase) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // MigrationDetails is generated from the MigrationDetails schema definition.
 type MigrationDetails struct {
@@ -1729,7 +3687,18 @@ type ModelListResponse struct {
 }
 
 // ModelProviderCapabilitiesReadParams is generated from the ModelProviderCapabilitiesReadParams schema definition.
-type ModelProviderCapabilitiesReadParams = jsontext.Value
+type ModelProviderCapabilitiesReadParams jsontext.Value
+
+var _ json.MarshalerTo = ModelProviderCapabilitiesReadParams{}
+var _ json.UnmarshalerFrom = (*ModelProviderCapabilitiesReadParams)(nil)
+
+func (value ModelProviderCapabilitiesReadParams) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ModelProviderCapabilitiesReadParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ModelProviderCapabilitiesReadResponse is generated from the ModelProviderCapabilitiesReadResponse schema definition.
 type ModelProviderCapabilitiesReadResponse struct {
@@ -1878,24 +3847,178 @@ const (
 )
 
 // PatchChangeKind is generated from the PatchChangeKind schema definition.
-type PatchChangeKind = jsontext.Value
+type PatchChangeKind interface {
+	isPatchChangeKind()
+}
+
+// RawPatchChangeKind preserves an uninterpreted PatchChangeKind JSON value.
+type RawPatchChangeKind jsontext.Value
+
+func (RawPatchChangeKind) isPatchChangeKind() {}
+
+var _ json.MarshalerTo = RawPatchChangeKind{}
+var _ json.UnmarshalerFrom = (*RawPatchChangeKind)(nil)
+
+func (value RawPatchChangeKind) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawPatchChangeKind) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (AddPatchChangeKind) isPatchChangeKind() {}
+
+// AddPatchChangeKind is generated from the AddPatchChangeKind schema definition.
+type AddPatchChangeKind struct {
+	TypeValue string `json:"type"`
+}
+
+func (DeletePatchChangeKind) isPatchChangeKind() {}
+
+// DeletePatchChangeKind is generated from the DeletePatchChangeKind schema definition.
+type DeletePatchChangeKind struct {
+	TypeValue string `json:"type"`
+}
+
+func (UpdatePatchChangeKind) isPatchChangeKind() {}
+
+// UpdatePatchChangeKind is generated from the UpdatePatchChangeKind schema definition.
+type UpdatePatchChangeKind struct {
+	MovePath  *string `json:"move_path,omitzero"`
+	TypeValue string  `json:"type"`
+}
 
 // PermissionProfile is generated from the PermissionProfile schema definition.
-type PermissionProfile = jsontext.Value
+type PermissionProfile interface {
+	isPermissionProfile()
+}
+
+// RawPermissionProfile preserves an uninterpreted PermissionProfile JSON value.
+type RawPermissionProfile jsontext.Value
+
+func (RawPermissionProfile) isPermissionProfile() {}
+
+var _ json.MarshalerTo = RawPermissionProfile{}
+var _ json.UnmarshalerFrom = (*RawPermissionProfile)(nil)
+
+func (value RawPermissionProfile) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawPermissionProfile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (ManagedPermissionProfile) isPermissionProfile() {}
+
+// ManagedPermissionProfile is generated from the ManagedPermissionProfile schema definition.
+type ManagedPermissionProfile struct {
+	FileSystem PermissionProfileFileSystemPermissions `json:"fileSystem"`
+	Network    PermissionProfileNetworkPermissions    `json:"network"`
+	TypeValue  string                                 `json:"type"`
+}
+
+func (value *ManagedPermissionProfile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		FileSystem jsontext.Value                      `json:"fileSystem"`
+		Network    PermissionProfileNetworkPermissions `json:"network"`
+		TypeValue  string                              `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.FileSystem == nil {
+		value.FileSystem = nil
+	} else {
+		value.FileSystem = RawPermissionProfileFileSystemPermissions(raw.FileSystem)
+	}
+	value.Network = raw.Network
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (DisabledPermissionProfile) isPermissionProfile() {}
+
+// DisabledPermissionProfile is generated from the DisabledPermissionProfile schema definition.
+type DisabledPermissionProfile struct {
+	TypeValue string `json:"type"`
+}
+
+func (ExternalPermissionProfile) isPermissionProfile() {}
+
+// ExternalPermissionProfile is generated from the ExternalPermissionProfile schema definition.
+type ExternalPermissionProfile struct {
+	Network   PermissionProfileNetworkPermissions `json:"network"`
+	TypeValue string                              `json:"type"`
+}
 
 // PermissionProfileFileSystemPermissions is generated from the PermissionProfileFileSystemPermissions schema definition.
-type PermissionProfileFileSystemPermissions = jsontext.Value
+type PermissionProfileFileSystemPermissions interface {
+	isPermissionProfileFileSystemPermissions()
+}
+
+// RawPermissionProfileFileSystemPermissions preserves an uninterpreted PermissionProfileFileSystemPermissions JSON value.
+type RawPermissionProfileFileSystemPermissions jsontext.Value
+
+func (RawPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {}
+
+var _ json.MarshalerTo = RawPermissionProfileFileSystemPermissions{}
+var _ json.UnmarshalerFrom = (*RawPermissionProfileFileSystemPermissions)(nil)
+
+func (value RawPermissionProfileFileSystemPermissions) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawPermissionProfileFileSystemPermissions) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (RestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {}
+
+// RestrictedPermissionProfileFileSystemPermissions is generated from the RestrictedPermissionProfileFileSystemPermissions schema definition.
+type RestrictedPermissionProfileFileSystemPermissions struct {
+	Entries          []FileSystemSandboxEntry `json:"entries"`
+	GlobScanMaxDepth *uint                    `json:"globScanMaxDepth,omitzero"`
+	TypeValue        string                   `json:"type"`
+}
+
+func (UnrestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {
+}
+
+// UnrestrictedPermissionProfileFileSystemPermissions is generated from the UnrestrictedPermissionProfileFileSystemPermissions schema definition.
+type UnrestrictedPermissionProfileFileSystemPermissions struct {
+	TypeValue string `json:"type"`
+}
+
+// AdditionalWritableRootPermissionProfileModificationParams is generated from the AdditionalWritableRootPermissionProfileModificationParams schema definition.
+type AdditionalWritableRootPermissionProfileModificationParams struct {
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
 
 // PermissionProfileModificationParams is generated from the PermissionProfileModificationParams schema definition.
-type PermissionProfileModificationParams = jsontext.Value
+type PermissionProfileModificationParams = AdditionalWritableRootPermissionProfileModificationParams
+
+func (AdditionalWritableRootPermissionProfileModificationParams) isPermissionProfileModificationParams() {
+}
 
 // PermissionProfileNetworkPermissions is generated from the PermissionProfileNetworkPermissions schema definition.
 type PermissionProfileNetworkPermissions struct {
 	Enabled bool `json:"enabled"`
 }
 
+// ProfilePermissionProfileSelectionParams is generated from the ProfilePermissionProfileSelectionParams schema definition.
+type ProfilePermissionProfileSelectionParams struct {
+	ID            string                                `json:"id"`
+	Modifications []PermissionProfileModificationParams `json:"modifications,omitzero"`
+	TypeValue     string                                `json:"type"`
+}
+
 // PermissionProfileSelectionParams is generated from the PermissionProfileSelectionParams schema definition.
-type PermissionProfileSelectionParams = jsontext.Value
+type PermissionProfileSelectionParams = ProfilePermissionProfileSelectionParams
+
+func (ProfilePermissionProfileSelectionParams) isPermissionProfileSelectionParams() {}
 
 // Personality is generated from the Personality schema definition.
 type Personality string
@@ -1958,7 +4081,18 @@ const (
 )
 
 // PluginAvailability is generated from the PluginAvailability schema definition.
-type PluginAvailability = jsontext.Value
+type PluginAvailability jsontext.Value
+
+var _ json.MarshalerTo = PluginAvailability{}
+var _ json.UnmarshalerFrom = (*PluginAvailability)(nil)
+
+func (value PluginAvailability) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *PluginAvailability) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // PluginDetail is generated from the PluginDetail schema definition.
 type PluginDetail struct {
@@ -2075,7 +4209,18 @@ type PluginShareDeleteParams struct {
 }
 
 // PluginShareDeleteResponse is generated from the PluginShareDeleteResponse schema definition.
-type PluginShareDeleteResponse = jsontext.Value
+type PluginShareDeleteResponse jsontext.Value
+
+var _ json.MarshalerTo = PluginShareDeleteResponse{}
+var _ json.UnmarshalerFrom = (*PluginShareDeleteResponse)(nil)
+
+func (value PluginShareDeleteResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *PluginShareDeleteResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // PluginShareDiscoverability is generated from the PluginShareDiscoverability schema definition.
 type PluginShareDiscoverability string
@@ -2097,7 +4242,18 @@ type PluginShareListItem struct {
 }
 
 // PluginShareListParams is generated from the PluginShareListParams schema definition.
-type PluginShareListParams = jsontext.Value
+type PluginShareListParams jsontext.Value
+
+var _ json.MarshalerTo = PluginShareListParams{}
+var _ json.UnmarshalerFrom = (*PluginShareListParams)(nil)
+
+func (value PluginShareListParams) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *PluginShareListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // PluginShareListResponse is generated from the PluginShareListResponse schema definition.
 type PluginShareListResponse struct {
@@ -2167,7 +4323,51 @@ type PluginSkillReadResponse struct {
 }
 
 // PluginSource is generated from the PluginSource schema definition.
-type PluginSource = jsontext.Value
+type PluginSource interface {
+	isPluginSource()
+}
+
+// RawPluginSource preserves an uninterpreted PluginSource JSON value.
+type RawPluginSource jsontext.Value
+
+func (RawPluginSource) isPluginSource() {}
+
+var _ json.MarshalerTo = RawPluginSource{}
+var _ json.UnmarshalerFrom = (*RawPluginSource)(nil)
+
+func (value RawPluginSource) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawPluginSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (LocalPluginSource) isPluginSource() {}
+
+// LocalPluginSource is generated from the LocalPluginSource schema definition.
+type LocalPluginSource struct {
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
+func (GitPluginSource) isPluginSource() {}
+
+// GitPluginSource is generated from the GitPluginSource schema definition.
+type GitPluginSource struct {
+	Path      *string `json:"path,omitzero"`
+	RefName   *string `json:"refName,omitzero"`
+	Sha       *string `json:"sha,omitzero"`
+	TypeValue string  `json:"type"`
+	URL       string  `json:"url"`
+}
+
+func (RemotePluginSource) isPluginSource() {}
+
+// RemotePluginSource is generated from the RemotePluginSource schema definition.
+type RemotePluginSource struct {
+	TypeValue string `json:"type"`
+}
 
 // PluginSummary is generated from the PluginSummary schema definition.
 type PluginSummary struct {
@@ -2184,13 +4384,59 @@ type PluginSummary struct {
 	Source         PluginSource        `json:"source"`
 }
 
+func (value *PluginSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		AuthPolicy     PluginAuthPolicy    `json:"authPolicy"`
+		Availability   *PluginAvailability `json:"availability,omitzero"`
+		Enabled        bool                `json:"enabled"`
+		ID             string              `json:"id"`
+		InstallPolicy  PluginInstallPolicy `json:"installPolicy"`
+		Installed      bool                `json:"installed"`
+		InterfaceValue *PluginInterface    `json:"interface,omitzero"`
+		Keywords       []string            `json:"keywords,omitzero"`
+		Name           string              `json:"name"`
+		ShareContext   *PluginShareContext `json:"shareContext,omitzero"`
+		Source         jsontext.Value      `json:"source"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.AuthPolicy = raw.AuthPolicy
+	value.Availability = raw.Availability
+	value.Enabled = raw.Enabled
+	value.ID = raw.ID
+	value.InstallPolicy = raw.InstallPolicy
+	value.Installed = raw.Installed
+	value.InterfaceValue = raw.InterfaceValue
+	value.Keywords = raw.Keywords
+	value.Name = raw.Name
+	value.ShareContext = raw.ShareContext
+	if raw.Source == nil {
+		value.Source = nil
+	} else {
+		value.Source = RawPluginSource(raw.Source)
+	}
+	return nil
+}
+
 // PluginUninstallParams is generated from the PluginUninstallParams schema definition.
 type PluginUninstallParams struct {
 	PluginID string `json:"pluginId"`
 }
 
 // PluginUninstallResponse is generated from the PluginUninstallResponse schema definition.
-type PluginUninstallResponse = jsontext.Value
+type PluginUninstallResponse jsontext.Value
+
+var _ json.MarshalerTo = PluginUninstallResponse{}
+var _ json.UnmarshalerFrom = (*PluginUninstallResponse)(nil)
+
+func (value PluginUninstallResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *PluginUninstallResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // PluginsMigration is generated from the PluginsMigration schema definition.
 type PluginsMigration struct {
@@ -2217,7 +4463,18 @@ type ProcessOutputDeltaNotification struct {
 }
 
 // ProcessOutputStream is generated from the ProcessOutputStream schema definition.
-type ProcessOutputStream = jsontext.Value
+type ProcessOutputStream jsontext.Value
+
+var _ json.MarshalerTo = ProcessOutputStream{}
+var _ json.UnmarshalerFrom = (*ProcessOutputStream)(nil)
+
+func (value ProcessOutputStream) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ProcessOutputStream) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ProcessTerminalSize is generated from the ProcessTerminalSize schema definition.
 type ProcessTerminalSize struct {
@@ -2279,6 +4536,25 @@ type RawResponseItemCompletedNotification struct {
 	Item     ResponseItem `json:"item"`
 	ThreadID string       `json:"threadId"`
 	TurnID   string       `json:"turnId"`
+}
+
+func (value *RawResponseItemCompletedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Item     jsontext.Value `json:"item"`
+		ThreadID string         `json:"threadId"`
+		TurnID   string         `json:"turnId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Item == nil {
+		value.Item = nil
+	} else {
+		value.Item = RawResponseItem(raw.Item)
+	}
+	value.ThreadID = raw.ThreadID
+	value.TurnID = raw.TurnID
+	return nil
 }
 
 // RealtimeConversationVersion is generated from the RealtimeConversationVersion schema definition.
@@ -2378,13 +4654,66 @@ type ReasoningEffortOption struct {
 }
 
 // ReasoningItemContent is generated from the ReasoningItemContent schema definition.
-type ReasoningItemContent = jsontext.Value
+type ReasoningItemContent interface {
+	isReasoningItemContent()
+}
+
+// RawReasoningItemContent preserves an uninterpreted ReasoningItemContent JSON value.
+type RawReasoningItemContent jsontext.Value
+
+func (RawReasoningItemContent) isReasoningItemContent() {}
+
+var _ json.MarshalerTo = RawReasoningItemContent{}
+var _ json.UnmarshalerFrom = (*RawReasoningItemContent)(nil)
+
+func (value RawReasoningItemContent) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawReasoningItemContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (ReasoningTextReasoningItemContent) isReasoningItemContent() {}
+
+// ReasoningTextReasoningItemContent is generated from the ReasoningTextReasoningItemContent schema definition.
+type ReasoningTextReasoningItemContent struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
+
+func (TextReasoningItemContent) isReasoningItemContent() {}
+
+// TextReasoningItemContent is generated from the TextReasoningItemContent schema definition.
+type TextReasoningItemContent struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
+
+// SummaryTextReasoningItemReasoningSummary is generated from the SummaryTextReasoningItemReasoningSummary schema definition.
+type SummaryTextReasoningItemReasoningSummary struct {
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
 
 // ReasoningItemReasoningSummary is generated from the ReasoningItemReasoningSummary schema definition.
-type ReasoningItemReasoningSummary = jsontext.Value
+type ReasoningItemReasoningSummary = SummaryTextReasoningItemReasoningSummary
+
+func (SummaryTextReasoningItemReasoningSummary) isReasoningItemReasoningSummary() {}
 
 // ReasoningSummary is generated from the ReasoningSummary schema definition.
-type ReasoningSummary = jsontext.Value
+type ReasoningSummary jsontext.Value
+
+var _ json.MarshalerTo = ReasoningSummary{}
+var _ json.UnmarshalerFrom = (*ReasoningSummary)(nil)
+
+func (value ReasoningSummary) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ReasoningSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ReasoningSummaryPartAddedNotification is generated from the ReasoningSummaryPartAddedNotification schema definition.
 type ReasoningSummaryPartAddedNotification struct {
@@ -2478,8 +4807,46 @@ type Resource struct {
 	URI         string           `json:"uri"`
 }
 
-// ResourceContent is generated from the ResourceContent schema definition.
-type ResourceContent = jsontext.Value
+// ResourceContent is generated from metadata union variants.
+type ResourceContent interface {
+	isResourceContent()
+}
+
+// RawResourceContent preserves an uninterpreted ResourceContent JSON value.
+type RawResourceContent jsontext.Value
+
+func (RawResourceContent) isResourceContent() {}
+
+var _ json.MarshalerTo = RawResourceContent{}
+var _ json.UnmarshalerFrom = (*RawResourceContent)(nil)
+
+func (value RawResourceContent) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawResourceContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (ResourceContentText) isResourceContent() {}
+
+// ResourceContentText is generated from the ResourceContentText schema definition.
+type ResourceContentText struct {
+	Meta     jsontext.Value `json:"_meta,omitzero"`
+	MimeType *string        `json:"mimeType,omitzero"`
+	Text     string         `json:"text"`
+	URI      string         `json:"uri"`
+}
+
+func (ResourceContentBlob) isResourceContent() {}
+
+// ResourceContentBlob is generated from the ResourceContentBlob schema definition.
+type ResourceContentBlob struct {
+	Meta     jsontext.Value `json:"_meta,omitzero"`
+	Blob     string         `json:"blob"`
+	MimeType *string        `json:"mimeType,omitzero"`
+	URI      string         `json:"uri"`
+}
 
 // ResourceTemplate is generated from the ResourceTemplate schema definition.
 type ResourceTemplate struct {
@@ -2492,10 +4859,297 @@ type ResourceTemplate struct {
 }
 
 // ResponseItem is generated from the ResponseItem schema definition.
-type ResponseItem = jsontext.Value
+type ResponseItem interface {
+	isResponseItem()
+}
 
-// ResponsesAPIWebSearchAction is generated from the ResponsesApiWebSearchAction schema definition.
-type ResponsesAPIWebSearchAction = jsontext.Value
+// RawResponseItem preserves an uninterpreted ResponseItem JSON value.
+type RawResponseItem jsontext.Value
+
+func (RawResponseItem) isResponseItem() {}
+
+var _ json.MarshalerTo = RawResponseItem{}
+var _ json.UnmarshalerFrom = (*RawResponseItem)(nil)
+
+func (value RawResponseItem) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (MessageResponseItem) isResponseItem() {}
+
+// MessageResponseItem is generated from the MessageResponseItem schema definition.
+type MessageResponseItem struct {
+	Content   []ContentItem `json:"content"`
+	ID        *string       `json:"id,omitzero"`
+	Phase     *MessagePhase `json:"phase,omitzero"`
+	Role      string        `json:"role"`
+	TypeValue string        `json:"type"`
+}
+
+func (value *MessageResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Content   []jsontext.Value `json:"content"`
+		ID        *string          `json:"id,omitzero"`
+		Phase     *MessagePhase    `json:"phase,omitzero"`
+		Role      string           `json:"role"`
+		TypeValue string           `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Content == nil {
+		value.Content = nil
+	} else {
+		value.Content = make([]ContentItem, len(raw.Content))
+		for i, item := range raw.Content {
+			if item != nil {
+				value.Content[i] = RawContentItem(item)
+			}
+		}
+	}
+	value.ID = raw.ID
+	value.Phase = raw.Phase
+	value.Role = raw.Role
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (ReasoningResponseItem) isResponseItem() {}
+
+// ReasoningResponseItem is generated from the ReasoningResponseItem schema definition.
+type ReasoningResponseItem struct {
+	Content          []ReasoningItemContent          `json:"content,omitzero"`
+	EncryptedContent *string                         `json:"encrypted_content,omitzero"`
+	Summary          []ReasoningItemReasoningSummary `json:"summary"`
+	TypeValue        string                          `json:"type"`
+}
+
+func (value *ReasoningResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Content          []jsontext.Value                `json:"content,omitzero"`
+		EncryptedContent *string                         `json:"encrypted_content,omitzero"`
+		Summary          []ReasoningItemReasoningSummary `json:"summary"`
+		TypeValue        string                          `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Content == nil {
+		value.Content = nil
+	} else {
+		value.Content = make([]ReasoningItemContent, len(raw.Content))
+		for i, item := range raw.Content {
+			if item != nil {
+				value.Content[i] = RawReasoningItemContent(item)
+			}
+		}
+	}
+	value.EncryptedContent = raw.EncryptedContent
+	value.Summary = raw.Summary
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (LocalShellCallResponseItem) isResponseItem() {}
+
+// LocalShellCallResponseItem is generated from the LocalShellCallResponseItem schema definition.
+type LocalShellCallResponseItem struct {
+	Action    LocalShellAction `json:"action"`
+	CallID    *string          `json:"call_id,omitzero"`
+	ID        *string          `json:"id,omitzero"`
+	Status    LocalShellStatus `json:"status"`
+	TypeValue string           `json:"type"`
+}
+
+func (FunctionCallResponseItem) isResponseItem() {}
+
+// FunctionCallResponseItem is generated from the FunctionCallResponseItem schema definition.
+type FunctionCallResponseItem struct {
+	Arguments string  `json:"arguments"`
+	CallID    string  `json:"call_id"`
+	ID        *string `json:"id,omitzero"`
+	Name      string  `json:"name"`
+	Namespace *string `json:"namespace,omitzero"`
+	TypeValue string  `json:"type"`
+}
+
+func (ToolSearchCallResponseItem) isResponseItem() {}
+
+// ToolSearchCallResponseItem is generated from the ToolSearchCallResponseItem schema definition.
+type ToolSearchCallResponseItem struct {
+	Arguments jsontext.Value `json:"arguments"`
+	CallID    *string        `json:"call_id,omitzero"`
+	Execution string         `json:"execution"`
+	ID        *string        `json:"id,omitzero"`
+	Status    *string        `json:"status,omitzero"`
+	TypeValue string         `json:"type"`
+}
+
+func (FunctionCallOutputResponseItem) isResponseItem() {}
+
+// FunctionCallOutputResponseItem is generated from the FunctionCallOutputResponseItem schema definition.
+type FunctionCallOutputResponseItem struct {
+	CallID    string                 `json:"call_id"`
+	Output    FunctionCallOutputBody `json:"output"`
+	TypeValue string                 `json:"type"`
+}
+
+func (CustomToolCallResponseItem) isResponseItem() {}
+
+// CustomToolCallResponseItem is generated from the CustomToolCallResponseItem schema definition.
+type CustomToolCallResponseItem struct {
+	CallID    string  `json:"call_id"`
+	ID        *string `json:"id,omitzero"`
+	Input     string  `json:"input"`
+	Name      string  `json:"name"`
+	Status    *string `json:"status,omitzero"`
+	TypeValue string  `json:"type"`
+}
+
+func (CustomToolCallOutputResponseItem) isResponseItem() {}
+
+// CustomToolCallOutputResponseItem is generated from the CustomToolCallOutputResponseItem schema definition.
+type CustomToolCallOutputResponseItem struct {
+	CallID    string                 `json:"call_id"`
+	Name      *string                `json:"name,omitzero"`
+	Output    FunctionCallOutputBody `json:"output"`
+	TypeValue string                 `json:"type"`
+}
+
+func (ToolSearchOutputResponseItem) isResponseItem() {}
+
+// ToolSearchOutputResponseItem is generated from the ToolSearchOutputResponseItem schema definition.
+type ToolSearchOutputResponseItem struct {
+	CallID    *string          `json:"call_id,omitzero"`
+	Execution string           `json:"execution"`
+	Status    string           `json:"status"`
+	Tools     []jsontext.Value `json:"tools"`
+	TypeValue string           `json:"type"`
+}
+
+func (WebSearchCallResponseItem) isResponseItem() {}
+
+// WebSearchCallResponseItem is generated from the WebSearchCallResponseItem schema definition.
+type WebSearchCallResponseItem struct {
+	Action    *ResponsesAPIWebSearchAction `json:"action,omitzero"`
+	ID        *string                      `json:"id,omitzero"`
+	Status    *string                      `json:"status,omitzero"`
+	TypeValue string                       `json:"type"`
+}
+
+func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Action    jsontext.Value `json:"action,omitzero"`
+		ID        *string        `json:"id,omitzero"`
+		Status    *string        `json:"status,omitzero"`
+		TypeValue string         `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Action == nil {
+		value.Action = nil
+	} else {
+		action := ResponsesAPIWebSearchAction(RawResponsesAPIWebSearchAction(raw.Action))
+		value.Action = &action
+	}
+	value.ID = raw.ID
+	value.Status = raw.Status
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (ImageGenerationCallResponseItem) isResponseItem() {}
+
+// ImageGenerationCallResponseItem is generated from the ImageGenerationCallResponseItem schema definition.
+type ImageGenerationCallResponseItem struct {
+	ID            string  `json:"id"`
+	Result        string  `json:"result"`
+	RevisedPrompt *string `json:"revised_prompt,omitzero"`
+	Status        string  `json:"status"`
+	TypeValue     string  `json:"type"`
+}
+
+func (CompactionResponseItem) isResponseItem() {}
+
+// CompactionResponseItem is generated from the CompactionResponseItem schema definition.
+type CompactionResponseItem struct {
+	EncryptedContent string `json:"encrypted_content"`
+	TypeValue        string `json:"type"`
+}
+
+func (ContextCompactionResponseItem) isResponseItem() {}
+
+// ContextCompactionResponseItem is generated from the ContextCompactionResponseItem schema definition.
+type ContextCompactionResponseItem struct {
+	EncryptedContent *string `json:"encrypted_content,omitzero"`
+	TypeValue        string  `json:"type"`
+}
+
+func (OtherResponseItem) isResponseItem() {}
+
+// OtherResponseItem is generated from the OtherResponseItem schema definition.
+type OtherResponseItem struct {
+	TypeValue string `json:"type"`
+}
+
+// ResponsesAPIWebSearchAction is generated from the ResponsesAPIWebSearchAction schema definition.
+type ResponsesAPIWebSearchAction interface {
+	isResponsesAPIWebSearchAction()
+}
+
+// RawResponsesAPIWebSearchAction preserves an uninterpreted ResponsesAPIWebSearchAction JSON value.
+type RawResponsesAPIWebSearchAction jsontext.Value
+
+func (RawResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+
+var _ json.MarshalerTo = RawResponsesAPIWebSearchAction{}
+var _ json.UnmarshalerFrom = (*RawResponsesAPIWebSearchAction)(nil)
+
+func (value RawResponsesAPIWebSearchAction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawResponsesAPIWebSearchAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (SearchResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+
+// SearchResponsesAPIWebSearchAction is generated from the SearchResponsesApiWebSearchAction schema definition.
+type SearchResponsesAPIWebSearchAction struct {
+	Queries   []string `json:"queries,omitzero"`
+	Query     *string  `json:"query,omitzero"`
+	TypeValue string   `json:"type"`
+}
+
+func (OpenPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+
+// OpenPageResponsesAPIWebSearchAction is generated from the OpenPageResponsesApiWebSearchAction schema definition.
+type OpenPageResponsesAPIWebSearchAction struct {
+	TypeValue string  `json:"type"`
+	URL       *string `json:"url,omitzero"`
+}
+
+func (FindInPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+
+// FindInPageResponsesAPIWebSearchAction is generated from the FindInPageResponsesApiWebSearchAction schema definition.
+type FindInPageResponsesAPIWebSearchAction struct {
+	Pattern   *string `json:"pattern,omitzero"`
+	TypeValue string  `json:"type"`
+	URL       *string `json:"url,omitzero"`
+}
+
+func (OtherResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+
+// OtherResponsesAPIWebSearchAction is generated from the OtherResponsesApiWebSearchAction schema definition.
+type OtherResponsesAPIWebSearchAction struct {
+	TypeValue string `json:"type"`
+}
 
 // ReviewDelivery is generated from the ReviewDelivery schema definition.
 type ReviewDelivery string
@@ -2514,6 +5168,25 @@ type ReviewStartParams struct {
 	ThreadID string          `json:"threadId"`
 }
 
+func (value *ReviewStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Delivery *ReviewDelivery `json:"delivery,omitzero"`
+		Target   jsontext.Value  `json:"target"`
+		ThreadID string          `json:"threadId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Delivery = raw.Delivery
+	if raw.Target == nil {
+		value.Target = nil
+	} else {
+		value.Target = RawReviewTarget(raw.Target)
+	}
+	value.ThreadID = raw.ThreadID
+	return nil
+}
+
 // ReviewStartResponse is generated from the ReviewStartResponse schema definition.
 type ReviewStartResponse struct {
 	ReviewThreadID string `json:"reviewThreadId"`
@@ -2521,7 +5194,57 @@ type ReviewStartResponse struct {
 }
 
 // ReviewTarget is generated from the ReviewTarget schema definition.
-type ReviewTarget = jsontext.Value
+type ReviewTarget interface {
+	isReviewTarget()
+}
+
+// RawReviewTarget preserves an uninterpreted ReviewTarget JSON value.
+type RawReviewTarget jsontext.Value
+
+func (RawReviewTarget) isReviewTarget() {}
+
+var _ json.MarshalerTo = RawReviewTarget{}
+var _ json.UnmarshalerFrom = (*RawReviewTarget)(nil)
+
+func (value RawReviewTarget) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawReviewTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (UncommittedChangesReviewTarget) isReviewTarget() {}
+
+// UncommittedChangesReviewTarget is generated from the UncommittedChangesReviewTarget schema definition.
+type UncommittedChangesReviewTarget struct {
+	TypeValue string `json:"type"`
+}
+
+func (BaseBranchReviewTarget) isReviewTarget() {}
+
+// BaseBranchReviewTarget is generated from the BaseBranchReviewTarget schema definition.
+type BaseBranchReviewTarget struct {
+	Branch    string `json:"branch"`
+	TypeValue string `json:"type"`
+}
+
+func (CommitReviewTarget) isReviewTarget() {}
+
+// CommitReviewTarget is generated from the CommitReviewTarget schema definition.
+type CommitReviewTarget struct {
+	Sha       string  `json:"sha"`
+	Title     *string `json:"title,omitzero"`
+	TypeValue string  `json:"type"`
+}
+
+func (CustomReviewTarget) isReviewTarget() {}
+
+// CustomReviewTarget is generated from the CustomReviewTarget schema definition.
+type CustomReviewTarget struct {
+	Instructions string `json:"instructions"`
+	TypeValue    string `json:"type"`
+}
 
 // SandboxMode is generated from the SandboxMode schema definition.
 type SandboxMode string
@@ -2536,7 +5259,59 @@ const (
 )
 
 // SandboxPolicy is generated from the SandboxPolicy schema definition.
-type SandboxPolicy = jsontext.Value
+type SandboxPolicy interface {
+	isSandboxPolicy()
+}
+
+// RawSandboxPolicy preserves an uninterpreted SandboxPolicy JSON value.
+type RawSandboxPolicy jsontext.Value
+
+func (RawSandboxPolicy) isSandboxPolicy() {}
+
+var _ json.MarshalerTo = RawSandboxPolicy{}
+var _ json.UnmarshalerFrom = (*RawSandboxPolicy)(nil)
+
+func (value RawSandboxPolicy) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawSandboxPolicy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (DangerFullAccessSandboxPolicy) isSandboxPolicy() {}
+
+// DangerFullAccessSandboxPolicy is generated from the DangerFullAccessSandboxPolicy schema definition.
+type DangerFullAccessSandboxPolicy struct {
+	TypeValue string `json:"type"`
+}
+
+func (ReadOnlySandboxPolicy) isSandboxPolicy() {}
+
+// ReadOnlySandboxPolicy is generated from the ReadOnlySandboxPolicy schema definition.
+type ReadOnlySandboxPolicy struct {
+	NetworkAccess *bool  `json:"networkAccess,omitzero"`
+	TypeValue     string `json:"type"`
+}
+
+func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
+
+// ExternalSandboxSandboxPolicy is generated from the ExternalSandboxSandboxPolicy schema definition.
+type ExternalSandboxSandboxPolicy struct {
+	NetworkAccess *NetworkAccess `json:"networkAccess,omitzero"`
+	TypeValue     string         `json:"type"`
+}
+
+func (WorkspaceWriteSandboxPolicy) isSandboxPolicy() {}
+
+// WorkspaceWriteSandboxPolicy is generated from the WorkspaceWriteSandboxPolicy schema definition.
+type WorkspaceWriteSandboxPolicy struct {
+	ExcludeSlashTmp     *bool    `json:"excludeSlashTmp,omitzero"`
+	ExcludeTmpdirEnvVar *bool    `json:"excludeTmpdirEnvVar,omitzero"`
+	NetworkAccess       *bool    `json:"networkAccess,omitzero"`
+	TypeValue           string   `json:"type"`
+	WritableRoots       []string `json:"writableRoots,omitzero"`
+}
 
 // SandboxWorkspaceWrite is generated from the SandboxWorkspaceWrite schema definition.
 type SandboxWorkspaceWrite struct {
@@ -2557,7 +5332,499 @@ type SendAddCreditsNudgeEmailResponse struct {
 }
 
 // ServerNotification is generated from the ServerNotification schema definition.
-type ServerNotification = jsontext.Value
+type ServerNotification interface {
+	isServerNotification()
+}
+
+// RawServerNotification preserves an uninterpreted ServerNotification JSON value.
+type RawServerNotification jsontext.Value
+
+func (RawServerNotification) isServerNotification() {}
+
+var _ json.MarshalerTo = RawServerNotification{}
+var _ json.UnmarshalerFrom = (*RawServerNotification)(nil)
+
+func (value RawServerNotification) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawServerNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (ErrorNotification) isServerNotification() {}
+
+func (ThreadStartedNotification2) isServerNotification() {}
+
+// ThreadStartedNotification2 is generated from the Thread/startedNotification schema definition.
+type ThreadStartedNotification2 struct {
+	Method string                    `json:"method"`
+	Params ThreadStartedNotification `json:"params"`
+}
+
+func (ThreadStatusChangedNotification2) isServerNotification() {}
+
+// ThreadStatusChangedNotification2 is generated from the Thread/status/changedNotification schema definition.
+type ThreadStatusChangedNotification2 struct {
+	Method string                          `json:"method"`
+	Params ThreadStatusChangedNotification `json:"params"`
+}
+
+func (ThreadArchivedNotification2) isServerNotification() {}
+
+// ThreadArchivedNotification2 is generated from the Thread/archivedNotification schema definition.
+type ThreadArchivedNotification2 struct {
+	Method string                     `json:"method"`
+	Params ThreadArchivedNotification `json:"params"`
+}
+
+func (ThreadUnarchivedNotification2) isServerNotification() {}
+
+// ThreadUnarchivedNotification2 is generated from the Thread/unarchivedNotification schema definition.
+type ThreadUnarchivedNotification2 struct {
+	Method string                       `json:"method"`
+	Params ThreadUnarchivedNotification `json:"params"`
+}
+
+func (ThreadClosedNotification2) isServerNotification() {}
+
+// ThreadClosedNotification2 is generated from the Thread/closedNotification schema definition.
+type ThreadClosedNotification2 struct {
+	Method string                   `json:"method"`
+	Params ThreadClosedNotification `json:"params"`
+}
+
+func (SkillsChangedNotification2) isServerNotification() {}
+
+// SkillsChangedNotification2 is generated from the Skills/changedNotification schema definition.
+type SkillsChangedNotification2 struct {
+	Method string                    `json:"method"`
+	Params SkillsChangedNotification `json:"params"`
+}
+
+func (ThreadNameUpdatedNotification2) isServerNotification() {}
+
+// ThreadNameUpdatedNotification2 is generated from the Thread/name/updatedNotification schema definition.
+type ThreadNameUpdatedNotification2 struct {
+	Method string                        `json:"method"`
+	Params ThreadNameUpdatedNotification `json:"params"`
+}
+
+func (ThreadGoalUpdatedNotification2) isServerNotification() {}
+
+// ThreadGoalUpdatedNotification2 is generated from the Thread/goal/updatedNotification schema definition.
+type ThreadGoalUpdatedNotification2 struct {
+	Method string                        `json:"method"`
+	Params ThreadGoalUpdatedNotification `json:"params"`
+}
+
+func (ThreadGoalClearedNotification2) isServerNotification() {}
+
+// ThreadGoalClearedNotification2 is generated from the Thread/goal/clearedNotification schema definition.
+type ThreadGoalClearedNotification2 struct {
+	Method string                        `json:"method"`
+	Params ThreadGoalClearedNotification `json:"params"`
+}
+
+func (ThreadTokenUsageUpdatedNotification2) isServerNotification() {}
+
+// ThreadTokenUsageUpdatedNotification2 is generated from the Thread/tokenUsage/updatedNotification schema definition.
+type ThreadTokenUsageUpdatedNotification2 struct {
+	Method string                              `json:"method"`
+	Params ThreadTokenUsageUpdatedNotification `json:"params"`
+}
+
+func (TurnStartedNotification2) isServerNotification() {}
+
+// TurnStartedNotification2 is generated from the Turn/startedNotification schema definition.
+type TurnStartedNotification2 struct {
+	Method string                  `json:"method"`
+	Params TurnStartedNotification `json:"params"`
+}
+
+func (HookStartedNotification2) isServerNotification() {}
+
+// HookStartedNotification2 is generated from the Hook/startedNotification schema definition.
+type HookStartedNotification2 struct {
+	Method string                  `json:"method"`
+	Params HookStartedNotification `json:"params"`
+}
+
+func (TurnCompletedNotification2) isServerNotification() {}
+
+// TurnCompletedNotification2 is generated from the Turn/completedNotification schema definition.
+type TurnCompletedNotification2 struct {
+	Method string                    `json:"method"`
+	Params TurnCompletedNotification `json:"params"`
+}
+
+func (HookCompletedNotification2) isServerNotification() {}
+
+// HookCompletedNotification2 is generated from the Hook/completedNotification schema definition.
+type HookCompletedNotification2 struct {
+	Method string                    `json:"method"`
+	Params HookCompletedNotification `json:"params"`
+}
+
+func (TurnDiffUpdatedNotification2) isServerNotification() {}
+
+// TurnDiffUpdatedNotification2 is generated from the Turn/diff/updatedNotification schema definition.
+type TurnDiffUpdatedNotification2 struct {
+	Method string                      `json:"method"`
+	Params TurnDiffUpdatedNotification `json:"params"`
+}
+
+func (TurnPlanUpdatedNotification2) isServerNotification() {}
+
+// TurnPlanUpdatedNotification2 is generated from the Turn/plan/updatedNotification schema definition.
+type TurnPlanUpdatedNotification2 struct {
+	Method string                      `json:"method"`
+	Params TurnPlanUpdatedNotification `json:"params"`
+}
+
+func (ItemStartedNotification2) isServerNotification() {}
+
+// ItemStartedNotification2 is generated from the Item/startedNotification schema definition.
+type ItemStartedNotification2 struct {
+	Method string                  `json:"method"`
+	Params ItemStartedNotification `json:"params"`
+}
+
+func (ItemAutoApprovalReviewStartedNotification) isServerNotification() {}
+
+// ItemAutoApprovalReviewStartedNotification is generated from the Item/autoApprovalReview/startedNotification schema definition.
+type ItemAutoApprovalReviewStartedNotification struct {
+	Method string                                        `json:"method"`
+	Params ItemGuardianApprovalReviewStartedNotification `json:"params"`
+}
+
+func (ItemAutoApprovalReviewCompletedNotification) isServerNotification() {}
+
+// ItemAutoApprovalReviewCompletedNotification is generated from the Item/autoApprovalReview/completedNotification schema definition.
+type ItemAutoApprovalReviewCompletedNotification struct {
+	Method string                                          `json:"method"`
+	Params ItemGuardianApprovalReviewCompletedNotification `json:"params"`
+}
+
+func (ItemCompletedNotification2) isServerNotification() {}
+
+// ItemCompletedNotification2 is generated from the Item/completedNotification schema definition.
+type ItemCompletedNotification2 struct {
+	Method string                    `json:"method"`
+	Params ItemCompletedNotification `json:"params"`
+}
+
+func (ItemAgentMessageDeltaNotification) isServerNotification() {}
+
+// ItemAgentMessageDeltaNotification is generated from the Item/agentMessage/deltaNotification schema definition.
+type ItemAgentMessageDeltaNotification struct {
+	Method string                        `json:"method"`
+	Params AgentMessageDeltaNotification `json:"params"`
+}
+
+func (ItemPlanDeltaNotification) isServerNotification() {}
+
+// ItemPlanDeltaNotification is generated from the Item/plan/deltaNotification schema definition.
+type ItemPlanDeltaNotification struct {
+	Method string                `json:"method"`
+	Params PlanDeltaNotification `json:"params"`
+}
+
+func (CommandExecOutputDeltaNotification2) isServerNotification() {}
+
+// CommandExecOutputDeltaNotification2 is generated from the Command/exec/outputDeltaNotification schema definition.
+type CommandExecOutputDeltaNotification2 struct {
+	Method string                             `json:"method"`
+	Params CommandExecOutputDeltaNotification `json:"params"`
+}
+
+func (ProcessOutputDeltaNotification2) isServerNotification() {}
+
+// ProcessOutputDeltaNotification2 is generated from the Process/outputDeltaNotification schema definition.
+type ProcessOutputDeltaNotification2 struct {
+	Method string                         `json:"method"`
+	Params ProcessOutputDeltaNotification `json:"params"`
+}
+
+func (ProcessExitedNotification2) isServerNotification() {}
+
+// ProcessExitedNotification2 is generated from the Process/exitedNotification schema definition.
+type ProcessExitedNotification2 struct {
+	Method string                    `json:"method"`
+	Params ProcessExitedNotification `json:"params"`
+}
+
+func (ItemCommandExecutionOutputDeltaNotification) isServerNotification() {}
+
+// ItemCommandExecutionOutputDeltaNotification is generated from the Item/commandExecution/outputDeltaNotification schema definition.
+type ItemCommandExecutionOutputDeltaNotification struct {
+	Method string                                  `json:"method"`
+	Params CommandExecutionOutputDeltaNotification `json:"params"`
+}
+
+func (ItemCommandExecutionTerminalInteractionNotification) isServerNotification() {}
+
+// ItemCommandExecutionTerminalInteractionNotification is generated from the Item/commandExecution/terminalInteractionNotification schema definition.
+type ItemCommandExecutionTerminalInteractionNotification struct {
+	Method string                          `json:"method"`
+	Params TerminalInteractionNotification `json:"params"`
+}
+
+func (ItemFileChangeOutputDeltaNotification) isServerNotification() {}
+
+// ItemFileChangeOutputDeltaNotification is generated from the Item/fileChange/outputDeltaNotification schema definition.
+type ItemFileChangeOutputDeltaNotification struct {
+	Method string                            `json:"method"`
+	Params FileChangeOutputDeltaNotification `json:"params"`
+}
+
+func (ItemFileChangePatchUpdatedNotification) isServerNotification() {}
+
+// ItemFileChangePatchUpdatedNotification is generated from the Item/fileChange/patchUpdatedNotification schema definition.
+type ItemFileChangePatchUpdatedNotification struct {
+	Method string                             `json:"method"`
+	Params FileChangePatchUpdatedNotification `json:"params"`
+}
+
+func (ServerRequestResolvedNotification2) isServerNotification() {}
+
+// ServerRequestResolvedNotification2 is generated from the ServerRequest/resolvedNotification schema definition.
+type ServerRequestResolvedNotification2 struct {
+	Method string                            `json:"method"`
+	Params ServerRequestResolvedNotification `json:"params"`
+}
+
+func (ItemMCPToolCallProgressNotification) isServerNotification() {}
+
+// ItemMCPToolCallProgressNotification is generated from the Item/mcpToolCall/progressNotification schema definition.
+type ItemMCPToolCallProgressNotification struct {
+	Method string                          `json:"method"`
+	Params MCPToolCallProgressNotification `json:"params"`
+}
+
+func (MCPServerOAuthLoginCompletedNotification2) isServerNotification() {}
+
+// MCPServerOAuthLoginCompletedNotification2 is generated from the McpServer/oauthLogin/completedNotification schema definition.
+type MCPServerOAuthLoginCompletedNotification2 struct {
+	Method string                                   `json:"method"`
+	Params MCPServerOAuthLoginCompletedNotification `json:"params"`
+}
+
+func (MCPServerStartupStatusUpdatedNotification) isServerNotification() {}
+
+// MCPServerStartupStatusUpdatedNotification is generated from the McpServer/startupStatus/updatedNotification schema definition.
+type MCPServerStartupStatusUpdatedNotification struct {
+	Method string                             `json:"method"`
+	Params MCPServerStatusUpdatedNotification `json:"params"`
+}
+
+func (AccountUpdatedNotification2) isServerNotification() {}
+
+// AccountUpdatedNotification2 is generated from the Account/updatedNotification schema definition.
+type AccountUpdatedNotification2 struct {
+	Method string                     `json:"method"`
+	Params AccountUpdatedNotification `json:"params"`
+}
+
+func (AccountRateLimitsUpdatedNotification2) isServerNotification() {}
+
+// AccountRateLimitsUpdatedNotification2 is generated from the Account/rateLimits/updatedNotification schema definition.
+type AccountRateLimitsUpdatedNotification2 struct {
+	Method string                               `json:"method"`
+	Params AccountRateLimitsUpdatedNotification `json:"params"`
+}
+
+func (AppListUpdatedNotification2) isServerNotification() {}
+
+// AppListUpdatedNotification2 is generated from the App/list/updatedNotification schema definition.
+type AppListUpdatedNotification2 struct {
+	Method string                     `json:"method"`
+	Params AppListUpdatedNotification `json:"params"`
+}
+
+func (RemoteControlStatusChangedNotification2) isServerNotification() {}
+
+// RemoteControlStatusChangedNotification2 is generated from the RemoteControl/status/changedNotification schema definition.
+type RemoteControlStatusChangedNotification2 struct {
+	Method string                                 `json:"method"`
+	Params RemoteControlStatusChangedNotification `json:"params"`
+}
+
+func (ExternalAgentConfigImportCompletedNotification2) isServerNotification() {}
+
+// ExternalAgentConfigImportCompletedNotification2 is generated from the ExternalAgentConfig/import/completedNotification schema definition.
+type ExternalAgentConfigImportCompletedNotification2 struct {
+	Method string                                         `json:"method"`
+	Params ExternalAgentConfigImportCompletedNotification `json:"params"`
+}
+
+func (FsChangedNotification2) isServerNotification() {}
+
+// FsChangedNotification2 is generated from the Fs/changedNotification schema definition.
+type FsChangedNotification2 struct {
+	Method string                `json:"method"`
+	Params FsChangedNotification `json:"params"`
+}
+
+func (ItemReasoningSummaryTextDeltaNotification) isServerNotification() {}
+
+// ItemReasoningSummaryTextDeltaNotification is generated from the Item/reasoning/summaryTextDeltaNotification schema definition.
+type ItemReasoningSummaryTextDeltaNotification struct {
+	Method string                                `json:"method"`
+	Params ReasoningSummaryTextDeltaNotification `json:"params"`
+}
+
+func (ItemReasoningSummaryPartAddedNotification) isServerNotification() {}
+
+// ItemReasoningSummaryPartAddedNotification is generated from the Item/reasoning/summaryPartAddedNotification schema definition.
+type ItemReasoningSummaryPartAddedNotification struct {
+	Method string                                `json:"method"`
+	Params ReasoningSummaryPartAddedNotification `json:"params"`
+}
+
+func (ItemReasoningTextDeltaNotification) isServerNotification() {}
+
+// ItemReasoningTextDeltaNotification is generated from the Item/reasoning/textDeltaNotification schema definition.
+type ItemReasoningTextDeltaNotification struct {
+	Method string                         `json:"method"`
+	Params ReasoningTextDeltaNotification `json:"params"`
+}
+
+func (ThreadCompactedNotification) isServerNotification() {}
+
+// ThreadCompactedNotification is generated from the Thread/compactedNotification schema definition.
+type ThreadCompactedNotification struct {
+	Method string                       `json:"method"`
+	Params ContextCompactedNotification `json:"params"`
+}
+
+func (ModelReroutedNotification2) isServerNotification() {}
+
+// ModelReroutedNotification2 is generated from the Model/reroutedNotification schema definition.
+type ModelReroutedNotification2 struct {
+	Method string                    `json:"method"`
+	Params ModelReroutedNotification `json:"params"`
+}
+
+func (ModelVerificationNotification2) isServerNotification() {}
+
+// ModelVerificationNotification2 is generated from the Model/verificationNotification schema definition.
+type ModelVerificationNotification2 struct {
+	Method string                        `json:"method"`
+	Params ModelVerificationNotification `json:"params"`
+}
+
+func (WarningNotification) isServerNotification() {}
+
+func (GuardianWarningNotification) isServerNotification() {}
+
+func (DeprecationNoticeNotification) isServerNotification() {}
+
+func (ConfigWarningNotification) isServerNotification() {}
+
+func (FuzzyFileSearchSessionUpdatedNotification2) isServerNotification() {}
+
+// FuzzyFileSearchSessionUpdatedNotification2 is generated from the FuzzyFileSearch/sessionUpdatedNotification schema definition.
+type FuzzyFileSearchSessionUpdatedNotification2 struct {
+	Method string                                    `json:"method"`
+	Params FuzzyFileSearchSessionUpdatedNotification `json:"params"`
+}
+
+func (FuzzyFileSearchSessionCompletedNotification2) isServerNotification() {}
+
+// FuzzyFileSearchSessionCompletedNotification2 is generated from the FuzzyFileSearch/sessionCompletedNotification schema definition.
+type FuzzyFileSearchSessionCompletedNotification2 struct {
+	Method string                                      `json:"method"`
+	Params FuzzyFileSearchSessionCompletedNotification `json:"params"`
+}
+
+func (ThreadRealtimeStartedNotification2) isServerNotification() {}
+
+// ThreadRealtimeStartedNotification2 is generated from the Thread/realtime/startedNotification schema definition.
+type ThreadRealtimeStartedNotification2 struct {
+	Method string                            `json:"method"`
+	Params ThreadRealtimeStartedNotification `json:"params"`
+}
+
+func (ThreadRealtimeItemAddedNotification2) isServerNotification() {}
+
+// ThreadRealtimeItemAddedNotification2 is generated from the Thread/realtime/itemAddedNotification schema definition.
+type ThreadRealtimeItemAddedNotification2 struct {
+	Method string                              `json:"method"`
+	Params ThreadRealtimeItemAddedNotification `json:"params"`
+}
+
+func (ThreadRealtimeTranscriptDeltaNotification2) isServerNotification() {}
+
+// ThreadRealtimeTranscriptDeltaNotification2 is generated from the Thread/realtime/transcript/deltaNotification schema definition.
+type ThreadRealtimeTranscriptDeltaNotification2 struct {
+	Method string                                    `json:"method"`
+	Params ThreadRealtimeTranscriptDeltaNotification `json:"params"`
+}
+
+func (ThreadRealtimeTranscriptDoneNotification2) isServerNotification() {}
+
+// ThreadRealtimeTranscriptDoneNotification2 is generated from the Thread/realtime/transcript/doneNotification schema definition.
+type ThreadRealtimeTranscriptDoneNotification2 struct {
+	Method string                                   `json:"method"`
+	Params ThreadRealtimeTranscriptDoneNotification `json:"params"`
+}
+
+func (ThreadRealtimeOutputAudioDeltaNotification2) isServerNotification() {}
+
+// ThreadRealtimeOutputAudioDeltaNotification2 is generated from the Thread/realtime/outputAudio/deltaNotification schema definition.
+type ThreadRealtimeOutputAudioDeltaNotification2 struct {
+	Method string                                     `json:"method"`
+	Params ThreadRealtimeOutputAudioDeltaNotification `json:"params"`
+}
+
+func (ThreadRealtimeSDPNotification2) isServerNotification() {}
+
+// ThreadRealtimeSDPNotification2 is generated from the Thread/realtime/sdpNotification schema definition.
+type ThreadRealtimeSDPNotification2 struct {
+	Method string                        `json:"method"`
+	Params ThreadRealtimeSDPNotification `json:"params"`
+}
+
+func (ThreadRealtimeErrorNotification2) isServerNotification() {}
+
+// ThreadRealtimeErrorNotification2 is generated from the Thread/realtime/errorNotification schema definition.
+type ThreadRealtimeErrorNotification2 struct {
+	Method string                          `json:"method"`
+	Params ThreadRealtimeErrorNotification `json:"params"`
+}
+
+func (ThreadRealtimeClosedNotification2) isServerNotification() {}
+
+// ThreadRealtimeClosedNotification2 is generated from the Thread/realtime/closedNotification schema definition.
+type ThreadRealtimeClosedNotification2 struct {
+	Method string                           `json:"method"`
+	Params ThreadRealtimeClosedNotification `json:"params"`
+}
+
+func (WindowsWorldWritableWarningNotification2) isServerNotification() {}
+
+// WindowsWorldWritableWarningNotification2 is generated from the Windows/worldWritableWarningNotification schema definition.
+type WindowsWorldWritableWarningNotification2 struct {
+	Method string                                  `json:"method"`
+	Params WindowsWorldWritableWarningNotification `json:"params"`
+}
+
+func (WindowsSandboxSetupCompletedNotification2) isServerNotification() {}
+
+// WindowsSandboxSetupCompletedNotification2 is generated from the WindowsSandbox/setupCompletedNotification schema definition.
+type WindowsSandboxSetupCompletedNotification2 struct {
+	Method string                                   `json:"method"`
+	Params WindowsSandboxSetupCompletedNotification `json:"params"`
+}
+
+func (AccountLoginCompletedNotification2) isServerNotification() {}
+
+// AccountLoginCompletedNotification2 is generated from the Account/login/completedNotification schema definition.
+type AccountLoginCompletedNotification2 struct {
+	Method string                            `json:"method"`
+	Params AccountLoginCompletedNotification `json:"params"`
+}
 
 // ServerRequestResolvedNotification is generated from the ServerRequestResolvedNotification schema definition.
 type ServerRequestResolvedNotification struct {
@@ -2573,7 +5840,18 @@ type SessionMigration struct {
 }
 
 // SessionSource is generated from the SessionSource schema definition.
-type SessionSource = jsontext.Value
+type SessionSource jsontext.Value
+
+var _ json.MarshalerTo = SessionSource{}
+var _ json.UnmarshalerFrom = (*SessionSource)(nil)
+
+func (value SessionSource) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *SessionSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // Settings is generated from the Settings schema definition.
 type Settings struct {
@@ -2650,7 +5928,18 @@ type SkillToolDependency struct {
 }
 
 // SkillsChangedNotification is generated from the SkillsChangedNotification schema definition.
-type SkillsChangedNotification = jsontext.Value
+type SkillsChangedNotification jsontext.Value
+
+var _ json.MarshalerTo = SkillsChangedNotification{}
+var _ json.UnmarshalerFrom = (*SkillsChangedNotification)(nil)
+
+func (value SkillsChangedNotification) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *SkillsChangedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // SkillsConfigWriteParams is generated from the SkillsConfigWriteParams schema definition.
 type SkillsConfigWriteParams struct {
@@ -2700,7 +5989,18 @@ const (
 )
 
 // SubAgentSource is generated from the SubAgentSource schema definition.
-type SubAgentSource = jsontext.Value
+type SubAgentSource jsontext.Value
+
+var _ json.MarshalerTo = SubAgentSource{}
+var _ json.UnmarshalerFrom = (*SubAgentSource)(nil)
+
+func (value SubAgentSource) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *SubAgentSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // SubagentMigration is generated from the SubagentMigration schema definition.
 type SubagentMigration struct {
@@ -2757,6 +6057,57 @@ type Thread struct {
 	UpdatedAt     int64         `json:"updatedAt"`
 }
 
+func (value *Thread) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		AgentNickname *string        `json:"agentNickname,omitzero"`
+		AgentRole     *string        `json:"agentRole,omitzero"`
+		CliVersion    string         `json:"cliVersion"`
+		CreatedAt     int64          `json:"createdAt"`
+		Cwd           string         `json:"cwd"`
+		Ephemeral     bool           `json:"ephemeral"`
+		ForkedFromID  *string        `json:"forkedFromId,omitzero"`
+		GitInfo       *GitInfo       `json:"gitInfo,omitzero"`
+		ID            string         `json:"id"`
+		ModelProvider string         `json:"modelProvider"`
+		Name          *string        `json:"name,omitzero"`
+		Path          *string        `json:"path,omitzero"`
+		Preview       string         `json:"preview"`
+		SessionID     string         `json:"sessionId"`
+		Source        SessionSource  `json:"source"`
+		Status        jsontext.Value `json:"status"`
+		ThreadSource  *ThreadSource  `json:"threadSource,omitzero"`
+		Turns         []Turn         `json:"turns"`
+		UpdatedAt     int64          `json:"updatedAt"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.AgentNickname = raw.AgentNickname
+	value.AgentRole = raw.AgentRole
+	value.CliVersion = raw.CliVersion
+	value.CreatedAt = raw.CreatedAt
+	value.Cwd = raw.Cwd
+	value.Ephemeral = raw.Ephemeral
+	value.ForkedFromID = raw.ForkedFromID
+	value.GitInfo = raw.GitInfo
+	value.ID = raw.ID
+	value.ModelProvider = raw.ModelProvider
+	value.Name = raw.Name
+	value.Path = raw.Path
+	value.Preview = raw.Preview
+	value.SessionID = raw.SessionID
+	value.Source = raw.Source
+	if raw.Status == nil {
+		value.Status = nil
+	} else {
+		value.Status = RawThreadStatus(raw.Status)
+	}
+	value.ThreadSource = raw.ThreadSource
+	value.Turns = raw.Turns
+	value.UpdatedAt = raw.UpdatedAt
+	return nil
+}
+
 // ThreadActiveFlag is generated from the ThreadActiveFlag schema definition.
 type ThreadActiveFlag string
 
@@ -2774,7 +6125,18 @@ type ThreadApproveGuardianDeniedActionParams struct {
 }
 
 // ThreadApproveGuardianDeniedActionResponse is generated from the ThreadApproveGuardianDeniedActionResponse schema definition.
-type ThreadApproveGuardianDeniedActionResponse = jsontext.Value
+type ThreadApproveGuardianDeniedActionResponse jsontext.Value
+
+var _ json.MarshalerTo = ThreadApproveGuardianDeniedActionResponse{}
+var _ json.UnmarshalerFrom = (*ThreadApproveGuardianDeniedActionResponse)(nil)
+
+func (value ThreadApproveGuardianDeniedActionResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadApproveGuardianDeniedActionResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadArchiveParams is generated from the ThreadArchiveParams schema definition.
 type ThreadArchiveParams struct {
@@ -2782,7 +6144,18 @@ type ThreadArchiveParams struct {
 }
 
 // ThreadArchiveResponse is generated from the ThreadArchiveResponse schema definition.
-type ThreadArchiveResponse = jsontext.Value
+type ThreadArchiveResponse jsontext.Value
+
+var _ json.MarshalerTo = ThreadArchiveResponse{}
+var _ json.UnmarshalerFrom = (*ThreadArchiveResponse)(nil)
+
+func (value ThreadArchiveResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadArchiveResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadArchivedNotification is generated from the ThreadArchivedNotification schema definition.
 type ThreadArchivedNotification struct {
@@ -2800,7 +6173,18 @@ type ThreadCompactStartParams struct {
 }
 
 // ThreadCompactStartResponse is generated from the ThreadCompactStartResponse schema definition.
-type ThreadCompactStartResponse = jsontext.Value
+type ThreadCompactStartResponse jsontext.Value
+
+var _ json.MarshalerTo = ThreadCompactStartResponse{}
+var _ json.UnmarshalerFrom = (*ThreadCompactStartResponse)(nil)
+
+func (value ThreadCompactStartResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadCompactStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadForkParams is generated from the ThreadForkParams schema definition.
 type ThreadForkParams struct {
@@ -2831,6 +6215,39 @@ type ThreadForkResponse struct {
 	Sandbox            SandboxPolicy     `json:"sandbox"`
 	ServiceTier        *string           `json:"serviceTier,omitzero"`
 	Thread             Thread            `json:"thread"`
+}
+
+func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ApprovalPolicy     AskForApproval    `json:"approvalPolicy"`
+		ApprovalsReviewer  ApprovalsReviewer `json:"approvalsReviewer"`
+		Cwd                string            `json:"cwd"`
+		InstructionSources []string          `json:"instructionSources,omitzero"`
+		Model              string            `json:"model"`
+		ModelProvider      string            `json:"modelProvider"`
+		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
+		Sandbox            jsontext.Value    `json:"sandbox"`
+		ServiceTier        *string           `json:"serviceTier,omitzero"`
+		Thread             Thread            `json:"thread"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ApprovalPolicy = raw.ApprovalPolicy
+	value.ApprovalsReviewer = raw.ApprovalsReviewer
+	value.Cwd = raw.Cwd
+	value.InstructionSources = raw.InstructionSources
+	value.Model = raw.Model
+	value.ModelProvider = raw.ModelProvider
+	value.ReasoningEffort = raw.ReasoningEffort
+	if raw.Sandbox == nil {
+		value.Sandbox = nil
+	} else {
+		value.Sandbox = RawSandboxPolicy(raw.Sandbox)
+	}
+	value.ServiceTier = raw.ServiceTier
+	value.Thread = raw.Thread
+	return nil
 }
 
 // ThreadGoal is generated from the ThreadGoal schema definition.
@@ -2881,13 +6298,354 @@ type ThreadInjectItemsParams struct {
 }
 
 // ThreadInjectItemsResponse is generated from the ThreadInjectItemsResponse schema definition.
-type ThreadInjectItemsResponse = jsontext.Value
+type ThreadInjectItemsResponse jsontext.Value
+
+var _ json.MarshalerTo = ThreadInjectItemsResponse{}
+var _ json.UnmarshalerFrom = (*ThreadInjectItemsResponse)(nil)
+
+func (value ThreadInjectItemsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadInjectItemsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadItem is generated from the ThreadItem schema definition.
-type ThreadItem = jsontext.Value
+type ThreadItem interface {
+	isThreadItem()
+}
+
+// RawThreadItem preserves an uninterpreted ThreadItem JSON value.
+type RawThreadItem jsontext.Value
+
+func (RawThreadItem) isThreadItem() {}
+
+var _ json.MarshalerTo = RawThreadItem{}
+var _ json.UnmarshalerFrom = (*RawThreadItem)(nil)
+
+func (value RawThreadItem) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (UserMessageThreadItem) isThreadItem() {}
+
+// UserMessageThreadItem is generated from the UserMessageThreadItem schema definition.
+type UserMessageThreadItem struct {
+	Content   []UserInput `json:"content"`
+	ID        string      `json:"id"`
+	TypeValue string      `json:"type"`
+}
+
+func (value *UserMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Content   []jsontext.Value `json:"content"`
+		ID        string           `json:"id"`
+		TypeValue string           `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Content == nil {
+		value.Content = nil
+	} else {
+		value.Content = make([]UserInput, len(raw.Content))
+		for i, item := range raw.Content {
+			if item != nil {
+				value.Content[i] = RawUserInput(item)
+			}
+		}
+	}
+	value.ID = raw.ID
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (HookPromptThreadItem) isThreadItem() {}
+
+// HookPromptThreadItem is generated from the HookPromptThreadItem schema definition.
+type HookPromptThreadItem struct {
+	Fragments []HookPromptFragment `json:"fragments"`
+	ID        string               `json:"id"`
+	TypeValue string               `json:"type"`
+}
+
+func (AgentMessageThreadItem) isThreadItem() {}
+
+// AgentMessageThreadItem is generated from the AgentMessageThreadItem schema definition.
+type AgentMessageThreadItem struct {
+	ID             string          `json:"id"`
+	MemoryCitation *MemoryCitation `json:"memoryCitation,omitzero"`
+	Phase          *MessagePhase   `json:"phase,omitzero"`
+	Text           string          `json:"text"`
+	TypeValue      string          `json:"type"`
+}
+
+func (PlanThreadItem) isThreadItem() {}
+
+// PlanThreadItem is generated from the PlanThreadItem schema definition.
+type PlanThreadItem struct {
+	ID        string `json:"id"`
+	Text      string `json:"text"`
+	TypeValue string `json:"type"`
+}
+
+func (ReasoningThreadItem) isThreadItem() {}
+
+// ReasoningThreadItem is generated from the ReasoningThreadItem schema definition.
+type ReasoningThreadItem struct {
+	Content   []string `json:"content,omitzero"`
+	ID        string   `json:"id"`
+	Summary   []string `json:"summary,omitzero"`
+	TypeValue string   `json:"type"`
+}
+
+func (CommandExecutionThreadItem) isThreadItem() {}
+
+// CommandExecutionThreadItem is generated from the CommandExecutionThreadItem schema definition.
+type CommandExecutionThreadItem struct {
+	AggregatedOutput *string                 `json:"aggregatedOutput,omitzero"`
+	Command          string                  `json:"command"`
+	CommandActions   []CommandAction         `json:"commandActions"`
+	Cwd              string                  `json:"cwd"`
+	DurationMs       *int64                  `json:"durationMs,omitzero"`
+	ExitCode         *int32                  `json:"exitCode,omitzero"`
+	ID               string                  `json:"id"`
+	ProcessID        *string                 `json:"processId,omitzero"`
+	Source           *CommandExecutionSource `json:"source,omitzero"`
+	Status           CommandExecutionStatus  `json:"status"`
+	TypeValue        string                  `json:"type"`
+}
+
+func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		AggregatedOutput *string                 `json:"aggregatedOutput,omitzero"`
+		Command          string                  `json:"command"`
+		CommandActions   []jsontext.Value        `json:"commandActions"`
+		Cwd              string                  `json:"cwd"`
+		DurationMs       *int64                  `json:"durationMs,omitzero"`
+		ExitCode         *int32                  `json:"exitCode,omitzero"`
+		ID               string                  `json:"id"`
+		ProcessID        *string                 `json:"processId,omitzero"`
+		Source           *CommandExecutionSource `json:"source,omitzero"`
+		Status           CommandExecutionStatus  `json:"status"`
+		TypeValue        string                  `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.AggregatedOutput = raw.AggregatedOutput
+	value.Command = raw.Command
+	if raw.CommandActions == nil {
+		value.CommandActions = nil
+	} else {
+		value.CommandActions = make([]CommandAction, len(raw.CommandActions))
+		for i, item := range raw.CommandActions {
+			if item != nil {
+				value.CommandActions[i] = RawCommandAction(item)
+			}
+		}
+	}
+	value.Cwd = raw.Cwd
+	value.DurationMs = raw.DurationMs
+	value.ExitCode = raw.ExitCode
+	value.ID = raw.ID
+	value.ProcessID = raw.ProcessID
+	value.Source = raw.Source
+	value.Status = raw.Status
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (FileChangeThreadItem) isThreadItem() {}
+
+// FileChangeThreadItem is generated from the FileChangeThreadItem schema definition.
+type FileChangeThreadItem struct {
+	Changes   []FileUpdateChange `json:"changes"`
+	ID        string             `json:"id"`
+	Status    PatchApplyStatus   `json:"status"`
+	TypeValue string             `json:"type"`
+}
+
+func (MCPToolCallThreadItem) isThreadItem() {}
+
+// MCPToolCallThreadItem is generated from the McpToolCallThreadItem schema definition.
+type MCPToolCallThreadItem struct {
+	Arguments         jsontext.Value     `json:"arguments"`
+	DurationMs        *int64             `json:"durationMs,omitzero"`
+	Error             *MCPToolCallError  `json:"error,omitzero"`
+	ID                string             `json:"id"`
+	MCPAppResourceURI *string            `json:"mcpAppResourceUri,omitzero"`
+	Result            *MCPToolCallResult `json:"result,omitzero"`
+	Server            string             `json:"server"`
+	Status            MCPToolCallStatus  `json:"status"`
+	Tool              string             `json:"tool"`
+	TypeValue         string             `json:"type"`
+}
+
+func (DynamicToolCallThreadItem) isThreadItem() {}
+
+// DynamicToolCallThreadItem is generated from the DynamicToolCallThreadItem schema definition.
+type DynamicToolCallThreadItem struct {
+	Arguments    jsontext.Value                     `json:"arguments"`
+	ContentItems []DynamicToolCallOutputContentItem `json:"contentItems,omitzero"`
+	DurationMs   *int64                             `json:"durationMs,omitzero"`
+	ID           string                             `json:"id"`
+	Namespace    *string                            `json:"namespace,omitzero"`
+	Status       DynamicToolCallStatus              `json:"status"`
+	Success      *bool                              `json:"success,omitzero"`
+	Tool         string                             `json:"tool"`
+	TypeValue    string                             `json:"type"`
+}
+
+func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Arguments    jsontext.Value        `json:"arguments"`
+		ContentItems []jsontext.Value      `json:"contentItems,omitzero"`
+		DurationMs   *int64                `json:"durationMs,omitzero"`
+		ID           string                `json:"id"`
+		Namespace    *string               `json:"namespace,omitzero"`
+		Status       DynamicToolCallStatus `json:"status"`
+		Success      *bool                 `json:"success,omitzero"`
+		Tool         string                `json:"tool"`
+		TypeValue    string                `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Arguments = raw.Arguments
+	if raw.ContentItems == nil {
+		value.ContentItems = nil
+	} else {
+		value.ContentItems = make([]DynamicToolCallOutputContentItem, len(raw.ContentItems))
+		for i, item := range raw.ContentItems {
+			if item != nil {
+				value.ContentItems[i] = RawDynamicToolCallOutputContentItem(item)
+			}
+		}
+	}
+	value.DurationMs = raw.DurationMs
+	value.ID = raw.ID
+	value.Namespace = raw.Namespace
+	value.Status = raw.Status
+	value.Success = raw.Success
+	value.Tool = raw.Tool
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (CollabAgentToolCallThreadItem) isThreadItem() {}
+
+// CollabAgentToolCallThreadItem is generated from the CollabAgentToolCallThreadItem schema definition.
+type CollabAgentToolCallThreadItem struct {
+	AgentsStates      map[string]CollabAgentState `json:"agentsStates"`
+	ID                string                      `json:"id"`
+	Model             *string                     `json:"model,omitzero"`
+	Prompt            *string                     `json:"prompt,omitzero"`
+	ReasoningEffort   *ReasoningEffort            `json:"reasoningEffort,omitzero"`
+	ReceiverThreadIDs []string                    `json:"receiverThreadIds"`
+	SenderThreadID    string                      `json:"senderThreadId"`
+	Status            CollabAgentToolCallStatus   `json:"status"`
+	Tool              CollabAgentTool             `json:"tool"`
+	TypeValue         string                      `json:"type"`
+}
+
+func (WebSearchThreadItem) isThreadItem() {}
+
+// WebSearchThreadItem is generated from the WebSearchThreadItem schema definition.
+type WebSearchThreadItem struct {
+	Action    *WebSearchAction `json:"action,omitzero"`
+	ID        string           `json:"id"`
+	Query     string           `json:"query"`
+	TypeValue string           `json:"type"`
+}
+
+func (value *WebSearchThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Action    jsontext.Value `json:"action,omitzero"`
+		ID        string         `json:"id"`
+		Query     string         `json:"query"`
+		TypeValue string         `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Action == nil {
+		value.Action = nil
+	} else {
+		action := WebSearchAction(RawWebSearchAction(raw.Action))
+		value.Action = &action
+	}
+	value.ID = raw.ID
+	value.Query = raw.Query
+	value.TypeValue = raw.TypeValue
+	return nil
+}
+
+func (ImageViewThreadItem) isThreadItem() {}
+
+// ImageViewThreadItem is generated from the ImageViewThreadItem schema definition.
+type ImageViewThreadItem struct {
+	ID        string `json:"id"`
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
+func (ImageGenerationThreadItem) isThreadItem() {}
+
+// ImageGenerationThreadItem is generated from the ImageGenerationThreadItem schema definition.
+type ImageGenerationThreadItem struct {
+	ID            string  `json:"id"`
+	Result        string  `json:"result"`
+	RevisedPrompt *string `json:"revisedPrompt,omitzero"`
+	SavedPath     *string `json:"savedPath,omitzero"`
+	Status        string  `json:"status"`
+	TypeValue     string  `json:"type"`
+}
+
+func (EnteredReviewModeThreadItem) isThreadItem() {}
+
+// EnteredReviewModeThreadItem is generated from the EnteredReviewModeThreadItem schema definition.
+type EnteredReviewModeThreadItem struct {
+	ID        string `json:"id"`
+	Review    string `json:"review"`
+	TypeValue string `json:"type"`
+}
+
+func (ExitedReviewModeThreadItem) isThreadItem() {}
+
+// ExitedReviewModeThreadItem is generated from the ExitedReviewModeThreadItem schema definition.
+type ExitedReviewModeThreadItem struct {
+	ID        string `json:"id"`
+	Review    string `json:"review"`
+	TypeValue string `json:"type"`
+}
+
+func (ContextCompactionThreadItem) isThreadItem() {}
+
+// ContextCompactionThreadItem is generated from the ContextCompactionThreadItem schema definition.
+type ContextCompactionThreadItem struct {
+	ID        string `json:"id"`
+	TypeValue string `json:"type"`
+}
 
 // ThreadListCwdFilter is generated from the ThreadListCwdFilter schema definition.
-type ThreadListCwdFilter = jsontext.Value
+type ThreadListCwdFilter jsontext.Value
+
+var _ json.MarshalerTo = ThreadListCwdFilter{}
+var _ json.UnmarshalerFrom = (*ThreadListCwdFilter)(nil)
+
+func (value ThreadListCwdFilter) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadListCwdFilter) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadListParams is generated from the ThreadListParams schema definition.
 type ThreadListParams struct {
@@ -3007,7 +6765,40 @@ type ThreadRealtimeSDPNotification struct {
 }
 
 // ThreadRealtimeStartTransport is generated from the ThreadRealtimeStartTransport schema definition.
-type ThreadRealtimeStartTransport = jsontext.Value
+type ThreadRealtimeStartTransport interface {
+	isThreadRealtimeStartTransport()
+}
+
+// RawThreadRealtimeStartTransport preserves an uninterpreted ThreadRealtimeStartTransport JSON value.
+type RawThreadRealtimeStartTransport jsontext.Value
+
+func (RawThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
+
+var _ json.MarshalerTo = RawThreadRealtimeStartTransport{}
+var _ json.UnmarshalerFrom = (*RawThreadRealtimeStartTransport)(nil)
+
+func (value RawThreadRealtimeStartTransport) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawThreadRealtimeStartTransport) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (WebsocketThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
+
+// WebsocketThreadRealtimeStartTransport is generated from the WebsocketThreadRealtimeStartTransport schema definition.
+type WebsocketThreadRealtimeStartTransport struct {
+	TypeValue string `json:"type"`
+}
+
+func (WebrtcThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
+
+// WebrtcThreadRealtimeStartTransport is generated from the WebrtcThreadRealtimeStartTransport schema definition.
+type WebrtcThreadRealtimeStartTransport struct {
+	SDP       string `json:"sdp"`
+	TypeValue string `json:"type"`
+}
 
 // ThreadRealtimeStartedNotification is generated from the ThreadRealtimeStartedNotification schema definition.
 type ThreadRealtimeStartedNotification struct {
@@ -3060,6 +6851,39 @@ type ThreadResumeResponse struct {
 	Thread             Thread            `json:"thread"`
 }
 
+func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ApprovalPolicy     AskForApproval    `json:"approvalPolicy"`
+		ApprovalsReviewer  ApprovalsReviewer `json:"approvalsReviewer"`
+		Cwd                string            `json:"cwd"`
+		InstructionSources []string          `json:"instructionSources,omitzero"`
+		Model              string            `json:"model"`
+		ModelProvider      string            `json:"modelProvider"`
+		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
+		Sandbox            jsontext.Value    `json:"sandbox"`
+		ServiceTier        *string           `json:"serviceTier,omitzero"`
+		Thread             Thread            `json:"thread"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ApprovalPolicy = raw.ApprovalPolicy
+	value.ApprovalsReviewer = raw.ApprovalsReviewer
+	value.Cwd = raw.Cwd
+	value.InstructionSources = raw.InstructionSources
+	value.Model = raw.Model
+	value.ModelProvider = raw.ModelProvider
+	value.ReasoningEffort = raw.ReasoningEffort
+	if raw.Sandbox == nil {
+		value.Sandbox = nil
+	} else {
+		value.Sandbox = RawSandboxPolicy(raw.Sandbox)
+	}
+	value.ServiceTier = raw.ServiceTier
+	value.Thread = raw.Thread
+	return nil
+}
+
 // ThreadRollbackParams is generated from the ThreadRollbackParams schema definition.
 type ThreadRollbackParams struct {
 	NumTurns int32  `json:"numTurns"`
@@ -3078,7 +6902,18 @@ type ThreadSetNameParams struct {
 }
 
 // ThreadSetNameResponse is generated from the ThreadSetNameResponse schema definition.
-type ThreadSetNameResponse = jsontext.Value
+type ThreadSetNameResponse jsontext.Value
+
+var _ json.MarshalerTo = ThreadSetNameResponse{}
+var _ json.UnmarshalerFrom = (*ThreadSetNameResponse)(nil)
+
+func (value ThreadSetNameResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadSetNameResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadShellCommandParams is generated from the ThreadShellCommandParams schema definition.
 type ThreadShellCommandParams struct {
@@ -3087,7 +6922,18 @@ type ThreadShellCommandParams struct {
 }
 
 // ThreadShellCommandResponse is generated from the ThreadShellCommandResponse schema definition.
-type ThreadShellCommandResponse = jsontext.Value
+type ThreadShellCommandResponse jsontext.Value
+
+var _ json.MarshalerTo = ThreadShellCommandResponse{}
+var _ json.UnmarshalerFrom = (*ThreadShellCommandResponse)(nil)
+
+func (value ThreadShellCommandResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *ThreadShellCommandResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // ThreadSortKey is generated from the ThreadSortKey schema definition.
 type ThreadSortKey string
@@ -3170,6 +7016,39 @@ type ThreadStartResponse struct {
 	Thread             Thread            `json:"thread"`
 }
 
+func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ApprovalPolicy     AskForApproval    `json:"approvalPolicy"`
+		ApprovalsReviewer  ApprovalsReviewer `json:"approvalsReviewer"`
+		Cwd                string            `json:"cwd"`
+		InstructionSources []string          `json:"instructionSources,omitzero"`
+		Model              string            `json:"model"`
+		ModelProvider      string            `json:"modelProvider"`
+		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
+		Sandbox            jsontext.Value    `json:"sandbox"`
+		ServiceTier        *string           `json:"serviceTier,omitzero"`
+		Thread             Thread            `json:"thread"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ApprovalPolicy = raw.ApprovalPolicy
+	value.ApprovalsReviewer = raw.ApprovalsReviewer
+	value.Cwd = raw.Cwd
+	value.InstructionSources = raw.InstructionSources
+	value.Model = raw.Model
+	value.ModelProvider = raw.ModelProvider
+	value.ReasoningEffort = raw.ReasoningEffort
+	if raw.Sandbox == nil {
+		value.Sandbox = nil
+	} else {
+		value.Sandbox = RawSandboxPolicy(raw.Sandbox)
+	}
+	value.ServiceTier = raw.ServiceTier
+	value.Thread = raw.Thread
+	return nil
+}
+
 // ThreadStartSource is generated from the ThreadStartSource schema definition.
 type ThreadStartSource string
 
@@ -3186,12 +7065,76 @@ type ThreadStartedNotification struct {
 }
 
 // ThreadStatus is generated from the ThreadStatus schema definition.
-type ThreadStatus = jsontext.Value
+type ThreadStatus interface {
+	isThreadStatus()
+}
+
+// RawThreadStatus preserves an uninterpreted ThreadStatus JSON value.
+type RawThreadStatus jsontext.Value
+
+func (RawThreadStatus) isThreadStatus() {}
+
+var _ json.MarshalerTo = RawThreadStatus{}
+var _ json.UnmarshalerFrom = (*RawThreadStatus)(nil)
+
+func (value RawThreadStatus) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawThreadStatus) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (NotLoadedThreadStatus) isThreadStatus() {}
+
+// NotLoadedThreadStatus is generated from the NotLoadedThreadStatus schema definition.
+type NotLoadedThreadStatus struct {
+	TypeValue string `json:"type"`
+}
+
+func (IDleThreadStatus) isThreadStatus() {}
+
+// IDleThreadStatus is generated from the IdleThreadStatus schema definition.
+type IDleThreadStatus struct {
+	TypeValue string `json:"type"`
+}
+
+func (SystemErrorThreadStatus) isThreadStatus() {}
+
+// SystemErrorThreadStatus is generated from the SystemErrorThreadStatus schema definition.
+type SystemErrorThreadStatus struct {
+	TypeValue string `json:"type"`
+}
+
+func (ActiveThreadStatus) isThreadStatus() {}
+
+// ActiveThreadStatus is generated from the ActiveThreadStatus schema definition.
+type ActiveThreadStatus struct {
+	ActiveFlags []ThreadActiveFlag `json:"activeFlags"`
+	TypeValue   string             `json:"type"`
+}
 
 // ThreadStatusChangedNotification is generated from the ThreadStatusChangedNotification schema definition.
 type ThreadStatusChangedNotification struct {
 	Status   ThreadStatus `json:"status"`
 	ThreadID string       `json:"threadId"`
+}
+
+func (value *ThreadStatusChangedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Status   jsontext.Value `json:"status"`
+		ThreadID string         `json:"threadId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.Status == nil {
+		value.Status = nil
+	} else {
+		value.Status = RawThreadStatus(raw.Status)
+	}
+	value.ThreadID = raw.ThreadID
+	return nil
 }
 
 // ThreadTokenUsage is generated from the ThreadTokenUsage schema definition.
@@ -3284,6 +7227,40 @@ type Turn struct {
 	Status      TurnStatus     `json:"status"`
 }
 
+func (value *Turn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		CompletedAt *int64           `json:"completedAt,omitzero"`
+		DurationMs  *int64           `json:"durationMs,omitzero"`
+		Error       *TurnError       `json:"error,omitzero"`
+		ID          string           `json:"id"`
+		Items       []jsontext.Value `json:"items"`
+		ItemsView   *TurnItemsView   `json:"itemsView,omitzero"`
+		StartedAt   *int64           `json:"startedAt,omitzero"`
+		Status      TurnStatus       `json:"status"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.CompletedAt = raw.CompletedAt
+	value.DurationMs = raw.DurationMs
+	value.Error = raw.Error
+	value.ID = raw.ID
+	if raw.Items == nil {
+		value.Items = nil
+	} else {
+		value.Items = make([]ThreadItem, len(raw.Items))
+		for i, item := range raw.Items {
+			if item != nil {
+				value.Items[i] = RawThreadItem(item)
+			}
+		}
+	}
+	value.ItemsView = raw.ItemsView
+	value.StartedAt = raw.StartedAt
+	value.Status = raw.Status
+	return nil
+}
+
 // TurnCompletedNotification is generated from the TurnCompletedNotification schema definition.
 type TurnCompletedNotification struct {
 	ThreadID string `json:"threadId"`
@@ -3317,10 +7294,32 @@ type TurnInterruptParams struct {
 }
 
 // TurnInterruptResponse is generated from the TurnInterruptResponse schema definition.
-type TurnInterruptResponse = jsontext.Value
+type TurnInterruptResponse jsontext.Value
+
+var _ json.MarshalerTo = TurnInterruptResponse{}
+var _ json.UnmarshalerFrom = (*TurnInterruptResponse)(nil)
+
+func (value TurnInterruptResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *TurnInterruptResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // TurnItemsView is generated from the TurnItemsView schema definition.
-type TurnItemsView = jsontext.Value
+type TurnItemsView jsontext.Value
+
+var _ json.MarshalerTo = TurnItemsView{}
+var _ json.UnmarshalerFrom = (*TurnItemsView)(nil)
+
+func (value TurnItemsView) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *TurnItemsView) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
 
 // TurnPlanStep is generated from the TurnPlanStep schema definition.
 type TurnPlanStep struct {
@@ -3364,6 +7363,53 @@ type TurnStartParams struct {
 	ThreadID          string             `json:"threadId"`
 }
 
+func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ApprovalPolicy    *AskForApproval    `json:"approvalPolicy,omitzero"`
+		ApprovalsReviewer *ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
+		Cwd               *string            `json:"cwd,omitzero"`
+		Effort            *ReasoningEffort   `json:"effort,omitzero"`
+		Input             []jsontext.Value   `json:"input"`
+		Model             *string            `json:"model,omitzero"`
+		OutputSchema      jsontext.Value     `json:"outputSchema,omitzero"`
+		Personality       *Personality       `json:"personality,omitzero"`
+		SandboxPolicy     jsontext.Value     `json:"sandboxPolicy,omitzero"`
+		ServiceTier       *string            `json:"serviceTier,omitzero"`
+		Summary           *ReasoningSummary  `json:"summary,omitzero"`
+		ThreadID          string             `json:"threadId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ApprovalPolicy = raw.ApprovalPolicy
+	value.ApprovalsReviewer = raw.ApprovalsReviewer
+	value.Cwd = raw.Cwd
+	value.Effort = raw.Effort
+	if raw.Input == nil {
+		value.Input = nil
+	} else {
+		value.Input = make([]UserInput, len(raw.Input))
+		for i, item := range raw.Input {
+			if item != nil {
+				value.Input[i] = RawUserInput(item)
+			}
+		}
+	}
+	value.Model = raw.Model
+	value.OutputSchema = raw.OutputSchema
+	value.Personality = raw.Personality
+	if raw.SandboxPolicy == nil {
+		value.SandboxPolicy = nil
+	} else {
+		sandboxPolicy := SandboxPolicy(RawSandboxPolicy(raw.SandboxPolicy))
+		value.SandboxPolicy = &sandboxPolicy
+	}
+	value.ServiceTier = raw.ServiceTier
+	value.Summary = raw.Summary
+	value.ThreadID = raw.ThreadID
+	return nil
+}
+
 // TurnStartResponse is generated from the TurnStartResponse schema definition.
 type TurnStartResponse struct {
 	Turn Turn `json:"turn"`
@@ -3396,13 +7442,98 @@ type TurnSteerParams struct {
 	ThreadID       string      `json:"threadId"`
 }
 
+func (value *TurnSteerParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ExpectedTurnID string           `json:"expectedTurnId"`
+		Input          []jsontext.Value `json:"input"`
+		ThreadID       string           `json:"threadId"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ExpectedTurnID = raw.ExpectedTurnID
+	if raw.Input == nil {
+		value.Input = nil
+	} else {
+		value.Input = make([]UserInput, len(raw.Input))
+		for i, item := range raw.Input {
+			if item != nil {
+				value.Input[i] = RawUserInput(item)
+			}
+		}
+	}
+	value.ThreadID = raw.ThreadID
+	return nil
+}
+
 // TurnSteerResponse is generated from the TurnSteerResponse schema definition.
 type TurnSteerResponse struct {
 	TurnID string `json:"turnId"`
 }
 
 // UserInput is generated from the UserInput schema definition.
-type UserInput = jsontext.Value
+type UserInput interface {
+	isUserInput()
+}
+
+// RawUserInput preserves an uninterpreted UserInput JSON value.
+type RawUserInput jsontext.Value
+
+func (RawUserInput) isUserInput() {}
+
+var _ json.MarshalerTo = RawUserInput{}
+var _ json.UnmarshalerFrom = (*RawUserInput)(nil)
+
+func (value RawUserInput) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawUserInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (TextUserInput) isUserInput() {}
+
+// TextUserInput is generated from the TextUserInput schema definition.
+type TextUserInput struct {
+	Text         string        `json:"text"`
+	TextElements []TextElement `json:"text_elements,omitzero"`
+	TypeValue    string        `json:"type"`
+}
+
+func (ImageUserInput) isUserInput() {}
+
+// ImageUserInput is generated from the ImageUserInput schema definition.
+type ImageUserInput struct {
+	TypeValue string `json:"type"`
+	URL       string `json:"url"`
+}
+
+func (LocalImageUserInput) isUserInput() {}
+
+// LocalImageUserInput is generated from the LocalImageUserInput schema definition.
+type LocalImageUserInput struct {
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
+func (SkillUserInput) isUserInput() {}
+
+// SkillUserInput is generated from the SkillUserInput schema definition.
+type SkillUserInput struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
+
+func (MentionUserInput) isUserInput() {}
+
+// MentionUserInput is generated from the MentionUserInput schema definition.
+type MentionUserInput struct {
+	Name      string `json:"name"`
+	Path      string `json:"path"`
+	TypeValue string `json:"type"`
+}
 
 // Verbosity is generated from the Verbosity schema definition.
 type Verbosity string
@@ -3423,7 +7554,58 @@ type WarningNotification struct {
 }
 
 // WebSearchAction is generated from the WebSearchAction schema definition.
-type WebSearchAction = jsontext.Value
+type WebSearchAction interface {
+	isWebSearchAction()
+}
+
+// RawWebSearchAction preserves an uninterpreted WebSearchAction JSON value.
+type RawWebSearchAction jsontext.Value
+
+func (RawWebSearchAction) isWebSearchAction() {}
+
+var _ json.MarshalerTo = RawWebSearchAction{}
+var _ json.UnmarshalerFrom = (*RawWebSearchAction)(nil)
+
+func (value RawWebSearchAction) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return enc.WriteValue(jsontext.Value(value))
+}
+
+func (value *RawWebSearchAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+func (SearchWebSearchAction) isWebSearchAction() {}
+
+// SearchWebSearchAction is generated from the SearchWebSearchAction schema definition.
+type SearchWebSearchAction struct {
+	Queries   []string `json:"queries,omitzero"`
+	Query     *string  `json:"query,omitzero"`
+	TypeValue string   `json:"type"`
+}
+
+func (OpenPageWebSearchAction) isWebSearchAction() {}
+
+// OpenPageWebSearchAction is generated from the OpenPageWebSearchAction schema definition.
+type OpenPageWebSearchAction struct {
+	TypeValue string  `json:"type"`
+	URL       *string `json:"url,omitzero"`
+}
+
+func (FindInPageWebSearchAction) isWebSearchAction() {}
+
+// FindInPageWebSearchAction is generated from the FindInPageWebSearchAction schema definition.
+type FindInPageWebSearchAction struct {
+	Pattern   *string `json:"pattern,omitzero"`
+	TypeValue string  `json:"type"`
+	URL       *string `json:"url,omitzero"`
+}
+
+func (OtherWebSearchAction) isWebSearchAction() {}
+
+// OtherWebSearchAction is generated from the OtherWebSearchAction schema definition.
+type OtherWebSearchAction struct {
+	TypeValue string `json:"type"`
+}
 
 // WebSearchContextSize is generated from the WebSearchContextSize schema definition.
 type WebSearchContextSize string
