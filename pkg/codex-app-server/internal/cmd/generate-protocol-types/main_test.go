@@ -739,3 +739,128 @@ func TestGenerateStructUnmarshalForRawUnionFields(t *testing.T) {
 		t.Fatalf("single-variant aliases must not use a missing raw union wrapper:\n%s", got)
 	}
 }
+
+func TestGenerateDescriptionGodoc(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"Aliased": {
+			Type:        "string",
+			Description: "Opaque identifier referencing an upstream record.",
+		},
+		"Status": {
+			Type:        "string",
+			Enum:        []any{"ready"},
+			Description: "Lifecycle state of the workflow.",
+		},
+		"NoDescription": {
+			Type: "string",
+		},
+		"Sample": {
+			Type:        "object",
+			Description: "Sample carries demo data.\n\nIt has multiple paragraphs.",
+			Required:    []string{"id"},
+			Properties: map[string]*jsonschema.Schema{
+				"id": {
+					Type:        "string",
+					Description: "Stable identifier for this record",
+				},
+				"plain": {
+					Type: "string",
+				},
+			},
+		},
+	}
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "protocol")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	wantFragments := []string{
+		"// Aliased opaque identifier referencing an upstream record.\ntype Aliased = string",
+		"// Status lifecycle state of the workflow.\ntype Status string",
+		"// NoDescription is generated from the NoDescription schema definition.",
+		"// Sample carries demo data.",
+		"//\n// It has multiple paragraphs.",
+		"// ID stable identifier for this record.",
+	}
+	for _, fragment := range wantFragments {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+}
+
+func TestRewriteGodocFirstLine(t *testing.T) {
+	tests := map[string]struct {
+		name string
+		line string
+		want string
+	}{
+		"already godoc-prefixed line is preserved": {
+			name: "Sample",
+			line: "Sample carries demo data.",
+			want: "Sample carries demo data.",
+		},
+		"leading article 'A' becomes 'represents a'": {
+			name: "AbsolutePathBuf",
+			line: "A path that is guaranteed to be absolute and normalized.",
+			want: "AbsolutePathBuf represents a path that is guaranteed to be absolute and normalized.",
+		},
+		"leading article 'An' becomes 'represents an'": {
+			name: "AppInfo",
+			line: "An optional metadata blob.",
+			want: "AppInfo represents an optional metadata blob.",
+		},
+		"leading article 'The' becomes 'represents a/an'": {
+			name: "ServerNotification",
+			line: "The notification emitted by the server.",
+			want: "ServerNotification represents a notification emitted by the server.",
+		},
+		"adjective starter is lowercased without article": {
+			name: "AppBranding",
+			line: "Optional branding shown in the app picker.",
+			want: "AppBranding optional branding shown in the app picker.",
+		},
+		"noun starter is lowercased without article": {
+			name: "Status",
+			line: "Lifecycle state of the workflow.",
+			want: "Status lifecycle state of the workflow.",
+		},
+		"leading uppercase tag is stripped and body is lowercased": {
+			name: "AppInfo",
+			line: "EXPERIMENTAL - app metadata returned by app-list APIs.",
+			want: "AppInfo app metadata returned by app-list APIs.",
+		},
+		"imperative verb is conjugated to third person": {
+			name: "CommandExecRequest",
+			line: "Execute a standalone command in the sandbox.",
+			want: "CommandExecRequest executes a standalone command in the sandbox.",
+		},
+		"imperative verb ending in y is conjugated to ies": {
+			name: "Notifier",
+			line: "Notify subscribers when state changes.",
+			want: "Notifier notifies subscribers when state changes.",
+		},
+		"third person singular verb is lowercased": {
+			name: "ApprovalsReviewer",
+			line: "Configures who approval requests are routed to.",
+			want: "ApprovalsReviewer configures who approval requests are routed to.",
+		},
+		"Whether prefix becomes 'reports whether'": {
+			name: "IsEnabled",
+			line: "Whether this app is enabled in config.toml.",
+			want: "IsEnabled reports whether this app is enabled in config.toml.",
+		},
+		"empty line returns just the name": {
+			name: "Empty",
+			line: "",
+			want: "Empty",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := rewriteGodocFirstLine(tt.name, tt.line); got != tt.want {
+				t.Fatalf("rewriteGodocFirstLine(%q, %q) = %q, want %q", tt.name, tt.line, got, tt.want)
+			}
+		})
+	}
+}
