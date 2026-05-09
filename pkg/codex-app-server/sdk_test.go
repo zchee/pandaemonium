@@ -24,6 +24,7 @@ import (
 	"os"
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 
 	json "github.com/go-json-experiment/json"
@@ -297,6 +298,11 @@ type streamResult struct {
 	err           error
 }
 
+type streamMethodsResult struct {
+	methods []string
+	err     error
+}
+
 func collectStream(stream iter.Seq2[Notification, error]) ([]Notification, error) {
 	var notifications []Notification
 	for notification, err := range stream {
@@ -331,6 +337,13 @@ func activeTurnConsumer(client *Client) string {
 	return client.activeTurnID
 }
 
+func assertActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
+	t.Helper()
+	if activeTurnID := activeTurnConsumer(client); activeTurnID != turnID {
+		t.Fatalf("activeTurnID = %q, want %q", activeTurnID, turnID)
+	}
+}
+
 func waitForActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
 	t.Helper()
 	deadline := time.NewTimer(2 * time.Second)
@@ -350,103 +363,127 @@ func waitForActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
 }
 
 func TestTurnStreamReleasesConsumerAfterCompletion(t *testing.T) {
-	client := NewClient(nil, nil)
-	handle := &TurnHandle{client: client, threadID: "thr_stream_done", turnID: "turn_stream_done"}
-	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
-	defer cancel()
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
+		handle := &TurnHandle{client: client, threadID: "thr_stream_done", turnID: "turn_stream_done"}
 
-	completed := Notification{
-		Method: NotificationMethodTurnCompleted,
-		Params: mustJSON(t, Object{"threadId": "thr_stream_done", "turn": Object{"id": "turn_stream_done", "status": "completed"}}),
-	}
-	go func() {
+		completed := Notification{
+			Method: NotificationMethodTurnCompleted,
+			Params: mustJSON(t, Object{"threadId": "thr_stream_done", "turn": Object{"id": "turn_stream_done", "status": "completed"}}),
+		}
+		streamResult := collectStreamAsync(handle.Stream(t.Context()))
+		synctest.Wait()
+		assertActiveTurnConsumer(t, client, handle.ID())
+
 		client.notifications <- completed
-	}()
+		synctest.Wait()
 
-	notifications, err := collectStream(handle.Stream(ctx))
-	if err != nil {
-		t.Fatalf("stream error = %v", err)
-	}
-	if diff := cmp.Diff([]string{NotificationMethodTurnCompleted}, notificationMethods(notifications)); diff != "" {
-		t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
-	}
-	if err := client.acquireTurnConsumer("turn_after_completion"); err != nil {
-		t.Fatalf("acquireTurnConsumer() after stream completion error = %v", err)
-	}
-	client.releaseTurnConsumer("turn_after_completion")
+		result := <-streamResult
+		if result.err != nil {
+			t.Fatalf("stream error = %v", result.err)
+		}
+		if diff := cmp.Diff([]string{NotificationMethodTurnCompleted}, notificationMethods(result.notifications)); diff != "" {
+			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
+		}
+		if err := client.acquireTurnConsumer("turn_after_completion"); err != nil {
+			t.Fatalf("acquireTurnConsumer() after stream completion error = %v", err)
+		}
+		client.releaseTurnConsumer("turn_after_completion")
+	})
 }
 
 func TestTurnStreamReleasesConsumerAfterEarlyStop(t *testing.T) {
-	client := NewClient(nil, nil)
-	handle := &TurnHandle{client: client, threadID: "thr_stream_stop", turnID: "turn_stream_stop"}
-	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
-	defer cancel()
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
+		handle := &TurnHandle{client: client, threadID: "thr_stream_stop", turnID: "turn_stream_stop"}
 
-	firstNotification := Notification{
-		Method: "custom/event",
-		Params: mustJSON(t, Object{"phase": "first"}),
-	}
-	go func() {
-		client.notifications <- firstNotification
-	}()
-
-	var methods []string
-	for notification, err := range handle.Stream(ctx) {
-		if err != nil {
-			t.Fatalf("stream error = %v", err)
+		firstNotification := Notification{
+			Method: "custom/event",
+			Params: mustJSON(t, Object{"phase": "first"}),
 		}
-		methods = append(methods, notification.Method)
-		break
-	}
-	if diff := cmp.Diff([]string{"custom/event"}, methods); diff != "" {
-		t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
-	}
-	if err := client.acquireTurnConsumer("turn_after_early_stop"); err != nil {
-		t.Fatalf("acquireTurnConsumer() after early stream stop error = %v", err)
-	}
-	client.releaseTurnConsumer("turn_after_early_stop")
+		result := make(chan streamMethodsResult, 1)
+		go func() {
+			var methods []string
+			for notification, err := range handle.Stream(t.Context()) {
+				if err != nil {
+					result <- streamMethodsResult{err: err}
+					return
+				}
+				methods = append(methods, notification.Method)
+				break
+			}
+			result <- streamMethodsResult{methods: methods}
+		}()
+		synctest.Wait()
+		assertActiveTurnConsumer(t, client, handle.ID())
+
+		client.notifications <- firstNotification
+		synctest.Wait()
+
+		got := <-result
+		if got.err != nil {
+			t.Fatalf("stream error = %v", got.err)
+		}
+		if diff := cmp.Diff([]string{"custom/event"}, got.methods); diff != "" {
+			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
+		}
+		if err := client.acquireTurnConsumer("turn_after_early_stop"); err != nil {
+			t.Fatalf("acquireTurnConsumer() after early stream stop error = %v", err)
+		}
+		client.releaseTurnConsumer("turn_after_early_stop")
+	})
 }
 
 func TestTurnStreamReleasesConsumerOnContextCancel(t *testing.T) {
-	client := NewClient(nil, nil)
-	handle := &TurnHandle{client: client, threadID: "thr_stream_cancel", turnID: "turn_stream_cancel"}
-	ctx, cancel := context.WithCancel(t.Context())
-	cancel()
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
+		handle := &TurnHandle{client: client, threadID: "thr_stream_cancel", turnID: "turn_stream_cancel"}
+		ctx, cancel := context.WithCancel(t.Context())
 
-	notifications, err := collectStream(handle.Stream(ctx))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("stream error = %v, want context.Canceled", err)
-	}
-	if len(notifications) != 0 {
-		t.Fatalf("notifications len = %d, want 0 after cancellation", len(notifications))
-	}
-	if err := client.acquireTurnConsumer("turn_after_cancel"); err != nil {
-		t.Fatalf("acquireTurnConsumer() after stream cancellation error = %v", err)
-	}
-	client.releaseTurnConsumer("turn_after_cancel")
+		streamResult := collectStreamAsync(handle.Stream(ctx))
+		synctest.Wait()
+		assertActiveTurnConsumer(t, client, handle.ID())
+
+		cancel()
+		synctest.Wait()
+
+		result := <-streamResult
+		if !errors.Is(result.err, context.Canceled) {
+			t.Fatalf("stream error = %v, want context.Canceled", result.err)
+		}
+		if len(result.notifications) != 0 {
+			t.Fatalf("notifications len = %d, want 0 after cancellation", len(result.notifications))
+		}
+		if err := client.acquireTurnConsumer("turn_after_cancel"); err != nil {
+			t.Fatalf("acquireTurnConsumer() after stream cancellation error = %v", err)
+		}
+		client.releaseTurnConsumer("turn_after_cancel")
+	})
 }
 
 func TestSecondTurnConsumerFailsPredictably(t *testing.T) {
-	client := NewClient(nil, nil)
-	if err := client.acquireTurnConsumer("turn_busy"); err != nil {
-		t.Fatalf("initial acquireTurnConsumer() error = %v", err)
-	}
-	defer client.releaseTurnConsumer("turn_busy")
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
+		if err := client.acquireTurnConsumer("turn_busy"); err != nil {
+			t.Fatalf("initial acquireTurnConsumer() error = %v", err)
+		}
+		defer client.releaseTurnConsumer("turn_busy")
 
-	handle := &TurnHandle{client: client, threadID: "thr_busy", turnID: "turn_other"}
-	notifications, err := collectStream(handle.Stream(t.Context()))
-	if err == nil {
-		t.Fatalf("Stream() error = nil, want second consumer rejection")
-	}
-	if len(notifications) != 0 {
-		t.Fatalf("Stream() notifications len = %d, want 0 on acquire failure", len(notifications))
-	}
-	if !strings.Contains(err.Error(), "turn consumer already active for turn_busy") {
-		t.Fatalf("Stream() error = %q, want active consumer message", err)
-	}
-	if _, err := handle.Run(t.Context()); err == nil || !strings.Contains(err.Error(), "turn consumer already active for turn_busy") {
-		t.Fatalf("Run() error = %v, want active consumer message", err)
-	}
+		handle := &TurnHandle{client: client, threadID: "thr_busy", turnID: "turn_other"}
+		notifications, err := collectStream(handle.Stream(t.Context()))
+		if err == nil {
+			t.Fatalf("Stream() error = nil, want second consumer rejection")
+		}
+		if len(notifications) != 0 {
+			t.Fatalf("Stream() notifications len = %d, want 0 on acquire failure", len(notifications))
+		}
+		if !strings.Contains(err.Error(), "turn consumer already active for turn_busy") {
+			t.Fatalf("Stream() error = %q, want active consumer message", err)
+		}
+		if _, err := handle.Run(t.Context()); err == nil || !strings.Contains(err.Error(), "turn consumer already active for turn_busy") {
+			t.Fatalf("Run() error = %v, want active consumer message", err)
+		}
+	})
 }
 
 func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
