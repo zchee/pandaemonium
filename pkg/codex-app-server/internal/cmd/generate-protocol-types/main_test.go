@@ -1,11 +1,178 @@
 package main
 
 import (
+	"net/http"
+	"net/http/httptest"
+	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	gocmp "github.com/google/go-cmp/cmp"
 	"github.com/google/jsonschema-go/jsonschema"
 )
+
+func TestReadSchemaSourceLocalFile(t *testing.T) {
+	t.Parallel()
+
+	want := []byte(`{"definitions":{"Sample":{"type":"string"}}}`)
+	path := filepath.Join(t.TempDir(), "schema.json")
+	if err := os.WriteFile(path, want, 0o600); err != nil {
+		t.Fatalf("os.WriteFile() error = %v", err)
+	}
+
+	got, err := readSchemaSource(path)
+	if err != nil {
+		t.Fatalf("readSchemaSource(%q) error = %v", path, err)
+	}
+	if diff := gocmp.Diff(want, got); diff != "" {
+		t.Fatalf("readSchemaSource(%q) mismatch (-want +got):\n%s", path, diff)
+	}
+}
+
+func TestReadSchemaSourceLocalFileWithInvalidURLEscape(t *testing.T) {
+	t.Parallel()
+
+	want := []byte(`{"definitions":{"Escaped":{"type":"string"}}}`)
+	path := filepath.Join(t.TempDir(), "schema%zz.json")
+	if err := os.WriteFile(path, want, 0o600); err != nil {
+		t.Fatalf("os.WriteFile() error = %v", err)
+	}
+
+	got, err := readSchemaSource(path)
+	if err != nil {
+		t.Fatalf("readSchemaSource(%q) error = %v", path, err)
+	}
+	if diff := gocmp.Diff(want, got); diff != "" {
+		t.Fatalf("readSchemaSource(%q) mismatch (-want +got):\n%s", path, diff)
+	}
+}
+
+func TestReadSchemaSourceHTTPURL(t *testing.T) {
+	t.Parallel()
+
+	want := []byte(`{"definitions":{"Remote":{"type":"string"}}}`)
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Method != http.MethodGet {
+			t.Fatalf("method = %s, want %s", r.Method, http.MethodGet)
+		}
+		w.Header().Set("Content-Type", "application/schema+json")
+		_, _ = w.Write(want)
+	}))
+	t.Cleanup(server.Close)
+
+	got, err := readSchemaSource(server.URL + "/schema.json")
+	if err != nil {
+		t.Fatalf("readSchemaSource(%q) error = %v", server.URL, err)
+	}
+	if diff := gocmp.Diff(want, got); diff != "" {
+		t.Fatalf("readSchemaSource(%q) mismatch (-want +got):\n%s", server.URL, diff)
+	}
+}
+
+func TestReadSchemaSourceHTTPStatusError(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		http.Error(w, "missing", http.StatusNotFound)
+	}))
+	t.Cleanup(server.Close)
+
+	sensitiveURL := strings.Replace(server.URL, "http://", "http://user:pass@", 1) + "/missing.json?token=secret"
+	_, err := readSchemaSource(sensitiveURL)
+	if err == nil {
+		t.Fatal("readSchemaSource() error = nil, want HTTP status error")
+	}
+	if !strings.Contains(err.Error(), "404 Not Found") {
+		t.Fatalf("readSchemaSource() error = %v, want 404 status", err)
+	}
+	if strings.Contains(err.Error(), "user:pass") || strings.Contains(err.Error(), "token=secret") {
+		t.Fatalf("readSchemaSource() error = %v, want redacted URL credentials and query", err)
+	}
+}
+
+func TestReadSchemaSourceUnsupportedURLScheme(t *testing.T) {
+	t.Parallel()
+
+	_, err := readSchemaSource("ftp://example.test/schema.json")
+	if err == nil {
+		t.Fatal("readSchemaSource() error = nil, want unsupported scheme error")
+	}
+	if !strings.Contains(err.Error(), `unsupported schema URL scheme "ftp"`) {
+		t.Fatalf("readSchemaSource() error = %v, want unsupported scheme", err)
+	}
+}
+
+func TestReadSchemaSourceInvalidHTTPURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := readSchemaSource("https://")
+	if err == nil {
+		t.Fatal("readSchemaSource() error = nil, want invalid URL error")
+	}
+	if !strings.Contains(err.Error(), "missing host") {
+		t.Fatalf("readSchemaSource() error = %v, want missing host", err)
+	}
+}
+
+func TestReadSchemaSourceMalformedHTTPURL(t *testing.T) {
+	t.Parallel()
+
+	_, err := readSchemaSource("https://example.test/%zz")
+	if err == nil {
+		t.Fatal("readSchemaSource() error = nil, want parse error")
+	}
+	if !strings.Contains(err.Error(), "parse source:") {
+		t.Fatalf("readSchemaSource() error = %v, want parse error", err)
+	}
+}
+
+func TestReadHTTPSchemaSourceWithLimit(t *testing.T) {
+	t.Parallel()
+
+	server := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_, _ = w.Write([]byte("12345"))
+	}))
+	t.Cleanup(server.Close)
+
+	_, err := readHTTPSchemaSourceWithLimit(server.URL+"/large.json", 4)
+	if err == nil {
+		t.Fatal("readHTTPSchemaSourceWithLimit() error = nil, want size limit error")
+	}
+	if !strings.Contains(err.Error(), "schema exceeds 4 bytes") {
+		t.Fatalf("readHTTPSchemaSourceWithLimit() error = %v, want size limit", err)
+	}
+}
+
+func TestSchemaSourceLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+		want  string
+	}{
+		"success: local path is slash normalized": {
+			input: `testdata\schema.json`,
+			want:  "testdata/schema.json",
+		},
+		"success: http url drops query fragment and user info": {
+			input: "https://user:pass@example.test/schema.json?token=secret#section",
+			want:  "https://example.test/schema.json",
+		},
+		"success: non-url local path with colon is preserved": {
+			input: "schema:backup.json",
+			want:  "schema:backup.json",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got := schemaSourceLabel(tt.input)
+			if diff := gocmp.Diff(tt.want, got); diff != "" {
+				t.Fatalf("schemaSourceLabel() mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
 
 func TestExportName(t *testing.T) {
 	tests := map[string]struct {
