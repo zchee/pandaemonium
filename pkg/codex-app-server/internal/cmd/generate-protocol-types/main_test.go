@@ -70,6 +70,31 @@ func TestTypeForSchema(t *testing.T) {
 			input: &jsonschema.Schema{OneOf: []*jsonschema.Schema{{Type: "string"}, {Type: "integer"}}},
 			want:  "jsontext.Value",
 		},
+		"success: union inside slice stays raw json": {
+			input: &jsonschema.Schema{
+				Type: "array",
+				Items: &jsonschema.Schema{
+					OneOf: []*jsonschema.Schema{
+						{Type: "string"},
+						{Type: "number"},
+						{Type: "boolean"},
+					},
+				},
+			},
+			want: "[]jsontext.Value",
+		},
+		"success: nullable nested union in slice becomes pointer element type": {
+			input: &jsonschema.Schema{
+				Type: "array",
+				Items: &jsonschema.Schema{
+					AnyOf: []*jsonschema.Schema{
+						{Ref: "#/definitions/SampleStatus"},
+						{Type: "null"},
+					},
+				},
+			},
+			want: "[]*SampleStatus",
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
@@ -114,6 +139,30 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 			},
 			Required: []string{"status"},
 		},
+		"UnionSliceHolder": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"unionSlice": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						OneOf: []*jsonschema.Schema{
+							{Type: "string"},
+							{Type: "integer"},
+						},
+					},
+				},
+				"nestedUnion": {
+					Type: "array",
+					Items: &jsonschema.Schema{
+						AnyOf: []*jsonschema.Schema{
+							{Ref: "#/definitions/SampleStatus"},
+							{Type: "null"},
+						},
+					},
+				},
+			},
+			Required: []string{"unionSlice", "nestedUnion"},
+		},
 	}
 	g := newGenerator(definitions)
 	gotBytes, err := g.generate("schema.json", "protocol")
@@ -129,6 +178,8 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"Labels map[string]string `json:\"labels,omitzero\"`",
 		"Nested *Nested `json:\"nested,omitzero\"`",
 		"Status SampleStatus `json:\"status\"`",
+		"UnionSlice []jsontext.Value `json:\"unionSlice\"`",
+		"NestedUnion []*SampleStatus `json:\"nestedUnion\"`",
 	}
 	for _, fragment := range wantFragments {
 		if !strings.Contains(got, fragment) {

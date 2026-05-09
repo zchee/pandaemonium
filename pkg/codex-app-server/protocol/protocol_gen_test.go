@@ -4,6 +4,7 @@ import (
 	"testing"
 
 	json "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
 )
 
@@ -89,6 +90,53 @@ func TestGeneratedProtocolTypesDecode(t *testing.T) {
 			}
 			if diff := gocmp.Diff(tt.want, got); diff != "" {
 				t.Fatalf("decoded params mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestGeneratedProtocolTypesRoundTripUnionPayloads(t *testing.T) {
+	t.Parallel()
+
+	input := ThreadInjectItemsParams{
+		ThreadID: "thr-union-test",
+		Items: []jsontext.Value{
+			jsontext.Value(`{"type":"tool","name":"git_diff"}`),
+			jsontext.Value(`["meta",{"nested":{"type":"agentMessage","text":"hello"}}]`),
+		},
+	}
+
+	gotBytes, err := json.Marshal(input)
+	if err != nil {
+		t.Fatalf("json.Marshal() error = %v", err)
+	}
+	var got ThreadInjectItemsParams
+	if err := json.Unmarshal(gotBytes, &got); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if diff := gocmp.Diff(input, got); diff != "" {
+		t.Fatalf("union round-trip mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestGeneratedProtocolTypesDecodeRejectsInvalidDiscriminatorLikePayload(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+	}{
+		"error: malformed turn id type is rejected": {
+			input: `{"id":123,"status":"inProgress"}`,
+		},
+		"error: malformed turn status type is rejected": {
+			input: `{"id":"turn-1","status":{"value":"inProgress"}}`,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got Turn
+			if err := json.Unmarshal([]byte(tt.input), &got); err == nil {
+				t.Fatal("json.Unmarshal() error = nil, want decode error")
 			}
 		})
 	}
