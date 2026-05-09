@@ -17,6 +17,7 @@ package codexappserver
 import (
 	"context"
 	"fmt"
+	"iter"
 	"strings"
 
 	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
@@ -173,40 +174,38 @@ func (h *TurnHandle) Interrupt(ctx context.Context) (protocol.TurnInterruptRespo
 	return h.client.TurnInterrupt(ctx, h.threadID, h.turnID)
 }
 
-// Stream returns a channel of notifications until this turn completes.
-func (h *TurnHandle) Stream(ctx context.Context) (<-chan Notification, <-chan error, error) {
-	if err := h.client.acquireTurnConsumer(h.turnID); err != nil {
-		return nil, nil, err
-	}
-	notifications := make(chan Notification)
-	errs := make(chan error, 1)
-	go func() {
+// Stream returns an iterator of notifications until this turn completes.
+//
+// The iterator yields (Notification{}, err) once and stops when acquiring the
+// stream consumer, reading from the transport, decoding completion, or the
+// context fails. It yields no error on normal turn completion. Stopping
+// iteration early releases the stream consumer before Stream returns.
+func (h *TurnHandle) Stream(ctx context.Context) iter.Seq2[Notification, error] {
+	return func(yield func(Notification, error) bool) {
+		if err := h.client.acquireTurnConsumer(h.turnID); err != nil {
+			yield(Notification{}, err)
+			return
+		}
 		defer h.client.releaseTurnConsumer(h.turnID)
-		defer close(notifications)
-		defer close(errs)
 		for {
 			notification, err := h.client.NextNotification(ctx)
 			if err != nil {
-				errs <- err
+				yield(Notification{}, err)
 				return
 			}
-			select {
-			case notifications <- notification:
-			case <-ctx.Done():
-				errs <- ctx.Err()
+			if !yield(notification, nil) {
 				return
 			}
 			completed, ok, err := notification.TurnCompleted()
 			if err != nil {
-				errs <- err
+				yield(Notification{}, err)
 				return
 			}
 			if ok && completed.Turn.ID == h.turnID {
 				return
 			}
 		}
-	}()
-	return notifications, errs, nil
+	}
 }
 
 // Run consumes notifications until this turn completes and returns the final turn.
