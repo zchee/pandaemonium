@@ -196,7 +196,7 @@ func (h *TurnHandle) Stream(ctx context.Context) (<-chan Notification, <-chan er
 				errs <- ctx.Err()
 				return
 			}
-			completed, ok, err := decodeNotification[protocol.TurnCompletedNotification](notification, "turn/completed")
+			completed, ok, err := notification.TurnCompleted()
 			if err != nil {
 				errs <- err
 				return

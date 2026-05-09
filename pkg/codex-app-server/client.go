@@ -529,7 +529,7 @@ func decodeNotification[T any](notification Notification, method string) (T, boo
 		return zero, false, nil
 	}
 	if err := json.Unmarshal(notification.Params, &zero); err != nil {
-		return zero, true, err
+		return zero, true, fmt.Errorf("decode %s notification: %w", method, err)
 	}
 	return zero, true, nil
 }

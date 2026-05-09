@@ -41,7 +41,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 		if err != nil {
 			return RunResult{}, err
 		}
-		itemCompleted, ok, err := decodeNotification[protocol.ItemCompletedNotification](notification, "item/completed")
+		itemCompleted, ok, err := notification.ItemCompleted()
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -49,7 +49,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			items = append(items, itemCompleted.Item)
 			continue
 		}
-		usageUpdated, ok, err := decodeNotification[protocol.ThreadTokenUsageUpdatedNotification](notification, "thread/tokenUsage/updated")
+		usageUpdated, ok, err := notification.ThreadTokenUsageUpdated()
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -58,7 +58,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			usage = &copy
 			continue
 		}
-		turnCompleted, ok, err := decodeNotification[protocol.TurnCompletedNotification](notification, "turn/completed")
+		turnCompleted, ok, err := notification.TurnCompleted()
 		if err != nil {
 			return RunResult{}, err
 		}
