@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
@@ -237,6 +238,35 @@ func TestClientProtocolQueuesNotificationsAndHandlesServerRequests(t *testing.T)
 	}
 }
 
+func TestClientPreservesUnknownNotificationPayloads(t *testing.T) {
+	client := newHelperClient(t, "notification_passthrough")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: "gpt-5.4"})
+	if err != nil {
+		t.Fatalf("ThreadStart() error = %v", err)
+	}
+	if started.Thread.ID != "thr_notifications" {
+		t.Fatalf("thread id = %q, want thr_notifications", started.Thread.ID)
+	}
+	notification, err := client.NextNotification(t.Context())
+	if err != nil {
+		t.Fatalf("NextNotification() error = %v", err)
+	}
+	if notification.Method != "custom/event" {
+		t.Fatalf("notification method = %q, want custom/event", notification.Method)
+	}
+	if got := string(notification.Params); got != `{"details":{"answer":42},"kind":"raw"}` {
+		t.Fatalf("notification params = %s, want raw payload preserved", got)
+	}
+	if _, ok, err := DecodeItemCompletedNotification(notification); err != nil || ok {
+		t.Fatalf("DecodeItemCompletedNotification() mismatch = (%v, %v), want raw mismatch", err, ok)
+	}
+}
+
 func TestReleaseTurnConsumerDoesNotFailPendingRequests(t *testing.T) {
 	client := NewClient(nil, nil)
 	client.activeTurnID = "turn-1"
@@ -258,6 +288,82 @@ func TestReleaseTurnConsumerDoesNotFailPendingRequests(t *testing.T) {
 	client.responseMu.Unlock()
 	if !stillRegistered {
 		t.Fatalf("pending response was unregistered; releaseTurnConsumer must not fail unrelated requests")
+	}
+}
+
+func TestTurnStreamReleasesConsumerAfterCompletion(t *testing.T) {
+	client := NewClient(nil, nil)
+	handle := &TurnHandle{client: client, threadID: "thr_stream_done", turnID: "turn_stream_done"}
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+
+	notifications, errs, err := handle.Stream(ctx)
+	if err != nil {
+		t.Fatalf("Stream() error = %v", err)
+	}
+	client.notifications <- Notification{
+		Method: NotificationMethodTurnCompleted,
+		Params: mustJSON(t, Object{"threadId": "thr_stream_done", "turn": Object{"id": "turn_stream_done", "status": "completed"}}),
+	}
+
+	var methods []string
+	for notification := range notifications {
+		methods = append(methods, notification.Method)
+	}
+	if err := <-errs; err != nil {
+		t.Fatalf("stream error = %v", err)
+	}
+	if diff := cmp.Diff([]string{NotificationMethodTurnCompleted}, methods); diff != "" {
+		t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
+	}
+	if err := client.acquireTurnConsumer("turn_after_completion"); err != nil {
+		t.Fatalf("acquireTurnConsumer() after stream completion error = %v", err)
+	}
+	client.releaseTurnConsumer("turn_after_completion")
+}
+
+func TestTurnStreamReleasesConsumerOnContextCancel(t *testing.T) {
+	client := NewClient(nil, nil)
+	handle := &TurnHandle{client: client, threadID: "thr_stream_cancel", turnID: "turn_stream_cancel"}
+	ctx, cancel := context.WithCancel(t.Context())
+
+	notifications, errs, err := handle.Stream(ctx)
+	if err != nil {
+		t.Fatalf("Stream() error = %v", err)
+	}
+	cancel()
+	for range notifications {
+		t.Fatalf("unexpected notification after cancellation")
+	}
+	if err := <-errs; !errors.Is(err, context.Canceled) {
+		t.Fatalf("stream error = %v, want context.Canceled", err)
+	}
+	if err := client.acquireTurnConsumer("turn_after_cancel"); err != nil {
+		t.Fatalf("acquireTurnConsumer() after stream cancellation error = %v", err)
+	}
+	client.releaseTurnConsumer("turn_after_cancel")
+}
+
+func TestSecondTurnConsumerFailsPredictably(t *testing.T) {
+	client := NewClient(nil, nil)
+	if err := client.acquireTurnConsumer("turn_busy"); err != nil {
+		t.Fatalf("initial acquireTurnConsumer() error = %v", err)
+	}
+	defer client.releaseTurnConsumer("turn_busy")
+
+	handle := &TurnHandle{client: client, threadID: "thr_busy", turnID: "turn_other"}
+	notifications, errs, err := handle.Stream(t.Context())
+	if err == nil {
+		t.Fatalf("Stream() error = nil, want second consumer rejection")
+	}
+	if notifications != nil || errs != nil {
+		t.Fatalf("Stream() channels = (%v, %v), want nil channels on acquire failure", notifications, errs)
+	}
+	if !strings.Contains(err.Error(), "turn consumer already active for turn_busy") {
+		t.Fatalf("Stream() error = %q, want active consumer message", err)
+	}
+	if _, err := handle.Run(t.Context()); err == nil || !strings.Contains(err.Error(), "turn consumer already active for turn_busy") {
+		t.Fatalf("Run() error = %v, want active consumer message", err)
 	}
 }
 
@@ -284,6 +390,57 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	}
 	if result.Turn.ID != "turn_run" || result.Turn.Status != protocol.TurnStatusCompleted {
 		t.Fatalf("turn = %#v, want completed turn_run", result.Turn)
+	}
+	if client.activeTurnID != "" {
+		t.Fatalf("activeTurnID = %q, want released after successful Run", client.activeTurnID)
+	}
+
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: "gpt-5.4"})
+	if err != nil {
+		t.Fatalf("Turn() after successful Run error = %v", err)
+	}
+	notifications, errs, err := nextHandle.Stream(t.Context())
+	if err != nil {
+		t.Fatalf("Stream() after successful Run error = %v", err)
+	}
+	for range notifications {
+	}
+	if err := <-errs; err != nil {
+		t.Fatalf("stream error after successful Run = %v", err)
+	}
+}
+
+func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
+	client := newHelperClient(t, "run_failed")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	thread := &Thread{client: client, id: "thr_run_failed"}
+	_, err := thread.Run(t.Context(), "hello", nil)
+	if err == nil {
+		t.Fatalf("Run() error = nil, want failed turn error")
+	}
+	if !strings.Contains(err.Error(), "boom") {
+		t.Fatalf("Run() error = %v, want boom", err)
+	}
+	if client.activeTurnID != "" {
+		t.Fatalf("activeTurnID = %q, want released after failed Run", client.activeTurnID)
+	}
+
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: "gpt-5.4"})
+	if err != nil {
+		t.Fatalf("Turn() after failed Run error = %v", err)
+	}
+	notifications, errs, err := nextHandle.Stream(t.Context())
+	if err != nil {
+		t.Fatalf("Stream() after failed Run error = %v", err)
+	}
+	for range notifications {
+	}
+	if err := <-errs; err != nil {
+		t.Fatalf("stream error after failed Run = %v", err)
 	}
 }
 
@@ -318,6 +475,62 @@ func TestTurnStreamAllowsConcurrentSteer(t *testing.T) {
 	want := []string{"item/agentMessage/delta", "turn/completed"}
 	if diff := cmp.Diff(want, methods); diff != "" {
 		t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestTurnStreamRejectsSecondConsumerUntilFirstCancels(t *testing.T) {
+	client := newHelperClient(t, "stream_cancel")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	thread := &Thread{client: client, id: "thr_stream"}
+	firstHandle, err := thread.Turn(t.Context(), "first", nil)
+	if err != nil {
+		t.Fatalf("first Turn() error = %v", err)
+	}
+	firstCtx, firstCancel := context.WithCancel(t.Context())
+	notifications1, errs1, err := firstHandle.Stream(firstCtx)
+	if err != nil {
+		t.Fatalf("first Stream() error = %v", err)
+	}
+
+	secondHandle, err := thread.Turn(t.Context(), "second", nil)
+	if err != nil {
+		t.Fatalf("second Turn() error = %v", err)
+	}
+	secondCtx, secondCancel := context.WithCancel(t.Context())
+	defer secondCancel()
+	if _, _, err := secondHandle.Stream(secondCtx); err == nil || !strings.Contains(err.Error(), "turn consumer already active") {
+		t.Fatalf("second Stream() error = %v, want active-consumer failure", err)
+	}
+
+	firstCancel()
+	select {
+	case err := <-errs1:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("first stream error = %v, want context canceled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for first stream cancellation")
+	}
+	for range notifications1 {
+	}
+
+	notifications2, errs2, err := secondHandle.Stream(secondCtx)
+	if err != nil {
+		t.Fatalf("second Stream() after cancel error = %v", err)
+	}
+	_ = notifications2
+	secondCancel()
+	select {
+	case err := <-errs2:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("second stream error = %v, want context canceled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for second stream cancellation")
 	}
 }
 
@@ -380,12 +593,24 @@ func TestHelperProcess(t *testing.T) {
 			handleProtocolScenario(reader, writer, method, id)
 			continue
 		}
+		if scenario == "notification_passthrough" {
+			handleNotificationPassthroughScenario(writer, method, id)
+			continue
+		}
 		if scenario == "run" {
 			handleRunScenario(writer, method, id)
 			continue
 		}
+		if scenario == "run_failed" {
+			handleRunFailedScenario(writer, method, id)
+			continue
+		}
 		if scenario == "stream_steer" {
 			handleStreamSteerScenario(writer, method, id)
+			continue
+		}
+		if scenario == "stream_cancel" {
+			handleStreamCancelScenario(writer, method, id)
 			continue
 		}
 	}
@@ -425,6 +650,15 @@ func handleProtocolScenario(reader *bufio.Reader, writer *bufio.Writer, method, 
 	}
 }
 
+func handleNotificationPassthroughScenario(writer *bufio.Writer, method, id string) {
+	if method == "thread/start" {
+		writeRawJSONLine(writer, `{"method":"custom/event","params":{"details":{"answer":42},"kind":"raw"}}`)
+		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_notifications"}}})
+		return
+	}
+	writeJSON(writer, Object{"id": id, "result": Object{}})
+}
+
 func handleRunScenario(writer *bufio.Writer, method, id string) {
 	if method != "turn/start" {
 		writeJSON(writer, Object{"id": id, "result": Object{}})
@@ -435,6 +669,15 @@ func handleRunScenario(writer *bufio.Writer, method, id string) {
 	writeJSON(writer, Object{"method": "thread/tokenUsage/updated", "params": Object{"threadId": "thr_run", "turnId": "turn_run", "tokenUsage": Object{"last": usage(1), "total": usage(6)}}})
 	writeJSON(writer, Object{"method": "item/completed", "params": Object{"threadId": "thr_run", "turnId": "turn_run", "item": Object{"type": "agentMessage", "phase": "final_answer", "text": "final text"}}})
 	writeJSON(writer, Object{"method": "turn/completed", "params": Object{"turn": Object{"id": "turn_run", "status": "completed"}}})
+}
+
+func handleRunFailedScenario(writer *bufio.Writer, method, id string) {
+	if method != "turn/start" {
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+		return
+	}
+	writeJSON(writer, Object{"id": id, "result": Object{"turn": Object{"id": "turn_failed", "status": "inProgress"}}})
+	writeJSON(writer, Object{"method": "turn/completed", "params": Object{"threadId": "thr_run_failed", "turn": Object{"id": "turn_failed", "status": "failed", "error": Object{"message": "boom"}}}})
 }
 
 func handleStreamSteerScenario(writer *bufio.Writer, method, id string) {
@@ -450,8 +693,26 @@ func handleStreamSteerScenario(writer *bufio.Writer, method, id string) {
 	}
 }
 
+func handleStreamCancelScenario(writer *bufio.Writer, method, id string) {
+	if method != "turn/start" {
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+		return
+	}
+	turnID := "turn_cancel_1"
+	if id != "go-sdk-1" {
+		turnID = "turn_cancel_2"
+	}
+	writeJSON(writer, Object{"id": id, "result": Object{"turn": Object{"id": turnID, "status": "inProgress"}}})
+}
+
 func usage(total int64) Object {
 	return Object{"cachedInputTokens": int64(0), "inputTokens": total, "outputTokens": int64(0), "reasoningOutputTokens": int64(0), "totalTokens": total}
+}
+
+func writeRawJSONLine(writer *bufio.Writer, line string) {
+	_, _ = writer.WriteString(line)
+	_, _ = writer.WriteString("\n")
+	_ = writer.Flush()
 }
 
 func writeJSON(writer *bufio.Writer, payload any) {
