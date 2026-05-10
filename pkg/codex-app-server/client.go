@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -106,6 +107,15 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 		stderrDone:      make(chan struct{}),
 		readDone:        make(chan struct{}),
 	}
+}
+
+// DefaultCodexHome returns the default ~/.codex home directory location.
+func DefaultCodexHome() string {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		return filepath.Join(os.TempDir(), ".codex")
+	}
+	return filepath.Join(home, ".codex")
 }
 
 // Start launches the app-server process if it is not already running.
@@ -275,6 +285,30 @@ func (c *Client) RequestRaw(ctx context.Context, method string, params any) (jso
 	}
 }
 
+// RequestWithRetryOnOverload sends a request and retries retryable overload responses.
+func (c *Client) RequestWithRetryOnOverload(ctx context.Context, method string, params any, cfg RetryConfig) (jsontext.Value, error) {
+	return RetryOnOverload(ctx, cfg, func() (jsontext.Value, error) {
+		return c.RequestRaw(ctx, method, params)
+	})
+}
+
+// RequestWithRetryOnOverload is a package-level wrapper around [Client.RequestWithRetryOnOverload].
+func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method string, params any, cfg RetryConfig) (T, error) {
+	var zero T
+	raw, err := c.RequestWithRetryOnOverload(ctx, method, params, cfg)
+	if err != nil {
+		return zero, err
+	}
+	if len(raw) == 0 || string(raw) == "null" {
+		return zero, nil
+	}
+	var got T
+	if err := json.Unmarshal(raw, &got); err != nil {
+		return zero, fmt.Errorf("decode %s response: %w", method, err)
+	}
+	return got, nil
+}
+
 // Notify sends a JSON-RPC notification to the app-server.
 func (c *Client) Notify(ctx context.Context, method string, params any) error {
 	if err := ctx.Err(); err != nil {
@@ -293,6 +327,89 @@ func (c *Client) NextNotification(ctx context.Context) (Notification, error) {
 			return Notification{}, &TransportClosedError{Message: "app-server notification stream closed"}
 		}
 		return notification, nil
+	}
+}
+
+// WaitForTurnCompleted waits for a matching turn/completed notification.
+func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (protocol.TurnCompletedNotification, error) {
+	for {
+		notification, err := c.NextNotification(ctx)
+		if err != nil {
+			return protocol.TurnCompletedNotification{}, err
+		}
+		completed, ok, err := notification.TurnCompleted()
+		if err != nil {
+			return protocol.TurnCompletedNotification{}, err
+		}
+		if !ok || completed.Turn.ID != turnID {
+			continue
+		}
+		return completed, nil
+	}
+}
+
+// StreamUntilMethods blocks until one of the methods in methods is observed.
+func (c *Client) StreamUntilMethods(ctx context.Context, methods ...string) ([]Notification, error) {
+	if len(methods) == 0 {
+		return nil, fmt.Errorf("stream until methods: no methods specified")
+	}
+	methodSet := make(map[string]struct{}, len(methods))
+	for _, method := range methods {
+		methodSet[method] = struct{}{}
+	}
+	var notifications []Notification
+	for {
+		notification, err := c.NextNotification(ctx)
+		if err != nil {
+			return notifications, err
+		}
+		notifications = append(notifications, notification)
+		if _, ok := methodSet[notification.Method]; ok {
+			return notifications, nil
+		}
+	}
+}
+
+// StreamText starts a turn and yields agent message delta notifications.
+func (c *Client) StreamText(ctx context.Context, threadID, text string, params *protocol.TurnStartParams) iter.Seq2[protocol.AgentMessageDeltaNotification, error] {
+	started, err := c.TurnStart(ctx, threadID, text, params)
+	if err != nil {
+		return func(yield func(protocol.AgentMessageDeltaNotification, error) bool) {
+			yield(protocol.AgentMessageDeltaNotification{}, err)
+		}
+	}
+	expectedTurnID := started.Turn.ID
+	return func(yield func(protocol.AgentMessageDeltaNotification, error) bool) {
+		for {
+			notification, err := c.NextNotification(ctx)
+			if err != nil {
+				yield(protocol.AgentMessageDeltaNotification{}, err)
+				return
+			}
+			switch notification.Method {
+			case NotificationMethodTurnCompleted:
+				completed, ok, err := notification.TurnCompleted()
+				if err != nil {
+					yield(protocol.AgentMessageDeltaNotification{}, err)
+					return
+				}
+				if ok && completed.Turn.ID == expectedTurnID {
+					return
+				}
+			case NotificationMethodAgentMessageDelta:
+				delta, ok, err := notification.AgentMessageDelta()
+				if err != nil {
+					yield(protocol.AgentMessageDeltaNotification{}, err)
+					return
+				}
+				if !ok || delta.TurnID != expectedTurnID {
+					continue
+				}
+				if !yield(delta, nil) {
+					return
+				}
+			}
+		}
 	}
 }
 

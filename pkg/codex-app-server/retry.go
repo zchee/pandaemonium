@@ -53,7 +53,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 		if err == nil {
 			return result, nil
 		}
-		if attempt >= cfg.MaxAttempts || !IsServerBusy(err) {
+		if attempt >= cfg.MaxAttempts || !IsRetryableError(err) {
 			return zero, err
 		}
 		sleepFor := delay

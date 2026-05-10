@@ -14,9 +14,7 @@
 
 package codexappserver
 
-import (
-	"github.com/go-json-experiment/json/jsontext"
-)
+import "github.com/go-json-experiment/json/jsontext"
 
 // Object is a JSON object exchanged with the Codex app-server.
 type Object = map[string]any
@@ -38,71 +36,4 @@ type InitializeResponse struct {
 	UserAgent  string         `json:"userAgent,omitzero"`
 	ServerInfo *ServerInfo    `json:"serverInfo,omitzero"`
 	Raw        jsontext.Value `json:",inline"`
-}
-
-// ThreadStartParams are params for thread/start.
-type ThreadStartParams struct {
-	ApprovalPolicy        any    `json:"approvalPolicy,omitzero"`
-	ApprovalsReviewer     string `json:"approvalsReviewer,omitzero"`
-	BaseInstructions      string `json:"baseInstructions,omitzero"`
-	Config                Object `json:"config,omitzero"`
-	Cwd                   string `json:"cwd,omitzero"`
-	DeveloperInstructions string `json:"developerInstructions,omitzero"`
-	Ephemeral             *bool  `json:"ephemeral,omitzero"`
-	Model                 string `json:"model,omitzero"`
-	ModelProvider         string `json:"modelProvider,omitzero"`
-	Personality           string `json:"personality,omitzero"`
-	Sandbox               any    `json:"sandbox,omitzero"`
-	ServiceName           string `json:"serviceName,omitzero"`
-	ServiceTier           string `json:"serviceTier,omitzero"`
-	SessionStartSource    string `json:"sessionStartSource,omitzero"`
-}
-
-// ThreadResumeParams are params for thread/resume.
-type ThreadResumeParams struct {
-	ApprovalPolicy        any    `json:"approvalPolicy,omitzero"`
-	ApprovalsReviewer     string `json:"approvalsReviewer,omitzero"`
-	BaseInstructions      string `json:"baseInstructions,omitzero"`
-	Config                Object `json:"config,omitzero"`
-	Cwd                   string `json:"cwd,omitzero"`
-	DeveloperInstructions string `json:"developerInstructions,omitzero"`
-	Model                 string `json:"model,omitzero"`
-	ModelProvider         string `json:"modelProvider,omitzero"`
-	Personality           string `json:"personality,omitzero"`
-	Sandbox               any    `json:"sandbox,omitzero"`
-	ServiceTier           string `json:"serviceTier,omitzero"`
-}
-
-// ThreadForkParams are params for thread/fork.
-type ThreadForkParams struct {
-	ThreadResumeParams
-	Ephemeral *bool `json:"ephemeral,omitzero"`
-}
-
-// ThreadListParams are params for thread/list.
-type ThreadListParams struct {
-	Archived       *bool    `json:"archived,omitzero"`
-	Cursor         string   `json:"cursor,omitzero"`
-	Cwd            any      `json:"cwd,omitzero"`
-	Limit          *int     `json:"limit,omitzero"`
-	ModelProviders []string `json:"modelProviders,omitzero"`
-	SearchTerm     string   `json:"searchTerm,omitzero"`
-	SortDirection  string   `json:"sortDirection,omitzero"`
-	SortKey        string   `json:"sortKey,omitzero"`
-	SourceKinds    []string `json:"sourceKinds,omitzero"`
-	UseStateDBOnly *bool    `json:"useStateDbOnly,omitzero"`
-}
-
-// TurnStartParams are optional params for turn/start.
-type TurnStartParams struct {
-	ApprovalPolicy    any    `json:"approvalPolicy,omitzero"`
-	ApprovalsReviewer string `json:"approvalsReviewer,omitzero"`
-	Cwd               string `json:"cwd,omitzero"`
-	Effort            string `json:"effort,omitzero"`
-	Model             string `json:"model,omitzero"`
-	OutputSchema      any    `json:"outputSchema,omitzero"`
-	Personality       string `json:"personality,omitzero"`
-	SandboxPolicy     any    `json:"sandboxPolicy,omitzero"`
-	ServiceTier       string `json:"serviceTier,omitzero"`
-	Summary           string `json:"summary,omitzero"`
 }

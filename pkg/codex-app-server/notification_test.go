@@ -144,7 +144,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	t.Parallel()
 
-	mismatch, ok, err := DecodeNotification[protocol.ErrorNotification](
+	mismatch, ok, err := DecodeNotificationAs[protocol.ErrorNotification](
 		Notification{Method: NotificationMethodTurnCompleted, Params: jsontext.Value([]byte(`{"message":"nope"}`))},
 		NotificationMethodError,
 	)

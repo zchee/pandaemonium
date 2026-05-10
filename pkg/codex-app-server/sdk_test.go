@@ -22,6 +22,7 @@ import (
 	"io"
 	"iter"
 	"os"
+	"path/filepath"
 	"strings"
 	"testing"
 	"testing/synctest"
@@ -77,19 +78,35 @@ func TestNormalizeInput(t *testing.T) {
 	}
 }
 
+func TestDefaultCodexHome(t *testing.T) {
+	got := DefaultCodexHome()
+	if got != filepath.Clean(got) {
+		t.Fatalf("DefaultCodexHome() = %q, want clean path", got)
+	}
+	if filepath.Base(got) != ".codex" {
+		t.Fatalf("DefaultCodexHome() = %q, want .codex basename", got)
+	}
+	if !filepath.IsAbs(got) {
+		t.Fatalf("DefaultCodexHome() = %q, want absolute path", got)
+	}
+}
+
 func TestJSONRPCErrorMapping(t *testing.T) {
 	tests := map[string]struct {
-		code      int64
-		message   string
-		data      string
-		kind      string
-		retryable bool
+		code       int64
+		message    string
+		data       string
+		kind       string
+		retryable  bool
+		retryLimit bool
+		errorType  string
 	}{
 		"success: invalid params is not retryable": {
-			code:    -32602,
-			message: "bad params",
-			data:    `null`,
-			kind:    "invalid_params",
+			code:      -32602,
+			message:   "bad params",
+			data:      `null`,
+			kind:      "invalid_params",
+			errorType: "*codexappserver.InvalidParamsError",
 		},
 		"success: nested server overloaded is retryable": {
 			code:      -32000,
@@ -97,29 +114,146 @@ func TestJSONRPCErrorMapping(t *testing.T) {
 			data:      `{"errorInfo":{"reason":"server_overloaded"}}`,
 			kind:      "server_busy",
 			retryable: true,
+			errorType: "*codexappserver.ServerBusyError",
+		},
+		"success: nested codex_error_info is retryable": {
+			code:      -32000,
+			message:   "busy",
+			data:      `{"codex_error_info":{"reason":"server_overloaded"}}`,
+			kind:      "server_busy",
+			retryable: true,
+			errorType: "*codexappserver.ServerBusyError",
+		},
+		"success: nested codexErrorInfo is retryable": {
+			code:      -32000,
+			message:   "busy",
+			data:      `{"codexErrorInfo":{"reason":"server_overloaded"}}`,
+			kind:      "server_busy",
+			retryable: true,
+			errorType: "*codexappserver.ServerBusyError",
+		},
+		"success: retry limit with overload marker is classified": {
+			code:       -32000,
+			message:    "retry limit reached",
+			data:       `{"codex_error_info":{"status":"server_overloaded"}}`,
+			kind:       "retry_limit_exceeded",
+			retryable:  true,
+			retryLimit: true,
+			errorType:  "*codexappserver.RetryLimitExceededError",
 		},
 		"success: retry limit text is retryable but classified": {
-			code:      -32000,
-			message:   "too many failed attempts",
-			data:      `{}`,
-			kind:      "retry_limit_exceeded",
-			retryable: true,
+			code:       -32000,
+			message:    "too many failed attempts",
+			data:       `{"codexErrorInfo":{"reason":"server_overloaded"}}`,
+			kind:       "retry_limit_exceeded",
+			retryable:  true,
+			retryLimit: true,
+			errorType:  "*codexappserver.RetryLimitExceededError",
+		},
+		"success: parse error maps to ParseError": {
+			code:      -32700,
+			message:   "parse",
+			data:      `null`,
+			kind:      "parse_error",
+			errorType: "*codexappserver.ParseError",
+		},
+		"success: invalid request maps to InvalidRequestError": {
+			code:      -32600,
+			message:   "bad request",
+			data:      `null`,
+			kind:      "invalid_request",
+			errorType: "*codexappserver.InvalidRequestError",
+		},
+		"success: method not found maps to MethodNotFoundError": {
+			code:      -32601,
+			message:   "not found",
+			data:      `null`,
+			kind:      "method_not_found",
+			errorType: "*codexappserver.MethodNotFoundError",
+		},
+		"success: internal rpc maps to InternalRpcError": {
+			code:      -32603,
+			message:   "internal",
+			data:      `null`,
+			kind:      "internal_error",
+			errorType: "*codexappserver.InternalRpcError",
+		},
+		"success: app-server json-rpc range uses app-server error": {
+			code:      -32010,
+			message:   "app_server_error",
+			data:      `{"reason":"ok"}`,
+			kind:      "app_server_rpc",
+			errorType: "*codexappserver.AppServerRpcError",
+		},
+		"success: unknown code uses raw JsonRpcError": {
+			code:      -1234,
+			message:   "unknown",
+			data:      `null`,
+			kind:      "jsonrpc",
+			errorType: "*codexappserver.JsonRpcError",
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			err := mapJSONRPCError(tt.code, tt.message, jsontext.Value(tt.data))
-			var rpcErr *JSONRPCError
-			if !errors.As(err, &rpcErr) {
-				t.Fatalf("error type = %T, want *JSONRPCError", err)
+			if got := err.Error(); got == "" {
+				t.Fatalf("mapped error message is empty")
+			}
+			rpcErr := asJSONRPCError(err)
+			if rpcErr == nil {
+				t.Fatalf("error type = %T, want json-rpc-compatible error", err)
 			}
 			if rpcErr.Kind != tt.kind {
 				t.Fatalf("kind = %q, want %q", rpcErr.Kind, tt.kind)
 			}
-			if got := IsServerBusy(err); got != tt.retryable {
-				t.Fatalf("IsServerBusy() = %v, want %v", got, tt.retryable)
+			if got := IsRetryableError(err); got != tt.retryable {
+				t.Fatalf("IsRetryableError() = %v, want %v", got, tt.retryable)
+			}
+			if got, want := IsServerBusy(err), tt.retryable; got != want {
+				t.Fatalf("IsServerBusy() = %v, want %v", got, want)
+			}
+			gotType := fmt.Sprintf("%T", err)
+			if gotType != tt.errorType {
+				t.Fatalf("error type = %s, want %s", gotType, tt.errorType)
+			}
+			if got, want := IsRetryLimitExceeded(err), tt.retryLimit; got != want {
+				t.Fatalf("IsRetryLimitExceeded() = %v, want %v", got, want)
 			}
 		})
+	}
+}
+
+func TestIsRetryableError(t *testing.T) {
+	tests := map[string]struct {
+		err  error
+		want bool
+	}{
+		"success: typed server-busy is retryable": {
+			err:  mapJSONRPCError(-32000, "server overloaded", jsontext.Value(`{"errorInfo":{"reason":"server_overloaded"}}`)),
+			want: true,
+		},
+		"success: invalid request with overload marker is retryable": {
+			err:  mapJSONRPCError(-32600, "bad request", jsontext.Value(`{"codexErrorInfo":"server_overloaded"}`)),
+			want: true,
+		},
+		"success: plain non-overload JSON-RPC error is not retryable": {
+			err:  mapJSONRPCError(-32602, "bad params", jsontext.Value(`null`)),
+			want: false,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := IsRetryableError(tt.err); got != tt.want {
+				t.Fatalf("IsRetryableError(%T) = %v, want %v", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIsServerBusyAlias(t *testing.T) {
+	err := mapJSONRPCError(-32000, "too many failed attempts", jsontext.Value(`{}`))
+	if got, want := IsServerBusy(err), true; got != want {
+		t.Fatalf("IsServerBusy() = %v, want %v", got, want)
 	}
 }
 
@@ -128,6 +262,7 @@ func TestRetryOnOverload(t *testing.T) {
 		errs      []error
 		wantCalls int
 		wantErr   bool
+		maxRetry  int
 	}{
 		"success: retries retryable overload": {
 			errs: []error{
@@ -135,17 +270,30 @@ func TestRetryOnOverload(t *testing.T) {
 				nil,
 			},
 			wantCalls: 2,
+			maxRetry:  3,
 		},
 		"success: does not retry invalid params": {
 			errs:      []error{mapJSONRPCError(-32602, "bad", jsontext.Value(`null`))},
 			wantCalls: 1,
 			wantErr:   true,
+			maxRetry:  3,
+		},
+		"success: stops after max attempts": {
+			errs: []error{
+				mapJSONRPCError(-32000, "busy", jsontext.Value(`{"errorInfo":{"reason":"server_overloaded"}}`)),
+				mapJSONRPCError(-32000, "busy", jsontext.Value(`{"errorInfo":{"reason":"server_overloaded"}}`)),
+				mapJSONRPCError(-32000, "busy", jsontext.Value(`{"errorInfo":{"reason":"server_overloaded"}}`)),
+				nil,
+			},
+			wantCalls: 2,
+			wantErr:   true,
+			maxRetry:  2,
 		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			calls := 0
-			_, err := RetryOnOverload(t.Context(), RetryConfig{MaxAttempts: 3, InitialDelay: time.Nanosecond, MaxDelay: time.Nanosecond}, func() (string, error) {
+			_, err := RetryOnOverload(t.Context(), RetryConfig{MaxAttempts: tt.maxRetry, InitialDelay: time.Nanosecond, MaxDelay: time.Nanosecond}, func() (string, error) {
 				err := tt.errs[calls]
 				calls++
 				return "ok", err
@@ -158,6 +306,117 @@ func TestRetryOnOverload(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestClientRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
+	client := newHelperClient(t, "retry_on_overload")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	got, err := RequestWithRetryOnOverload[string](
+		t.Context(),
+		client,
+		"ping",
+		nil,
+		RetryConfig{
+			MaxAttempts:  3,
+			InitialDelay: time.Nanosecond,
+			MaxDelay:     time.Nanosecond,
+		},
+	)
+	if err != nil {
+		t.Fatalf("RequestWithRetryOnOverload() error = %v", err)
+	}
+	if got != "ok" {
+		t.Fatalf("result = %q, want ok", got)
+	}
+}
+
+func TestClientStreamUntilMethods(t *testing.T) {
+	client := NewClient(nil, nil)
+	client.notifications = make(chan Notification, 4)
+
+	out := make(chan []Notification, 1)
+	go func() {
+		out <- mustCollectNotifications(t, client, "thread/started", "item/completed")
+	}()
+	defer close(client.notifications)
+
+	client.notifications <- Notification{Method: "thread/started", Params: mustJSON(t, Object{"threadId": "thr-1"})}
+	client.notifications <- Notification{Method: "item/completed", Params: mustJSON(t, Object{"threadId": "thr-1"})}
+
+	notifications := <-out
+	methods := notificationMethods(notifications)
+	want := []string{"thread/started"}
+	if diff := gocmp.Diff(want, methods); diff != "" {
+		t.Fatalf("notification methods mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func mustCollectNotifications(t *testing.T, client *Client, methods ...string) []Notification {
+	t.Helper()
+	notifications, err := client.StreamUntilMethods(t.Context(), methods...)
+	if err != nil {
+		t.Fatalf("StreamUntilMethods() error = %v", err)
+	}
+	return notifications
+}
+
+func TestClientWaitForTurnCompletedSkipsUnmatchedTurns(t *testing.T) {
+	client := NewClient(nil, nil)
+	client.notifications = make(chan Notification, 4)
+
+	go func() {
+		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, protocol.TurnCompletedNotification{
+			ThreadID: "thr-other",
+			Turn: protocol.Turn{
+				ID:     "turn-other",
+				Status: protocol.TurnStatusCompleted,
+			},
+		})}
+		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, protocol.TurnCompletedNotification{
+			ThreadID: "thr-one",
+			Turn: protocol.Turn{
+				ID:     "turn-target",
+				Status: protocol.TurnStatusCompleted,
+			},
+		})}
+	}()
+	completed, err := client.WaitForTurnCompleted(t.Context(), "turn-target")
+	if err != nil {
+		t.Fatalf("WaitForTurnCompleted() error = %v", err)
+	}
+	if completed.Turn.ID != "turn-target" {
+		t.Fatalf("completed.Turn.ID = %q, want turn-target", completed.Turn.ID)
+	}
+}
+
+func TestClientStreamTextYieldsAgentMessageDeltasForTargetTurn(t *testing.T) {
+	client := newHelperClient(t, "stream_text")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	model := "gpt-5.4"
+	deltas := collectAgentMessageDeltas(t, client.StreamText(t.Context(), "thr_stream_text", "hello", &protocol.TurnStartParams{Model: &model}))
+	if diff := gocmp.Diff([]string{"alpha", "beta"}, deltas); diff != "" {
+		t.Fatalf("stream text deltas mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func collectAgentMessageDeltas(t *testing.T, stream iter.Seq2[protocol.AgentMessageDeltaNotification, error]) []string {
+	t.Helper()
+	var deltas []string
+	for delta, err := range stream {
+		if err != nil {
+			t.Fatalf("stream error = %v", err)
+		}
+		deltas = append(deltas, delta.Delta)
+	}
+	return deltas
 }
 
 func TestValidateInitialize(t *testing.T) {
@@ -202,7 +461,8 @@ func TestClientProtocolQueuesNotificationsAndHandlesServerRequests(t *testing.T)
 	}
 	defer func() { _ = client.Close() }()
 
-	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: "gpt-5.4"})
+	model := "gpt-5.4"
+	started, err := client.ThreadStart(t.Context(), &protocol.ThreadStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
@@ -233,7 +493,8 @@ func TestClientPreservesUnknownNotificationPayloads(t *testing.T) {
 	}
 	defer func() { _ = client.Close() }()
 
-	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: "gpt-5.4"})
+	model := "gpt-5.4"
+	started, err := client.ThreadStart(t.Context(), &protocol.ThreadStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
@@ -478,9 +739,10 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 		t.Fatalf("Start() error = %v", err)
 	}
 	defer func() { _ = client.Close() }()
+	model := "gpt-5.4"
 
 	thread := &Thread{client: client, id: "thr_run"}
-	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: "gpt-5.4"})
+	result, err := thread.Run(t.Context(), "hello", &protocol.TurnStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -500,7 +762,7 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 		t.Fatalf("activeTurnID = %q, want released after successful Run", client.activeTurnID)
 	}
 
-	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: "gpt-5.4"})
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &protocol.TurnStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("Turn() after successful Run error = %v", err)
 	}
@@ -515,6 +777,7 @@ func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
 		t.Fatalf("Start() error = %v", err)
 	}
 	defer func() { _ = client.Close() }()
+	model := "gpt-5.4"
 
 	thread := &Thread{client: client, id: "thr_run_failed"}
 	_, err := thread.Run(t.Context(), "hello", nil)
@@ -528,7 +791,7 @@ func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
 		t.Fatalf("activeTurnID = %q, want released after failed Run", client.activeTurnID)
 	}
 
-	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: "gpt-5.4"})
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &protocol.TurnStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("Turn() after failed Run error = %v", err)
 	}
@@ -703,8 +966,18 @@ func TestHelperProcess(t *testing.T) {
 			handleStreamCancelScenario(writer, method, id)
 			continue
 		}
+		if scenario == "retry_on_overload" {
+			handleRetryOnOverloadScenario(writer, method, id)
+			continue
+		}
+		if scenario == "stream_text" {
+			handleStreamTextScenario(writer, method, id)
+			continue
+		}
 	}
 }
+
+var retryOnOverloadAttempts = map[string]int{}
 
 func handleInitializeScenario(writer *bufio.Writer, method, id string) {
 	if method == "initialize" {
@@ -793,6 +1066,47 @@ func handleStreamCancelScenario(writer *bufio.Writer, method, id string) {
 		turnID = "turn_cancel_2"
 	}
 	writeJSON(writer, Object{"id": id, "result": Object{"turn": Object{"id": turnID, "status": "inProgress"}}})
+}
+
+func handleRetryOnOverloadScenario(writer *bufio.Writer, method, id string) {
+	if method != "ping" {
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+		return
+	}
+	if retryOnOverloadAttempts[method] == 0 {
+		retryOnOverloadAttempts[method]++
+		writeJSON(writer, Object{"id": id, "error": Object{
+			"code":    -32000,
+			"message": "busy",
+			"data":    Object{"codexErrorInfo": "server_overloaded"},
+		}})
+		return
+	}
+	delete(retryOnOverloadAttempts, method)
+	writeJSON(writer, Object{"id": id, "result": "ok"})
+}
+
+func handleStreamTextScenario(writer *bufio.Writer, method, id string) {
+	switch method {
+	case "turn/start":
+		writeJSON(writer, Object{"id": id, "result": Object{"turn": Object{"id": "turn-stream-text", "status": "inProgress"}}})
+		writeJSON(writer, Object{"method": "item/agentMessage/delta", "params": Object{
+			"threadId": "thr_stream_text",
+			"turnId":   "turn-stream-text",
+			"delta":    "alpha",
+		}})
+		writeJSON(writer, Object{"method": "item/agentMessage/delta", "params": Object{
+			"threadId": "thr_stream_text",
+			"turnId":   "turn-stream-text",
+			"delta":    "beta",
+		}})
+		writeJSON(writer, Object{
+			"method": "turn/completed",
+			"params": Object{"turn": Object{"id": "turn-stream-text"}},
+		})
+	default:
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+	}
 }
 
 func usage(total int64) Object {

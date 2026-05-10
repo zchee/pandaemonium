@@ -31,15 +31,9 @@ type AppServerError struct {
 
 func (e *AppServerError) Error() string { return e.Message }
 
-// TransportClosedError is returned when the app-server stdio transport closes.
-type TransportClosedError struct {
-	Message string
-}
-
-func (e *TransportClosedError) Error() string { return e.Message }
-
 // JSONRPCError is a JSON-RPC error response from the app-server.
 type JSONRPCError struct {
+	AppServerError
 	Code    int64
 	Message string
 	Data    jsontext.Value
@@ -50,46 +44,150 @@ func (e *JSONRPCError) Error() string {
 	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message)
 }
 
-// IsServerBusy reports whether err is retryable server overload.
-func IsServerBusy(err error) bool {
-	var rpcErr *JSONRPCError
-	if !errors.As(err, &rpcErr) {
-		return false
+// TransportClosedError is returned when the app-server stdio transport closes.
+type TransportClosedError struct {
+	Message string
+}
+
+func (e *TransportClosedError) Error() string { return e.Message }
+
+// AppServerRPCError is a server-side JSON-RPC error.
+type AppServerRPCError struct {
+	*JSONRPCError
+}
+
+func (e *AppServerRPCError) jsonRPCError() *JSONRPCError {
+	if e == nil {
+		return nil
 	}
-	return rpcErr.Kind == "server_busy" || rpcErr.Kind == "retry_limit_exceeded" || isServerOverloaded(rpcErr.Data)
+	return e.JSONRPCError
+}
+
+// ParseError indicates invalid JSON syntax or non-conformant request payload.
+type ParseError struct {
+	*AppServerRPCError
+}
+
+// InvalidRequestError indicates invalid JSON-RPC request structure.
+type InvalidRequestError struct {
+	*AppServerRPCError
+}
+
+// MethodNotFoundError indicates an unknown JSON-RPC method call.
+type MethodNotFoundError struct {
+	*AppServerRPCError
+}
+
+// InvalidParamsError indicates malformed or invalid request params.
+type InvalidParamsError struct {
+	*AppServerRPCError
+}
+
+// InternalRPCError indicates internal server JSON-RPC failure.
+type InternalRPCError struct {
+	*AppServerRPCError
+}
+
+// ServerBusyError indicates server-overload style retriable app-server errors.
+type ServerBusyError struct {
+	*AppServerRPCError
+}
+
+// RetryLimitExceededError indicates app-server overload retries were exhausted.
+type RetryLimitExceededError struct {
+	*ServerBusyError
+}
+
+// IsServerBusy reports whether err is retryable server overload.
+//
+// Deprecated: Preserve compatibility with existing callers.
+func IsServerBusy(err error) bool {
+	return IsRetryableError(err)
 }
 
 // IsRetryLimitExceeded reports whether err indicates an exhausted retry budget.
 func IsRetryLimitExceeded(err error) bool {
-	var rpcErr *JSONRPCError
-	return errors.As(err, &rpcErr) && rpcErr.Kind == "retry_limit_exceeded"
+	if _, ok := errors.AsType[*RetryLimitExceededError](err); ok {
+		return true
+	}
+	rpcErr := asJSONRPCError(err)
+	return rpcErr != nil && rpcErr.Kind == "retry_limit_exceeded"
+}
+
+// IsRetryableError reports whether err should be retried for overload-style behavior.
+func IsRetryableError(err error) bool {
+	rpcErr := asJSONRPCError(err)
+	if rpcErr == nil {
+		return false
+	}
+	return rpcErr.Kind == "server_busy" ||
+		rpcErr.Kind == "retry_limit_exceeded" ||
+		isServerOverloaded(rpcErr.Data)
+}
+
+func asJSONRPCError(err error) *JSONRPCError {
+	if err == nil {
+		return nil
+	}
+	if rpcErr, ok := err.(*JSONRPCError); ok {
+		return rpcErr
+	}
+	if carrier, ok := err.(interface{ jsonRPCError() *JSONRPCError }); ok {
+		return carrier.jsonRPCError()
+	}
+	if unwrapped := errors.Unwrap(err); unwrapped != nil {
+		return asJSONRPCError(unwrapped)
+	}
+	return nil
+}
+
+func makeJSONRPCError(code int64, message string, data jsontext.Value, kind string) *JSONRPCError {
+	return &JSONRPCError{
+		AppServerError: AppServerError{Message: fmt.Sprintf("JSON-RPC error %d: %s", code, message)},
+		Code:           code,
+		Message:        message,
+		Data:           data,
+		Kind:           kind,
+	}
+}
+
+func appServerRPCError(code int64, message string, data jsontext.Value, kind string) *AppServerRPCError {
+	return &AppServerRPCError{JSONRPCError: makeJSONRPCError(code, message, data, kind)}
 }
 
 func mapJSONRPCError(code int64, message string, data jsontext.Value) error {
-	kind := "jsonrpc"
+	overloaded := isServerOverloaded(data)
+	retryLimit := containsRetryLimitText(message)
+
 	switch code {
 	case -32700:
-		kind = "parse_error"
+		return &ParseError{AppServerRPCError: appServerRPCError(code, message, data, "parse_error")}
 	case -32600:
-		kind = "invalid_request"
+		return &InvalidRequestError{AppServerRPCError: appServerRPCError(code, message, data, "invalid_request")}
 	case -32601:
-		kind = "method_not_found"
+		return &MethodNotFoundError{AppServerRPCError: appServerRPCError(code, message, data, "method_not_found")}
 	case -32602:
-		kind = "invalid_params"
+		return &InvalidParamsError{AppServerRPCError: appServerRPCError(code, message, data, "invalid_params")}
 	case -32603:
-		kind = "internal_error"
-	default:
-		if code >= -32099 && code <= -32000 {
-			kind = "app_server_rpc"
+		return &InternalRPCError{AppServerRPCError: appServerRPCError(code, message, data, "internal_error")}
+	}
+
+	if code >= -32099 && code <= -32000 {
+		switch {
+		case retryLimit:
+			return &RetryLimitExceededError{ServerBusyError: &ServerBusyError{AppServerRPCError: appServerRPCError(code, message, data, "retry_limit_exceeded")}}
+		case overloaded:
+			return &ServerBusyError{AppServerRPCError: appServerRPCError(code, message, data, "server_busy")}
+		default:
+			return appServerRPCError(code, message, data, "app_server_rpc")
 		}
 	}
-	if isServerOverloaded(data) {
-		kind = "server_busy"
-	}
-	if containsRetryLimitText(message) {
+
+	kind := "jsonrpc"
+	if retryLimit {
 		kind = "retry_limit_exceeded"
 	}
-	return &JSONRPCError{Code: code, Message: message, Data: data, Kind: kind}
+	return makeJSONRPCError(code, message, data, kind)
 }
 
 func containsRetryLimitText(message string) bool {

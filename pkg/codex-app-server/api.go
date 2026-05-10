@@ -57,7 +57,7 @@ func (c *Codex) Close() error {
 }
 
 // ThreadStart starts a new Codex thread.
-func (c *Codex) ThreadStart(ctx context.Context, params *ThreadStartParams) (*Thread, error) {
+func (c *Codex) ThreadStart(ctx context.Context, params *protocol.ThreadStartParams) (*Thread, error) {
 	started, err := c.client.ThreadStart(ctx, params)
 	if err != nil {
 		return nil, err
@@ -66,12 +66,12 @@ func (c *Codex) ThreadStart(ctx context.Context, params *ThreadStartParams) (*Th
 }
 
 // ThreadList lists threads.
-func (c *Codex) ThreadList(ctx context.Context, params *ThreadListParams) (protocol.ThreadListResponse, error) {
+func (c *Codex) ThreadList(ctx context.Context, params *protocol.ThreadListParams) (protocol.ThreadListResponse, error) {
 	return c.client.ThreadList(ctx, params)
 }
 
 // ThreadResume resumes an existing thread.
-func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *ThreadResumeParams) (*Thread, error) {
+func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *protocol.ThreadResumeParams) (*Thread, error) {
 	resumed, err := c.client.ThreadResume(ctx, threadID, params)
 	if err != nil {
 		return nil, err
@@ -80,7 +80,7 @@ func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *Threa
 }
 
 // ThreadFork forks an existing thread.
-func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *ThreadForkParams) (*Thread, error) {
+func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *protocol.ThreadForkParams) (*Thread, error) {
 	forked, err := c.client.ThreadFork(ctx, threadID, params)
 	if err != nil {
 		return nil, err
@@ -122,7 +122,7 @@ type Thread struct {
 func (t *Thread) ID() string { return t.id }
 
 // Run starts a turn, consumes events until completion, and returns collected output.
-func (t *Thread) Run(ctx context.Context, input any, params *TurnStartParams) (RunResult, error) {
+func (t *Thread) Run(ctx context.Context, input any, params *protocol.TurnStartParams) (RunResult, error) {
 	handle, err := t.Turn(ctx, input, params)
 	if err != nil {
 		return RunResult{}, err
@@ -131,7 +131,7 @@ func (t *Thread) Run(ctx context.Context, input any, params *TurnStartParams) (R
 }
 
 // Turn starts a turn and returns a handle for stream, steer, interrupt, or run.
-func (t *Thread) Turn(ctx context.Context, input any, params *TurnStartParams) (*TurnHandle, error) {
+func (t *Thread) Turn(ctx context.Context, input any, params *protocol.TurnStartParams) (*TurnHandle, error) {
 	started, err := t.client.TurnStart(ctx, t.id, input, params)
 	if err != nil {
 		return nil, err

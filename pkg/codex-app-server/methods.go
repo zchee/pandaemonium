@@ -21,24 +21,24 @@ import (
 )
 
 // ThreadStart calls thread/start.
-func (c *Client) ThreadStart(ctx context.Context, params *ThreadStartParams) (protocol.ThreadStartResponse, error) {
+func (c *Client) ThreadStart(ctx context.Context, params *protocol.ThreadStartParams) (protocol.ThreadStartResponse, error) {
 	return Request[protocol.ThreadStartResponse](ctx, c, "thread/start", paramsOrEmpty(params))
 }
 
 // ThreadResume calls thread/resume.
-func (c *Client) ThreadResume(ctx context.Context, threadID string, params *ThreadResumeParams) (protocol.ThreadResumeResponse, error) {
+func (c *Client) ThreadResume(ctx context.Context, threadID string, params *protocol.ThreadResumeParams) (protocol.ThreadResumeResponse, error) {
 	payload := mergeParams(params, Object{"threadId": threadID})
 	return Request[protocol.ThreadResumeResponse](ctx, c, "thread/resume", payload)
 }
 
 // ThreadFork calls thread/fork.
-func (c *Client) ThreadFork(ctx context.Context, threadID string, params *ThreadForkParams) (protocol.ThreadForkResponse, error) {
+func (c *Client) ThreadFork(ctx context.Context, threadID string, params *protocol.ThreadForkParams) (protocol.ThreadForkResponse, error) {
 	payload := mergeParams(params, Object{"threadId": threadID})
 	return Request[protocol.ThreadForkResponse](ctx, c, "thread/fork", payload)
 }
 
 // ThreadList calls thread/list.
-func (c *Client) ThreadList(ctx context.Context, params *ThreadListParams) (protocol.ThreadListResponse, error) {
+func (c *Client) ThreadList(ctx context.Context, params *protocol.ThreadListParams) (protocol.ThreadListResponse, error) {
 	return Request[protocol.ThreadListResponse](ctx, c, "thread/list", paramsOrEmpty(params))
 }
 
@@ -68,7 +68,7 @@ func (c *Client) ThreadCompact(ctx context.Context, threadID string) (protocol.T
 }
 
 // TurnStart calls turn/start.
-func (c *Client) TurnStart(ctx context.Context, threadID string, input any, params *TurnStartParams) (protocol.TurnStartResponse, error) {
+func (c *Client) TurnStart(ctx context.Context, threadID string, input any, params *protocol.TurnStartParams) (protocol.TurnStartResponse, error) {
 	items, err := normalizeInput(input)
 	if err != nil {
 		return protocol.TurnStartResponse{}, err
