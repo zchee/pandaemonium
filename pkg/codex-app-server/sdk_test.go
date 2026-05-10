@@ -769,6 +769,157 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	}
 }
 
+func TestStreamThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
+	client := newHelperClient(t, "run")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+	model := "gpt-5.4"
+
+	thread := newStreamThread(client, "thr_run")
+	if thread.ID() != "thr_run" {
+		t.Fatalf("StreamThread.ID() = %q, want thr_run", thread.ID())
+	}
+	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: &model})
+	if err != nil {
+		t.Fatalf("StreamThread.Run() error = %v", err)
+	}
+	if result.FinalResponse != "final text" {
+		t.Fatalf("FinalResponse = %q, want final text", result.FinalResponse)
+	}
+	if result.Usage == nil || result.Usage.Total.TotalTokens != 6 {
+		t.Fatalf("usage = %#v, want total tokens 6", result.Usage)
+	}
+	if result.Turn.ID != "turn_run" || result.Turn.Status != TurnStatusCompleted {
+		t.Fatalf("turn = %#v, want completed turn_run", result.Turn)
+	}
+	if activeTurnConsumer(client) != "" {
+		t.Fatalf("activeTurnID = %q, want released after StreamThread.Run", activeTurnConsumer(client))
+	}
+}
+
+func TestStreamThreadRunStreamYieldsNotificationsAndReleasesConsumer(t *testing.T) {
+	client := newHelperClient(t, "run")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+	model := "gpt-5.4"
+
+	thread := newStreamThread(client, "thr_run")
+	notifications, err := collectStream(thread.RunStream(t.Context(), "hello", &TurnStartParams{Model: &model}))
+	if err != nil {
+		t.Fatalf("StreamThread.RunStream() error = %v", err)
+	}
+	want := []string{
+		NotificationMethodItemCompleted,
+		NotificationMethodThreadTokenUsageUpdated,
+		NotificationMethodItemCompleted,
+		NotificationMethodTurnCompleted,
+	}
+	if diff := gocmp.Diff(want, notificationMethods(notifications)); diff != "" {
+		t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
+	}
+	if activeTurnConsumer(client) != "" {
+		t.Fatalf("activeTurnID = %q, want released after StreamThread.RunStream", activeTurnConsumer(client))
+	}
+}
+
+func TestStreamTurnHandleDelegatesSteerInterruptAndStream(t *testing.T) {
+	client := newHelperClient(t, "stream_steer")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	thread := newStreamThread(client, "thr_stream")
+	handle, err := thread.Turn(t.Context(), "start", nil)
+	if err != nil {
+		t.Fatalf("StreamThread.Turn() error = %v", err)
+	}
+	if handle.ID() != "turn_stream" {
+		t.Fatalf("StreamTurnHandle.ID() = %q, want turn_stream", handle.ID())
+	}
+	streamResult := collectStreamAsync(handle.Stream(t.Context()))
+	waitForActiveTurnConsumer(t, client, handle.ID())
+
+	controlCtx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	defer cancel()
+	if _, err := handle.Interrupt(controlCtx); err != nil {
+		t.Fatalf("StreamTurnHandle.Interrupt() while streaming error = %v", err)
+	}
+	if _, err := handle.Steer(controlCtx, TextInput{Text: "continue"}); err != nil {
+		t.Fatalf("StreamTurnHandle.Steer() while streaming error = %v", err)
+	}
+	select {
+	case result := <-streamResult:
+		if result.err != nil {
+			t.Fatalf("stream error = %v", result.err)
+		}
+		want := []string{NotificationMethodItemAgentMessageDelta, NotificationMethodTurnCompleted}
+		if diff := gocmp.Diff(want, notificationMethods(result.notifications)); diff != "" {
+			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for stream completion")
+	}
+}
+
+func TestCodexStreamThreadLifecycleMethodsDelegateToThreadAPI(t *testing.T) {
+	codex, err := NewCodex(t.Context(), helperConfig("stream_thread_lifecycle"))
+	if err != nil {
+		t.Fatalf("NewCodex() error = %v", err)
+	}
+	defer func() { _ = codex.Close() }()
+
+	started, err := codex.StreamThreadStart(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("StreamThreadStart() error = %v", err)
+	}
+	if started.ID() != "thr_stream_start" {
+		t.Fatalf("started.ID() = %q, want thr_stream_start", started.ID())
+	}
+
+	resumed, err := codex.StreamThreadResume(t.Context(), "thr_existing", nil)
+	if err != nil {
+		t.Fatalf("StreamThreadResume() error = %v", err)
+	}
+	if resumed.ID() != "thr_stream_resume" {
+		t.Fatalf("resumed.ID() = %q, want thr_stream_resume", resumed.ID())
+	}
+
+	forked, err := codex.StreamThreadFork(t.Context(), "thr_existing", nil)
+	if err != nil {
+		t.Fatalf("StreamThreadFork() error = %v", err)
+	}
+	if forked.ID() != "thr_stream_fork" {
+		t.Fatalf("forked.ID() = %q, want thr_stream_fork", forked.ID())
+	}
+
+	unarchived, err := codex.StreamThreadUnarchive(t.Context(), "thr_archived")
+	if err != nil {
+		t.Fatalf("StreamThreadUnarchive() error = %v", err)
+	}
+	if unarchived.ID() != "thr_stream_unarchive" {
+		t.Fatalf("unarchived.ID() = %q, want thr_stream_unarchive", unarchived.ID())
+	}
+
+	read, err := started.Read(t.Context(), true)
+	if err != nil {
+		t.Fatalf("StreamThread.Read() error = %v", err)
+	}
+	if read.Thread.ID != "thr_stream_start" {
+		t.Fatalf("read.Thread.ID = %q, want thr_stream_start", read.Thread.ID)
+	}
+	if _, err := started.SetName(t.Context(), "named"); err != nil {
+		t.Fatalf("StreamThread.SetName() error = %v", err)
+	}
+	if _, err := started.Compact(t.Context()); err != nil {
+		t.Fatalf("StreamThread.Compact() error = %v", err)
+	}
+}
+
 func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
 	client := newHelperClient(t, "run_failed")
 	if err := client.Start(t.Context()); err != nil {
@@ -960,6 +1111,10 @@ func TestHelperProcess(t *testing.T) {
 			handleStreamSteerScenario(writer, method, id)
 			continue
 		}
+		if scenario == "stream_thread_lifecycle" {
+			handleStreamThreadLifecycleScenario(writer, method, id)
+			continue
+		}
 		if scenario == "stream_cancel" {
 			handleStreamCancelScenario(writer, method, id)
 			continue
@@ -1049,6 +1204,28 @@ func handleStreamSteerScenario(writer *bufio.Writer, method, id string) {
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 		writeJSON(writer, Object{"method": "item/agentMessage/delta", "params": Object{"threadId": "thr_stream", "turnId": "turn_stream", "delta": "ok"}})
 		writeJSON(writer, Object{"method": "turn/completed", "params": Object{"turn": Object{"id": "turn_stream", "status": "completed"}}})
+	default:
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+	}
+}
+
+func handleStreamThreadLifecycleScenario(writer *bufio.Writer, method, id string) {
+	switch method {
+	case "initialize":
+		writeJSON(writer, Object{"id": id, "result": Object{"userAgent": "codex-test/1.2.3"}})
+	case "initialized":
+	case "thread/start":
+		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_start"}}})
+	case "thread/resume":
+		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_resume"}}})
+	case "thread/fork":
+		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_fork"}}})
+	case "thread/unarchive":
+		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_unarchive"}}})
+	case "thread/read":
+		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_start"}}})
+	case "thread/name/set", "thread/compact/start":
+		writeJSON(writer, Object{"id": id, "result": Object{}})
 	default:
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 	}
