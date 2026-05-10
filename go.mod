@@ -1,4 +1,4 @@
-module github.com/zchee/omxx
+module github.com/zchee/pandaemonium
 
 go 1.27
 

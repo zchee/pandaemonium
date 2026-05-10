@@ -1,4 +1,4 @@
-// Copyright 2026 The omxx Authors.
+// Copyright 2026 The pandaemonium Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,7 @@ import (
 
 	json "github.com/go-json-experiment/json"
 
-	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
+	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 // RunResult is the high-level result from Thread.Run or TurnHandle.Run.

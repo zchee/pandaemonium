@@ -1,4 +1,4 @@
-// Copyright 2026 The omxx Authors.
+// Copyright 2026 The pandaemonium Authors.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,7 +32,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
 
-	"github.com/zchee/omxx/pkg/codex-app-server/protocol"
+	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 func TestNormalizeInput(t *testing.T) {
