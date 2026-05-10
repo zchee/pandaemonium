@@ -285,6 +285,53 @@ func TestTypeForSchema(t *testing.T) {
 	}
 }
 
+func TestGenerateCodexAppServerPackageAvoidsSDKNameCollisions(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"Config": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"thread": {Ref: "#/definitions/Thread"},
+			},
+		},
+		"Thread": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"id": {Type: "string"},
+			},
+			Required: []string{"id"},
+		},
+		"ThreadStartResponse": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"thread": {Ref: "#/definitions/Thread"},
+			},
+			Required: []string{"thread"},
+		},
+	}
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "codexappserver")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	wantFragments := []string{
+		"package codexappserver",
+		"type ProtocolConfig struct {",
+		"Thread *ProtocolThread `json:\"thread,omitzero\"`",
+		"type ProtocolThread struct {",
+		"Thread ProtocolThread `json:\"thread\"`",
+	}
+	for _, fragment := range wantFragments {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	for _, fragment := range []string{"type Config struct", "type Thread struct"} {
+		if strings.Contains(got, fragment) {
+			t.Fatalf("generated source unexpectedly contains %q:\n%s", fragment, got)
+		}
+	}
+}
+
 func TestGenerateUnionDefinitions(t *testing.T) {
 	definitions := map[string]*jsonschema.Schema{
 		"InlineUnionVariantA": {

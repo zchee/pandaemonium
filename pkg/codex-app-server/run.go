@@ -21,22 +21,20 @@ import (
 	"slices"
 
 	"github.com/go-json-experiment/json"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 // RunResult is the high-level result from Thread.Run or TurnHandle.Run.
 type RunResult struct {
 	FinalResponse string
-	Items         []protocol.ThreadItem
-	Usage         *protocol.ThreadTokenUsage
-	Turn          protocol.Turn
+	Items         []ThreadItem
+	Usage         *ThreadTokenUsage
+	Turn          Turn
 }
 
 func collectRunResult(ctx context.Context, client *Client, turnID string) (RunResult, error) {
-	var completed *protocol.TurnCompletedNotification
-	items := []protocol.ThreadItem{}
-	var usage *protocol.ThreadTokenUsage
+	var completed *TurnCompletedNotification
+	items := []ThreadItem{}
+	var usage *ThreadTokenUsage
 	for {
 		notification, err := client.NextNotification(ctx)
 		if err != nil {
@@ -68,7 +66,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			break
 		}
 	}
-	if completed.Turn.Status == protocol.TurnStatusFailed {
+	if completed.Turn.Status == TurnStatusFailed {
 		if completed.Turn.Error != nil && completed.Turn.Error.Message != "" {
 			return RunResult{}, fmt.Errorf("%s", completed.Turn.Error.Message)
 		}
@@ -83,7 +81,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 	}, nil
 }
 
-func finalAssistantResponse(items []protocol.ThreadItem) string {
+func finalAssistantResponse(items []ThreadItem) string {
 	lastUnknownPhase := ""
 	for _, item := range slices.Backward(items) {
 		item, ok := decodeThreadItem(item)
@@ -106,7 +104,7 @@ type decodedThreadItem struct {
 	Phase string `json:"phase"`
 }
 
-func decodeThreadItem(raw protocol.ThreadItem) (decodedThreadItem, bool) {
+func decodeThreadItem(raw ThreadItem) (decodedThreadItem, bool) {
 	if raw == nil {
 		return decodedThreadItem{}, false
 	}

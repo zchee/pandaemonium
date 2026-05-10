@@ -31,8 +31,6 @@ import (
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 func TestNormalizeInput(t *testing.T) {
@@ -176,21 +174,21 @@ func TestJSONRPCErrorMapping(t *testing.T) {
 			message:   "internal",
 			data:      `null`,
 			kind:      "internal_error",
-			errorType: "*codexappserver.InternalRpcError",
+			errorType: "*codexappserver.InternalRPCError",
 		},
 		"success: app-server json-rpc range uses app-server error": {
 			code:      -32010,
 			message:   "app_server_error",
 			data:      `{"reason":"ok"}`,
 			kind:      "app_server_rpc",
-			errorType: "*codexappserver.AppServerRpcError",
+			errorType: "*codexappserver.AppServerRPCError",
 		},
 		"success: unknown code uses raw JsonRpcError": {
 			code:      -1234,
 			message:   "unknown",
 			data:      `null`,
 			kind:      "jsonrpc",
-			errorType: "*codexappserver.JsonRpcError",
+			errorType: "*codexappserver.JSONRPCError",
 		},
 	}
 	for name, tt := range tests {
@@ -369,18 +367,18 @@ func TestClientWaitForTurnCompletedSkipsUnmatchedTurns(t *testing.T) {
 	client.notifications = make(chan Notification, 4)
 
 	go func() {
-		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, protocol.TurnCompletedNotification{
+		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, TurnCompletedNotification{
 			ThreadID: "thr-other",
-			Turn: protocol.Turn{
+			Turn: Turn{
 				ID:     "turn-other",
-				Status: protocol.TurnStatusCompleted,
+				Status: TurnStatusCompleted,
 			},
 		})}
-		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, protocol.TurnCompletedNotification{
+		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, TurnCompletedNotification{
 			ThreadID: "thr-one",
-			Turn: protocol.Turn{
+			Turn: Turn{
 				ID:     "turn-target",
-				Status: protocol.TurnStatusCompleted,
+				Status: TurnStatusCompleted,
 			},
 		})}
 	}()
@@ -401,13 +399,13 @@ func TestClientStreamTextYieldsAgentMessageDeltasForTargetTurn(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	model := "gpt-5.4"
-	deltas := collectAgentMessageDeltas(t, client.StreamText(t.Context(), "thr_stream_text", "hello", &protocol.TurnStartParams{Model: &model}))
+	deltas := collectAgentMessageDeltas(t, client.StreamText(t.Context(), "thr_stream_text", "hello", &TurnStartParams{Model: &model}))
 	if diff := gocmp.Diff([]string{"alpha", "beta"}, deltas); diff != "" {
 		t.Fatalf("stream text deltas mismatch (-want +got):\n%s", diff)
 	}
 }
 
-func collectAgentMessageDeltas(t *testing.T, stream iter.Seq2[protocol.AgentMessageDeltaNotification, error]) []string {
+func collectAgentMessageDeltas(t *testing.T, stream iter.Seq2[AgentMessageDeltaNotification, error]) []string {
 	t.Helper()
 	var deltas []string
 	for delta, err := range stream {
@@ -462,7 +460,7 @@ func TestClientProtocolQueuesNotificationsAndHandlesServerRequests(t *testing.T)
 	defer func() { _ = client.Close() }()
 
 	model := "gpt-5.4"
-	started, err := client.ThreadStart(t.Context(), &protocol.ThreadStartParams{Model: &model})
+	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
@@ -494,7 +492,7 @@ func TestClientPreservesUnknownNotificationPayloads(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	model := "gpt-5.4"
-	started, err := client.ThreadStart(t.Context(), &protocol.ThreadStartParams{Model: &model})
+	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
@@ -742,7 +740,7 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	model := "gpt-5.4"
 
 	thread := &Thread{client: client, id: "thr_run"}
-	result, err := thread.Run(t.Context(), "hello", &protocol.TurnStartParams{Model: &model})
+	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -755,14 +753,14 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	if result.Usage == nil || result.Usage.Total.TotalTokens != 6 {
 		t.Fatalf("usage = %#v, want total tokens 6", result.Usage)
 	}
-	if result.Turn.ID != "turn_run" || result.Turn.Status != protocol.TurnStatusCompleted {
+	if result.Turn.ID != "turn_run" || result.Turn.Status != TurnStatusCompleted {
 		t.Fatalf("turn = %#v, want completed turn_run", result.Turn)
 	}
 	if client.activeTurnID != "" {
 		t.Fatalf("activeTurnID = %q, want released after successful Run", client.activeTurnID)
 	}
 
-	nextHandle, err := thread.Turn(t.Context(), "follow-up", &protocol.TurnStartParams{Model: &model})
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("Turn() after successful Run error = %v", err)
 	}
@@ -791,7 +789,7 @@ func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
 		t.Fatalf("activeTurnID = %q, want released after failed Run", client.activeTurnID)
 	}
 
-	nextHandle, err := thread.Turn(t.Context(), "follow-up", &protocol.TurnStartParams{Model: &model})
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: &model})
 	if err != nil {
 		t.Fatalf("Turn() after failed Run error = %v", err)
 	}

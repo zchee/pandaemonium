@@ -21,10 +21,10 @@
 // fields are typed while raw JSON extension fields preserve compatibility with
 // newer app-server schema members.
 //
-// Public types are re-exported from generated protocol bindings where possible
-// (for example, `ThreadStartParams`, `TurnStartParams`, `ThreadItem`,
-// `ReasoningEffort`, `SandboxPolicy`) so callers can work with schema-backed
-// models directly from the package root.
+// Generated protocol bindings live in this package (for example,
+// `ThreadStartParams`, `TurnStartParams`, `ThreadItem`, `ReasoningEffort`,
+// `SandboxPolicy`) so callers can work with schema-backed models directly from
+// the package root.
 //
 // Compile-time alias compatibility checks live in public_types_test.go, and
 // compatibility-sensitive aliases should be preserved unless the upstream schema

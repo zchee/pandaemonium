@@ -19,8 +19,6 @@ import (
 	"fmt"
 	"iter"
 	"strings"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 // Codex is the high-level synchronous Go SDK surface for app-server v2.
@@ -57,7 +55,7 @@ func (c *Codex) Close() error {
 }
 
 // ThreadStart starts a new Codex thread.
-func (c *Codex) ThreadStart(ctx context.Context, params *protocol.ThreadStartParams) (*Thread, error) {
+func (c *Codex) ThreadStart(ctx context.Context, params *ThreadStartParams) (*Thread, error) {
 	started, err := c.client.ThreadStart(ctx, params)
 	if err != nil {
 		return nil, err
@@ -66,12 +64,12 @@ func (c *Codex) ThreadStart(ctx context.Context, params *protocol.ThreadStartPar
 }
 
 // ThreadList lists threads.
-func (c *Codex) ThreadList(ctx context.Context, params *protocol.ThreadListParams) (protocol.ThreadListResponse, error) {
+func (c *Codex) ThreadList(ctx context.Context, params *ThreadListParams) (ThreadListResponse, error) {
 	return c.client.ThreadList(ctx, params)
 }
 
 // ThreadResume resumes an existing thread.
-func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *protocol.ThreadResumeParams) (*Thread, error) {
+func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *ThreadResumeParams) (*Thread, error) {
 	resumed, err := c.client.ThreadResume(ctx, threadID, params)
 	if err != nil {
 		return nil, err
@@ -80,7 +78,7 @@ func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *proto
 }
 
 // ThreadFork forks an existing thread.
-func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *protocol.ThreadForkParams) (*Thread, error) {
+func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *ThreadForkParams) (*Thread, error) {
 	forked, err := c.client.ThreadFork(ctx, threadID, params)
 	if err != nil {
 		return nil, err
@@ -89,7 +87,7 @@ func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *protoco
 }
 
 // ThreadArchive archives a thread.
-func (c *Codex) ThreadArchive(ctx context.Context, threadID string) (protocol.ThreadArchiveResponse, error) {
+func (c *Codex) ThreadArchive(ctx context.Context, threadID string) (ThreadArchiveResponse, error) {
 	return c.client.ThreadArchive(ctx, threadID)
 }
 
@@ -103,7 +101,7 @@ func (c *Codex) ThreadUnarchive(ctx context.Context, threadID string) (*Thread, 
 }
 
 // Models lists available models.
-func (c *Codex) Models(ctx context.Context, includeHidden bool) (protocol.ModelListResponse, error) {
+func (c *Codex) Models(ctx context.Context, includeHidden bool) (ModelListResponse, error) {
 	return c.client.ModelList(ctx, includeHidden)
 }
 
@@ -122,7 +120,7 @@ type Thread struct {
 func (t *Thread) ID() string { return t.id }
 
 // Run starts a turn, consumes events until completion, and returns collected output.
-func (t *Thread) Run(ctx context.Context, input any, params *protocol.TurnStartParams) (RunResult, error) {
+func (t *Thread) Run(ctx context.Context, input any, params *TurnStartParams) (RunResult, error) {
 	handle, err := t.Turn(ctx, input, params)
 	if err != nil {
 		return RunResult{}, err
@@ -131,7 +129,7 @@ func (t *Thread) Run(ctx context.Context, input any, params *protocol.TurnStartP
 }
 
 // Turn starts a turn and returns a handle for stream, steer, interrupt, or run.
-func (t *Thread) Turn(ctx context.Context, input any, params *protocol.TurnStartParams) (*TurnHandle, error) {
+func (t *Thread) Turn(ctx context.Context, input any, params *TurnStartParams) (*TurnHandle, error) {
 	started, err := t.client.TurnStart(ctx, t.id, input, params)
 	if err != nil {
 		return nil, err
@@ -140,17 +138,17 @@ func (t *Thread) Turn(ctx context.Context, input any, params *protocol.TurnStart
 }
 
 // Read reads thread state.
-func (t *Thread) Read(ctx context.Context, includeTurns bool) (protocol.ThreadReadResponse, error) {
+func (t *Thread) Read(ctx context.Context, includeTurns bool) (ThreadReadResponse, error) {
 	return t.client.ThreadRead(ctx, t.id, includeTurns)
 }
 
 // SetName sets the thread name.
-func (t *Thread) SetName(ctx context.Context, name string) (protocol.ThreadSetNameResponse, error) {
+func (t *Thread) SetName(ctx context.Context, name string) (ThreadSetNameResponse, error) {
 	return t.client.ThreadSetName(ctx, t.id, name)
 }
 
 // Compact starts compaction for the thread.
-func (t *Thread) Compact(ctx context.Context) (protocol.ThreadCompactStartResponse, error) {
+func (t *Thread) Compact(ctx context.Context) (ThreadCompactStartResponse, error) {
 	return t.client.ThreadCompact(ctx, t.id)
 }
 
@@ -165,12 +163,12 @@ type TurnHandle struct {
 func (h *TurnHandle) ID() string { return h.turnID }
 
 // Steer sends additional input to the active turn.
-func (h *TurnHandle) Steer(ctx context.Context, input any) (protocol.TurnSteerResponse, error) {
+func (h *TurnHandle) Steer(ctx context.Context, input any) (TurnSteerResponse, error) {
 	return h.client.TurnSteer(ctx, h.threadID, h.turnID, input)
 }
 
 // Interrupt interrupts the active turn.
-func (h *TurnHandle) Interrupt(ctx context.Context) (protocol.TurnInterruptResponse, error) {
+func (h *TurnHandle) Interrupt(ctx context.Context) (TurnInterruptResponse, error) {
 	return h.client.TurnInterrupt(ctx, h.threadID, h.turnID)
 }
 

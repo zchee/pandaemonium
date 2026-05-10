@@ -16,82 +16,80 @@ package codexappserver
 
 import (
 	"context"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 // ThreadStart calls thread/start.
-func (c *Client) ThreadStart(ctx context.Context, params *protocol.ThreadStartParams) (protocol.ThreadStartResponse, error) {
-	return Request[protocol.ThreadStartResponse](ctx, c, "thread/start", paramsOrEmpty(params))
+func (c *Client) ThreadStart(ctx context.Context, params *ThreadStartParams) (ThreadStartResponse, error) {
+	return Request[ThreadStartResponse](ctx, c, "thread/start", paramsOrEmpty(params))
 }
 
 // ThreadResume calls thread/resume.
-func (c *Client) ThreadResume(ctx context.Context, threadID string, params *protocol.ThreadResumeParams) (protocol.ThreadResumeResponse, error) {
+func (c *Client) ThreadResume(ctx context.Context, threadID string, params *ThreadResumeParams) (ThreadResumeResponse, error) {
 	payload := mergeParams(params, Object{"threadId": threadID})
-	return Request[protocol.ThreadResumeResponse](ctx, c, "thread/resume", payload)
+	return Request[ThreadResumeResponse](ctx, c, "thread/resume", payload)
 }
 
 // ThreadFork calls thread/fork.
-func (c *Client) ThreadFork(ctx context.Context, threadID string, params *protocol.ThreadForkParams) (protocol.ThreadForkResponse, error) {
+func (c *Client) ThreadFork(ctx context.Context, threadID string, params *ThreadForkParams) (ThreadForkResponse, error) {
 	payload := mergeParams(params, Object{"threadId": threadID})
-	return Request[protocol.ThreadForkResponse](ctx, c, "thread/fork", payload)
+	return Request[ThreadForkResponse](ctx, c, "thread/fork", payload)
 }
 
 // ThreadList calls thread/list.
-func (c *Client) ThreadList(ctx context.Context, params *protocol.ThreadListParams) (protocol.ThreadListResponse, error) {
-	return Request[protocol.ThreadListResponse](ctx, c, "thread/list", paramsOrEmpty(params))
+func (c *Client) ThreadList(ctx context.Context, params *ThreadListParams) (ThreadListResponse, error) {
+	return Request[ThreadListResponse](ctx, c, "thread/list", paramsOrEmpty(params))
 }
 
 // ThreadRead calls thread/read.
-func (c *Client) ThreadRead(ctx context.Context, threadID string, includeTurns bool) (protocol.ThreadReadResponse, error) {
-	return Request[protocol.ThreadReadResponse](ctx, c, "thread/read", protocol.ThreadReadParams{ThreadID: threadID, IncludeTurns: &includeTurns})
+func (c *Client) ThreadRead(ctx context.Context, threadID string, includeTurns bool) (ThreadReadResponse, error) {
+	return Request[ThreadReadResponse](ctx, c, "thread/read", ThreadReadParams{ThreadID: threadID, IncludeTurns: &includeTurns})
 }
 
 // ThreadArchive calls thread/archive.
-func (c *Client) ThreadArchive(ctx context.Context, threadID string) (protocol.ThreadArchiveResponse, error) {
-	return Request[protocol.ThreadArchiveResponse](ctx, c, "thread/archive", protocol.ThreadArchiveParams{ThreadID: threadID})
+func (c *Client) ThreadArchive(ctx context.Context, threadID string) (ThreadArchiveResponse, error) {
+	return Request[ThreadArchiveResponse](ctx, c, "thread/archive", ThreadArchiveParams{ThreadID: threadID})
 }
 
 // ThreadUnarchive calls thread/unarchive.
-func (c *Client) ThreadUnarchive(ctx context.Context, threadID string) (protocol.ThreadUnarchiveResponse, error) {
-	return Request[protocol.ThreadUnarchiveResponse](ctx, c, "thread/unarchive", protocol.ThreadUnarchiveParams{ThreadID: threadID})
+func (c *Client) ThreadUnarchive(ctx context.Context, threadID string) (ThreadUnarchiveResponse, error) {
+	return Request[ThreadUnarchiveResponse](ctx, c, "thread/unarchive", ThreadUnarchiveParams{ThreadID: threadID})
 }
 
 // ThreadSetName calls thread/name/set.
-func (c *Client) ThreadSetName(ctx context.Context, threadID, name string) (protocol.ThreadSetNameResponse, error) {
-	return Request[protocol.ThreadSetNameResponse](ctx, c, "thread/name/set", protocol.ThreadSetNameParams{ThreadID: threadID, Name: name})
+func (c *Client) ThreadSetName(ctx context.Context, threadID, name string) (ThreadSetNameResponse, error) {
+	return Request[ThreadSetNameResponse](ctx, c, "thread/name/set", ThreadSetNameParams{ThreadID: threadID, Name: name})
 }
 
 // ThreadCompact calls thread/compact/start.
-func (c *Client) ThreadCompact(ctx context.Context, threadID string) (protocol.ThreadCompactStartResponse, error) {
-	return Request[protocol.ThreadCompactStartResponse](ctx, c, "thread/compact/start", protocol.ThreadCompactStartParams{ThreadID: threadID})
+func (c *Client) ThreadCompact(ctx context.Context, threadID string) (ThreadCompactStartResponse, error) {
+	return Request[ThreadCompactStartResponse](ctx, c, "thread/compact/start", ThreadCompactStartParams{ThreadID: threadID})
 }
 
 // TurnStart calls turn/start.
-func (c *Client) TurnStart(ctx context.Context, threadID string, input any, params *protocol.TurnStartParams) (protocol.TurnStartResponse, error) {
+func (c *Client) TurnStart(ctx context.Context, threadID string, input any, params *TurnStartParams) (TurnStartResponse, error) {
 	items, err := normalizeInput(input)
 	if err != nil {
-		return protocol.TurnStartResponse{}, err
+		return TurnStartResponse{}, err
 	}
 	payload := mergeParams(params, Object{"threadId": threadID, "input": items})
-	return Request[protocol.TurnStartResponse](ctx, c, "turn/start", payload)
+	return Request[TurnStartResponse](ctx, c, "turn/start", payload)
 }
 
 // TurnInterrupt calls turn/interrupt.
-func (c *Client) TurnInterrupt(ctx context.Context, threadID, turnID string) (protocol.TurnInterruptResponse, error) {
-	return Request[protocol.TurnInterruptResponse](ctx, c, "turn/interrupt", Object{"threadId": threadID, "turnId": turnID})
+func (c *Client) TurnInterrupt(ctx context.Context, threadID, turnID string) (TurnInterruptResponse, error) {
+	return Request[TurnInterruptResponse](ctx, c, "turn/interrupt", Object{"threadId": threadID, "turnId": turnID})
 }
 
 // TurnSteer calls turn/steer.
-func (c *Client) TurnSteer(ctx context.Context, threadID, expectedTurnID string, input any) (protocol.TurnSteerResponse, error) {
+func (c *Client) TurnSteer(ctx context.Context, threadID, expectedTurnID string, input any) (TurnSteerResponse, error) {
 	items, err := normalizeInput(input)
 	if err != nil {
-		return protocol.TurnSteerResponse{}, err
+		return TurnSteerResponse{}, err
 	}
-	return Request[protocol.TurnSteerResponse](ctx, c, "turn/steer", Object{"threadId": threadID, "expectedTurnId": expectedTurnID, "input": items})
+	return Request[TurnSteerResponse](ctx, c, "turn/steer", Object{"threadId": threadID, "expectedTurnId": expectedTurnID, "input": items})
 }
 
 // ModelList calls model/list.
-func (c *Client) ModelList(ctx context.Context, includeHidden bool) (protocol.ModelListResponse, error) {
-	return Request[protocol.ModelListResponse](ctx, c, "model/list", protocol.ModelListParams{IncludeHidden: &includeHidden})
+func (c *Client) ModelList(ctx context.Context, includeHidden bool) (ModelListResponse, error) {
+	return Request[ModelListResponse](ctx, c, "model/list", ModelListParams{IncludeHidden: &includeHidden})
 }

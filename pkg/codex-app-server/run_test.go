@@ -19,17 +19,15 @@ import (
 
 	"github.com/go-json-experiment/json"
 	gocmp "github.com/google/go-cmp/cmp"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 func TestDecodeThreadItemRoundTripPreservesNestedSlices(t *testing.T) {
 	t.Parallel()
 
-	original := []protocol.ThreadItem{
-		protocol.RawThreadItem(`{"type":"agentMessage","text":"alpha","phase":"draft"}`),
-		protocol.RawThreadItem(`{"type":"agent_message","text":"beta","phase":"finalAnswer"}`),
-		protocol.RawThreadItem(`{"type":"unknown","text":"ignored","nested":[{"type":"agentMessage","text":"nested"}]}`),
+	original := []ThreadItem{
+		RawThreadItem(`{"type":"agentMessage","text":"alpha","phase":"draft"}`),
+		RawThreadItem(`{"type":"agent_message","text":"beta","phase":"finalAnswer"}`),
+		RawThreadItem(`{"type":"unknown","text":"ignored","nested":[{"type":"agentMessage","text":"nested"}]}`),
 	}
 
 	raw, err := json.Marshal(original)
@@ -37,11 +35,11 @@ func TestDecodeThreadItemRoundTripPreservesNestedSlices(t *testing.T) {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	var decoded []protocol.RawThreadItem
+	var decoded []RawThreadItem
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	got := make([]protocol.ThreadItem, len(decoded))
+	got := make([]ThreadItem, len(decoded))
 	for i := range decoded {
 		got[i] = decoded[i]
 	}
@@ -59,10 +57,10 @@ func TestDecodeThreadItemRoundTripPreservesNestedSlices(t *testing.T) {
 func TestFinalAssistantResponseIgnoresUnknownDiscriminatorAndFallsBack(t *testing.T) {
 	t.Parallel()
 
-	items := []protocol.ThreadItem{
-		protocol.RawThreadItem(`{"type":"unknown","text":"ignored"}`),
-		protocol.RawThreadItem(`{"type":"agentMessage","text":"answer one"}`),
-		protocol.RawThreadItem(`{"type":"agent_message","text":"answer two","phase":"final_answer"}`),
+	items := []ThreadItem{
+		RawThreadItem(`{"type":"unknown","text":"ignored"}`),
+		RawThreadItem(`{"type":"agentMessage","text":"answer one"}`),
+		RawThreadItem(`{"type":"agent_message","text":"answer two","phase":"final_answer"}`),
 	}
 
 	if got := finalAssistantResponse(items); got != "answer two" {
@@ -73,7 +71,7 @@ func TestFinalAssistantResponseIgnoresUnknownDiscriminatorAndFallsBack(t *testin
 func TestDecodeThreadItemRejectsMalformedPayload(t *testing.T) {
 	t.Parallel()
 
-	if _, ok := decodeThreadItem(protocol.RawThreadItem(`{"type":"agentMessage","text":"missing brace"`)); ok {
+	if _, ok := decodeThreadItem(RawThreadItem(`{"type":"agentMessage","text":"missing brace"`)); ok {
 		t.Fatal("decodeThreadItem() ok = true, want false for malformed payload")
 	}
 }

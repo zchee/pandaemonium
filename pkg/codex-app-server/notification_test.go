@@ -20,25 +20,23 @@ import (
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 func TestDecodeNotificationHelpers(t *testing.T) {
 	t.Parallel()
 
-	itemParams, err := json.Marshal(protocol.ItemCompletedNotification{
+	itemParams, err := json.Marshal(ItemCompletedNotification{
 		ThreadID: "thr-1",
 		TurnID:   "turn-1",
-		Item:     protocol.RawThreadItem(`{"type":"agentMessage","text":"hello"}`),
+		Item:     RawThreadItem(`{"type":"agentMessage","text":"hello"}`),
 	})
 	if err != nil {
 		t.Fatalf("json.Marshal() item params error = %v", err)
 	}
-	turnParams, err := json.Marshal(protocol.TurnCompletedNotification{
-		Turn: protocol.Turn{
+	turnParams, err := json.Marshal(TurnCompletedNotification{
+		Turn: Turn{
 			ID:     "turn-1",
-			Status: protocol.TurnStatusCompleted,
+			Status: TurnStatusCompleted,
 		},
 	})
 	if err != nil {
@@ -105,7 +103,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if !ok {
 					t.Fatalf("DecodeTurnCompletedNotification() ok = false, want true")
 				}
-				if got.Turn.ID != "turn-1" || got.Turn.Status != protocol.TurnStatusCompleted {
+				if got.Turn.ID != "turn-1" || got.Turn.Status != TurnStatusCompleted {
 					t.Fatalf("decoded turn notification = %#v, want completed turn-1", got)
 				}
 				value, ok, err := tt.notification.TurnCompleted()
@@ -144,7 +142,7 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	t.Parallel()
 
-	mismatch, ok, err := DecodeNotificationAs[protocol.ErrorNotification](
+	mismatch, ok, err := DecodeNotificationAs[ErrorNotification](
 		Notification{Method: NotificationMethodTurnCompleted, Params: jsontext.Value([]byte(`{"message":"nope"}`))},
 		NotificationMethodError,
 	)
@@ -154,7 +152,7 @@ func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	if ok {
 		t.Fatalf("DecodeNotification() mismatch ok = true, want false")
 	}
-	if diff := gocmp.Diff(protocol.ErrorNotification{}, mismatch); diff != "" {
+	if diff := gocmp.Diff(ErrorNotification{}, mismatch); diff != "" {
 		t.Fatalf("DecodeNotification() mismatch value (-want +got):\n%s", diff)
 	}
 
@@ -193,14 +191,14 @@ func TestDecodeKnownNotificationUnknownMethodPreservesNestedRaw(t *testing.T) {
 func TestTurnCompletedNotificationRoundTripPreservesThreadItemSlices(t *testing.T) {
 	t.Parallel()
 
-	original := protocol.TurnCompletedNotification{
+	original := TurnCompletedNotification{
 		ThreadID: "thr-1",
-		Turn: protocol.Turn{
+		Turn: Turn{
 			ID:     "turn-1",
-			Status: protocol.TurnStatusCompleted,
-			Items: []protocol.ThreadItem{
-				protocol.RawThreadItem(jsontext.Value(`{"type":"agentMessage","text":"hello","meta":{"source":"assistant"}}`)),
-				protocol.RawThreadItem(jsontext.Value(`["nested",{"kind":"union"}]`)),
+			Status: TurnStatusCompleted,
+			Items: []ThreadItem{
+				RawThreadItem(jsontext.Value(`{"type":"agentMessage","text":"hello","meta":{"source":"assistant"}}`)),
+				RawThreadItem(jsontext.Value(`["nested",{"kind":"union"}]`)),
 			},
 		},
 	}
@@ -210,7 +208,7 @@ func TestTurnCompletedNotificationRoundTripPreservesThreadItemSlices(t *testing.
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
 
-	var decoded protocol.TurnCompletedNotification
+	var decoded TurnCompletedNotification
 	if err := json.Unmarshal(raw, &decoded); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}

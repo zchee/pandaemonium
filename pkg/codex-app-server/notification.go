@@ -19,8 +19,6 @@ import (
 	"sort"
 
 	"github.com/go-json-experiment/json"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 const (
@@ -100,187 +98,187 @@ const (
 
 var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodAccountLoginCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.AccountLoginCompletedNotification](notification, NotificationMethodAccountLoginCompleted)
+		return DecodeNotificationAs[AccountLoginCompletedNotification](notification, NotificationMethodAccountLoginCompleted)
 	},
 	NotificationMethodAccountRateLimitsUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.AccountRateLimitsUpdatedNotification](notification, NotificationMethodAccountRateLimitsUpdated)
+		return DecodeNotificationAs[AccountRateLimitsUpdatedNotification](notification, NotificationMethodAccountRateLimitsUpdated)
 	},
 	NotificationMethodAccountUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.AccountUpdatedNotification](notification, NotificationMethodAccountUpdated)
+		return DecodeNotificationAs[AccountUpdatedNotification](notification, NotificationMethodAccountUpdated)
 	},
 	NotificationMethodAppListUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.AppListUpdatedNotification](notification, NotificationMethodAppListUpdated)
+		return DecodeNotificationAs[AppListUpdatedNotification](notification, NotificationMethodAppListUpdated)
 	},
 	NotificationMethodCommandExecOutputDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.CommandExecOutputDeltaNotification](notification, NotificationMethodCommandExecOutputDelta)
+		return DecodeNotificationAs[CommandExecOutputDeltaNotification](notification, NotificationMethodCommandExecOutputDelta)
 	},
 	NotificationMethodConfigWarning: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ConfigWarningNotification](notification, NotificationMethodConfigWarning)
+		return DecodeNotificationAs[ConfigWarningNotification](notification, NotificationMethodConfigWarning)
 	},
 	NotificationMethodDeprecationNotice: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.DeprecationNoticeNotification](notification, NotificationMethodDeprecationNotice)
+		return DecodeNotificationAs[DeprecationNoticeNotification](notification, NotificationMethodDeprecationNotice)
 	},
 	NotificationMethodItemAgentMessageDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.AgentMessageDeltaNotification](notification, NotificationMethodItemAgentMessageDelta)
+		return DecodeNotificationAs[AgentMessageDeltaNotification](notification, NotificationMethodItemAgentMessageDelta)
 	},
 	NotificationMethodError: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ErrorNotification](notification, NotificationMethodError)
+		return DecodeNotificationAs[ErrorNotification](notification, NotificationMethodError)
 	},
 	NotificationMethodExternalAgentConfigImportCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ExternalAgentConfigImportCompletedNotification](notification, NotificationMethodExternalAgentConfigImportCompleted)
+		return DecodeNotificationAs[ExternalAgentConfigImportCompletedNotification](notification, NotificationMethodExternalAgentConfigImportCompleted)
 	},
 	NotificationMethodFsChanged: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.FsChangedNotification](notification, NotificationMethodFsChanged)
+		return DecodeNotificationAs[FsChangedNotification](notification, NotificationMethodFsChanged)
 	},
 	NotificationMethodFuzzyFileSearchSessionCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.FuzzyFileSearchSessionCompletedNotification](notification, NotificationMethodFuzzyFileSearchSessionCompleted)
+		return DecodeNotificationAs[FuzzyFileSearchSessionCompletedNotification](notification, NotificationMethodFuzzyFileSearchSessionCompleted)
 	},
 	NotificationMethodFuzzyFileSearchSessionUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.FuzzyFileSearchSessionUpdatedNotification](notification, NotificationMethodFuzzyFileSearchSessionUpdated)
+		return DecodeNotificationAs[FuzzyFileSearchSessionUpdatedNotification](notification, NotificationMethodFuzzyFileSearchSessionUpdated)
 	},
 	NotificationMethodGuardianWarning: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.GuardianWarningNotification](notification, NotificationMethodGuardianWarning)
+		return DecodeNotificationAs[GuardianWarningNotification](notification, NotificationMethodGuardianWarning)
 	},
 	NotificationMethodHookCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.HookCompletedNotification](notification, NotificationMethodHookCompleted)
+		return DecodeNotificationAs[HookCompletedNotification](notification, NotificationMethodHookCompleted)
 	},
 	NotificationMethodHookStarted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.HookStartedNotification](notification, NotificationMethodHookStarted)
+		return DecodeNotificationAs[HookStartedNotification](notification, NotificationMethodHookStarted)
 	},
 	NotificationMethodItemAutoApprovalReviewCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemGuardianApprovalReviewCompletedNotification](notification, NotificationMethodItemAutoApprovalReviewCompleted)
+		return DecodeNotificationAs[ItemGuardianApprovalReviewCompletedNotification](notification, NotificationMethodItemAutoApprovalReviewCompleted)
 	},
 	NotificationMethodItemAutoApprovalReviewStarted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemGuardianApprovalReviewStartedNotification](notification, NotificationMethodItemAutoApprovalReviewStarted)
+		return DecodeNotificationAs[ItemGuardianApprovalReviewStartedNotification](notification, NotificationMethodItemAutoApprovalReviewStarted)
 	},
 	NotificationMethodItemCommandExecutionOutputDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemCommandExecutionOutputDeltaNotification](notification, NotificationMethodItemCommandExecutionOutputDelta)
+		return DecodeNotificationAs[ItemCommandExecutionOutputDeltaNotification](notification, NotificationMethodItemCommandExecutionOutputDelta)
 	},
 	NotificationMethodItemCommandExecutionTerminalInteraction: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemCommandExecutionTerminalInteractionNotification](notification, NotificationMethodItemCommandExecutionTerminalInteraction)
+		return DecodeNotificationAs[ItemCommandExecutionTerminalInteractionNotification](notification, NotificationMethodItemCommandExecutionTerminalInteraction)
 	},
 	NotificationMethodItemCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemCompletedNotification](notification, NotificationMethodItemCompleted)
+		return DecodeNotificationAs[ItemCompletedNotification](notification, NotificationMethodItemCompleted)
 	},
 	NotificationMethodItemFileChangeOutputDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemFileChangeOutputDeltaNotification](notification, NotificationMethodItemFileChangeOutputDelta)
+		return DecodeNotificationAs[ItemFileChangeOutputDeltaNotification](notification, NotificationMethodItemFileChangeOutputDelta)
 	},
 	NotificationMethodItemFileChangePatchUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemFileChangePatchUpdatedNotification](notification, NotificationMethodItemFileChangePatchUpdated)
+		return DecodeNotificationAs[ItemFileChangePatchUpdatedNotification](notification, NotificationMethodItemFileChangePatchUpdated)
 	},
 	NotificationMethodItemMCPToolCallProgress: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.MCPToolCallProgressNotification](notification, NotificationMethodItemMCPToolCallProgress)
+		return DecodeNotificationAs[MCPToolCallProgressNotification](notification, NotificationMethodItemMCPToolCallProgress)
 	},
 	NotificationMethodItemPlanDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.PlanDeltaNotification](notification, NotificationMethodItemPlanDelta)
+		return DecodeNotificationAs[PlanDeltaNotification](notification, NotificationMethodItemPlanDelta)
 	},
 	NotificationMethodItemReasoningSummaryPartAdded: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ReasoningSummaryPartAddedNotification](notification, NotificationMethodItemReasoningSummaryPartAdded)
+		return DecodeNotificationAs[ReasoningSummaryPartAddedNotification](notification, NotificationMethodItemReasoningSummaryPartAdded)
 	},
 	NotificationMethodItemReasoningSummaryTextDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ReasoningSummaryTextDeltaNotification](notification, NotificationMethodItemReasoningSummaryTextDelta)
+		return DecodeNotificationAs[ReasoningSummaryTextDeltaNotification](notification, NotificationMethodItemReasoningSummaryTextDelta)
 	},
 	NotificationMethodItemReasoningTextDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ReasoningTextDeltaNotification](notification, NotificationMethodItemReasoningTextDelta)
+		return DecodeNotificationAs[ReasoningTextDeltaNotification](notification, NotificationMethodItemReasoningTextDelta)
 	},
 	NotificationMethodItemStarted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ItemStartedNotification](notification, NotificationMethodItemStarted)
+		return DecodeNotificationAs[ItemStartedNotification](notification, NotificationMethodItemStarted)
 	},
 	NotificationMethodMCPServerOAuthLoginCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.MCPServerOAuthLoginCompletedNotification](notification, NotificationMethodMCPServerOAuthLoginCompleted)
+		return DecodeNotificationAs[MCPServerOAuthLoginCompletedNotification](notification, NotificationMethodMCPServerOAuthLoginCompleted)
 	},
 	NotificationMethodMCPServerStartupStatusUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.MCPServerStartupStatusUpdatedNotification](notification, NotificationMethodMCPServerStartupStatusUpdated)
+		return DecodeNotificationAs[MCPServerStartupStatusUpdatedNotification](notification, NotificationMethodMCPServerStartupStatusUpdated)
 	},
 	NotificationMethodModelRerouted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ModelReroutedNotification](notification, NotificationMethodModelRerouted)
+		return DecodeNotificationAs[ModelReroutedNotification](notification, NotificationMethodModelRerouted)
 	},
 	NotificationMethodModelVerification: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ModelVerificationNotification](notification, NotificationMethodModelVerification)
+		return DecodeNotificationAs[ModelVerificationNotification](notification, NotificationMethodModelVerification)
 	},
 	NotificationMethodRemoteControlStatusChanged: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.RemoteControlStatusChangedNotification](notification, NotificationMethodRemoteControlStatusChanged)
+		return DecodeNotificationAs[RemoteControlStatusChangedNotification](notification, NotificationMethodRemoteControlStatusChanged)
 	},
 	NotificationMethodServerRequestResolved: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ServerRequestResolvedNotification](notification, NotificationMethodServerRequestResolved)
+		return DecodeNotificationAs[ServerRequestResolvedNotification](notification, NotificationMethodServerRequestResolved)
 	},
 	NotificationMethodSkillsChanged: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.SkillsChangedNotification](notification, NotificationMethodSkillsChanged)
+		return DecodeNotificationAs[SkillsChangedNotification](notification, NotificationMethodSkillsChanged)
 	},
 	NotificationMethodThreadArchived: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadArchivedNotification](notification, NotificationMethodThreadArchived)
+		return DecodeNotificationAs[ThreadArchivedNotification](notification, NotificationMethodThreadArchived)
 	},
 	NotificationMethodThreadClosed: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadClosedNotification](notification, NotificationMethodThreadClosed)
+		return DecodeNotificationAs[ThreadClosedNotification](notification, NotificationMethodThreadClosed)
 	},
 	NotificationMethodThreadCompacted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ContextCompactedNotification](notification, NotificationMethodThreadCompacted)
+		return DecodeNotificationAs[ContextCompactedNotification](notification, NotificationMethodThreadCompacted)
 	},
 	NotificationMethodThreadGoalCleared: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadGoalClearedNotification](notification, NotificationMethodThreadGoalCleared)
+		return DecodeNotificationAs[ThreadGoalClearedNotification](notification, NotificationMethodThreadGoalCleared)
 	},
 	NotificationMethodThreadGoalUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadGoalUpdatedNotification](notification, NotificationMethodThreadGoalUpdated)
+		return DecodeNotificationAs[ThreadGoalUpdatedNotification](notification, NotificationMethodThreadGoalUpdated)
 	},
 	NotificationMethodThreadNameUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadNameUpdatedNotification](notification, NotificationMethodThreadNameUpdated)
+		return DecodeNotificationAs[ThreadNameUpdatedNotification](notification, NotificationMethodThreadNameUpdated)
 	},
 	NotificationMethodThreadRealtimeClosed: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeClosedNotification](notification, NotificationMethodThreadRealtimeClosed)
+		return DecodeNotificationAs[ThreadRealtimeClosedNotification](notification, NotificationMethodThreadRealtimeClosed)
 	},
 	NotificationMethodThreadRealtimeError: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeErrorNotification](notification, NotificationMethodThreadRealtimeError)
+		return DecodeNotificationAs[ThreadRealtimeErrorNotification](notification, NotificationMethodThreadRealtimeError)
 	},
 	NotificationMethodThreadRealtimeItemAdded: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeItemAddedNotification](notification, NotificationMethodThreadRealtimeItemAdded)
+		return DecodeNotificationAs[ThreadRealtimeItemAddedNotification](notification, NotificationMethodThreadRealtimeItemAdded)
 	},
 	NotificationMethodThreadRealtimeOutputAudioDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeOutputAudioDeltaNotification](notification, NotificationMethodThreadRealtimeOutputAudioDelta)
+		return DecodeNotificationAs[ThreadRealtimeOutputAudioDeltaNotification](notification, NotificationMethodThreadRealtimeOutputAudioDelta)
 	},
 	NotificationMethodThreadRealtimeSDP: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeSDPNotification](notification, NotificationMethodThreadRealtimeSDP)
+		return DecodeNotificationAs[ThreadRealtimeSDPNotification](notification, NotificationMethodThreadRealtimeSDP)
 	},
 	NotificationMethodThreadRealtimeStarted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeStartedNotification](notification, NotificationMethodThreadRealtimeStarted)
+		return DecodeNotificationAs[ThreadRealtimeStartedNotification](notification, NotificationMethodThreadRealtimeStarted)
 	},
 	NotificationMethodThreadRealtimeTranscriptDelta: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeTranscriptDeltaNotification](notification, NotificationMethodThreadRealtimeTranscriptDelta)
+		return DecodeNotificationAs[ThreadRealtimeTranscriptDeltaNotification](notification, NotificationMethodThreadRealtimeTranscriptDelta)
 	},
 	NotificationMethodThreadRealtimeTranscriptDone: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadRealtimeTranscriptDoneNotification](notification, NotificationMethodThreadRealtimeTranscriptDone)
+		return DecodeNotificationAs[ThreadRealtimeTranscriptDoneNotification](notification, NotificationMethodThreadRealtimeTranscriptDone)
 	},
 	NotificationMethodThreadStarted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadStartedNotification](notification, NotificationMethodThreadStarted)
+		return DecodeNotificationAs[ThreadStartedNotification](notification, NotificationMethodThreadStarted)
 	},
 	NotificationMethodThreadStatusChanged: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadStatusChangedNotification](notification, NotificationMethodThreadStatusChanged)
+		return DecodeNotificationAs[ThreadStatusChangedNotification](notification, NotificationMethodThreadStatusChanged)
 	},
 	NotificationMethodThreadTokenUsageUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
+		return DecodeNotificationAs[ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
 	},
 	NotificationMethodThreadUnarchived: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.ThreadUnarchivedNotification](notification, NotificationMethodThreadUnarchived)
+		return DecodeNotificationAs[ThreadUnarchivedNotification](notification, NotificationMethodThreadUnarchived)
 	},
 	NotificationMethodTurnCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.TurnCompletedNotification](notification, NotificationMethodTurnCompleted)
+		return DecodeNotificationAs[TurnCompletedNotification](notification, NotificationMethodTurnCompleted)
 	},
 	NotificationMethodTurnDiffUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.TurnDiffUpdatedNotification](notification, NotificationMethodTurnDiffUpdated)
+		return DecodeNotificationAs[TurnDiffUpdatedNotification](notification, NotificationMethodTurnDiffUpdated)
 	},
 	NotificationMethodTurnPlanUpdated: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.TurnPlanUpdatedNotification](notification, NotificationMethodTurnPlanUpdated)
+		return DecodeNotificationAs[TurnPlanUpdatedNotification](notification, NotificationMethodTurnPlanUpdated)
 	},
 	NotificationMethodTurnStarted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.TurnStartedNotification](notification, NotificationMethodTurnStarted)
+		return DecodeNotificationAs[TurnStartedNotification](notification, NotificationMethodTurnStarted)
 	},
 	NotificationMethodWarning: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.WarningNotification](notification, NotificationMethodWarning)
+		return DecodeNotificationAs[WarningNotification](notification, NotificationMethodWarning)
 	},
 	NotificationMethodWindowsWorldWritableWarning: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.WindowsWorldWritableWarningNotification](notification, NotificationMethodWindowsWorldWritableWarning)
+		return DecodeNotificationAs[WindowsWorldWritableWarningNotification](notification, NotificationMethodWindowsWorldWritableWarning)
 	},
 	NotificationMethodWindowsSandboxSetupCompleted: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[protocol.WindowsSandboxSetupCompletedNotification](notification, NotificationMethodWindowsSandboxSetupCompleted)
+		return DecodeNotificationAs[WindowsSandboxSetupCompletedNotification](notification, NotificationMethodWindowsSandboxSetupCompleted)
 	},
 }
 
@@ -340,52 +338,52 @@ func DecodeKnownNotification(notification Notification) (KnownNotification, bool
 }
 
 // DecodeAgentMessageDeltaNotification decodes an item/agentMessage/delta notification.
-func DecodeAgentMessageDeltaNotification(notification Notification) (protocol.AgentMessageDeltaNotification, bool, error) {
-	return DecodeNotificationAs[protocol.AgentMessageDeltaNotification](notification, NotificationMethodItemAgentMessageDelta)
+func DecodeAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
+	return DecodeNotificationAs[AgentMessageDeltaNotification](notification, NotificationMethodItemAgentMessageDelta)
 }
 
 // DecodeErrorNotification decodes an error notification.
-func DecodeErrorNotification(notification Notification) (protocol.ErrorNotification, bool, error) {
-	return DecodeNotificationAs[protocol.ErrorNotification](notification, NotificationMethodError)
+func DecodeErrorNotification(notification Notification) (ErrorNotification, bool, error) {
+	return DecodeNotificationAs[ErrorNotification](notification, NotificationMethodError)
 }
 
 // DecodeItemCompletedNotification decodes an item/completed notification.
-func DecodeItemCompletedNotification(notification Notification) (protocol.ItemCompletedNotification, bool, error) {
-	return DecodeNotificationAs[protocol.ItemCompletedNotification](notification, NotificationMethodItemCompleted)
+func DecodeItemCompletedNotification(notification Notification) (ItemCompletedNotification, bool, error) {
+	return DecodeNotificationAs[ItemCompletedNotification](notification, NotificationMethodItemCompleted)
 }
 
 // DecodeThreadTokenUsageUpdatedNotification decodes a thread/tokenUsage/updated notification.
-func DecodeThreadTokenUsageUpdatedNotification(notification Notification) (protocol.ThreadTokenUsageUpdatedNotification, bool, error) {
-	return DecodeNotificationAs[protocol.ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
+func DecodeThreadTokenUsageUpdatedNotification(notification Notification) (ThreadTokenUsageUpdatedNotification, bool, error) {
+	return DecodeNotificationAs[ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
 }
 
 // DecodeTurnCompletedNotification decodes a turn/completed notification.
-func DecodeTurnCompletedNotification(notification Notification) (protocol.TurnCompletedNotification, bool, error) {
-	return DecodeNotificationAs[protocol.TurnCompletedNotification](notification, NotificationMethodTurnCompleted)
+func DecodeTurnCompletedNotification(notification Notification) (TurnCompletedNotification, bool, error) {
+	return DecodeNotificationAs[TurnCompletedNotification](notification, NotificationMethodTurnCompleted)
 }
 
 // AgentMessageDelta decodes an item/agentMessage/delta notification.
-func (notification Notification) AgentMessageDelta() (protocol.AgentMessageDeltaNotification, bool, error) {
+func (notification Notification) AgentMessageDelta() (AgentMessageDeltaNotification, bool, error) {
 	return DecodeAgentMessageDeltaNotification(notification)
 }
 
 // ErrorNotification decodes an error notification.
-func (notification Notification) ErrorNotification() (protocol.ErrorNotification, bool, error) {
+func (notification Notification) ErrorNotification() (ErrorNotification, bool, error) {
 	return DecodeErrorNotification(notification)
 }
 
 // ItemCompleted decodes an item/completed notification.
-func (notification Notification) ItemCompleted() (protocol.ItemCompletedNotification, bool, error) {
+func (notification Notification) ItemCompleted() (ItemCompletedNotification, bool, error) {
 	return DecodeItemCompletedNotification(notification)
 }
 
 // ThreadTokenUsageUpdated decodes a thread/tokenUsage/updated notification.
-func (notification Notification) ThreadTokenUsageUpdated() (protocol.ThreadTokenUsageUpdatedNotification, bool, error) {
+func (notification Notification) ThreadTokenUsageUpdated() (ThreadTokenUsageUpdatedNotification, bool, error) {
 	return DecodeThreadTokenUsageUpdatedNotification(notification)
 }
 
 // TurnCompleted decodes a turn/completed notification.
-func (notification Notification) TurnCompleted() (protocol.TurnCompletedNotification, bool, error) {
+func (notification Notification) TurnCompleted() (TurnCompletedNotification, bool, error) {
 	return DecodeTurnCompletedNotification(notification)
 }
 

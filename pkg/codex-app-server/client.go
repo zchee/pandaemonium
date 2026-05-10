@@ -32,8 +32,6 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
-
-	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
 
 const sdkVersion = "0.116.0a1-go"
@@ -222,13 +220,13 @@ func (c *Client) Close() error {
 func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 	experimentalAPI := c.experimentalAPI()
 	clientTitle := c.config.ClientTitle
-	params := protocol.InitializeParams{
-		ClientInfo: protocol.ClientInfo{
+	params := InitializeParams{
+		ClientInfo: ClientInfo{
 			Name:    c.config.ClientName,
 			Title:   &clientTitle,
 			Version: c.config.ClientVersion,
 		},
-		Capabilities: &protocol.InitializeCapabilities{
+		Capabilities: &InitializeCapabilities{
 			ExperimentalAPI: &experimentalAPI,
 		},
 	}
@@ -331,15 +329,15 @@ func (c *Client) NextNotification(ctx context.Context) (Notification, error) {
 }
 
 // WaitForTurnCompleted waits for a matching turn/completed notification.
-func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (protocol.TurnCompletedNotification, error) {
+func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (TurnCompletedNotification, error) {
 	for {
 		notification, err := c.NextNotification(ctx)
 		if err != nil {
-			return protocol.TurnCompletedNotification{}, err
+			return TurnCompletedNotification{}, err
 		}
 		completed, ok, err := notification.TurnCompleted()
 		if err != nil {
-			return protocol.TurnCompletedNotification{}, err
+			return TurnCompletedNotification{}, err
 		}
 		if !ok || completed.Turn.ID != turnID {
 			continue
@@ -371,26 +369,26 @@ func (c *Client) StreamUntilMethods(ctx context.Context, methods ...string) ([]N
 }
 
 // StreamText starts a turn and yields agent message delta notifications.
-func (c *Client) StreamText(ctx context.Context, threadID, text string, params *protocol.TurnStartParams) iter.Seq2[protocol.AgentMessageDeltaNotification, error] {
+func (c *Client) StreamText(ctx context.Context, threadID, text string, params *TurnStartParams) iter.Seq2[AgentMessageDeltaNotification, error] {
 	started, err := c.TurnStart(ctx, threadID, text, params)
 	if err != nil {
-		return func(yield func(protocol.AgentMessageDeltaNotification, error) bool) {
-			yield(protocol.AgentMessageDeltaNotification{}, err)
+		return func(yield func(AgentMessageDeltaNotification, error) bool) {
+			yield(AgentMessageDeltaNotification{}, err)
 		}
 	}
 	expectedTurnID := started.Turn.ID
-	return func(yield func(protocol.AgentMessageDeltaNotification, error) bool) {
+	return func(yield func(AgentMessageDeltaNotification, error) bool) {
 		for {
 			notification, err := c.NextNotification(ctx)
 			if err != nil {
-				yield(protocol.AgentMessageDeltaNotification{}, err)
+				yield(AgentMessageDeltaNotification{}, err)
 				return
 			}
 			switch notification.Method {
 			case NotificationMethodTurnCompleted:
 				completed, ok, err := notification.TurnCompleted()
 				if err != nil {
-					yield(protocol.AgentMessageDeltaNotification{}, err)
+					yield(AgentMessageDeltaNotification{}, err)
 					return
 				}
 				if ok && completed.Turn.ID == expectedTurnID {
@@ -399,7 +397,7 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 			case NotificationMethodAgentMessageDelta:
 				delta, ok, err := notification.AgentMessageDelta()
 				if err != nil {
-					yield(protocol.AgentMessageDeltaNotification{}, err)
+					yield(AgentMessageDeltaNotification{}, err)
 					return
 				}
 				if !ok || delta.TurnID != expectedTurnID {
