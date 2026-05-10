@@ -17,7 +17,7 @@ package codexappserver
 import (
 	"testing"
 
-	json "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json"
 	gocmp "github.com/google/go-cmp/cmp"
 
 	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"

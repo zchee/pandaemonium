@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sort"
 
-	json "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json"
 
 	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )

@@ -18,7 +18,7 @@ import (
 	"time"
 	"unicode"
 
-	json "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json"
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
@@ -125,8 +125,7 @@ func readHTTPSchemaSourceWithLimit(source string, maxBytes int64) ([]byte, error
 	client := http.Client{Timeout: 30 * time.Second}
 	response, err := client.Do(request)
 	if err != nil {
-		var urlError *url.Error
-		if errors.As(err, &urlError) {
+		if urlError, ok := errors.AsType[*url.Error](err); ok {
 			err = urlError.Err
 		}
 		return nil, fmt.Errorf("fetch %s: %w", sourceLabel, err)
@@ -423,7 +422,7 @@ func hasBracketedTagPrefix(line string) bool {
 func isPluralNounPhrase(body string) bool {
 	first, _ := splitFirstWord(body)
 	stripped, _ := splitTrailingPunctuation(first)
-	if !looksLikeAsciiWord(stripped) {
+	if !looksLikeASCIIWord(stripped) {
 		return false
 	}
 	lower := strings.ToLower(stripped)
@@ -585,7 +584,7 @@ func imperativeToThirdPerson(word string) (string, bool) {
 	if isAcronymWord(stripped) {
 		return "", false
 	}
-	if !looksLikeAsciiWord(stripped) {
+	if !looksLikeASCIIWord(stripped) {
 		return "", false
 	}
 	first, _ := utf8DecodeFirst(stripped)
@@ -614,7 +613,7 @@ func splitTrailingPunctuation(word string) (string, string) {
 	return word[:end], word[end:]
 }
 
-func looksLikeAsciiWord(word string) bool {
+func looksLikeASCIIWord(word string) bool {
 	for _, r := range word {
 		if r > unicode.MaxASCII {
 			return false
@@ -907,7 +906,7 @@ func isVowel(r rune) bool {
 
 func isThirdPersonSingularVerb(word string) bool {
 	stripped, _ := splitTrailingPunctuation(word)
-	if !looksLikeAsciiWord(stripped) {
+	if !looksLikeASCIIWord(stripped) {
 		return false
 	}
 	if isAcronymWord(stripped) {

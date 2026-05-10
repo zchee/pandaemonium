@@ -18,8 +18,9 @@ import (
 	"context"
 	"fmt"
 	"maps"
+	"slices"
 
-	json "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json"
 
 	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
 )
@@ -84,8 +85,8 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 
 func finalAssistantResponse(items []protocol.ThreadItem) string {
 	lastUnknownPhase := ""
-	for i := len(items) - 1; i >= 0; i-- {
-		item, ok := decodeThreadItem(items[i])
+	for _, item := range slices.Backward(items) {
+		item, ok := decodeThreadItem(item)
 		if !ok || !item.agentMessage() {
 			continue
 		}

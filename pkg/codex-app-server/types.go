@@ -14,7 +14,9 @@
 
 package codexappserver
 
-import "github.com/go-json-experiment/json/jsontext"
+import (
+	"github.com/go-json-experiment/json/jsontext"
+)
 
 // Object is a JSON object exchanged with the Codex app-server.
 type Object = map[string]any

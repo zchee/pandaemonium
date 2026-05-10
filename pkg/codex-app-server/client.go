@@ -30,7 +30,7 @@ import (
 	"sync/atomic"
 	"time"
 
-	json "github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 
 	"github.com/zchee/pandaemonium/pkg/codex-app-server/protocol"
