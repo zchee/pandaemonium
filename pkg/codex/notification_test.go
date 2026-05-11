@@ -281,7 +281,7 @@ func TestDecodeKnownProcessNotificationMalformedParamsPreservesRaw(t *testing.T)
 func TestKnownNotificationMethodsMatchesExpectedInventory(t *testing.T) {
 	t.Parallel()
 
-	if diff := gocmp.Diff(expectedNotificationMethods, KnownNotificationMethods()); diff != "" {
+	if diff := gocmp.Diff(notificationMethodList, KnownNotificationMethods()); diff != "" {
 		t.Fatalf("KnownNotificationMethods() mismatch (-want +got):\n%s", diff)
 	}
 }

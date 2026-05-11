@@ -15,12 +15,120 @@
 package codexappserver
 
 import (
+	"context"
 	"slices"
+	"strings"
 	"testing"
 	"testing/synctest"
 
 	gocmp "github.com/google/go-cmp/cmp"
 )
+
+func TestNotificationRingPreservesFIFOAcrossWraparound(t *testing.T) {
+	t.Parallel()
+
+	ring := newNotificationRing(3)
+	for _, method := range []string{"one", "two", "three"} {
+		if ok := ring.push(Notification{Method: method}); !ok {
+			t.Fatalf("push(%q) ok = false, want true", method)
+		}
+	}
+	if got, ok := ring.pop(); !ok || got.Method != "one" {
+		t.Fatalf("first pop = (%q, %t), want (one, true)", got.Method, ok)
+	}
+	if ok := ring.push(Notification{Method: "four"}); !ok {
+		t.Fatal("push(four) after wrap ok = false, want true")
+	}
+
+	var got []string
+	for {
+		notification, ok := ring.pop()
+		if !ok {
+			break
+		}
+		got = append(got, notification.Method)
+	}
+	if diff := gocmp.Diff([]string{"two", "three", "four"}, got); diff != "" {
+		t.Fatalf("wrapped FIFO mismatch (-want +got):\n%s", diff)
+	}
+	if ring.len() != 0 {
+		t.Fatalf("ring len after draining = %d, want 0", ring.len())
+	}
+	if notification, ok := ring.pop(); ok || notification.Method != "" {
+		t.Fatalf("empty pop = (%#v, %t), want zero notification and false", notification, ok)
+	}
+}
+
+func TestNotificationRingRejectsOverflowAndClearsPoppedSlots(t *testing.T) {
+	t.Parallel()
+
+	ring := newNotificationRing(1)
+	if ok := ring.push(Notification{Method: "one", Params: mustJSON(t, Object{"payload": "large"})}); !ok {
+		t.Fatal("first push ok = false, want true")
+	}
+	if ok := ring.push(Notification{Method: "two"}); ok {
+		t.Fatal("second push ok = true, want false for full ring")
+	}
+	notification, ok := ring.pop()
+	if !ok || notification.Method != "one" {
+		t.Fatalf("pop after full = (%q, %t), want (one, true)", notification.Method, ok)
+	}
+	if got := ring.values[0]; got.Method != "" || len(got.Params) != 0 {
+		t.Fatalf("popped slot retained notification = %#v, want zero value", got)
+	}
+	if ok := ring.push(Notification{Method: "three"}); !ok {
+		t.Fatal("push after clearing slot ok = false, want true")
+	}
+}
+
+func TestNotificationRingAppendsPendingInOrder(t *testing.T) {
+	t.Parallel()
+
+	ring := newNotificationRing(notificationQueueCapacity)
+	pending := []Notification{
+		{Method: "pending/one"},
+		{Method: "pending/two"},
+		{Method: "pending/three"},
+	}
+	if ok := ring.appendAll(pending); !ok {
+		t.Fatal("appendAll(pending) ok = false, want true")
+	}
+	if ring.len() != len(pending) {
+		t.Fatalf("ring len after append = %d, want %d", ring.len(), len(pending))
+	}
+
+	var got []string
+	for range pending {
+		notification, ok := ring.pop()
+		if !ok {
+			t.Fatal("pop after append ok = false, want true")
+		}
+		got = append(got, notification.Method)
+	}
+	if diff := gocmp.Diff([]string{"pending/one", "pending/two", "pending/three"}, got); diff != "" {
+		t.Fatalf("appended pending order mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestNotificationRingRejectsAppendPastCapacity(t *testing.T) {
+	t.Parallel()
+
+	ring := newNotificationRing(notificationQueueCapacity)
+	for i := range notificationQueueCapacity {
+		if ok := ring.push(Notification{Method: "queued"}); !ok {
+			t.Fatalf("push(%d) ok = false, want true before capacity", i)
+		}
+	}
+	if ok := ring.push(Notification{Method: "overflow"}); ok {
+		t.Fatal("push past notificationQueueCapacity ok = true, want false")
+	}
+	if ok := ring.appendAll([]Notification{{Method: "overflow"}}); ok {
+		t.Fatal("appendAll past notificationQueueCapacity ok = true, want false")
+	}
+	if ring.len() != notificationQueueCapacity {
+		t.Fatalf("ring len after rejected append = %d, want %d", ring.len(), notificationQueueCapacity)
+	}
+}
 
 func TestTurnNotificationRouterQueuesPendingBeforeConsumer(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
@@ -177,6 +285,45 @@ func assertActiveTurnConsumers(t *testing.T, client *Client, want ...string) {
 	slices.Sort(want)
 	if diff := gocmp.Diff(want, got); diff != "" {
 		t.Fatalf("active turn consumers mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestTurnNotificationRouterFailsFastWhenActiveTurnQueueFull(t *testing.T) {
+	t.Parallel()
+
+	client := NewClient(nil, nil)
+	if _, err := client.openTurnConsumer("turn-full"); err != nil {
+		t.Fatalf("openTurnConsumer() error = %v", err)
+	}
+	for range notificationQueueCapacity {
+		if err := client.routeNotification(Notification{
+			Method: NotificationMethodItemCompleted,
+			Params: mustJSON(t, Object{
+				"threadId": "thread-full",
+				"turnId":   "turn-full",
+				"item":     Object{"type": "agentMessage", "text": "queued"},
+			}),
+		}); err != nil {
+			t.Fatalf("routeNotification() before full error = %v", err)
+		}
+	}
+
+	err := client.routeNotification(Notification{
+		Method: NotificationMethodItemCompleted,
+		Params: mustJSON(t, Object{
+			"threadId": "thread-full",
+			"turnId":   "turn-full",
+			"item":     Object{"type": "agentMessage", "text": "overflow"},
+		}),
+	})
+	if err == nil || !strings.Contains(err.Error(), "turn notification queue full") {
+		t.Fatalf("routeNotification() overflow error = %v, want turn notification queue full", err)
+	}
+
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	if _, err := client.NextNotification(ctx); err == nil || !strings.Contains(err.Error(), "turn notification queue full") {
+		t.Fatalf("NextNotification() after overflow error = %v, want router failure", err)
 	}
 }
 

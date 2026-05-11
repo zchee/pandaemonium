@@ -16,16 +16,93 @@ package codexappserver
 
 import (
 	"fmt"
-	"sort"
+	"slices"
 
 	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
+
+func init() {
+	slices.Sort(notificationMethodList)
+}
 
 const (
 	// Deprecated aliases kept for compatibility.
 	NotificationMethodAgentMessageDelta             = NotificationMethodItemAgentMessageDelta
 	NotificationMethodThreadTokenUsageUpdatedLegacy = NotificationMethodThreadTokenUsageUpdated
 )
+
+var notificationMethodList = []string{
+	NotificationMethodAccountLoginCompleted,
+	NotificationMethodAccountRateLimitsUpdated,
+	NotificationMethodAccountUpdated,
+	NotificationMethodAppListUpdated,
+	NotificationMethodCommandExecOutputDelta,
+	NotificationMethodConfigWarning,
+	NotificationMethodDeprecationNotice,
+	NotificationMethodError,
+	NotificationMethodExternalAgentConfigImportCompleted,
+	NotificationMethodFsChanged,
+	NotificationMethodFuzzyFileSearchSessionCompleted,
+	NotificationMethodFuzzyFileSearchSessionUpdated,
+	NotificationMethodGuardianWarning,
+	NotificationMethodHookCompleted,
+	NotificationMethodHookStarted,
+	NotificationMethodItemAgentMessageDelta,
+	NotificationMethodItemAutoApprovalReviewCompleted,
+	NotificationMethodItemAutoApprovalReviewStarted,
+	NotificationMethodItemCommandExecutionOutputDelta,
+	NotificationMethodItemCommandExecutionTerminalInteraction,
+	NotificationMethodItemCompleted,
+	NotificationMethodItemFileChangeOutputDelta,
+	NotificationMethodItemFileChangePatchUpdated,
+	NotificationMethodItemMCPToolCallProgress,
+	NotificationMethodItemPlanDelta,
+	NotificationMethodItemReasoningSummaryPartAdded,
+	NotificationMethodItemReasoningSummaryTextDelta,
+	NotificationMethodItemReasoningTextDelta,
+	NotificationMethodItemStarted,
+	NotificationMethodMCPServerOAuthLoginCompleted,
+	NotificationMethodMCPServerStartupStatusUpdated,
+	NotificationMethodModelRerouted,
+	NotificationMethodModelVerification,
+	NotificationMethodProcessExited,
+	NotificationMethodProcessOutputDelta,
+	NotificationMethodRemoteControlStatusChanged,
+	NotificationMethodServerRequestResolved,
+	NotificationMethodSkillsChanged,
+	NotificationMethodThreadArchived,
+	NotificationMethodThreadClosed,
+	NotificationMethodThreadCompacted,
+	NotificationMethodThreadGoalCleared,
+	NotificationMethodThreadGoalUpdated,
+	NotificationMethodThreadNameUpdated,
+	NotificationMethodThreadRealtimeClosed,
+	NotificationMethodThreadRealtimeError,
+	NotificationMethodThreadRealtimeItemAdded,
+	NotificationMethodThreadRealtimeOutputAudioDelta,
+	NotificationMethodThreadRealtimeSDP,
+	NotificationMethodThreadRealtimeStarted,
+	NotificationMethodThreadRealtimeTranscriptDelta,
+	NotificationMethodThreadRealtimeTranscriptDone,
+	NotificationMethodThreadStarted,
+	NotificationMethodThreadStatusChanged,
+	NotificationMethodThreadTokenUsageUpdated,
+	NotificationMethodThreadUnarchived,
+	NotificationMethodTurnCompleted,
+	NotificationMethodTurnDiffUpdated,
+	NotificationMethodTurnPlanUpdated,
+	NotificationMethodTurnStarted,
+	NotificationMethodWarning,
+	NotificationMethodWindowsWorldWritableWarning,
+	NotificationMethodWindowsSandboxSetupCompleted,
+}
+
+// Notification is a server notification with its method and raw params.
+type Notification struct {
+	Method string         `json:"method"`
+	Params jsontext.Value `json:"params,omitzero"`
+}
 
 var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodAccountLoginCompleted: func(notification Notification) (any, bool, error) {
@@ -234,7 +311,7 @@ func KnownNotificationMethods() []string {
 	for method := range notificationDecoders {
 		methods = append(methods, method)
 	}
-	sort.Strings(methods)
+	slices.Sort(methods)
 	return methods
 }
 
@@ -356,74 +433,4 @@ func (notification Notification) ThreadTokenUsageUpdated() (ThreadTokenUsageUpda
 // TurnCompleted decodes a turn/completed notification.
 func (notification Notification) TurnCompleted() (TurnCompletedNotification, bool, error) {
 	return DecodeTurnCompletedNotification(notification)
-}
-
-var expectedNotificationMethods = []string{
-	NotificationMethodAccountLoginCompleted,
-	NotificationMethodAccountRateLimitsUpdated,
-	NotificationMethodAccountUpdated,
-	NotificationMethodAppListUpdated,
-	NotificationMethodCommandExecOutputDelta,
-	NotificationMethodConfigWarning,
-	NotificationMethodDeprecationNotice,
-	NotificationMethodError,
-	NotificationMethodExternalAgentConfigImportCompleted,
-	NotificationMethodFsChanged,
-	NotificationMethodFuzzyFileSearchSessionCompleted,
-	NotificationMethodFuzzyFileSearchSessionUpdated,
-	NotificationMethodGuardianWarning,
-	NotificationMethodHookCompleted,
-	NotificationMethodHookStarted,
-	NotificationMethodItemAgentMessageDelta,
-	NotificationMethodItemAutoApprovalReviewCompleted,
-	NotificationMethodItemAutoApprovalReviewStarted,
-	NotificationMethodItemCommandExecutionOutputDelta,
-	NotificationMethodItemCommandExecutionTerminalInteraction,
-	NotificationMethodItemCompleted,
-	NotificationMethodItemFileChangeOutputDelta,
-	NotificationMethodItemFileChangePatchUpdated,
-	NotificationMethodItemMCPToolCallProgress,
-	NotificationMethodItemPlanDelta,
-	NotificationMethodItemReasoningSummaryPartAdded,
-	NotificationMethodItemReasoningSummaryTextDelta,
-	NotificationMethodItemReasoningTextDelta,
-	NotificationMethodItemStarted,
-	NotificationMethodMCPServerOAuthLoginCompleted,
-	NotificationMethodMCPServerStartupStatusUpdated,
-	NotificationMethodModelRerouted,
-	NotificationMethodModelVerification,
-	NotificationMethodProcessExited,
-	NotificationMethodProcessOutputDelta,
-	NotificationMethodRemoteControlStatusChanged,
-	NotificationMethodServerRequestResolved,
-	NotificationMethodSkillsChanged,
-	NotificationMethodThreadArchived,
-	NotificationMethodThreadClosed,
-	NotificationMethodThreadCompacted,
-	NotificationMethodThreadGoalCleared,
-	NotificationMethodThreadGoalUpdated,
-	NotificationMethodThreadNameUpdated,
-	NotificationMethodThreadRealtimeClosed,
-	NotificationMethodThreadRealtimeError,
-	NotificationMethodThreadRealtimeItemAdded,
-	NotificationMethodThreadRealtimeOutputAudioDelta,
-	NotificationMethodThreadRealtimeSDP,
-	NotificationMethodThreadRealtimeStarted,
-	NotificationMethodThreadRealtimeTranscriptDelta,
-	NotificationMethodThreadRealtimeTranscriptDone,
-	NotificationMethodThreadStarted,
-	NotificationMethodThreadStatusChanged,
-	NotificationMethodThreadTokenUsageUpdated,
-	NotificationMethodThreadUnarchived,
-	NotificationMethodTurnCompleted,
-	NotificationMethodTurnDiffUpdated,
-	NotificationMethodTurnPlanUpdated,
-	NotificationMethodTurnStarted,
-	NotificationMethodWarning,
-	NotificationMethodWindowsWorldWritableWarning,
-	NotificationMethodWindowsSandboxSetupCompleted,
-}
-
-func init() {
-	sort.Strings(expectedNotificationMethods)
 }

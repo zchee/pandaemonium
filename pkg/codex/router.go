@@ -35,9 +35,15 @@ type turnNotificationRouter struct {
 
 type turnNotificationQueue struct {
 	mu            sync.Mutex
-	notifications []Notification
+	notifications notificationRing
 	notify        chan struct{}
 	err           error
+}
+
+type notificationRing struct {
+	values []Notification
+	head   int
+	length int
 }
 
 func newTurnNotificationRouter() *turnNotificationRouter {
@@ -104,9 +110,14 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 	if _, ok := r.queues[turnID]; ok {
 		return nil, fmt.Errorf("turn consumer already active for %s", turnID)
 	}
-	queue := &turnNotificationQueue{notify: make(chan struct{}, 1)}
+	queue := &turnNotificationQueue{
+		notifications: newNotificationRing(notificationQueueCapacity),
+		notify:        make(chan struct{}, 1),
+	}
 	if pending := r.pending[turnID]; len(pending) > 0 {
-		queue.notifications = append(queue.notifications, pending...)
+		if !queue.notifications.appendAll(pending) {
+			return nil, fmt.Errorf("turn notification router: pending queue overflow for %s", turnID)
+		}
 		delete(r.pending, turnID)
 	}
 	r.queues[turnID] = queue
@@ -252,10 +263,9 @@ func (q *turnNotificationQueue) push(notification Notification) error {
 	if q.err != nil {
 		return q.err
 	}
-	if len(q.notifications) >= notificationQueueCapacity {
+	if !q.notifications.push(notification) {
 		return fmt.Errorf("turn notification queue full")
 	}
-	q.notifications = append(q.notifications, notification)
 	select {
 	case q.notify <- struct{}{}:
 	default:
@@ -266,14 +276,7 @@ func (q *turnNotificationQueue) push(notification Notification) error {
 func (q *turnNotificationQueue) pop() (Notification, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
-	if len(q.notifications) == 0 {
-		return Notification{}, false
-	}
-	notification := q.notifications[0]
-	copy(q.notifications, q.notifications[1:])
-	q.notifications[len(q.notifications)-1] = Notification{}
-	q.notifications = q.notifications[:len(q.notifications)-1]
-	return notification, true
+	return q.notifications.pop()
 }
 
 func (q *turnNotificationQueue) next(ctx context.Context) (Notification, error) {
@@ -309,6 +312,52 @@ func (q *turnNotificationQueue) close(err error) {
 	case q.notify <- struct{}{}:
 	default:
 	}
+}
+
+func newNotificationRing(capacity int) notificationRing {
+	return notificationRing{values: make([]Notification, capacity)}
+}
+
+func (r *notificationRing) len() int {
+	if r == nil {
+		return 0
+	}
+	return r.length
+}
+
+func (r *notificationRing) push(notification Notification) bool {
+	if r == nil || len(r.values) == 0 || r.length >= len(r.values) {
+		return false
+	}
+	r.values[(r.head+r.length)%len(r.values)] = notification
+	r.length++
+	return true
+}
+
+func (r *notificationRing) appendAll(notifications []Notification) bool {
+	if r == nil || len(notifications) > len(r.values)-r.length {
+		return false
+	}
+	for _, notification := range notifications {
+		if !r.push(notification) {
+			return false
+		}
+	}
+	return true
+}
+
+func (r *notificationRing) pop() (Notification, bool) {
+	if r == nil || r.length == 0 {
+		return Notification{}, false
+	}
+	notification := r.values[r.head]
+	r.values[r.head] = Notification{}
+	r.head = (r.head + 1) % len(r.values)
+	r.length--
+	if r.length == 0 {
+		r.head = 0
+	}
+	return notification, true
 }
 
 func notificationTurnID(notification Notification) string {

@@ -21,12 +21,6 @@ import (
 // Object is a JSON object exchanged with the Codex app-server.
 type Object = map[string]any
 
-// Notification is a server notification with its method and raw params.
-type Notification struct {
-	Method string         `json:"method"`
-	Params jsontext.Value `json:"params,omitzero"`
-}
-
 // ServerInfo describes the app-server process returned by initialize.
 type ServerInfo struct {
 	Name    string `json:"name,omitzero"`
