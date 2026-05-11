@@ -59,6 +59,8 @@ const (
 	NotificationMethodMCPServerStartupStatusUpdated  = "mcpServer/startupStatus/updated"
 	NotificationMethodModelRerouted                  = "model/rerouted"
 	NotificationMethodModelVerification              = "model/verification"
+	NotificationMethodProcessExited                  = "process/exited"
+	NotificationMethodProcessOutputDelta             = "process/outputDelta"
 	NotificationMethodRemoteControlStatusChanged     = "remoteControl/status/changed"
 	NotificationMethodServerRequestResolved          = "serverRequest/resolved"
 	NotificationMethodSkillsChanged                  = "skills/changed"
@@ -196,6 +198,12 @@ var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodModelVerification: func(notification Notification) (any, bool, error) {
 		return DecodeNotificationAs[ModelVerificationNotification](notification, NotificationMethodModelVerification)
 	},
+	NotificationMethodProcessExited: func(notification Notification) (any, bool, error) {
+		return DecodeNotificationAs[ProcessExitedNotification](notification, NotificationMethodProcessExited)
+	},
+	NotificationMethodProcessOutputDelta: func(notification Notification) (any, bool, error) {
+		return DecodeNotificationAs[ProcessOutputDeltaNotification](notification, NotificationMethodProcessOutputDelta)
+	},
 	NotificationMethodRemoteControlStatusChanged: func(notification Notification) (any, bool, error) {
 		return DecodeNotificationAs[RemoteControlStatusChangedNotification](notification, NotificationMethodRemoteControlStatusChanged)
 	},
@@ -319,6 +327,11 @@ func DecodeNotificationAs[T any](notification Notification, method string) (T, b
 // DecodeNotification decodes known server notifications from the upstream
 // Python notification registry.
 //
+// The registry is intentionally explicit: only methods listed in
+// notificationDecoders are decoded. New upstream methods stay visible through
+// the raw Notification returned by Client.NextNotification instead of being
+// dropped or guessed.
+//
 // If the method is known and params are malformed, a non-nil error is
 // returned alongside matched=true and the raw notification.
 func DecodeNotification(notification Notification) (KnownNotification, bool, error) {
@@ -352,6 +365,16 @@ func DecodeItemCompletedNotification(notification Notification) (ItemCompletedNo
 	return DecodeNotificationAs[ItemCompletedNotification](notification, NotificationMethodItemCompleted)
 }
 
+// DecodeProcessExitedNotification decodes a process/exited notification.
+func DecodeProcessExitedNotification(notification Notification) (ProcessExitedNotification, bool, error) {
+	return DecodeNotificationAs[ProcessExitedNotification](notification, NotificationMethodProcessExited)
+}
+
+// DecodeProcessOutputDeltaNotification decodes a process/outputDelta notification.
+func DecodeProcessOutputDeltaNotification(notification Notification) (ProcessOutputDeltaNotification, bool, error) {
+	return DecodeNotificationAs[ProcessOutputDeltaNotification](notification, NotificationMethodProcessOutputDelta)
+}
+
 // DecodeThreadTokenUsageUpdatedNotification decodes a thread/tokenUsage/updated notification.
 func DecodeThreadTokenUsageUpdatedNotification(notification Notification) (ThreadTokenUsageUpdatedNotification, bool, error) {
 	return DecodeNotificationAs[ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
@@ -375,6 +398,16 @@ func (notification Notification) ErrorNotification() (ErrorNotification, bool, e
 // ItemCompleted decodes an item/completed notification.
 func (notification Notification) ItemCompleted() (ItemCompletedNotification, bool, error) {
 	return DecodeItemCompletedNotification(notification)
+}
+
+// ProcessExited decodes a process/exited notification.
+func (notification Notification) ProcessExited() (ProcessExitedNotification, bool, error) {
+	return DecodeProcessExitedNotification(notification)
+}
+
+// ProcessOutputDelta decodes a process/outputDelta notification.
+func (notification Notification) ProcessOutputDelta() (ProcessOutputDeltaNotification, bool, error) {
+	return DecodeProcessOutputDeltaNotification(notification)
 }
 
 // ThreadTokenUsageUpdated decodes a thread/tokenUsage/updated notification.
@@ -421,6 +454,8 @@ var expectedNotificationMethods = []string{
 	NotificationMethodMCPServerStartupStatusUpdated,
 	NotificationMethodModelRerouted,
 	NotificationMethodModelVerification,
+	NotificationMethodProcessExited,
+	NotificationMethodProcessOutputDelta,
 	NotificationMethodRemoteControlStatusChanged,
 	NotificationMethodServerRequestResolved,
 	NotificationMethodSkillsChanged,

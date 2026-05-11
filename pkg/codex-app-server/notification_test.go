@@ -139,6 +139,139 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 	}
 }
 
+func TestDecodeProcessNotifications(t *testing.T) {
+	t.Parallel()
+
+	exitedParams := mustJSON(t, ProcessExitedNotification{
+		ProcessHandle:    "proc-1",
+		ExitCode:         7,
+		Stdout:           "stdout",
+		Stderr:           "stderr",
+		StdoutCapReached: true,
+	})
+	outputDeltaParams := mustJSON(t, ProcessOutputDeltaNotification{
+		ProcessHandle: "proc-1",
+		Stream:        ProcessOutputStream(`"stdout"`),
+		DeltaBase64:   "aGVsbG8=",
+		CapReached:    true,
+	})
+
+	tests := map[string]struct {
+		notification Notification
+		assert       func(*testing.T, Notification, KnownNotification)
+	}{
+		"process exited": {
+			notification: Notification{Method: NotificationMethodProcessExited, Params: exitedParams},
+			assert: func(t *testing.T, notification Notification, known KnownNotification) {
+				t.Helper()
+
+				got, ok, err := DecodeProcessExitedNotification(notification)
+				if err != nil {
+					t.Fatalf("DecodeProcessExitedNotification() error = %v", err)
+				}
+				if !ok {
+					t.Fatalf("DecodeProcessExitedNotification() ok = false, want true")
+				}
+				if got.ProcessHandle != "proc-1" || got.ExitCode != 7 || !got.StdoutCapReached {
+					t.Fatalf("decoded process exited notification = %#v, want proc-1 exit 7 stdout cap", got)
+				}
+				value, ok, err := notification.ProcessExited()
+				if err != nil || !ok {
+					t.Fatalf("Notification.ProcessExited() = (%#v, %v, %v), want success", value, ok, err)
+				}
+				if diff := gocmp.Diff(got, value); diff != "" {
+					t.Fatalf("wrapper mismatch (-want +got):\n%s", diff)
+				}
+				if diff := gocmp.Diff(got, known.Value); diff != "" {
+					t.Fatalf("known.Value mismatch (-want +got):\n%s", diff)
+				}
+			},
+		},
+		"process output delta": {
+			notification: Notification{Method: NotificationMethodProcessOutputDelta, Params: outputDeltaParams},
+			assert: func(t *testing.T, notification Notification, known KnownNotification) {
+				t.Helper()
+
+				got, ok, err := DecodeProcessOutputDeltaNotification(notification)
+				if err != nil {
+					t.Fatalf("DecodeProcessOutputDeltaNotification() error = %v", err)
+				}
+				if !ok {
+					t.Fatalf("DecodeProcessOutputDeltaNotification() ok = false, want true")
+				}
+				if got.ProcessHandle != "proc-1" || got.DeltaBase64 != "aGVsbG8=" || !got.CapReached {
+					t.Fatalf("decoded process output delta notification = %#v, want proc-1 capped hello chunk", got)
+				}
+				if string(got.Stream) != `"stdout"` {
+					t.Fatalf("decoded process output stream = %s, want stdout", got.Stream)
+				}
+				value, ok, err := notification.ProcessOutputDelta()
+				if err != nil || !ok {
+					t.Fatalf("Notification.ProcessOutputDelta() = (%#v, %v, %v), want success", value, ok, err)
+				}
+				if diff := gocmp.Diff(got, value); diff != "" {
+					t.Fatalf("wrapper mismatch (-want +got):\n%s", diff)
+				}
+				if diff := gocmp.Diff(got, known.Value); diff != "" {
+					t.Fatalf("known.Value mismatch (-want +got):\n%s", diff)
+				}
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			known, matched, err := DecodeKnownNotification(tt.notification)
+			if err != nil {
+				t.Fatalf("DecodeKnownNotification() error = %v", err)
+			}
+			if !matched {
+				t.Fatalf("DecodeKnownNotification() matched = false, want true")
+			}
+			if known.Method != tt.notification.Method {
+				t.Fatalf("known.Method = %q, want %q", known.Method, tt.notification.Method)
+			}
+			if diff := gocmp.Diff(tt.notification, known.Raw); diff != "" {
+				t.Fatalf("known.Raw mismatch (-want +got):\n%s", diff)
+			}
+			tt.assert(t, tt.notification, known)
+		})
+	}
+}
+
+func TestDecodeKnownProcessNotificationMalformedParamsPreservesRaw(t *testing.T) {
+	t.Parallel()
+
+	notification := Notification{
+		Method: NotificationMethodProcessExited,
+		Params: jsontext.Value([]byte(`{"processHandle":true}`)),
+	}
+
+	known, matched, err := DecodeKnownNotification(notification)
+	if !matched {
+		t.Fatalf("DecodeKnownNotification() matched = false, want true")
+	}
+	if err == nil {
+		t.Fatalf("DecodeKnownNotification() err = nil, want malformed params error")
+	}
+	if known.Method != NotificationMethodProcessExited {
+		t.Fatalf("known.Method = %q, want %q", known.Method, NotificationMethodProcessExited)
+	}
+	if diff := gocmp.Diff(notification, known.Raw); diff != "" {
+		t.Fatalf("DecodeKnownNotification() raw mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestKnownNotificationMethodsMatchesExpectedInventory(t *testing.T) {
+	t.Parallel()
+
+	if diff := gocmp.Diff(expectedNotificationMethods, KnownNotificationMethods()); diff != "" {
+		t.Fatalf("KnownNotificationMethods() mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	t.Parallel()
 
