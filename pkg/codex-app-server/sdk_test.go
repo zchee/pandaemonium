@@ -23,7 +23,9 @@ import (
 	"iter"
 	"os"
 	"path/filepath"
+	"slices"
 	"strings"
+	"sync"
 	"testing"
 	"testing/synctest"
 	"time"
@@ -334,16 +336,18 @@ func TestClientRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
 
 func TestClientStreamUntilMethods(t *testing.T) {
 	client := NewClient(nil, nil)
-	client.notifications = make(chan Notification, 4)
 
 	out := make(chan []Notification, 1)
 	go func() {
 		out <- mustCollectNotifications(t, client, "thread/started", "item/completed")
 	}()
-	defer close(client.notifications)
 
-	client.notifications <- Notification{Method: "thread/started", Params: mustJSON(t, Object{"threadId": "thr-1"})}
-	client.notifications <- Notification{Method: "item/completed", Params: mustJSON(t, Object{"threadId": "thr-1"})}
+	if err := client.routeNotification(Notification{Method: "thread/started", Params: mustJSON(t, Object{"threadId": "thr-1"})}); err != nil {
+		t.Fatalf("routeNotification() error = %v", err)
+	}
+	if err := client.routeNotification(Notification{Method: "item/completed", Params: mustJSON(t, Object{"threadId": "thr-1"})}); err != nil {
+		t.Fatalf("routeNotification() error = %v", err)
+	}
 
 	notifications := <-out
 	methods := notificationMethods(notifications)
@@ -364,30 +368,33 @@ func mustCollectNotifications(t *testing.T, client *Client, methods ...string) [
 
 func TestClientWaitForTurnCompletedSkipsUnmatchedTurns(t *testing.T) {
 	client := NewClient(nil, nil)
-	client.notifications = make(chan Notification, 4)
-
-	go func() {
-		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, TurnCompletedNotification{
-			ThreadID: "thr-other",
-			Turn: Turn{
-				ID:     "turn-other",
-				Status: TurnStatusCompleted,
-			},
-		})}
-		client.notifications <- Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, TurnCompletedNotification{
-			ThreadID: "thr-one",
-			Turn: Turn{
-				ID:     "turn-target",
-				Status: TurnStatusCompleted,
-			},
-		})}
-	}()
+	if err := client.routeNotification(Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, TurnCompletedNotification{
+		ThreadID: "thr-other",
+		Turn: Turn{
+			ID:     "turn-other",
+			Status: TurnStatusCompleted,
+		},
+	})}); err != nil {
+		t.Fatalf("routeNotification() error = %v", err)
+	}
+	if err := client.routeNotification(Notification{Method: NotificationMethodTurnCompleted, Params: mustJSON(t, TurnCompletedNotification{
+		ThreadID: "thr-one",
+		Turn: Turn{
+			ID:     "turn-target",
+			Status: TurnStatusCompleted,
+		},
+	})}); err != nil {
+		t.Fatalf("routeNotification() error = %v", err)
+	}
 	completed, err := client.WaitForTurnCompleted(t.Context(), "turn-target")
 	if err != nil {
 		t.Fatalf("WaitForTurnCompleted() error = %v", err)
 	}
 	if completed.Turn.ID != "turn-target" {
 		t.Fatalf("completed.Turn.ID = %q, want turn-target", completed.Turn.ID)
+	}
+	if pending := pendingTurnNotifications(client, "turn-other"); len(pending) != 1 {
+		t.Fatalf("turn-other pending len = %d, want 1", len(pending))
 	}
 }
 
@@ -402,6 +409,212 @@ func TestClientStreamTextYieldsAgentMessageDeltasForTargetTurn(t *testing.T) {
 	deltas := collectAgentMessageDeltas(t, client.StreamText(t.Context(), "thr_stream_text", "hello", &TurnStartParams{Model: &model}))
 	if diff := gocmp.Diff([]string{"alpha", "beta"}, deltas); diff != "" {
 		t.Fatalf("stream text deltas mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestClientCloseIsIdempotentAndUnblocksPendingRequest(t *testing.T) {
+	client := newHelperClient(t, "pending_request")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+
+	result := make(chan error, 1)
+	go func() {
+		_, err := client.RequestRaw(t.Context(), "wait", nil)
+		result <- err
+	}()
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("second Close() error = %v", err)
+	}
+
+	select {
+	case err := <-result:
+		var closed *TransportClosedError
+		if !errors.As(err, &closed) {
+			t.Fatalf("RequestRaw() error = %T %v, want TransportClosedError", err, err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for pending request to unblock after Close")
+	}
+	if _, err := client.NextNotification(t.Context()); err == nil {
+		t.Fatal("NextNotification() error = nil after Close, want closed notification stream")
+	}
+}
+
+func TestClientCloseReleasesActiveTurnConsumer(t *testing.T) {
+	client := newHelperClient(t, "stream_cancel")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	thread := &Thread{client: client, id: "thr_stream_cancel"}
+	handle, err := thread.Turn(t.Context(), "start", nil)
+	if err != nil {
+		t.Fatalf("Turn() error = %v", err)
+	}
+	streamResult := collectStreamAsync(handle.Stream(t.Context()))
+	waitForActiveTurnConsumer(t, client, handle.ID())
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+	if activeTurnConsumer(client) != "" {
+		t.Fatalf("activeTurnID = %q, want cleared by Close", activeTurnConsumer(client))
+	}
+	select {
+	case result := <-streamResult:
+		var closed *TransportClosedError
+		if !errors.As(result.err, &closed) {
+			t.Fatalf("stream error = %T %v, want TransportClosedError", result.err, result.err)
+		}
+		if len(result.notifications) != 0 {
+			t.Fatalf("stream notifications len = %d, want 0 after Close", len(result.notifications))
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for active stream to stop after Close")
+	}
+	if err := client.Close(); err != nil {
+		t.Fatalf("second Close() error = %v", err)
+	}
+}
+
+func TestClientRequestContextCancelUnregistersPendingResponse(t *testing.T) {
+	client := newHelperClient(t, "pending_request")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	ctx, cancel := context.WithCancel(t.Context())
+	result := make(chan error, 1)
+	go func() {
+		_, err := client.RequestRaw(ctx, "wait", nil)
+		result <- err
+	}()
+
+	cancel()
+	select {
+	case err := <-result:
+		if !errors.Is(err, context.Canceled) {
+			t.Fatalf("RequestRaw() error = %v, want context.Canceled", err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for context-canceled request")
+	}
+}
+
+func TestClientRoutesConcurrentResponsesWithoutRaces(t *testing.T) {
+	client := newHelperClient(t, "concurrent_requests")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	const requestCount = 16
+	var wg sync.WaitGroup
+	errs := make(chan error, requestCount)
+	results := make(chan string, requestCount)
+	for i := range requestCount {
+		wg.Add(1)
+		go func(i int) {
+			defer wg.Done()
+			raw, err := client.RequestRaw(t.Context(), "echo", Object{"index": i})
+			if err != nil {
+				errs <- fmt.Errorf("request %d: %w", i, err)
+				return
+			}
+			results <- string(raw)
+		}(i)
+	}
+	wg.Wait()
+	close(errs)
+	for err := range errs {
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+	close(results)
+	got := map[string]int{}
+	for raw := range results {
+		got[raw]++
+	}
+	if len(got) != requestCount {
+		t.Fatalf("unique response count = %d, want %d", len(got), requestCount)
+	}
+	for i := range requestCount {
+		want := fmt.Sprintf(`"go-sdk-%d"`, i+1)
+		if got[want] != 1 {
+			t.Fatalf("response %s count = %d, want 1", want, got[want])
+		}
+	}
+	assertPendingResponses(t, client, 0)
+}
+
+func TestClientDrainsNotificationOverflowWhileWaitingForResponse(t *testing.T) {
+	client := newHelperClient(t, "notification_overflow")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	const notificationCount = 160
+	drained := make(chan int, 1)
+	go func() {
+		count := 0
+		for count < notificationCount {
+			if _, err := client.NextNotification(t.Context()); err != nil {
+				drained <- -1
+				return
+			}
+			count++
+		}
+		drained <- count
+	}()
+
+	started, err := client.ThreadStart(t.Context(), nil)
+	if err != nil {
+		t.Fatalf("ThreadStart() error = %v", err)
+	}
+	if started.Thread.ID != "thr_overflow" {
+		t.Fatalf("thread id = %q, want thr_overflow", started.Thread.ID)
+	}
+	select {
+	case got := <-drained:
+		if got != notificationCount {
+			t.Fatalf("drained notifications = %d, want %d", got, notificationCount)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatalf("timed out draining %d notifications", notificationCount)
+	}
+}
+
+func TestClientDrainsStderrTailOverflow(t *testing.T) {
+	client := NewClient(nil, nil)
+
+	var stderr strings.Builder
+	for i := range 401 {
+		fmt.Fprintf(&stderr, "line-%03d\n", i)
+	}
+	done := make(chan struct{})
+	go client.drainStderr(strings.NewReader(stderr.String()), done)
+	<-done
+
+	client.stderrMu.Lock()
+	if got := len(client.stderrLines); got != 400 {
+		client.stderrMu.Unlock()
+		t.Fatalf("stderr line count = %d, want 400", got)
+	}
+	client.stderrMu.Unlock()
+
+	got := strings.Split(client.stderrTail(5), "\n")
+	want := []string{"line-396", "line-397", "line-398", "line-399", "line-400"}
+	if diff := gocmp.Diff(want, got); diff != "" {
+		t.Fatalf("stderr tail mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -516,14 +729,16 @@ func TestClientPreservesUnknownNotificationPayloads(t *testing.T) {
 
 func TestReleaseTurnConsumerDoesNotFailPendingRequests(t *testing.T) {
 	client := NewClient(nil, nil)
-	client.activeTurnID = "turn-1"
+	if _, err := client.openTurnConsumer("turn-1"); err != nil {
+		t.Fatalf("openTurnConsumer() error = %v", err)
+	}
 	response := make(chan responseWait, 1)
 	client.registerResponse("request-1", response)
 
 	client.releaseTurnConsumer("turn-1")
 
-	if client.activeTurnID != "" {
-		t.Fatalf("activeTurnID = %q, want cleared", client.activeTurnID)
+	if got := activeTurnConsumers(client); len(got) != 0 {
+		t.Fatalf("active turn consumers = %v, want cleared", got)
 	}
 	select {
 	case got := <-response:
@@ -576,16 +791,43 @@ func notificationMethods(notifications []Notification) []string {
 	return methods
 }
 
+func pendingTurnNotifications(client *Client, turnID string) []Notification {
+	if client == nil || client.turnRouter == nil {
+		return nil
+	}
+	client.turnRouter.mu.Lock()
+	defer client.turnRouter.mu.Unlock()
+	return append([]Notification(nil), client.turnRouter.pending[turnID]...)
+}
+
+func activeTurnConsumers(client *Client) []string {
+	if client == nil || client.turnRouter == nil {
+		return nil
+	}
+	client.turnRouter.mu.Lock()
+	defer client.turnRouter.mu.Unlock()
+	got := make([]string, 0, len(client.turnRouter.queues))
+	for turnID := range client.turnRouter.queues {
+		got = append(got, turnID)
+	}
+	slices.Sort(got)
+	return got
+}
+
 func activeTurnConsumer(client *Client) string {
-	client.turnConsumerMu.Lock()
-	defer client.turnConsumerMu.Unlock()
-	return client.activeTurnID
+	got := activeTurnConsumers(client)
+	if len(got) == 0 {
+		return ""
+	}
+	return got[0]
 }
 
 func assertActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
 	t.Helper()
-	if activeTurnID := activeTurnConsumer(client); activeTurnID != turnID {
-		t.Fatalf("activeTurnID = %q, want %q", activeTurnID, turnID)
+	got := activeTurnConsumers(client)
+	want := []string{turnID}
+	if diff := gocmp.Diff(want, got); diff != "" {
+		t.Fatalf("active turn consumers mismatch (-want +got):\n%s", diff)
 	}
 }
 
@@ -596,14 +838,45 @@ func waitForActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
 	ticker := time.NewTicker(10 * time.Millisecond)
 	defer ticker.Stop()
 	for {
-		if activeTurnID := activeTurnConsumer(client); activeTurnID == turnID {
+		if got := activeTurnConsumers(client); len(got) == 1 && got[0] == turnID {
 			return
 		}
 		select {
 		case <-deadline.C:
-			t.Fatalf("activeTurnID = %q, want %q", activeTurnConsumer(client), turnID)
+			t.Fatalf("activeTurnID = %q, want %q", activeTurnConsumers(client), turnID)
 		case <-ticker.C:
 		}
+	}
+}
+
+func waitForPendingResponses(t *testing.T, client *Client, want int) {
+	t.Helper()
+	deadline := time.NewTimer(2 * time.Second)
+	defer deadline.Stop()
+	ticker := time.NewTicker(10 * time.Millisecond)
+	defer ticker.Stop()
+	for {
+		client.responseMu.Lock()
+		got := len(client.responses)
+		client.responseMu.Unlock()
+		if got == want {
+			return
+		}
+		select {
+		case <-deadline.C:
+			t.Fatalf("pending responses = %d, want %d", got, want)
+		case <-ticker.C:
+		}
+	}
+}
+
+func assertPendingResponses(t *testing.T, client *Client, want int) {
+	t.Helper()
+	client.responseMu.Lock()
+	got := len(client.responses)
+	client.responseMu.Unlock()
+	if got != want {
+		t.Fatalf("pending responses = %d, want %d", got, want)
 	}
 }
 
@@ -620,7 +893,7 @@ func TestTurnStreamReleasesConsumerAfterCompletion(t *testing.T) {
 		synctest.Wait()
 		assertActiveTurnConsumer(t, client, handle.ID())
 
-		client.notifications <- completed
+		client.routeNotification(completed)
 		synctest.Wait()
 
 		result := <-streamResult
@@ -630,8 +903,8 @@ func TestTurnStreamReleasesConsumerAfterCompletion(t *testing.T) {
 		if diff := gocmp.Diff([]string{NotificationMethodTurnCompleted}, notificationMethods(result.notifications)); diff != "" {
 			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
 		}
-		if err := client.acquireTurnConsumer("turn_after_completion"); err != nil {
-			t.Fatalf("acquireTurnConsumer() after stream completion error = %v", err)
+		if _, err := client.openTurnConsumer("turn_after_completion"); err != nil {
+			t.Fatalf("openTurnConsumer() after stream completion error = %v", err)
 		}
 		client.releaseTurnConsumer("turn_after_completion")
 	})
@@ -644,7 +917,7 @@ func TestTurnStreamReleasesConsumerAfterEarlyStop(t *testing.T) {
 
 		firstNotification := Notification{
 			Method: "custom/event",
-			Params: mustJSON(t, Object{"phase": "first"}),
+			Params: mustJSON(t, Object{"phase": "first", "turnId": "turn_stream_stop"}),
 		}
 		result := make(chan streamMethodsResult, 1)
 		go func() {
@@ -662,7 +935,7 @@ func TestTurnStreamReleasesConsumerAfterEarlyStop(t *testing.T) {
 		synctest.Wait()
 		assertActiveTurnConsumer(t, client, handle.ID())
 
-		client.notifications <- firstNotification
+		client.routeNotification(firstNotification)
 		synctest.Wait()
 
 		got := <-result
@@ -672,8 +945,8 @@ func TestTurnStreamReleasesConsumerAfterEarlyStop(t *testing.T) {
 		if diff := gocmp.Diff([]string{"custom/event"}, got.methods); diff != "" {
 			t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
 		}
-		if err := client.acquireTurnConsumer("turn_after_early_stop"); err != nil {
-			t.Fatalf("acquireTurnConsumer() after early stream stop error = %v", err)
+		if _, err := client.openTurnConsumer("turn_after_early_stop"); err != nil {
+			t.Fatalf("openTurnConsumer() after early stream stop error = %v", err)
 		}
 		client.releaseTurnConsumer("turn_after_early_stop")
 	})
@@ -699,25 +972,25 @@ func TestTurnStreamReleasesConsumerOnContextCancel(t *testing.T) {
 		if len(result.notifications) != 0 {
 			t.Fatalf("notifications len = %d, want 0 after cancellation", len(result.notifications))
 		}
-		if err := client.acquireTurnConsumer("turn_after_cancel"); err != nil {
-			t.Fatalf("acquireTurnConsumer() after stream cancellation error = %v", err)
+		if _, err := client.openTurnConsumer("turn_after_cancel"); err != nil {
+			t.Fatalf("openTurnConsumer() after stream cancellation error = %v", err)
 		}
 		client.releaseTurnConsumer("turn_after_cancel")
 	})
 }
 
-func TestSecondTurnConsumerFailsPredictably(t *testing.T) {
+func TestDuplicateTurnConsumerFailsPredictably(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		client := NewClient(nil, nil)
-		if err := client.acquireTurnConsumer("turn_busy"); err != nil {
-			t.Fatalf("initial acquireTurnConsumer() error = %v", err)
+		if _, err := client.openTurnConsumer("turn_busy"); err != nil {
+			t.Fatalf("initial openTurnConsumer() error = %v", err)
 		}
 		defer client.releaseTurnConsumer("turn_busy")
 
-		handle := &TurnHandle{client: client, threadID: "thr_busy", turnID: "turn_other"}
+		handle := &TurnHandle{client: client, threadID: "thr_busy", turnID: "turn_busy"}
 		notifications, err := collectStream(handle.Stream(t.Context()))
 		if err == nil {
-			t.Fatalf("Stream() error = nil, want second consumer rejection")
+			t.Fatalf("Stream() error = nil, want duplicate consumer rejection")
 		}
 		if len(notifications) != 0 {
 			t.Fatalf("Stream() notifications len = %d, want 0 on acquire failure", len(notifications))
@@ -756,8 +1029,8 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	if result.Turn.ID != "turn_run" || result.Turn.Status != TurnStatusCompleted {
 		t.Fatalf("turn = %#v, want completed turn_run", result.Turn)
 	}
-	if client.activeTurnID != "" {
-		t.Fatalf("activeTurnID = %q, want released after successful Run", client.activeTurnID)
+	if got := activeTurnConsumers(client); len(got) != 0 {
+		t.Fatalf("active turn consumers = %v, want released after successful Run", got)
 	}
 
 	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: &model})
@@ -794,8 +1067,8 @@ func TestStreamThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	if result.Turn.ID != "turn_run" || result.Turn.Status != TurnStatusCompleted {
 		t.Fatalf("turn = %#v, want completed turn_run", result.Turn)
 	}
-	if activeTurnConsumer(client) != "" {
-		t.Fatalf("activeTurnID = %q, want released after StreamThread.Run", activeTurnConsumer(client))
+	if got := activeTurnConsumers(client); len(got) != 0 {
+		t.Fatalf("active turn consumers = %v, want released after StreamThread.Run", got)
 	}
 }
 
@@ -821,8 +1094,8 @@ func TestStreamThreadRunStreamYieldsNotificationsAndReleasesConsumer(t *testing.
 	if diff := gocmp.Diff(want, notificationMethods(notifications)); diff != "" {
 		t.Fatalf("stream methods mismatch (-want +got):\n%s", diff)
 	}
-	if activeTurnConsumer(client) != "" {
-		t.Fatalf("activeTurnID = %q, want released after StreamThread.RunStream", activeTurnConsumer(client))
+	if got := activeTurnConsumers(client); len(got) != 0 {
+		t.Fatalf("active turn consumers = %v, want released after StreamThread.RunStream", got)
 	}
 }
 
@@ -936,8 +1209,8 @@ func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
 	if !strings.Contains(err.Error(), "boom") {
 		t.Fatalf("Run() error = %v, want boom", err)
 	}
-	if client.activeTurnID != "" {
-		t.Fatalf("activeTurnID = %q, want released after failed Run", client.activeTurnID)
+	if got := activeTurnConsumers(client); len(got) != 0 {
+		t.Fatalf("active turn consumers = %v, want released after failed Run", got)
 	}
 
 	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: &model})
@@ -983,34 +1256,27 @@ func TestTurnStreamAllowsConcurrentSteer(t *testing.T) {
 	}
 }
 
-func TestTurnStreamRejectsSecondConsumerUntilFirstCancels(t *testing.T) {
+func TestTurnStreamRejectsDuplicateConsumerUntilFirstCancels(t *testing.T) {
 	client := newHelperClient(t, "stream_cancel")
 	if err := client.Start(t.Context()); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 	defer func() { _ = client.Close() }()
 
-	thread := &Thread{client: client, id: "thr_stream"}
-	firstHandle, err := thread.Turn(t.Context(), "first", nil)
-	if err != nil {
-		t.Fatalf("first Turn() error = %v", err)
-	}
+	firstHandle := &TurnHandle{client: client, threadID: "thr_stream", turnID: "turn_stream"}
 	firstCtx, firstCancel := context.WithCancel(t.Context())
 	firstResult := collectStreamAsync(firstHandle.Stream(firstCtx))
 	waitForActiveTurnConsumer(t, client, firstHandle.ID())
 
-	secondHandle, err := thread.Turn(t.Context(), "second", nil)
-	if err != nil {
-		t.Fatalf("second Turn() error = %v", err)
-	}
+	secondHandle := &TurnHandle{client: client, threadID: "thr_stream", turnID: "turn_stream"}
 	secondCtx, secondCancel := context.WithCancel(t.Context())
 	defer secondCancel()
 	notifications, err := collectStream(secondHandle.Stream(secondCtx))
 	if err == nil || !strings.Contains(err.Error(), "turn consumer already active") {
-		t.Fatalf("second Stream() error = %v, want active-consumer failure", err)
+		t.Fatalf("duplicate Stream() error = %v, want active-consumer failure", err)
 	}
 	if len(notifications) != 0 {
-		t.Fatalf("second Stream() notifications len = %d, want 0 on active-consumer failure", len(notifications))
+		t.Fatalf("duplicate Stream() notifications len = %d, want 0 on active-consumer failure", len(notifications))
 	}
 
 	firstCancel()
@@ -1026,14 +1292,10 @@ func TestTurnStreamRejectsSecondConsumerUntilFirstCancels(t *testing.T) {
 		t.Fatal("timed out waiting for first stream cancellation")
 	}
 
-	secondCancel()
-	notifications, err = collectStream(secondHandle.Stream(secondCtx))
-	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("second stream error = %v, want context canceled", err)
+	if err := client.acquireTurnConsumer(firstHandle.ID()); err != nil {
+		t.Fatalf("acquireTurnConsumer() after first stream cancellation error = %v", err)
 	}
-	if len(notifications) != 0 {
-		t.Fatalf("second stream notifications len = %d, want 0", len(notifications))
-	}
+	client.releaseTurnConsumer(firstHandle.ID())
 }
 
 func TestNewCodexInitializesAndCloses(t *testing.T) {
@@ -1125,6 +1387,18 @@ func TestHelperProcess(t *testing.T) {
 		}
 		if scenario == "stream_text" {
 			handleStreamTextScenario(writer, method, id)
+			continue
+		}
+		if scenario == "pending_request" {
+			handlePendingRequestScenario(writer, method, id)
+			continue
+		}
+		if scenario == "concurrent_requests" {
+			handleConcurrentRequestsScenario(writer, method, id)
+			continue
+		}
+		if scenario == "notification_overflow" {
+			handleNotificationOverflowScenario(writer, method, id)
 			continue
 		}
 	}
@@ -1282,6 +1556,32 @@ func handleStreamTextScenario(writer *bufio.Writer, method, id string) {
 	default:
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 	}
+}
+
+func handlePendingRequestScenario(writer *bufio.Writer, method, id string) {
+	if method == "wait" {
+		select {}
+	}
+	writeJSON(writer, Object{"id": id, "result": Object{}})
+}
+
+func handleConcurrentRequestsScenario(writer *bufio.Writer, method, id string) {
+	if method == "echo" {
+		writeJSON(writer, Object{"id": id, "result": id})
+		return
+	}
+	writeJSON(writer, Object{"id": id, "result": Object{}})
+}
+
+func handleNotificationOverflowScenario(writer *bufio.Writer, method, id string) {
+	if method != "thread/start" {
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+		return
+	}
+	for i := range 160 {
+		writeJSON(writer, Object{"method": "custom/overflow", "params": Object{"index": i}})
+	}
+	writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_overflow"}}})
 }
 
 func usage(total int64) Object {

@@ -186,7 +186,7 @@ func (h *TurnHandle) Stream(ctx context.Context) iter.Seq2[Notification, error] 
 		}
 		defer h.client.releaseTurnConsumer(h.turnID)
 		for {
-			notification, err := h.client.NextNotification(ctx)
+			notification, err := h.client.nextTurnNotification(ctx, h.turnID)
 			if err != nil {
 				yield(Notification{}, err)
 				return
@@ -200,6 +200,7 @@ func (h *TurnHandle) Stream(ctx context.Context) iter.Seq2[Notification, error] 
 				return
 			}
 			if ok && completed.Turn.ID == h.turnID {
+				h.client.clearTurnPending(h.turnID)
 				return
 			}
 		}
@@ -212,7 +213,11 @@ func (h *TurnHandle) Run(ctx context.Context) (RunResult, error) {
 		return RunResult{}, err
 	}
 	defer h.client.releaseTurnConsumer(h.turnID)
-	return collectRunResult(ctx, h.client, h.turnID)
+	result, err := collectRunResult(ctx, h.client, h.turnID)
+	if err == nil {
+		h.client.clearTurnPending(h.turnID)
+	}
+	return result, err
 }
 
 func validateInitialize(payload InitializeResponse) (InitializeResponse, error) {

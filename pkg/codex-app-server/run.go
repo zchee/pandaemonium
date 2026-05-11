@@ -36,7 +36,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 	items := []ThreadItem{}
 	var usage *ThreadTokenUsage
 	for {
-		notification, err := client.NextNotification(ctx)
+		notification, err := client.nextTurnNotification(ctx, turnID)
 		if err != nil {
 			return RunResult{}, err
 		}

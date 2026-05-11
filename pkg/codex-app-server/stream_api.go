@@ -31,8 +31,8 @@ type StreamThread struct {
 
 // StreamTurnHandle is a high-level turn handle for Go-native streaming flows.
 //
-// It delegates to the same turn consumer guard used by TurnHandle, so only one
-// stream/run consumer can read notifications from a Client at a time.
+// It delegates to the same per-turn router used by TurnHandle, so each turn
+// can stream independently while sharing the same Client transport.
 type StreamTurnHandle struct {
 	handle *TurnHandle
 }
