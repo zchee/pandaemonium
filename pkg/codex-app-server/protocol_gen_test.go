@@ -141,3 +141,165 @@ func TestGeneratedProtocolTypesDecodeRejectsInvalidDiscriminatorLikePayload(t *t
 		})
 	}
 }
+
+func TestGeneratedProtocolClientRequestDecode(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success: known method decodes concrete request", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":"req-1","method":"model/list","params":{"includeHidden":true}}`))
+		if err != nil {
+			t.Fatalf("decodeGeneratedClientRequest() error = %v", err)
+		}
+		request, ok := got.(ModelListRequest)
+		if !ok {
+			t.Fatalf("decodeGeneratedClientRequest() = %#v (%T), want ModelListRequest", got, got)
+		}
+		if request.ID != "req-1" || request.Method != "model/list" {
+			t.Fatalf("decoded request identity = (%q, %q), want (req-1, model/list)", request.ID, request.Method)
+		}
+		if request.Params.IncludeHidden == nil || !*request.Params.IncludeHidden {
+			t.Fatalf("IncludeHidden = %#v, want true pointer", request.Params.IncludeHidden)
+		}
+	})
+
+	t.Run("success: unknown method preserves raw fallback", func(t *testing.T) {
+		t.Parallel()
+
+		got, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":"req-2","method":"future/method","params":{"x":1}}`))
+		if err != nil {
+			t.Fatalf("decodeGeneratedClientRequest() error = %v", err)
+		}
+		if _, ok := got.(RawClientRequest); !ok {
+			t.Fatalf("decodeGeneratedClientRequest() = %#v (%T), want RawClientRequest", got, got)
+		}
+	})
+
+	t.Run("error: malformed known request rejects concrete payload", func(t *testing.T) {
+		t.Parallel()
+
+		if _, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":123,"method":"model/list","params":{}}`)); err == nil {
+			t.Fatal("decodeGeneratedClientRequest() error = nil, want malformed known request error")
+		}
+	})
+}
+
+var benchmarkGeneratedClientRequest ClientRequest
+
+func BenchmarkGeneratedProtocolClientRequestDecode(b *testing.B) {
+	benchmarks := map[string]struct {
+		input jsontext.Value
+	}{
+		"success: known method": {
+			input: jsontext.Value(`{"id":"req-1","method":"model/list","params":{"includeHidden":true}}`),
+		},
+		"success: unknown method raw fallback": {
+			input: jsontext.Value(`{"id":"req-2","method":"future/method","params":{"x":1}}`),
+		},
+	}
+	for name, bm := range benchmarks {
+		b.Run(name, func(b *testing.B) {
+			b.ReportAllocs()
+
+			for b.Loop() {
+				got, err := decodeGeneratedClientRequest(bm.input)
+				if err != nil {
+					b.Fatalf("decodeGeneratedClientRequest() error = %v", err)
+				}
+				benchmarkGeneratedClientRequest = got
+			}
+		})
+	}
+}
+
+func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success: codex error info decodes string and object variants", func(t *testing.T) {
+		t.Parallel()
+
+		var stringError TurnError
+		if err := json.Unmarshal([]byte(`{"message":"limit","codexErrorInfo":"usageLimitExceeded"}`), &stringError); err != nil {
+			t.Fatalf("json.Unmarshal(string codexErrorInfo) error = %v", err)
+		}
+		if stringError.CodexErrorInfo == nil {
+			t.Fatal("CodexErrorInfo = nil, want string variant")
+		}
+		if got, ok := (*stringError.CodexErrorInfo).(CodexErrorInfoValue); !ok || got != CodexErrorInfoValueUsageLimitExceeded {
+			t.Fatalf("CodexErrorInfo = %#v (%T), want %s", *stringError.CodexErrorInfo, *stringError.CodexErrorInfo, CodexErrorInfoValueUsageLimitExceeded)
+		}
+
+		var objectError TurnError
+		input := `{"message":"steer","codexErrorInfo":{"activeTurnNotSteerable":{"turnKind":"review"}}}`
+		if err := json.Unmarshal([]byte(input), &objectError); err != nil {
+			t.Fatalf("json.Unmarshal(object codexErrorInfo) error = %v", err)
+		}
+		if objectError.CodexErrorInfo == nil {
+			t.Fatal("CodexErrorInfo = nil, want object variant")
+		}
+		if _, ok := (*objectError.CodexErrorInfo).(ActiveTurnNotSteerableCodexErrorInfo); !ok {
+			t.Fatalf("CodexErrorInfo = %#v (%T), want ActiveTurnNotSteerableCodexErrorInfo", *objectError.CodexErrorInfo, *objectError.CodexErrorInfo)
+		}
+	})
+
+	t.Run("success: unknown codex error info preserves raw fallback", func(t *testing.T) {
+		t.Parallel()
+
+		var got TurnError
+		if err := json.Unmarshal([]byte(`{"message":"future","codexErrorInfo":{"futureCode":true}}`), &got); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		if got.CodexErrorInfo == nil {
+			t.Fatal("CodexErrorInfo = nil, want raw fallback")
+		}
+		if _, ok := (*got.CodexErrorInfo).(RawCodexErrorInfo); !ok {
+			t.Fatalf("CodexErrorInfo = %#v (%T), want RawCodexErrorInfo", *got.CodexErrorInfo, *got.CodexErrorInfo)
+		}
+	})
+
+	t.Run("success: reasoning summary decodes generated value variant", func(t *testing.T) {
+		t.Parallel()
+
+		var got TurnStartParams
+		if err := json.Unmarshal([]byte(`{"threadId":"thr-1","input":[],"summary":"none"}`), &got); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		if got.Summary == nil {
+			t.Fatal("Summary = nil, want value variant")
+		}
+		if summary, ok := (*got.Summary).(ReasoningSummaryValue); !ok || summary != ReasoningSummaryValueNone {
+			t.Fatalf("Summary = %#v (%T), want %s", *got.Summary, *got.Summary, ReasoningSummaryValueNone)
+		}
+	})
+
+	t.Run("success: session source decodes nested sub-agent variants", func(t *testing.T) {
+		t.Parallel()
+
+		input := `{
+			"cliVersion":"0.1.0",
+			"createdAt":1,
+			"cwd":"/tmp/project",
+			"ephemeral":false,
+			"id":"thr-1",
+			"modelProvider":"openai",
+			"preview":"",
+			"sessionId":"sess-1",
+			"source":{"subAgent":{"other":"external"}},
+			"status":{"type":"idle"},
+			"turns":[],
+			"updatedAt":2
+		}`
+		var got ThreadPayload
+		if err := json.Unmarshal([]byte(input), &got); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		source, ok := got.Source.(SubAgentSessionSource)
+		if !ok {
+			t.Fatalf("Source = %#v (%T), want SubAgentSessionSource", got.Source, got.Source)
+		}
+		if subAgent, ok := source.SubAgent.(OtherSubAgentSource); !ok || subAgent.Other != "external" {
+			t.Fatalf("SubAgent = %#v (%T), want OtherSubAgentSource", source.SubAgent, source.SubAgent)
+		}
+	})
+}

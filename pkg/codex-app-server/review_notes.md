@@ -14,8 +14,8 @@ Scope: task 5 docs/review lane.
 
 ## Generated rename policy
 
-- The generated root package uses prefixed compatibility names such as
-  `ProtocolConfig` and `ProtocolThread` when the schema would otherwise collide
+- The generated root package uses payload compatibility names such as
+  `ConfigPayload` and `ThreadPayload` when the schema would otherwise collide
   with public SDK names.
 - The generator tests already cover the collision case and reject accidental
   reintroduction of plain `Config` or `Thread` root types.

@@ -38,23 +38,56 @@ func (APIKeyAccount) isAccount() {}
 
 // APIKeyAccount is generated from the ApiKeyAccount schema definition.
 type APIKeyAccount struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (ChatgptAccount) isAccount() {}
 
 // ChatgptAccount is generated from the ChatgptAccount schema definition.
 type ChatgptAccount struct {
-	Email     string   `json:"email"`
-	PlanType  PlanType `json:"planType"`
-	TypeValue string   `json:"type"`
+	Email    string   `json:"email"`
+	PlanType PlanType `json:"planType"`
+	Type     string   `json:"type"`
 }
 
 func (AmazonBedrockAccount) isAccount() {}
 
 // AmazonBedrockAccount is generated from the AmazonBedrockAccount schema definition.
 type AmazonBedrockAccount struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedAccount(raw jsontext.Value) (Account, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "apiKey":
+			var value APIKeyAccount
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgpt":
+			var value ChatgptAccount
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "amazonBedrock":
+			var value AmazonBedrockAccount
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawAccount(raw), nil
+	}
+	return RawAccount(raw), nil
 }
 
 // AccountLoginCompletedNotification is generated from the AccountLoginCompletedNotification schema definition.
@@ -89,8 +122,8 @@ type ActivePermissionProfile struct {
 
 // AdditionalWritableRootActivePermissionProfileModification additional concrete directory that should be writable.
 type AdditionalWritableRootActivePermissionProfileModification struct {
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 // ActivePermissionProfileModification is generated from the ActivePermissionProfileModification schema definition.
@@ -938,7 +971,11 @@ func (value *AccountLoginStartRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 	if raw.Params == nil {
 		value.Params = nil
 	} else {
-		value.Params = RawLoginAccountParams(raw.Params)
+		decodedParams, err := decodeGeneratedLoginAccountParams(raw.Params)
+		if err != nil {
+			return err
+		}
+		value.Params = decodedParams
 	}
 	return nil
 }
@@ -1096,20 +1133,633 @@ type FuzzyFileSearchRequest struct {
 	Params FuzzyFileSearchParams `json:"params"`
 }
 
+func decodeGeneratedClientRequest(raw jsontext.Value) (ClientRequest, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Method string `json:"method"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Method {
+		case "initialize":
+			var value InitializeRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/start":
+			var value ThreadStartRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/resume":
+			var value ThreadResumeRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/fork":
+			var value ThreadForkRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/archive":
+			var value ThreadArchiveRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/unsubscribe":
+			var value ThreadUnsubscribeRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/name/set":
+			var value ThreadNameSetRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/metadata/update":
+			var value ThreadMetadataUpdateRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/unarchive":
+			var value ThreadUnarchiveRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/compact/start":
+			var value ThreadCompactStartRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/shellCommand":
+			var value ThreadShellCommandRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/approveGuardianDeniedAction":
+			var value ThreadApproveGuardianDeniedActionRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/rollback":
+			var value ThreadRollbackRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/list":
+			var value ThreadListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/loaded/list":
+			var value ThreadLoadedListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/read":
+			var value ThreadReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/inject_items":
+			var value ThreadInjectItemsRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "skills/list":
+			var value SkillsListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "hooks/list":
+			var value HooksListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "marketplace/add":
+			var value MarketplaceAddRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "marketplace/remove":
+			var value MarketplaceRemoveRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "marketplace/upgrade":
+			var value MarketplaceUpgradeRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/list":
+			var value PluginListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/read":
+			var value PluginReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/skill/read":
+			var value PluginSkillReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/share/save":
+			var value PluginShareSaveRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/share/updateTargets":
+			var value PluginShareUpdateTargetsRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/share/list":
+			var value PluginShareListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/share/delete":
+			var value PluginShareDeleteRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "app/list":
+			var value AppListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/readFile":
+			var value FsReadFileRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/writeFile":
+			var value FsWriteFileRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/createDirectory":
+			var value FsCreateDirectoryRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/getMetadata":
+			var value FsGetMetadataRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/readDirectory":
+			var value FsReadDirectoryRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/remove":
+			var value FsRemoveRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/copy":
+			var value FsCopyRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/watch":
+			var value FsWatchRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/unwatch":
+			var value FsUnwatchRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "skills/config/write":
+			var value SkillsConfigWriteRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/install":
+			var value PluginInstallRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plugin/uninstall":
+			var value PluginUninstallRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/start":
+			var value TurnStartRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/steer":
+			var value TurnSteerRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/interrupt":
+			var value TurnInterruptRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "review/start":
+			var value ReviewStartRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "model/list":
+			var value ModelListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "modelProvider/capabilities/read":
+			var value ModelProviderCapabilitiesReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "experimentalFeature/list":
+			var value ExperimentalFeatureListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "experimentalFeature/enablement/set":
+			var value ExperimentalFeatureEnablementSetRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpServer/oauth/login":
+			var value MCPServerOAuthLoginRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "config/mcpServer/reload":
+			var value ConfigMCPServerReloadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpServerStatus/list":
+			var value MCPServerStatusListRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpServer/resource/read":
+			var value MCPServerResourceReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpServer/tool/call":
+			var value MCPServerToolCallRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "windowsSandbox/setupStart":
+			var value WindowsSandboxSetupStartRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "windowsSandbox/readiness":
+			var value WindowsSandboxReadinessRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/login/start":
+			var value AccountLoginStartRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/login/cancel":
+			var value AccountLoginCancelRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/logout":
+			var value AccountLogoutRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/rateLimits/read":
+			var value AccountRateLimitsReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/sendAddCreditsNudgeEmail":
+			var value AccountSendAddCreditsNudgeEmailRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "feedback/upload":
+			var value FeedbackUploadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "command/exec":
+			var value CommandExecRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "command/exec/write":
+			var value CommandExecWriteRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "command/exec/terminate":
+			var value CommandExecTerminateRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "command/exec/resize":
+			var value CommandExecResizeRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "config/read":
+			var value ConfigReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "externalAgentConfig/detect":
+			var value ExternalAgentConfigDetectRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "externalAgentConfig/import":
+			var value ExternalAgentConfigImportRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "config/value/write":
+			var value ConfigValueWriteRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "config/batchWrite":
+			var value ConfigBatchWriteRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "configRequirements/read":
+			var value ConfigRequirementsReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/read":
+			var value AccountReadRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fuzzyFileSearch":
+			var value FuzzyFileSearchRequest
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawClientRequest(raw), nil
+	}
+	return RawClientRequest(raw), nil
+}
+
 // CodexErrorInfo this translation layer make sure that we expose codex error code in camel case.
 //
 // When an upstream HTTP status is available (for example, from the Responses API or a provider), it is forwarded in `httpStatusCode` on the relevant `codexErrorInfo` variant.
-type CodexErrorInfo jsontext.Value
+type CodexErrorInfo interface {
+	isCodexErrorInfo()
+}
 
-var _ json.MarshalerTo = CodexErrorInfo{}
-var _ json.UnmarshalerFrom = (*CodexErrorInfo)(nil)
+// RawCodexErrorInfo preserves an uninterpreted CodexErrorInfo JSON value.
+type RawCodexErrorInfo jsontext.Value
 
-func (value CodexErrorInfo) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (RawCodexErrorInfo) isCodexErrorInfo() {}
+
+var _ json.MarshalerTo = RawCodexErrorInfo{}
+var _ json.UnmarshalerFrom = (*RawCodexErrorInfo)(nil)
+
+func (value RawCodexErrorInfo) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
 }
 
-func (value *CodexErrorInfo) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *RawCodexErrorInfo) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+// CodexErrorInfoValue is a string-valued CodexErrorInfo variant.
+type CodexErrorInfoValue string
+
+func (CodexErrorInfoValue) isCodexErrorInfo() {}
+
+const (
+	// CodexErrorInfoValueBadRequest is the "badRequest" CodexErrorInfoValue value.
+	CodexErrorInfoValueBadRequest CodexErrorInfoValue = "badRequest"
+	// CodexErrorInfoValueContextWindowExceeded is the "contextWindowExceeded" CodexErrorInfoValue value.
+	CodexErrorInfoValueContextWindowExceeded CodexErrorInfoValue = "contextWindowExceeded"
+	// CodexErrorInfoValueCyberPolicy is the "cyberPolicy" CodexErrorInfoValue value.
+	CodexErrorInfoValueCyberPolicy CodexErrorInfoValue = "cyberPolicy"
+	// CodexErrorInfoValueInternalServerError is the "internalServerError" CodexErrorInfoValue value.
+	CodexErrorInfoValueInternalServerError CodexErrorInfoValue = "internalServerError"
+	// CodexErrorInfoValueOther is the "other" CodexErrorInfoValue value.
+	CodexErrorInfoValueOther CodexErrorInfoValue = "other"
+	// CodexErrorInfoValueSandboxError is the "sandboxError" CodexErrorInfoValue value.
+	CodexErrorInfoValueSandboxError CodexErrorInfoValue = "sandboxError"
+	// CodexErrorInfoValueServerOverloaded is the "serverOverloaded" CodexErrorInfoValue value.
+	CodexErrorInfoValueServerOverloaded CodexErrorInfoValue = "serverOverloaded"
+	// CodexErrorInfoValueThreadRollbackFailed is the "threadRollbackFailed" CodexErrorInfoValue value.
+	CodexErrorInfoValueThreadRollbackFailed CodexErrorInfoValue = "threadRollbackFailed"
+	// CodexErrorInfoValueUnauthorized is the "unauthorized" CodexErrorInfoValue value.
+	CodexErrorInfoValueUnauthorized CodexErrorInfoValue = "unauthorized"
+	// CodexErrorInfoValueUsageLimitExceeded is the "usageLimitExceeded" CodexErrorInfoValue value.
+	CodexErrorInfoValueUsageLimitExceeded CodexErrorInfoValue = "usageLimitExceeded"
+)
+
+func (HTTPConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
+
+// HTTPConnectionFailedCodexErrorInfo is generated from the HttpConnectionFailedCodexErrorInfo schema definition.
+type HTTPConnectionFailedCodexErrorInfo struct {
+	HTTPConnectionFailed jsontext.Value `json:"httpConnectionFailed"`
+}
+
+func (ResponseStreamConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
+
+// ResponseStreamConnectionFailedCodexErrorInfo failed to connect to the response SSE stream.
+type ResponseStreamConnectionFailedCodexErrorInfo struct {
+	ResponseStreamConnectionFailed jsontext.Value `json:"responseStreamConnectionFailed"`
+}
+
+func (ResponseStreamDisconnectedCodexErrorInfo) isCodexErrorInfo() {}
+
+// ResponseStreamDisconnectedCodexErrorInfo represents a response SSE stream disconnected in the middle of a turn before completion.
+type ResponseStreamDisconnectedCodexErrorInfo struct {
+	ResponseStreamDisconnected jsontext.Value `json:"responseStreamDisconnected"`
+}
+
+func (ResponseTooManyFailedAttemptsCodexErrorInfo) isCodexErrorInfo() {}
+
+// ResponseTooManyFailedAttemptsCodexErrorInfo reached the retry limit for responses.
+type ResponseTooManyFailedAttemptsCodexErrorInfo struct {
+	ResponseTooManyFailedAttempts jsontext.Value `json:"responseTooManyFailedAttempts"`
+}
+
+func (ActiveTurnNotSteerableCodexErrorInfo) isCodexErrorInfo() {}
+
+// ActiveTurnNotSteerableCodexErrorInfo returned when `turn/start` or `turn/steer` is submitted while the current active turn cannot accept same-turn steering, for example `/review` or manual `/compact`.
+type ActiveTurnNotSteerableCodexErrorInfo struct {
+	ActiveTurnNotSteerable jsontext.Value `json:"activeTurnNotSteerable"`
+}
+
+func decodeGeneratedCodexErrorInfo(raw jsontext.Value) (CodexErrorInfo, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		switch text {
+		case "badRequest":
+			return CodexErrorInfoValue(text), nil
+		case "contextWindowExceeded":
+			return CodexErrorInfoValue(text), nil
+		case "cyberPolicy":
+			return CodexErrorInfoValue(text), nil
+		case "internalServerError":
+			return CodexErrorInfoValue(text), nil
+		case "other":
+			return CodexErrorInfoValue(text), nil
+		case "sandboxError":
+			return CodexErrorInfoValue(text), nil
+		case "serverOverloaded":
+			return CodexErrorInfoValue(text), nil
+		case "threadRollbackFailed":
+			return CodexErrorInfoValue(text), nil
+		case "unauthorized":
+			return CodexErrorInfoValue(text), nil
+		case "usageLimitExceeded":
+			return CodexErrorInfoValue(text), nil
+		}
+		return RawCodexErrorInfo(raw), nil
+	}
+	var object struct {
+		HTTPConnectionFailed           jsontext.Value `json:"httpConnectionFailed"`
+		ResponseStreamConnectionFailed jsontext.Value `json:"responseStreamConnectionFailed"`
+		ResponseStreamDisconnected     jsontext.Value `json:"responseStreamDisconnected"`
+		ResponseTooManyFailedAttempts  jsontext.Value `json:"responseTooManyFailedAttempts"`
+		ActiveTurnNotSteerable         jsontext.Value `json:"activeTurnNotSteerable"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		if object.HTTPConnectionFailed != nil {
+			var value HTTPConnectionFailedCodexErrorInfo
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.ResponseStreamConnectionFailed != nil {
+			var value ResponseStreamConnectionFailedCodexErrorInfo
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.ResponseStreamDisconnected != nil {
+			var value ResponseStreamDisconnectedCodexErrorInfo
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.ResponseTooManyFailedAttempts != nil {
+			var value ResponseTooManyFailedAttemptsCodexErrorInfo
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.ActiveTurnNotSteerable != nil {
+			var value ActiveTurnNotSteerableCodexErrorInfo
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawCodexErrorInfo(raw), nil
+	}
+	return RawCodexErrorInfo(raw), nil
 }
 
 // CollabAgentState is generated from the CollabAgentState schema definition.
@@ -1205,37 +1855,76 @@ func (ReadCommandAction) isCommandAction() {}
 
 // ReadCommandAction is generated from the ReadCommandAction schema definition.
 type ReadCommandAction struct {
-	Command   string `json:"command"`
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Command string `json:"command"`
+	Name    string `json:"name"`
+	Path    string `json:"path"`
+	Type    string `json:"type"`
 }
 
 func (ListFilesCommandAction) isCommandAction() {}
 
 // ListFilesCommandAction is generated from the ListFilesCommandAction schema definition.
 type ListFilesCommandAction struct {
-	Command   string  `json:"command"`
-	Path      *string `json:"path,omitzero"`
-	TypeValue string  `json:"type"`
+	Command string  `json:"command"`
+	Path    *string `json:"path,omitzero"`
+	Type    string  `json:"type"`
 }
 
 func (SearchCommandAction) isCommandAction() {}
 
 // SearchCommandAction is generated from the SearchCommandAction schema definition.
 type SearchCommandAction struct {
-	Command   string  `json:"command"`
-	Path      *string `json:"path,omitzero"`
-	Query     *string `json:"query,omitzero"`
-	TypeValue string  `json:"type"`
+	Command string  `json:"command"`
+	Path    *string `json:"path,omitzero"`
+	Query   *string `json:"query,omitzero"`
+	Type    string  `json:"type"`
 }
 
 func (UnknownCommandAction) isCommandAction() {}
 
 // UnknownCommandAction is generated from the UnknownCommandAction schema definition.
 type UnknownCommandAction struct {
-	Command   string `json:"command"`
-	TypeValue string `json:"type"`
+	Command string `json:"command"`
+	Type    string `json:"type"`
+}
+
+func decodeGeneratedCommandAction(raw jsontext.Value) (CommandAction, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "read":
+			var value ReadCommandAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "listFiles":
+			var value ListFilesCommandAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "search":
+			var value SearchCommandAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "unknown":
+			var value UnknownCommandAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawCommandAction(raw), nil
+	}
+	return RawCommandAction(raw), nil
 }
 
 // CommandExecOutputDeltaNotification base64-encoded output chunk emitted for a streaming `command/exec` request.
@@ -1362,8 +2051,11 @@ func (value *CommandExecParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if raw.SandboxPolicy == nil {
 		value.SandboxPolicy = nil
 	} else {
-		sandboxPolicy := SandboxPolicy(RawSandboxPolicy(raw.SandboxPolicy))
-		value.SandboxPolicy = &sandboxPolicy
+		decodedSandboxPolicy, err := decodeGeneratedSandboxPolicy(raw.SandboxPolicy)
+		if err != nil {
+			return err
+		}
+		value.SandboxPolicy = &decodedSandboxPolicy
 	}
 	value.Size = raw.Size
 	value.StreamStdin = raw.StreamStdin
@@ -1508,8 +2200,8 @@ type CommandMigration struct {
 	Name string `json:"name"`
 }
 
-// ProtocolConfig is generated from the Config schema definition.
-type ProtocolConfig struct {
+// ConfigPayload is generated from the Config schema definition.
+type ConfigPayload struct {
 	Analytics      *AnalyticsConfig `json:"analytics,omitzero"`
 	ApprovalPolicy *AskForApproval  `json:"approval_policy,omitzero"`
 
@@ -1535,6 +2227,69 @@ type ProtocolConfig struct {
 	ServiceTier                *string                `json:"service_tier,omitzero"`
 	Tools                      *ToolsV2               `json:"tools,omitzero"`
 	WebSearch                  *WebSearchMode         `json:"web_search,omitzero"`
+}
+
+func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Analytics                  *AnalyticsConfig       `json:"analytics,omitzero"`
+		ApprovalPolicy             *AskForApproval        `json:"approval_policy,omitzero"`
+		ApprovalsReviewer          *ApprovalsReviewer     `json:"approvals_reviewer,omitzero"`
+		CompactPrompt              *string                `json:"compact_prompt,omitzero"`
+		DeveloperInstructions      *string                `json:"developer_instructions,omitzero"`
+		ForcedChatgptWorkspaceID   *string                `json:"forced_chatgpt_workspace_id,omitzero"`
+		ForcedLoginMethod          *ForcedLoginMethod     `json:"forced_login_method,omitzero"`
+		Instructions               *string                `json:"instructions,omitzero"`
+		Model                      *string                `json:"model,omitzero"`
+		ModelAutoCompactTokenLimit *int64                 `json:"model_auto_compact_token_limit,omitzero"`
+		ModelContextWindow         *int64                 `json:"model_context_window,omitzero"`
+		ModelProvider              *string                `json:"model_provider,omitzero"`
+		ModelReasoningEffort       *ReasoningEffort       `json:"model_reasoning_effort,omitzero"`
+		ModelReasoningSummary      jsontext.Value         `json:"model_reasoning_summary,omitzero"`
+		ModelVerbosity             *Verbosity             `json:"model_verbosity,omitzero"`
+		Profile                    *string                `json:"profile,omitzero"`
+		Profiles                   map[string]ProfileV2   `json:"profiles,omitzero"`
+		ReviewModel                *string                `json:"review_model,omitzero"`
+		SandboxMode                *SandboxMode           `json:"sandbox_mode,omitzero"`
+		SandboxWorkspaceWrite      *SandboxWorkspaceWrite `json:"sandbox_workspace_write,omitzero"`
+		ServiceTier                *string                `json:"service_tier,omitzero"`
+		Tools                      *ToolsV2               `json:"tools,omitzero"`
+		WebSearch                  *WebSearchMode         `json:"web_search,omitzero"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Analytics = raw.Analytics
+	value.ApprovalPolicy = raw.ApprovalPolicy
+	value.ApprovalsReviewer = raw.ApprovalsReviewer
+	value.CompactPrompt = raw.CompactPrompt
+	value.DeveloperInstructions = raw.DeveloperInstructions
+	value.ForcedChatgptWorkspaceID = raw.ForcedChatgptWorkspaceID
+	value.ForcedLoginMethod = raw.ForcedLoginMethod
+	value.Instructions = raw.Instructions
+	value.Model = raw.Model
+	value.ModelAutoCompactTokenLimit = raw.ModelAutoCompactTokenLimit
+	value.ModelContextWindow = raw.ModelContextWindow
+	value.ModelProvider = raw.ModelProvider
+	value.ModelReasoningEffort = raw.ModelReasoningEffort
+	if raw.ModelReasoningSummary == nil {
+		value.ModelReasoningSummary = nil
+	} else {
+		decodedModelReasoningSummary, err := decodeGeneratedReasoningSummary(raw.ModelReasoningSummary)
+		if err != nil {
+			return err
+		}
+		value.ModelReasoningSummary = &decodedModelReasoningSummary
+	}
+	value.ModelVerbosity = raw.ModelVerbosity
+	value.Profile = raw.Profile
+	value.Profiles = raw.Profiles
+	value.ReviewModel = raw.ReviewModel
+	value.SandboxMode = raw.SandboxMode
+	value.SandboxWorkspaceWrite = raw.SandboxWorkspaceWrite
+	value.ServiceTier = raw.ServiceTier
+	value.Tools = raw.Tools
+	value.WebSearch = raw.WebSearch
+	return nil
 }
 
 // ConfigBatchWriteParams is generated from the ConfigBatchWriteParams schema definition.
@@ -1579,7 +2334,11 @@ func (value *ConfigLayer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if raw.Name == nil {
 		value.Name = nil
 	} else {
-		value.Name = RawConfigLayerSource(raw.Name)
+		decodedName, err := decodeGeneratedConfigLayerSource(raw.Name)
+		if err != nil {
+			return err
+		}
+		value.Name = decodedName
 	}
 	value.Version = raw.Version
 	return nil
@@ -1602,7 +2361,11 @@ func (value *ConfigLayerMetadata) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	if raw.Name == nil {
 		value.Name = nil
 	} else {
-		value.Name = RawConfigLayerSource(raw.Name)
+		decodedName, err := decodeGeneratedConfigLayerSource(raw.Name)
+		if err != nil {
+			return err
+		}
+		value.Name = decodedName
 	}
 	value.Version = raw.Version
 	return nil
@@ -1633,9 +2396,9 @@ func (MdmConfigLayerSource) isConfigLayerSource() {}
 
 // MdmConfigLayerSource managed preferences layer delivered by MDM (macOS only).
 type MdmConfigLayerSource struct {
-	Domain    string `json:"domain"`
-	Key       string `json:"key"`
-	TypeValue string `json:"type"`
+	Domain string `json:"domain"`
+	Key    string `json:"key"`
+	Type   string `json:"type"`
 }
 
 func (SystemConfigLayerSource) isConfigLayerSource() {}
@@ -1643,8 +2406,8 @@ func (SystemConfigLayerSource) isConfigLayerSource() {}
 // SystemConfigLayerSource managed config layer from a file (usually `managed_config.toml`).
 type SystemConfigLayerSource struct {
 	// File this is the path to the system config.toml file, though it is not guaranteed to exist.
-	File      string `json:"file"`
-	TypeValue string `json:"type"`
+	File string `json:"file"`
+	Type string `json:"type"`
 }
 
 func (UserConfigLayerSource) isConfigLayerSource() {}
@@ -1652,8 +2415,8 @@ func (UserConfigLayerSource) isConfigLayerSource() {}
 // UserConfigLayerSource user config layer from $CODEX_HOME/config.toml. This layer is special in that it is expected to be: - writable by the user - generally outside the workspace directory.
 type UserConfigLayerSource struct {
 	// File this is the path to the user's config.toml file, though it is not guaranteed to exist.
-	File      string `json:"file"`
-	TypeValue string `json:"type"`
+	File string `json:"file"`
+	Type string `json:"type"`
 }
 
 func (ProjectConfigLayerSource) isConfigLayerSource() {}
@@ -1661,29 +2424,86 @@ func (ProjectConfigLayerSource) isConfigLayerSource() {}
 // ProjectConfigLayerSource path to a .codex/ folder within a project. There could be multiple of these between `cwd` and the project/repo root.
 type ProjectConfigLayerSource struct {
 	DotCodexFolder string `json:"dotCodexFolder"`
-	TypeValue      string `json:"type"`
+	Type           string `json:"type"`
 }
 
 func (SessionFlagsConfigLayerSource) isConfigLayerSource() {}
 
 // SessionFlagsConfigLayerSource session-layer overrides supplied via `-c`/`--config`.
 type SessionFlagsConfigLayerSource struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (LegacyManagedConfigTomlFromFileConfigLayerSource) isConfigLayerSource() {}
 
 // LegacyManagedConfigTomlFromFileConfigLayerSource `managed_config.toml` was designed to be a config that was loaded as the last layer on top of everything else. This scheme did not quite work out as intended, but we keep this variant as a "best effort" while we phase out `managed_config.toml` in favor of `requirements.toml`.
 type LegacyManagedConfigTomlFromFileConfigLayerSource struct {
-	File      string `json:"file"`
-	TypeValue string `json:"type"`
+	File string `json:"file"`
+	Type string `json:"type"`
 }
 
 func (LegacyManagedConfigTomlFromMdmConfigLayerSource) isConfigLayerSource() {}
 
 // LegacyManagedConfigTomlFromMdmConfigLayerSource is generated from the LegacyManagedConfigTomlFromMdmConfigLayerSource schema definition.
 type LegacyManagedConfigTomlFromMdmConfigLayerSource struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedConfigLayerSource(raw jsontext.Value) (ConfigLayerSource, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "mdm":
+			var value MdmConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "system":
+			var value SystemConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "user":
+			var value UserConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "project":
+			var value ProjectConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "sessionFlags":
+			var value SessionFlagsConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "legacyManagedConfigTomlFromFile":
+			var value LegacyManagedConfigTomlFromFileConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "legacyManagedConfigTomlFromMdm":
+			var value LegacyManagedConfigTomlFromMdmConfigLayerSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawConfigLayerSource(raw), nil
+	}
+	return RawConfigLayerSource(raw), nil
 }
 
 // ConfigReadParams is generated from the ConfigReadParams schema definition.
@@ -1695,7 +2515,7 @@ type ConfigReadParams struct {
 
 // ConfigReadResponse is generated from the ConfigReadResponse schema definition.
 type ConfigReadResponse struct {
-	Config  ProtocolConfig                 `json:"config"`
+	Config  ConfigPayload                  `json:"config"`
 	Layers  []ConfigLayer                  `json:"layers,omitzero"`
 	Origins map[string]ConfigLayerMetadata `json:"origins"`
 }
@@ -1779,21 +2599,54 @@ type CommandConfiguredHookHandler struct {
 	Command       string  `json:"command"`
 	StatusMessage *string `json:"statusMessage,omitzero"`
 	TimeoutSec    *uint64 `json:"timeoutSec,omitzero"`
-	TypeValue     string  `json:"type"`
+	Type          string  `json:"type"`
 }
 
 func (PromptConfiguredHookHandler) isConfiguredHookHandler() {}
 
 // PromptConfiguredHookHandler is generated from the PromptConfiguredHookHandler schema definition.
 type PromptConfiguredHookHandler struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (AgentConfiguredHookHandler) isConfiguredHookHandler() {}
 
 // AgentConfiguredHookHandler is generated from the AgentConfiguredHookHandler schema definition.
 type AgentConfiguredHookHandler struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedConfiguredHookHandler(raw jsontext.Value) (ConfiguredHookHandler, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "command":
+			var value CommandConfiguredHookHandler
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "prompt":
+			var value PromptConfiguredHookHandler
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "agent":
+			var value AgentConfiguredHookHandler
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawConfiguredHookHandler(raw), nil
+	}
+	return RawConfiguredHookHandler(raw), nil
 }
 
 // ConfiguredHookMatcherGroup is generated from the ConfiguredHookMatcherGroup schema definition.
@@ -1816,7 +2669,11 @@ func (value *ConfiguredHookMatcherGroup) UnmarshalJSONFrom(dec *jsontext.Decoder
 		value.Hooks = make([]ConfiguredHookHandler, len(raw.Hooks))
 		for i, item := range raw.Hooks {
 			if item != nil {
-				value.Hooks[i] = RawConfiguredHookHandler(item)
+				decodedHooks, err := decodeGeneratedConfiguredHookHandler(item)
+				if err != nil {
+					return err
+				}
+				value.Hooks[i] = decodedHooks
 			}
 		}
 	}
@@ -1849,25 +2706,58 @@ func (InputTextContentItem) isContentItem() {}
 
 // InputTextContentItem is generated from the InputTextContentItem schema definition.
 type InputTextContentItem struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
 }
 
 func (InputImageContentItem) isContentItem() {}
 
 // InputImageContentItem is generated from the InputImageContentItem schema definition.
 type InputImageContentItem struct {
-	Detail    *ImageDetail `json:"detail,omitzero"`
-	ImageURL  string       `json:"image_url"`
-	TypeValue string       `json:"type"`
+	Detail   *ImageDetail `json:"detail,omitzero"`
+	ImageURL string       `json:"image_url"`
+	Type     string       `json:"type"`
 }
 
 func (OutputTextContentItem) isContentItem() {}
 
 // OutputTextContentItem is generated from the OutputTextContentItem schema definition.
 type OutputTextContentItem struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedContentItem(raw jsontext.Value) (ContentItem, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "input_text":
+			var value InputTextContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "input_image":
+			var value InputImageContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "output_text":
+			var value OutputTextContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawContentItem(raw), nil
+	}
+	return RawContentItem(raw), nil
 }
 
 // ContextCompactedNotification deprecated: Use `ContextCompaction` item type instead.
@@ -1917,16 +2807,43 @@ func (InputTextDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentI
 
 // InputTextDynamicToolCallOutputContentItem is generated from the InputTextDynamicToolCallOutputContentItem schema definition.
 type InputTextDynamicToolCallOutputContentItem struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
 }
 
 func (InputImageDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
 
 // InputImageDynamicToolCallOutputContentItem is generated from the InputImageDynamicToolCallOutputContentItem schema definition.
 type InputImageDynamicToolCallOutputContentItem struct {
-	ImageURL  string `json:"imageUrl"`
-	TypeValue string `json:"type"`
+	ImageURL string `json:"imageUrl"`
+	Type     string `json:"type"`
+}
+
+func decodeGeneratedDynamicToolCallOutputContentItem(raw jsontext.Value) (DynamicToolCallOutputContentItem, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "inputText":
+			var value InputTextDynamicToolCallOutputContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "inputImage":
+			var value InputImageDynamicToolCallOutputContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawDynamicToolCallOutputContentItem(raw), nil
+	}
+	return RawDynamicToolCallOutputContentItem(raw), nil
 }
 
 // DynamicToolCallStatus is generated from the DynamicToolCallStatus schema definition.
@@ -2177,41 +3094,78 @@ func (PathFileSystemPath) isFileSystemPath() {}
 
 // PathFileSystemPath is generated from the PathFileSystemPath schema definition.
 type PathFileSystemPath struct {
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 func (GlobPatternFileSystemPath) isFileSystemPath() {}
 
 // GlobPatternFileSystemPath is generated from the GlobPatternFileSystemPath schema definition.
 type GlobPatternFileSystemPath struct {
-	Pattern   string `json:"pattern"`
-	TypeValue string `json:"type"`
+	Pattern string `json:"pattern"`
+	Type    string `json:"type"`
 }
 
 func (SpecialFileSystemPath) isFileSystemPath() {}
 
 // SpecialFileSystemPath is generated from the SpecialFileSystemPath schema definition.
 type SpecialFileSystemPath struct {
-	TypeValue string                `json:"type"`
-	Value     FileSystemSpecialPath `json:"value"`
+	Type  string                `json:"type"`
+	Value FileSystemSpecialPath `json:"value"`
 }
 
 func (value *SpecialFileSystemPath) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		TypeValue string         `json:"type"`
-		Value     jsontext.Value `json:"value"`
+		Type  string         `json:"type"`
+		Value jsontext.Value `json:"value"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
 	}
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	if raw.Value == nil {
 		value.Value = nil
 	} else {
-		value.Value = RawFileSystemSpecialPath(raw.Value)
+		decodedValue, err := decodeGeneratedFileSystemSpecialPath(raw.Value)
+		if err != nil {
+			return err
+		}
+		value.Value = decodedValue
 	}
 	return nil
+}
+
+func decodeGeneratedFileSystemPath(raw jsontext.Value) (FileSystemPath, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "path":
+			var value PathFileSystemPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "glob_pattern":
+			var value GlobPatternFileSystemPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "special":
+			var value SpecialFileSystemPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawFileSystemPath(raw), nil
+	}
+	return RawFileSystemPath(raw), nil
 }
 
 // FileSystemSandboxEntry is generated from the FileSystemSandboxEntry schema definition.
@@ -2232,7 +3186,11 @@ func (value *FileSystemSandboxEntry) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	if raw.Path == nil {
 		value.Path = nil
 	} else {
-		value.Path = RawFileSystemPath(raw.Path)
+		decodedPath, err := decodeGeneratedFileSystemPath(raw.Path)
+		if err != nil {
+			return err
+		}
+		value.Path = decodedPath
 	}
 	return nil
 }
@@ -2303,6 +3261,57 @@ type FileSystemSpecialPathKind struct {
 	Subpath *string `json:"subpath,omitzero"`
 }
 
+func decodeGeneratedFileSystemSpecialPath(raw jsontext.Value) (FileSystemSpecialPath, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Kind string `json:"kind"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Kind {
+		case "root":
+			var value RootFileSystemSpecialPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "minimal":
+			var value MinimalFileSystemSpecialPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "project_roots":
+			var value KindFileSystemSpecialPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "tmpdir":
+			var value TmpdirFileSystemSpecialPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "slash_tmp":
+			var value SlashTmpFileSystemSpecialPath
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "unknown":
+			var value FileSystemSpecialPathKind
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawFileSystemSpecialPath(raw), nil
+	}
+	return RawFileSystemSpecialPath(raw), nil
+}
+
 // FileUpdateChange is generated from the FileUpdateChange schema definition.
 type FileUpdateChange struct {
 	Diff string          `json:"diff"`
@@ -2323,7 +3332,11 @@ func (value *FileUpdateChange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if raw.Kind == nil {
 		value.Kind = nil
 	} else {
-		value.Kind = RawPatchChangeKind(raw.Kind)
+		decodedKind, err := decodeGeneratedPatchChangeKind(raw.Kind)
+		if err != nil {
+			return err
+		}
+		value.Kind = decodedKind
 	}
 	value.Path = raw.Path
 	return nil
@@ -2580,17 +3593,44 @@ func (InputTextFunctionCallOutputContentItem) isFunctionCallOutputContentItem() 
 
 // InputTextFunctionCallOutputContentItem is generated from the InputTextFunctionCallOutputContentItem schema definition.
 type InputTextFunctionCallOutputContentItem struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
 }
 
 func (InputImageFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
 
 // InputImageFunctionCallOutputContentItem is generated from the InputImageFunctionCallOutputContentItem schema definition.
 type InputImageFunctionCallOutputContentItem struct {
-	Detail    *ImageDetail `json:"detail,omitzero"`
-	ImageURL  string       `json:"image_url"`
-	TypeValue string       `json:"type"`
+	Detail   *ImageDetail `json:"detail,omitzero"`
+	ImageURL string       `json:"image_url"`
+	Type     string       `json:"type"`
+}
+
+func decodeGeneratedFunctionCallOutputContentItem(raw jsontext.Value) (FunctionCallOutputContentItem, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "input_text":
+			var value InputTextFunctionCallOutputContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "input_image":
+			var value InputImageFunctionCallOutputContentItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawFunctionCallOutputContentItem(raw), nil
+	}
+	return RawFunctionCallOutputContentItem(raw), nil
 }
 
 // FuzzyFileSearchMatchType is generated from the FuzzyFileSearchMatchType schema definition.
@@ -2666,8 +3706,11 @@ func (value *GetAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	if raw.Account == nil {
 		value.Account = nil
 	} else {
-		account := Account(RawAccount(raw.Account))
-		value.Account = &account
+		decodedAccount, err := decodeGeneratedAccount(raw.Account)
+		if err != nil {
+			return err
+		}
+		value.Account = &decodedAccount
 	}
 	value.RequiresOpenaiAuth = raw.RequiresOpenaiAuth
 	return nil
@@ -2713,41 +3756,41 @@ func (CommandGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // CommandGuardianApprovalReviewAction is generated from the CommandGuardianApprovalReviewAction schema definition.
 type CommandGuardianApprovalReviewAction struct {
-	Command   string                `json:"command"`
-	Cwd       string                `json:"cwd"`
-	Source    GuardianCommandSource `json:"source"`
-	TypeValue string                `json:"type"`
+	Command string                `json:"command"`
+	Cwd     string                `json:"cwd"`
+	Source  GuardianCommandSource `json:"source"`
+	Type    string                `json:"type"`
 }
 
 func (ExecveGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // ExecveGuardianApprovalReviewAction is generated from the ExecveGuardianApprovalReviewAction schema definition.
 type ExecveGuardianApprovalReviewAction struct {
-	Argv      []string              `json:"argv"`
-	Cwd       string                `json:"cwd"`
-	Program   string                `json:"program"`
-	Source    GuardianCommandSource `json:"source"`
-	TypeValue string                `json:"type"`
+	Argv    []string              `json:"argv"`
+	Cwd     string                `json:"cwd"`
+	Program string                `json:"program"`
+	Source  GuardianCommandSource `json:"source"`
+	Type    string                `json:"type"`
 }
 
 func (ApplyPatchGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // ApplyPatchGuardianApprovalReviewAction is generated from the ApplyPatchGuardianApprovalReviewAction schema definition.
 type ApplyPatchGuardianApprovalReviewAction struct {
-	Cwd       string   `json:"cwd"`
-	Files     []string `json:"files"`
-	TypeValue string   `json:"type"`
+	Cwd   string   `json:"cwd"`
+	Files []string `json:"files"`
+	Type  string   `json:"type"`
 }
 
 func (NetworkAccessGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // NetworkAccessGuardianApprovalReviewAction is generated from the NetworkAccessGuardianApprovalReviewAction schema definition.
 type NetworkAccessGuardianApprovalReviewAction struct {
-	Host      string                  `json:"host"`
-	Port      int64                   `json:"port"`
-	Protocol  NetworkApprovalProtocol `json:"protocol"`
-	Target    string                  `json:"target"`
-	TypeValue string                  `json:"type"`
+	Host     string                  `json:"host"`
+	Port     int64                   `json:"port"`
+	Protocol NetworkApprovalProtocol `json:"protocol"`
+	Target   string                  `json:"target"`
+	Type     string                  `json:"type"`
 }
 
 func (MCPToolCallGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
@@ -2759,7 +3802,7 @@ type MCPToolCallGuardianApprovalReviewAction struct {
 	Server        string  `json:"server"`
 	ToolName      string  `json:"toolName"`
 	ToolTitle     *string `json:"toolTitle,omitzero"`
-	TypeValue     string  `json:"type"`
+	Type          string  `json:"type"`
 }
 
 func (RequestPermissionsGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
@@ -2768,7 +3811,58 @@ func (RequestPermissionsGuardianApprovalReviewAction) isGuardianApprovalReviewAc
 type RequestPermissionsGuardianApprovalReviewAction struct {
 	Permissions RequestPermissionProfile `json:"permissions"`
 	Reason      *string                  `json:"reason,omitzero"`
-	TypeValue   string                   `json:"type"`
+	Type        string                   `json:"type"`
+}
+
+func decodeGeneratedGuardianApprovalReviewAction(raw jsontext.Value) (GuardianApprovalReviewAction, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "command":
+			var value CommandGuardianApprovalReviewAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "execve":
+			var value ExecveGuardianApprovalReviewAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "applyPatch":
+			var value ApplyPatchGuardianApprovalReviewAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "networkAccess":
+			var value NetworkAccessGuardianApprovalReviewAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpToolCall":
+			var value MCPToolCallGuardianApprovalReviewAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "requestPermissions":
+			var value RequestPermissionsGuardianApprovalReviewAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawGuardianApprovalReviewAction(raw), nil
+	}
+	return RawGuardianApprovalReviewAction(raw), nil
 }
 
 // GuardianApprovalReviewStatus [UNSTABLE] Lifecycle state for an approval auto-review.
@@ -3172,7 +4266,11 @@ func (value *ItemGuardianApprovalReviewCompletedNotification) UnmarshalJSONFrom(
 	if raw.Action == nil {
 		value.Action = nil
 	} else {
-		value.Action = RawGuardianApprovalReviewAction(raw.Action)
+		decodedAction, err := decodeGeneratedGuardianApprovalReviewAction(raw.Action)
+		if err != nil {
+			return err
+		}
+		value.Action = decodedAction
 	}
 	value.CompletedAtMs = raw.CompletedAtMs
 	value.DecisionSource = raw.DecisionSource
@@ -3222,7 +4320,11 @@ func (value *ItemGuardianApprovalReviewStartedNotification) UnmarshalJSONFrom(de
 	if raw.Action == nil {
 		value.Action = nil
 	} else {
-		value.Action = RawGuardianApprovalReviewAction(raw.Action)
+		decodedAction, err := decodeGeneratedGuardianApprovalReviewAction(raw.Action)
+		if err != nil {
+			return err
+		}
+		value.Action = decodedAction
 	}
 	value.Review = raw.Review
 	value.ReviewID = raw.ReviewID
@@ -3289,7 +4391,7 @@ type ExecLocalShellAction struct {
 	Command          []string          `json:"command"`
 	Env              map[string]string `json:"env,omitzero"`
 	TimeoutMs        *uint64           `json:"timeout_ms,omitzero"`
-	TypeValue        string            `json:"type"`
+	Type             string            `json:"type"`
 	User             *string           `json:"user,omitzero"`
 	WorkingDirectory *string           `json:"working_directory,omitzero"`
 }
@@ -3336,8 +4438,8 @@ func (APIKeyv2LoginAccountParams) isLoginAccountParams() {}
 
 // APIKeyv2LoginAccountParams is generated from the ApiKeyv2::LoginAccountParams schema definition.
 type APIKeyv2LoginAccountParams struct {
-	APIKey    string `json:"apiKey"`
-	TypeValue string `json:"type"`
+	APIKey string `json:"apiKey"`
+	Type   string `json:"type"`
 }
 
 func (Chatgptv2LoginAccountParams) isLoginAccountParams() {}
@@ -3345,14 +4447,14 @@ func (Chatgptv2LoginAccountParams) isLoginAccountParams() {}
 // Chatgptv2LoginAccountParams is generated from the Chatgptv2::LoginAccountParams schema definition.
 type Chatgptv2LoginAccountParams struct {
 	CodexStreamlinedLogin *bool  `json:"codexStreamlinedLogin,omitzero"`
-	TypeValue             string `json:"type"`
+	Type                  string `json:"type"`
 }
 
 func (ChatgptDeviceCodev2LoginAccountParams) isLoginAccountParams() {}
 
 // ChatgptDeviceCodev2LoginAccountParams is generated from the ChatgptDeviceCodev2::LoginAccountParams schema definition.
 type ChatgptDeviceCodev2LoginAccountParams struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (ChatgptAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
@@ -3369,7 +4471,46 @@ type ChatgptAuthTokensv2LoginAccountParams struct {
 	//
 	// When `null`, Codex attempts to derive the plan type from access-token claims. If unavailable, the plan defaults to `unknown`.
 	ChatgptPlanType *string `json:"chatgptPlanType,omitzero"`
-	TypeValue       string  `json:"type"`
+	Type            string  `json:"type"`
+}
+
+func decodeGeneratedLoginAccountParams(raw jsontext.Value) (LoginAccountParams, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "apiKey":
+			var value APIKeyv2LoginAccountParams
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgpt":
+			var value Chatgptv2LoginAccountParams
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgptDeviceCode":
+			var value ChatgptDeviceCodev2LoginAccountParams
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgptAuthTokens":
+			var value ChatgptAuthTokensv2LoginAccountParams
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawLoginAccountParams(raw), nil
+	}
+	return RawLoginAccountParams(raw), nil
 }
 
 // LoginAccountResponse is generated from the LoginAccountResponse schema definition.
@@ -3397,7 +4538,7 @@ func (APIKeyv2LoginAccountResponse) isLoginAccountResponse() {}
 
 // APIKeyv2LoginAccountResponse is generated from the ApiKeyv2::LoginAccountResponse schema definition.
 type APIKeyv2LoginAccountResponse struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (Chatgptv2LoginAccountResponse) isLoginAccountResponse() {}
@@ -3405,17 +4546,17 @@ func (Chatgptv2LoginAccountResponse) isLoginAccountResponse() {}
 // Chatgptv2LoginAccountResponse is generated from the Chatgptv2::LoginAccountResponse schema definition.
 type Chatgptv2LoginAccountResponse struct {
 	// AuthURL URL the client should open in a browser to initiate the OAuth flow.
-	AuthURL   string `json:"authUrl"`
-	LoginID   string `json:"loginId"`
-	TypeValue string `json:"type"`
+	AuthURL string `json:"authUrl"`
+	LoginID string `json:"loginId"`
+	Type    string `json:"type"`
 }
 
 func (ChatgptDeviceCodev2LoginAccountResponse) isLoginAccountResponse() {}
 
 // ChatgptDeviceCodev2LoginAccountResponse is generated from the ChatgptDeviceCodev2::LoginAccountResponse schema definition.
 type ChatgptDeviceCodev2LoginAccountResponse struct {
-	LoginID   string `json:"loginId"`
-	TypeValue string `json:"type"`
+	LoginID string `json:"loginId"`
+	Type    string `json:"type"`
 
 	// UserCode one-time code the user must enter after signing in.
 	UserCode string `json:"userCode"`
@@ -3428,7 +4569,46 @@ func (ChatgptAuthTokensv2LoginAccountResponse) isLoginAccountResponse() {}
 
 // ChatgptAuthTokensv2LoginAccountResponse is generated from the ChatgptAuthTokensv2::LoginAccountResponse schema definition.
 type ChatgptAuthTokensv2LoginAccountResponse struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedLoginAccountResponse(raw jsontext.Value) (LoginAccountResponse, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "apiKey":
+			var value APIKeyv2LoginAccountResponse
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgpt":
+			var value Chatgptv2LoginAccountResponse
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgptDeviceCode":
+			var value ChatgptDeviceCodev2LoginAccountResponse
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "chatgptAuthTokens":
+			var value ChatgptAuthTokensv2LoginAccountResponse
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawLoginAccountResponse(raw), nil
+	}
+	return RawLoginAccountResponse(raw), nil
 }
 
 // LogoutAccountResponse is generated from the LogoutAccountResponse schema definition.
@@ -3552,7 +4732,11 @@ func (value *MCPResourceReadResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 		value.Contents = make([]ResourceContent, len(raw.Contents))
 		for i, item := range raw.Contents {
 			if item != nil {
-				value.Contents[i] = RawResourceContent(item)
+				decodedContents, err := decodeGeneratedResourceContent(item)
+				if err != nil {
+					return err
+				}
+				value.Contents[i] = decodedContents
 			}
 		}
 	}
@@ -3988,22 +5172,55 @@ func (AddPatchChangeKind) isPatchChangeKind() {}
 
 // AddPatchChangeKind is generated from the AddPatchChangeKind schema definition.
 type AddPatchChangeKind struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (DeletePatchChangeKind) isPatchChangeKind() {}
 
 // DeletePatchChangeKind is generated from the DeletePatchChangeKind schema definition.
 type DeletePatchChangeKind struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (UpdatePatchChangeKind) isPatchChangeKind() {}
 
 // UpdatePatchChangeKind is generated from the UpdatePatchChangeKind schema definition.
 type UpdatePatchChangeKind struct {
-	MovePath  *string `json:"move_path,omitzero"`
-	TypeValue string  `json:"type"`
+	MovePath *string `json:"move_path,omitzero"`
+	Type     string  `json:"type"`
+}
+
+func decodeGeneratedPatchChangeKind(raw jsontext.Value) (PatchChangeKind, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "add":
+			var value AddPatchChangeKind
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "delete":
+			var value DeletePatchChangeKind
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "update":
+			var value UpdatePatchChangeKind
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawPatchChangeKind(raw), nil
+	}
+	return RawPatchChangeKind(raw), nil
 }
 
 // PermissionProfile is generated from the PermissionProfile schema definition.
@@ -4033,14 +5250,14 @@ func (ManagedPermissionProfile) isPermissionProfile() {}
 type ManagedPermissionProfile struct {
 	FileSystem PermissionProfileFileSystemPermissions `json:"fileSystem"`
 	Network    PermissionProfileNetworkPermissions    `json:"network"`
-	TypeValue  string                                 `json:"type"`
+	Type       string                                 `json:"type"`
 }
 
 func (value *ManagedPermissionProfile) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		FileSystem jsontext.Value                      `json:"fileSystem"`
 		Network    PermissionProfileNetworkPermissions `json:"network"`
-		TypeValue  string                              `json:"type"`
+		Type       string                              `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -4048,10 +5265,14 @@ func (value *ManagedPermissionProfile) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 	if raw.FileSystem == nil {
 		value.FileSystem = nil
 	} else {
-		value.FileSystem = RawPermissionProfileFileSystemPermissions(raw.FileSystem)
+		decodedFileSystem, err := decodeGeneratedPermissionProfileFileSystemPermissions(raw.FileSystem)
+		if err != nil {
+			return err
+		}
+		value.FileSystem = decodedFileSystem
 	}
 	value.Network = raw.Network
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -4059,15 +5280,48 @@ func (DisabledPermissionProfile) isPermissionProfile() {}
 
 // DisabledPermissionProfile does not apply an outer sandbox.
 type DisabledPermissionProfile struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (ExternalPermissionProfile) isPermissionProfile() {}
 
 // ExternalPermissionProfile filesystem isolation is enforced by an external caller.
 type ExternalPermissionProfile struct {
-	Network   PermissionProfileNetworkPermissions `json:"network"`
-	TypeValue string                              `json:"type"`
+	Network PermissionProfileNetworkPermissions `json:"network"`
+	Type    string                              `json:"type"`
+}
+
+func decodeGeneratedPermissionProfile(raw jsontext.Value) (PermissionProfile, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "managed":
+			var value ManagedPermissionProfile
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "disabled":
+			var value DisabledPermissionProfile
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "external":
+			var value ExternalPermissionProfile
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawPermissionProfile(raw), nil
+	}
+	return RawPermissionProfile(raw), nil
 }
 
 // PermissionProfileFileSystemPermissions is generated from the PermissionProfileFileSystemPermissions schema definition.
@@ -4097,7 +5351,7 @@ func (RestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileS
 type RestrictedPermissionProfileFileSystemPermissions struct {
 	Entries          []FileSystemSandboxEntry `json:"entries"`
 	GlobScanMaxDepth *uint                    `json:"globScanMaxDepth,omitzero"`
-	TypeValue        string                   `json:"type"`
+	Type             string                   `json:"type"`
 }
 
 func (UnrestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {
@@ -4105,13 +5359,40 @@ func (UnrestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFil
 
 // UnrestrictedPermissionProfileFileSystemPermissions is generated from the UnrestrictedPermissionProfileFileSystemPermissions schema definition.
 type UnrestrictedPermissionProfileFileSystemPermissions struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedPermissionProfileFileSystemPermissions(raw jsontext.Value) (PermissionProfileFileSystemPermissions, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "restricted":
+			var value RestrictedPermissionProfileFileSystemPermissions
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "unrestricted":
+			var value UnrestrictedPermissionProfileFileSystemPermissions
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawPermissionProfileFileSystemPermissions(raw), nil
+	}
+	return RawPermissionProfileFileSystemPermissions(raw), nil
 }
 
 // AdditionalWritableRootPermissionProfileModificationParams additional concrete directory that should be writable.
 type AdditionalWritableRootPermissionProfileModificationParams struct {
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 // PermissionProfileModificationParams is generated from the PermissionProfileModificationParams schema definition.
@@ -4129,7 +5410,7 @@ type PermissionProfileNetworkPermissions struct {
 type ProfilePermissionProfileSelectionParams struct {
 	ID            string                                `json:"id"`
 	Modifications []PermissionProfileModificationParams `json:"modifications,omitzero"`
-	TypeValue     string                                `json:"type"`
+	Type          string                                `json:"type"`
 }
 
 // PermissionProfileSelectionParams is generated from the PermissionProfileSelectionParams schema definition.
@@ -4528,26 +5809,59 @@ func (LocalPluginSource) isPluginSource() {}
 
 // LocalPluginSource is generated from the LocalPluginSource schema definition.
 type LocalPluginSource struct {
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 func (GitPluginSource) isPluginSource() {}
 
 // GitPluginSource is generated from the GitPluginSource schema definition.
 type GitPluginSource struct {
-	Path      *string `json:"path,omitzero"`
-	RefName   *string `json:"refName,omitzero"`
-	Sha       *string `json:"sha,omitzero"`
-	TypeValue string  `json:"type"`
-	URL       string  `json:"url"`
+	Path    *string `json:"path,omitzero"`
+	RefName *string `json:"refName,omitzero"`
+	Sha     *string `json:"sha,omitzero"`
+	Type    string  `json:"type"`
+	URL     string  `json:"url"`
 }
 
 func (RemotePluginSource) isPluginSource() {}
 
 // RemotePluginSource represents a plugin is available in the remote catalog. Download metadata is kept server-side and is not exposed through the app-server API.
 type RemotePluginSource struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedPluginSource(raw jsontext.Value) (PluginSource, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "local":
+			var value LocalPluginSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "git":
+			var value GitPluginSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "remote":
+			var value RemotePluginSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawPluginSource(raw), nil
+	}
+	return RawPluginSource(raw), nil
 }
 
 // PluginSummary is generated from the PluginSummary schema definition.
@@ -4599,7 +5913,11 @@ func (value *PluginSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if raw.Source == nil {
 		value.Source = nil
 	} else {
-		value.Source = RawPluginSource(raw.Source)
+		decodedSource, err := decodeGeneratedPluginSource(raw.Source)
+		if err != nil {
+			return err
+		}
+		value.Source = decodedSource
 	}
 	return nil
 }
@@ -4713,6 +6031,45 @@ type ProfileV2 struct {
 	WebSearch             *WebSearchMode     `json:"web_search,omitzero"`
 }
 
+func (value *ProfileV2) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		ApprovalPolicy        *AskForApproval    `json:"approval_policy,omitzero"`
+		ApprovalsReviewer     *ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
+		ChatgptBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
+		Model                 *string            `json:"model,omitzero"`
+		ModelProvider         *string            `json:"model_provider,omitzero"`
+		ModelReasoningEffort  *ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
+		ModelReasoningSummary jsontext.Value     `json:"model_reasoning_summary,omitzero"`
+		ModelVerbosity        *Verbosity         `json:"model_verbosity,omitzero"`
+		ServiceTier           *string            `json:"service_tier,omitzero"`
+		Tools                 *ToolsV2           `json:"tools,omitzero"`
+		WebSearch             *WebSearchMode     `json:"web_search,omitzero"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.ApprovalPolicy = raw.ApprovalPolicy
+	value.ApprovalsReviewer = raw.ApprovalsReviewer
+	value.ChatgptBaseURL = raw.ChatgptBaseURL
+	value.Model = raw.Model
+	value.ModelProvider = raw.ModelProvider
+	value.ModelReasoningEffort = raw.ModelReasoningEffort
+	if raw.ModelReasoningSummary == nil {
+		value.ModelReasoningSummary = nil
+	} else {
+		decodedModelReasoningSummary, err := decodeGeneratedReasoningSummary(raw.ModelReasoningSummary)
+		if err != nil {
+			return err
+		}
+		value.ModelReasoningSummary = &decodedModelReasoningSummary
+	}
+	value.ModelVerbosity = raw.ModelVerbosity
+	value.ServiceTier = raw.ServiceTier
+	value.Tools = raw.Tools
+	value.WebSearch = raw.WebSearch
+	return nil
+}
+
 // RateLimitReachedType is generated from the RateLimitReachedType schema definition.
 type RateLimitReachedType string
 
@@ -4766,7 +6123,11 @@ func (value *RawResponseItemCompletedNotification) UnmarshalJSONFrom(dec *jsonte
 	if raw.Item == nil {
 		value.Item = nil
 	} else {
-		value.Item = RawResponseItem(raw.Item)
+		decodedItem, err := decodeGeneratedResponseItem(raw.Item)
+		if err != nil {
+			return err
+		}
+		value.Item = decodedItem
 	}
 	value.ThreadID = raw.ThreadID
 	value.TurnID = raw.TurnID
@@ -4894,22 +6255,49 @@ func (ReasoningTextReasoningItemContent) isReasoningItemContent() {}
 
 // ReasoningTextReasoningItemContent is generated from the ReasoningTextReasoningItemContent schema definition.
 type ReasoningTextReasoningItemContent struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
 }
 
 func (TextReasoningItemContent) isReasoningItemContent() {}
 
 // TextReasoningItemContent is generated from the TextReasoningItemContent schema definition.
 type TextReasoningItemContent struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedReasoningItemContent(raw jsontext.Value) (ReasoningItemContent, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "reasoning_text":
+			var value ReasoningTextReasoningItemContent
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "text":
+			var value TextReasoningItemContent
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawReasoningItemContent(raw), nil
+	}
+	return RawReasoningItemContent(raw), nil
 }
 
 // SummaryTextReasoningItemReasoningSummary is generated from the SummaryTextReasoningItemReasoningSummary schema definition.
 type SummaryTextReasoningItemReasoningSummary struct {
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	Text string `json:"text"`
+	Type string `json:"type"`
 }
 
 // ReasoningItemReasoningSummary is generated from the ReasoningItemReasoningSummary schema definition.
@@ -4918,17 +6306,61 @@ type ReasoningItemReasoningSummary = SummaryTextReasoningItemReasoningSummary
 func (SummaryTextReasoningItemReasoningSummary) isReasoningItemReasoningSummary() {}
 
 // ReasoningSummary represents a summary of the reasoning performed by the model. This can be useful for debugging and understanding the model's reasoning process. See https://platform.openai.com/docs/guides/reasoning?api-mode=responses#reasoning-summaries.
-type ReasoningSummary jsontext.Value
+type ReasoningSummary interface {
+	isReasoningSummary()
+}
 
-var _ json.MarshalerTo = ReasoningSummary{}
-var _ json.UnmarshalerFrom = (*ReasoningSummary)(nil)
+// RawReasoningSummary preserves an uninterpreted ReasoningSummary JSON value.
+type RawReasoningSummary jsontext.Value
 
-func (value ReasoningSummary) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (RawReasoningSummary) isReasoningSummary() {}
+
+var _ json.MarshalerTo = RawReasoningSummary{}
+var _ json.UnmarshalerFrom = (*RawReasoningSummary)(nil)
+
+func (value RawReasoningSummary) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
 }
 
-func (value *ReasoningSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *RawReasoningSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+// ReasoningSummaryValue is a string-valued ReasoningSummary variant.
+type ReasoningSummaryValue string
+
+func (ReasoningSummaryValue) isReasoningSummary() {}
+
+const (
+	// ReasoningSummaryValueAuto is the "auto" ReasoningSummaryValue value.
+	ReasoningSummaryValueAuto ReasoningSummaryValue = "auto"
+	// ReasoningSummaryValueConcise is the "concise" ReasoningSummaryValue value.
+	ReasoningSummaryValueConcise ReasoningSummaryValue = "concise"
+	// ReasoningSummaryValueDetailed is the "detailed" ReasoningSummaryValue value.
+	ReasoningSummaryValueDetailed ReasoningSummaryValue = "detailed"
+	// ReasoningSummaryValueNone is the "none" ReasoningSummaryValue value.
+	ReasoningSummaryValueNone ReasoningSummaryValue = "none"
+)
+
+func decodeGeneratedReasoningSummary(raw jsontext.Value) (ReasoningSummary, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		switch text {
+		case "auto":
+			return ReasoningSummaryValue(text), nil
+		case "concise":
+			return ReasoningSummaryValue(text), nil
+		case "detailed":
+			return ReasoningSummaryValue(text), nil
+		case "none":
+			return ReasoningSummaryValue(text), nil
+		}
+		return RawReasoningSummary(raw), nil
+	}
+	return RawReasoningSummary(raw), nil
 }
 
 // ReasoningSummaryPartAddedNotification is generated from the ReasoningSummaryPartAddedNotification schema definition.
@@ -5053,6 +6485,13 @@ type ResourceContentBlob struct {
 	URI string `json:"uri"`
 }
 
+func decodeGeneratedResourceContent(raw jsontext.Value) (ResourceContent, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	return RawResourceContent(raw), nil
+}
+
 // ResourceTemplate represents a template description for resources available on the server.
 type ResourceTemplate struct {
 	Annotations jsontext.Value `json:"annotations,omitzero"`
@@ -5088,20 +6527,20 @@ func (MessageResponseItem) isResponseItem() {}
 
 // MessageResponseItem is generated from the MessageResponseItem schema definition.
 type MessageResponseItem struct {
-	Content   []ContentItem `json:"content"`
-	ID        *string       `json:"id,omitzero"`
-	Phase     *MessagePhase `json:"phase,omitzero"`
-	Role      string        `json:"role"`
-	TypeValue string        `json:"type"`
+	Content []ContentItem `json:"content"`
+	ID      *string       `json:"id,omitzero"`
+	Phase   *MessagePhase `json:"phase,omitzero"`
+	Role    string        `json:"role"`
+	Type    string        `json:"type"`
 }
 
 func (value *MessageResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Content   []jsontext.Value `json:"content"`
-		ID        *string          `json:"id,omitzero"`
-		Phase     *MessagePhase    `json:"phase,omitzero"`
-		Role      string           `json:"role"`
-		TypeValue string           `json:"type"`
+		Content []jsontext.Value `json:"content"`
+		ID      *string          `json:"id,omitzero"`
+		Phase   *MessagePhase    `json:"phase,omitzero"`
+		Role    string           `json:"role"`
+		Type    string           `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -5112,14 +6551,18 @@ func (value *MessageResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		value.Content = make([]ContentItem, len(raw.Content))
 		for i, item := range raw.Content {
 			if item != nil {
-				value.Content[i] = RawContentItem(item)
+				decodedContent, err := decodeGeneratedContentItem(item)
+				if err != nil {
+					return err
+				}
+				value.Content[i] = decodedContent
 			}
 		}
 	}
 	value.ID = raw.ID
 	value.Phase = raw.Phase
 	value.Role = raw.Role
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -5130,7 +6573,7 @@ type ReasoningResponseItem struct {
 	Content          []ReasoningItemContent          `json:"content,omitzero"`
 	EncryptedContent *string                         `json:"encrypted_content,omitzero"`
 	Summary          []ReasoningItemReasoningSummary `json:"summary"`
-	TypeValue        string                          `json:"type"`
+	Type             string                          `json:"type"`
 }
 
 func (value *ReasoningResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -5138,7 +6581,7 @@ func (value *ReasoningResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		Content          []jsontext.Value                `json:"content,omitzero"`
 		EncryptedContent *string                         `json:"encrypted_content,omitzero"`
 		Summary          []ReasoningItemReasoningSummary `json:"summary"`
-		TypeValue        string                          `json:"type"`
+		Type             string                          `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -5149,13 +6592,17 @@ func (value *ReasoningResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		value.Content = make([]ReasoningItemContent, len(raw.Content))
 		for i, item := range raw.Content {
 			if item != nil {
-				value.Content[i] = RawReasoningItemContent(item)
+				decodedContent, err := decodeGeneratedReasoningItemContent(item)
+				if err != nil {
+					return err
+				}
+				value.Content[i] = decodedContent
 			}
 		}
 	}
 	value.EncryptedContent = raw.EncryptedContent
 	value.Summary = raw.Summary
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -5169,9 +6616,9 @@ type LocalShellCallResponseItem struct {
 	CallID *string `json:"call_id,omitzero"`
 
 	// ID legacy id field retained for compatibility with older payloads.
-	ID        *string          `json:"id,omitzero"`
-	Status    LocalShellStatus `json:"status"`
-	TypeValue string           `json:"type"`
+	ID     *string          `json:"id,omitzero"`
+	Status LocalShellStatus `json:"status"`
+	Type   string           `json:"type"`
 }
 
 func (FunctionCallResponseItem) isResponseItem() {}
@@ -5183,7 +6630,7 @@ type FunctionCallResponseItem struct {
 	ID        *string `json:"id,omitzero"`
 	Name      string  `json:"name"`
 	Namespace *string `json:"namespace,omitzero"`
-	TypeValue string  `json:"type"`
+	Type      string  `json:"type"`
 }
 
 func (ToolSearchCallResponseItem) isResponseItem() {}
@@ -5195,38 +6642,38 @@ type ToolSearchCallResponseItem struct {
 	Execution string         `json:"execution"`
 	ID        *string        `json:"id,omitzero"`
 	Status    *string        `json:"status,omitzero"`
-	TypeValue string         `json:"type"`
+	Type      string         `json:"type"`
 }
 
 func (FunctionCallOutputResponseItem) isResponseItem() {}
 
 // FunctionCallOutputResponseItem is generated from the FunctionCallOutputResponseItem schema definition.
 type FunctionCallOutputResponseItem struct {
-	CallID    string                 `json:"call_id"`
-	Output    FunctionCallOutputBody `json:"output"`
-	TypeValue string                 `json:"type"`
+	CallID string                 `json:"call_id"`
+	Output FunctionCallOutputBody `json:"output"`
+	Type   string                 `json:"type"`
 }
 
 func (CustomToolCallResponseItem) isResponseItem() {}
 
 // CustomToolCallResponseItem is generated from the CustomToolCallResponseItem schema definition.
 type CustomToolCallResponseItem struct {
-	CallID    string  `json:"call_id"`
-	ID        *string `json:"id,omitzero"`
-	Input     string  `json:"input"`
-	Name      string  `json:"name"`
-	Status    *string `json:"status,omitzero"`
-	TypeValue string  `json:"type"`
+	CallID string  `json:"call_id"`
+	ID     *string `json:"id,omitzero"`
+	Input  string  `json:"input"`
+	Name   string  `json:"name"`
+	Status *string `json:"status,omitzero"`
+	Type   string  `json:"type"`
 }
 
 func (CustomToolCallOutputResponseItem) isResponseItem() {}
 
 // CustomToolCallOutputResponseItem is generated from the CustomToolCallOutputResponseItem schema definition.
 type CustomToolCallOutputResponseItem struct {
-	CallID    string                 `json:"call_id"`
-	Name      *string                `json:"name,omitzero"`
-	Output    FunctionCallOutputBody `json:"output"`
-	TypeValue string                 `json:"type"`
+	CallID string                 `json:"call_id"`
+	Name   *string                `json:"name,omitzero"`
+	Output FunctionCallOutputBody `json:"output"`
+	Type   string                 `json:"type"`
 }
 
 func (ToolSearchOutputResponseItem) isResponseItem() {}
@@ -5237,25 +6684,25 @@ type ToolSearchOutputResponseItem struct {
 	Execution string           `json:"execution"`
 	Status    string           `json:"status"`
 	Tools     []jsontext.Value `json:"tools"`
-	TypeValue string           `json:"type"`
+	Type      string           `json:"type"`
 }
 
 func (WebSearchCallResponseItem) isResponseItem() {}
 
 // WebSearchCallResponseItem is generated from the WebSearchCallResponseItem schema definition.
 type WebSearchCallResponseItem struct {
-	Action    *ResponsesAPIWebSearchAction `json:"action,omitzero"`
-	ID        *string                      `json:"id,omitzero"`
-	Status    *string                      `json:"status,omitzero"`
-	TypeValue string                       `json:"type"`
+	Action *ResponsesAPIWebSearchAction `json:"action,omitzero"`
+	ID     *string                      `json:"id,omitzero"`
+	Status *string                      `json:"status,omitzero"`
+	Type   string                       `json:"type"`
 }
 
 func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Action    jsontext.Value `json:"action,omitzero"`
-		ID        *string        `json:"id,omitzero"`
-		Status    *string        `json:"status,omitzero"`
-		TypeValue string         `json:"type"`
+		Action jsontext.Value `json:"action,omitzero"`
+		ID     *string        `json:"id,omitzero"`
+		Status *string        `json:"status,omitzero"`
+		Type   string         `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -5263,12 +6710,15 @@ func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	if raw.Action == nil {
 		value.Action = nil
 	} else {
-		action := ResponsesAPIWebSearchAction(RawResponsesAPIWebSearchAction(raw.Action))
-		value.Action = &action
+		decodedAction, err := decodeGeneratedResponsesAPIWebSearchAction(raw.Action)
+		if err != nil {
+			return err
+		}
+		value.Action = &decodedAction
 	}
 	value.ID = raw.ID
 	value.Status = raw.Status
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -5280,7 +6730,7 @@ type ImageGenerationCallResponseItem struct {
 	Result        string  `json:"result"`
 	RevisedPrompt *string `json:"revised_prompt,omitzero"`
 	Status        string  `json:"status"`
-	TypeValue     string  `json:"type"`
+	Type          string  `json:"type"`
 }
 
 func (CompactionResponseItem) isResponseItem() {}
@@ -5288,7 +6738,7 @@ func (CompactionResponseItem) isResponseItem() {}
 // CompactionResponseItem is generated from the CompactionResponseItem schema definition.
 type CompactionResponseItem struct {
 	EncryptedContent string `json:"encrypted_content"`
-	TypeValue        string `json:"type"`
+	Type             string `json:"type"`
 }
 
 func (ContextCompactionResponseItem) isResponseItem() {}
@@ -5296,14 +6746,113 @@ func (ContextCompactionResponseItem) isResponseItem() {}
 // ContextCompactionResponseItem is generated from the ContextCompactionResponseItem schema definition.
 type ContextCompactionResponseItem struct {
 	EncryptedContent *string `json:"encrypted_content,omitzero"`
-	TypeValue        string  `json:"type"`
+	Type             string  `json:"type"`
 }
 
 func (OtherResponseItem) isResponseItem() {}
 
 // OtherResponseItem is generated from the OtherResponseItem schema definition.
 type OtherResponseItem struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedResponseItem(raw jsontext.Value) (ResponseItem, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "message":
+			var value MessageResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "reasoning":
+			var value ReasoningResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "local_shell_call":
+			var value LocalShellCallResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "function_call":
+			var value FunctionCallResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "tool_search_call":
+			var value ToolSearchCallResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "function_call_output":
+			var value FunctionCallOutputResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "custom_tool_call":
+			var value CustomToolCallResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "custom_tool_call_output":
+			var value CustomToolCallOutputResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "tool_search_output":
+			var value ToolSearchOutputResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "web_search_call":
+			var value WebSearchCallResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "image_generation_call":
+			var value ImageGenerationCallResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "compaction":
+			var value CompactionResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "context_compaction":
+			var value ContextCompactionResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "other":
+			var value OtherResponseItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawResponseItem(raw), nil
+	}
+	return RawResponseItem(raw), nil
 }
 
 // ResponsesAPIWebSearchAction is generated from the ResponsesAPIWebSearchAction schema definition.
@@ -5331,33 +6880,72 @@ func (SearchResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // SearchResponsesAPIWebSearchAction is generated from the SearchResponsesApiWebSearchAction schema definition.
 type SearchResponsesAPIWebSearchAction struct {
-	Queries   []string `json:"queries,omitzero"`
-	Query     *string  `json:"query,omitzero"`
-	TypeValue string   `json:"type"`
+	Queries []string `json:"queries,omitzero"`
+	Query   *string  `json:"query,omitzero"`
+	Type    string   `json:"type"`
 }
 
 func (OpenPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // OpenPageResponsesAPIWebSearchAction is generated from the OpenPageResponsesApiWebSearchAction schema definition.
 type OpenPageResponsesAPIWebSearchAction struct {
-	TypeValue string  `json:"type"`
-	URL       *string `json:"url,omitzero"`
+	Type string  `json:"type"`
+	URL  *string `json:"url,omitzero"`
 }
 
 func (FindInPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // FindInPageResponsesAPIWebSearchAction is generated from the FindInPageResponsesApiWebSearchAction schema definition.
 type FindInPageResponsesAPIWebSearchAction struct {
-	Pattern   *string `json:"pattern,omitzero"`
-	TypeValue string  `json:"type"`
-	URL       *string `json:"url,omitzero"`
+	Pattern *string `json:"pattern,omitzero"`
+	Type    string  `json:"type"`
+	URL     *string `json:"url,omitzero"`
 }
 
 func (OtherResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // OtherResponsesAPIWebSearchAction is generated from the OtherResponsesApiWebSearchAction schema definition.
 type OtherResponsesAPIWebSearchAction struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedResponsesAPIWebSearchAction(raw jsontext.Value) (ResponsesAPIWebSearchAction, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "search":
+			var value SearchResponsesAPIWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "open_page":
+			var value OpenPageResponsesAPIWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "find_in_page":
+			var value FindInPageResponsesAPIWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "other":
+			var value OtherResponsesAPIWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawResponsesAPIWebSearchAction(raw), nil
+	}
+	return RawResponsesAPIWebSearchAction(raw), nil
 }
 
 // ReviewDelivery is generated from the ReviewDelivery schema definition.
@@ -5391,7 +6979,11 @@ func (value *ReviewStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if raw.Target == nil {
 		value.Target = nil
 	} else {
-		value.Target = RawReviewTarget(raw.Target)
+		decodedTarget, err := decodeGeneratedReviewTarget(raw.Target)
+		if err != nil {
+			return err
+		}
+		value.Target = decodedTarget
 	}
 	value.ThreadID = raw.ThreadID
 	return nil
@@ -5431,15 +7023,15 @@ func (UncommittedChangesReviewTarget) isReviewTarget() {}
 
 // UncommittedChangesReviewTarget reviews the working tree: staged, unstaged, and untracked files.
 type UncommittedChangesReviewTarget struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (BaseBranchReviewTarget) isReviewTarget() {}
 
 // BaseBranchReviewTarget reviews changes between the current branch and the given base branch.
 type BaseBranchReviewTarget struct {
-	Branch    string `json:"branch"`
-	TypeValue string `json:"type"`
+	Branch string `json:"branch"`
+	Type   string `json:"type"`
 }
 
 func (CommitReviewTarget) isReviewTarget() {}
@@ -5449,8 +7041,8 @@ type CommitReviewTarget struct {
 	Sha string `json:"sha"`
 
 	// Title optional human-readable label (e.g., commit subject) for UIs.
-	Title     *string `json:"title,omitzero"`
-	TypeValue string  `json:"type"`
+	Title *string `json:"title,omitzero"`
+	Type  string  `json:"type"`
 }
 
 func (CustomReviewTarget) isReviewTarget() {}
@@ -5458,7 +7050,46 @@ func (CustomReviewTarget) isReviewTarget() {}
 // CustomReviewTarget arbitrary instructions, equivalent to the old free-form prompt.
 type CustomReviewTarget struct {
 	Instructions string `json:"instructions"`
-	TypeValue    string `json:"type"`
+	Type         string `json:"type"`
+}
+
+func decodeGeneratedReviewTarget(raw jsontext.Value) (ReviewTarget, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "uncommittedChanges":
+			var value UncommittedChangesReviewTarget
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "baseBranch":
+			var value BaseBranchReviewTarget
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "commit":
+			var value CommitReviewTarget
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "custom":
+			var value CustomReviewTarget
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawReviewTarget(raw), nil
+	}
+	return RawReviewTarget(raw), nil
 }
 
 // SandboxMode is generated from the SandboxMode schema definition.
@@ -5498,7 +7129,7 @@ func (DangerFullAccessSandboxPolicy) isSandboxPolicy() {}
 
 // DangerFullAccessSandboxPolicy is generated from the DangerFullAccessSandboxPolicy schema definition.
 type DangerFullAccessSandboxPolicy struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (ReadOnlySandboxPolicy) isSandboxPolicy() {}
@@ -5506,7 +7137,7 @@ func (ReadOnlySandboxPolicy) isSandboxPolicy() {}
 // ReadOnlySandboxPolicy is generated from the ReadOnlySandboxPolicy schema definition.
 type ReadOnlySandboxPolicy struct {
 	NetworkAccess *bool  `json:"networkAccess,omitzero"`
-	TypeValue     string `json:"type"`
+	Type          string `json:"type"`
 }
 
 func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
@@ -5514,7 +7145,7 @@ func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
 // ExternalSandboxSandboxPolicy is generated from the ExternalSandboxSandboxPolicy schema definition.
 type ExternalSandboxSandboxPolicy struct {
 	NetworkAccess *NetworkAccess `json:"networkAccess,omitzero"`
-	TypeValue     string         `json:"type"`
+	Type          string         `json:"type"`
 }
 
 func (WorkspaceWriteSandboxPolicy) isSandboxPolicy() {}
@@ -5524,8 +7155,47 @@ type WorkspaceWriteSandboxPolicy struct {
 	ExcludeSlashTmp     *bool    `json:"excludeSlashTmp,omitzero"`
 	ExcludeTmpdirEnvVar *bool    `json:"excludeTmpdirEnvVar,omitzero"`
 	NetworkAccess       *bool    `json:"networkAccess,omitzero"`
-	TypeValue           string   `json:"type"`
+	Type                string   `json:"type"`
 	WritableRoots       []string `json:"writableRoots,omitzero"`
+}
+
+func decodeGeneratedSandboxPolicy(raw jsontext.Value) (SandboxPolicy, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "dangerFullAccess":
+			var value DangerFullAccessSandboxPolicy
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "readOnly":
+			var value ReadOnlySandboxPolicy
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "externalSandbox":
+			var value ExternalSandboxSandboxPolicy
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "workspaceWrite":
+			var value WorkspaceWriteSandboxPolicy
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawSandboxPolicy(raw), nil
+	}
+	return RawSandboxPolicy(raw), nil
 }
 
 // SandboxWorkspaceWrite is generated from the SandboxWorkspaceWrite schema definition.
@@ -6041,6 +7711,399 @@ type AccountLoginCompletedNotification2 struct {
 	Params AccountLoginCompletedNotification `json:"params"`
 }
 
+func decodeGeneratedServerNotification(raw jsontext.Value) (ServerNotification, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Method string `json:"method"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Method {
+		case "error":
+			var value ErrorNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/started":
+			var value ThreadStartedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/status/changed":
+			var value ThreadStatusChangedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/archived":
+			var value ThreadArchivedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/unarchived":
+			var value ThreadUnarchivedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/closed":
+			var value ThreadClosedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "skills/changed":
+			var value SkillsChangedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/name/updated":
+			var value ThreadNameUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/goal/updated":
+			var value ThreadGoalUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/goal/cleared":
+			var value ThreadGoalClearedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/tokenUsage/updated":
+			var value ThreadTokenUsageUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/started":
+			var value TurnStartedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "hook/started":
+			var value HookStartedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/completed":
+			var value TurnCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "hook/completed":
+			var value HookCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/diff/updated":
+			var value TurnDiffUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "turn/plan/updated":
+			var value TurnPlanUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/started":
+			var value ItemStartedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/autoApprovalReview/started":
+			var value ItemAutoApprovalReviewStartedNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/autoApprovalReview/completed":
+			var value ItemAutoApprovalReviewCompletedNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/completed":
+			var value ItemCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/agentMessage/delta":
+			var value ItemAgentMessageDeltaNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/plan/delta":
+			var value ItemPlanDeltaNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "command/exec/outputDelta":
+			var value CommandExecOutputDeltaNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "process/outputDelta":
+			var value ProcessOutputDeltaNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "process/exited":
+			var value ProcessExitedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/commandExecution/outputDelta":
+			var value ItemCommandExecutionOutputDeltaNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/commandExecution/terminalInteraction":
+			var value ItemCommandExecutionTerminalInteractionNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/fileChange/outputDelta":
+			var value ItemFileChangeOutputDeltaNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/fileChange/patchUpdated":
+			var value ItemFileChangePatchUpdatedNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "serverRequest/resolved":
+			var value ServerRequestResolvedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/mcpToolCall/progress":
+			var value ItemMCPToolCallProgressNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpServer/oauthLogin/completed":
+			var value MCPServerOAuthLoginCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpServer/startupStatus/updated":
+			var value MCPServerStartupStatusUpdatedNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/updated":
+			var value AccountUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/rateLimits/updated":
+			var value AccountRateLimitsUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "app/list/updated":
+			var value AppListUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "remoteControl/status/changed":
+			var value RemoteControlStatusChangedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "externalAgentConfig/import/completed":
+			var value ExternalAgentConfigImportCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fs/changed":
+			var value FsChangedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/reasoning/summaryTextDelta":
+			var value ItemReasoningSummaryTextDeltaNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/reasoning/summaryPartAdded":
+			var value ItemReasoningSummaryPartAddedNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "item/reasoning/textDelta":
+			var value ItemReasoningTextDeltaNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/compacted":
+			var value ThreadCompactedNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "model/rerouted":
+			var value ModelReroutedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "model/verification":
+			var value ModelVerificationNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "warning":
+			var value WarningNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "guardianWarning":
+			var value GuardianWarningNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "deprecationNotice":
+			var value DeprecationNoticeNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "configWarning":
+			var value ConfigWarningNotification
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fuzzyFileSearch/sessionUpdated":
+			var value FuzzyFileSearchSessionUpdatedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fuzzyFileSearch/sessionCompleted":
+			var value FuzzyFileSearchSessionCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/started":
+			var value ThreadRealtimeStartedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/itemAdded":
+			var value ThreadRealtimeItemAddedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/transcript/delta":
+			var value ThreadRealtimeTranscriptDeltaNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/transcript/done":
+			var value ThreadRealtimeTranscriptDoneNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/outputAudio/delta":
+			var value ThreadRealtimeOutputAudioDeltaNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/sdp":
+			var value ThreadRealtimeSDPNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/error":
+			var value ThreadRealtimeErrorNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "thread/realtime/closed":
+			var value ThreadRealtimeClosedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "windows/worldWritableWarning":
+			var value WindowsWorldWritableWarningNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "windowsSandbox/setupCompleted":
+			var value WindowsSandboxSetupCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "account/login/completed":
+			var value AccountLoginCompletedNotification2
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawServerNotification(raw), nil
+	}
+	return RawServerNotification(raw), nil
+}
+
 // ServerRequestResolvedNotification is generated from the ServerRequestResolvedNotification schema definition.
 type ServerRequestResolvedNotification struct {
 	RequestID string `json:"requestId"`
@@ -6055,17 +8118,119 @@ type SessionMigration struct {
 }
 
 // SessionSource is generated from the SessionSource schema definition.
-type SessionSource jsontext.Value
+type SessionSource interface {
+	isSessionSource()
+}
 
-var _ json.MarshalerTo = SessionSource{}
-var _ json.UnmarshalerFrom = (*SessionSource)(nil)
+// RawSessionSource preserves an uninterpreted SessionSource JSON value.
+type RawSessionSource jsontext.Value
 
-func (value SessionSource) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (RawSessionSource) isSessionSource() {}
+
+var _ json.MarshalerTo = RawSessionSource{}
+var _ json.UnmarshalerFrom = (*RawSessionSource)(nil)
+
+func (value RawSessionSource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
 }
 
-func (value *SessionSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *RawSessionSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+// SessionSourceValue is a string-valued SessionSource variant.
+type SessionSourceValue string
+
+func (SessionSourceValue) isSessionSource() {}
+
+const (
+	// SessionSourceValueAppServer is the "appServer" SessionSourceValue value.
+	SessionSourceValueAppServer SessionSourceValue = "appServer"
+	// SessionSourceValueCli is the "cli" SessionSourceValue value.
+	SessionSourceValueCli SessionSourceValue = "cli"
+	// SessionSourceValueExec is the "exec" SessionSourceValue value.
+	SessionSourceValueExec SessionSourceValue = "exec"
+	// SessionSourceValueUnknown is the "unknown" SessionSourceValue value.
+	SessionSourceValueUnknown SessionSourceValue = "unknown"
+	// SessionSourceValueVscode is the "vscode" SessionSourceValue value.
+	SessionSourceValueVscode SessionSourceValue = "vscode"
+)
+
+func (CustomSessionSource) isSessionSource() {}
+
+// CustomSessionSource is generated from the CustomSessionSource schema definition.
+type CustomSessionSource struct {
+	Custom string `json:"custom"`
+}
+
+func (SubAgentSessionSource) isSessionSource() {}
+
+// SubAgentSessionSource is generated from the SubAgentSessionSource schema definition.
+type SubAgentSessionSource struct {
+	SubAgent SubAgentSource `json:"subAgent"`
+}
+
+func (value *SubAgentSessionSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		SubAgent jsontext.Value `json:"subAgent"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	if raw.SubAgent == nil {
+		value.SubAgent = nil
+	} else {
+		decodedSubAgent, err := decodeGeneratedSubAgentSource(raw.SubAgent)
+		if err != nil {
+			return err
+		}
+		value.SubAgent = decodedSubAgent
+	}
+	return nil
+}
+
+func decodeGeneratedSessionSource(raw jsontext.Value) (SessionSource, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		switch text {
+		case "appServer":
+			return SessionSourceValue(text), nil
+		case "cli":
+			return SessionSourceValue(text), nil
+		case "exec":
+			return SessionSourceValue(text), nil
+		case "unknown":
+			return SessionSourceValue(text), nil
+		case "vscode":
+			return SessionSourceValue(text), nil
+		}
+		return RawSessionSource(raw), nil
+	}
+	var object struct {
+		Custom   jsontext.Value `json:"custom"`
+		SubAgent jsontext.Value `json:"subAgent"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		if object.Custom != nil {
+			var value CustomSessionSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.SubAgent != nil {
+			var value SubAgentSessionSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawSessionSource(raw), nil
+	}
+	return RawSessionSource(raw), nil
 }
 
 // Settings for a collaboration mode.
@@ -6139,7 +8304,7 @@ type SkillToolDependency struct {
 	Command     *string `json:"command,omitzero"`
 	Description *string `json:"description,omitzero"`
 	Transport   *string `json:"transport,omitzero"`
-	TypeValue   string  `json:"type"`
+	Type        string  `json:"type"`
 	URL         *string `json:"url,omitzero"`
 	Value       string  `json:"value"`
 }
@@ -6208,17 +8373,92 @@ const (
 )
 
 // SubAgentSource is generated from the SubAgentSource schema definition.
-type SubAgentSource jsontext.Value
+type SubAgentSource interface {
+	isSubAgentSource()
+}
 
-var _ json.MarshalerTo = SubAgentSource{}
-var _ json.UnmarshalerFrom = (*SubAgentSource)(nil)
+// RawSubAgentSource preserves an uninterpreted SubAgentSource JSON value.
+type RawSubAgentSource jsontext.Value
 
-func (value SubAgentSource) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (RawSubAgentSource) isSubAgentSource() {}
+
+var _ json.MarshalerTo = RawSubAgentSource{}
+var _ json.UnmarshalerFrom = (*RawSubAgentSource)(nil)
+
+func (value RawSubAgentSource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
 }
 
-func (value *SubAgentSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *RawSubAgentSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+// SubAgentSourceValue is a string-valued SubAgentSource variant.
+type SubAgentSourceValue string
+
+func (SubAgentSourceValue) isSubAgentSource() {}
+
+const (
+	// SubAgentSourceValueCompact is the "compact" SubAgentSourceValue value.
+	SubAgentSourceValueCompact SubAgentSourceValue = "compact"
+	// SubAgentSourceValueMemoryConsolidation is the "memory_consolidation" SubAgentSourceValue value.
+	SubAgentSourceValueMemoryConsolidation SubAgentSourceValue = "memory_consolidation"
+	// SubAgentSourceValueReview is the "review" SubAgentSourceValue value.
+	SubAgentSourceValueReview SubAgentSourceValue = "review"
+)
+
+func (ThreadSpawnSubAgentSource) isSubAgentSource() {}
+
+// ThreadSpawnSubAgentSource is generated from the ThreadSpawnSubAgentSource schema definition.
+type ThreadSpawnSubAgentSource struct {
+	ThreadSpawn jsontext.Value `json:"thread_spawn"`
+}
+
+func (OtherSubAgentSource) isSubAgentSource() {}
+
+// OtherSubAgentSource is generated from the OtherSubAgentSource schema definition.
+type OtherSubAgentSource struct {
+	Other string `json:"other"`
+}
+
+func decodeGeneratedSubAgentSource(raw jsontext.Value) (SubAgentSource, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		switch text {
+		case "compact":
+			return SubAgentSourceValue(text), nil
+		case "memory_consolidation":
+			return SubAgentSourceValue(text), nil
+		case "review":
+			return SubAgentSourceValue(text), nil
+		}
+		return RawSubAgentSource(raw), nil
+	}
+	var object struct {
+		ThreadSpawn jsontext.Value `json:"thread_spawn"`
+		Other       jsontext.Value `json:"other"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		if object.ThreadSpawn != nil {
+			var value ThreadSpawnSubAgentSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.Other != nil {
+			var value OtherSubAgentSource
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawSubAgentSource(raw), nil
+	}
+	return RawSubAgentSource(raw), nil
 }
 
 // SubagentMigration is generated from the SubagentMigration schema definition.
@@ -6259,8 +8499,8 @@ type TextRange struct {
 	Start TextPosition `json:"start"`
 }
 
-// ProtocolThread is generated from the Thread schema definition.
-type ProtocolThread struct {
+// ThreadPayload is generated from the Thread schema definition.
+type ThreadPayload struct {
 	// AgentNickname optional random unique nickname assigned to an AgentControl-spawned sub-agent.
 	AgentNickname *string `json:"agentNickname,omitzero"`
 
@@ -6317,7 +8557,7 @@ type ProtocolThread struct {
 	UpdatedAt int64 `json:"updatedAt"`
 }
 
-func (value *ProtocolThread) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *ThreadPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		AgentNickname *string        `json:"agentNickname,omitzero"`
 		AgentRole     *string        `json:"agentRole,omitzero"`
@@ -6333,7 +8573,7 @@ func (value *ProtocolThread) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Path          *string        `json:"path,omitzero"`
 		Preview       string         `json:"preview"`
 		SessionID     string         `json:"sessionId"`
-		Source        SessionSource  `json:"source"`
+		Source        jsontext.Value `json:"source"`
 		Status        jsontext.Value `json:"status"`
 		ThreadSource  *ThreadSource  `json:"threadSource,omitzero"`
 		Turns         []Turn         `json:"turns"`
@@ -6356,11 +8596,23 @@ func (value *ProtocolThread) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	value.Path = raw.Path
 	value.Preview = raw.Preview
 	value.SessionID = raw.SessionID
-	value.Source = raw.Source
+	if raw.Source == nil {
+		value.Source = nil
+	} else {
+		decodedSource, err := decodeGeneratedSessionSource(raw.Source)
+		if err != nil {
+			return err
+		}
+		value.Source = decodedSource
+	}
 	if raw.Status == nil {
 		value.Status = nil
 	} else {
-		value.Status = RawThreadStatus(raw.Status)
+		decodedStatus, err := decodeGeneratedThreadStatus(raw.Status)
+		if err != nil {
+			return err
+		}
+		value.Status = decodedStatus
 	}
 	value.ThreadSource = raw.ThreadSource
 	value.Turns = raw.Turns
@@ -6489,9 +8741,9 @@ type ThreadForkResponse struct {
 	ReasoningEffort    *ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `permissionProfile` when they need exact runtime permissions.
-	Sandbox     SandboxPolicy  `json:"sandbox"`
-	ServiceTier *string        `json:"serviceTier,omitzero"`
-	Thread      ProtocolThread `json:"thread"`
+	Sandbox     SandboxPolicy `json:"sandbox"`
+	ServiceTier *string       `json:"serviceTier,omitzero"`
+	Thread      ThreadPayload `json:"thread"`
 }
 
 func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -6505,7 +8757,7 @@ func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
-		Thread             ProtocolThread    `json:"thread"`
+		Thread             ThreadPayload     `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6520,7 +8772,11 @@ func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	if raw.Sandbox == nil {
 		value.Sandbox = nil
 	} else {
-		value.Sandbox = RawSandboxPolicy(raw.Sandbox)
+		decodedSandbox, err := decodeGeneratedSandboxPolicy(raw.Sandbox)
+		if err != nil {
+			return err
+		}
+		value.Sandbox = decodedSandbox
 	}
 	value.ServiceTier = raw.ServiceTier
 	value.Thread = raw.Thread
@@ -6614,16 +8870,16 @@ func (UserMessageThreadItem) isThreadItem() {}
 
 // UserMessageThreadItem is generated from the UserMessageThreadItem schema definition.
 type UserMessageThreadItem struct {
-	Content   []UserInput `json:"content"`
-	ID        string      `json:"id"`
-	TypeValue string      `json:"type"`
+	Content []UserInput `json:"content"`
+	ID      string      `json:"id"`
+	Type    string      `json:"type"`
 }
 
 func (value *UserMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Content   []jsontext.Value `json:"content"`
-		ID        string           `json:"id"`
-		TypeValue string           `json:"type"`
+		Content []jsontext.Value `json:"content"`
+		ID      string           `json:"id"`
+		Type    string           `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6634,12 +8890,16 @@ func (value *UserMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		value.Content = make([]UserInput, len(raw.Content))
 		for i, item := range raw.Content {
 			if item != nil {
-				value.Content[i] = RawUserInput(item)
+				decodedContent, err := decodeGeneratedUserInput(item)
+				if err != nil {
+					return err
+				}
+				value.Content[i] = decodedContent
 			}
 		}
 	}
 	value.ID = raw.ID
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -6649,7 +8909,7 @@ func (HookPromptThreadItem) isThreadItem() {}
 type HookPromptThreadItem struct {
 	Fragments []HookPromptFragment `json:"fragments"`
 	ID        string               `json:"id"`
-	TypeValue string               `json:"type"`
+	Type      string               `json:"type"`
 }
 
 func (AgentMessageThreadItem) isThreadItem() {}
@@ -6660,26 +8920,26 @@ type AgentMessageThreadItem struct {
 	MemoryCitation *MemoryCitation `json:"memoryCitation,omitzero"`
 	Phase          *MessagePhase   `json:"phase,omitzero"`
 	Text           string          `json:"text"`
-	TypeValue      string          `json:"type"`
+	Type           string          `json:"type"`
 }
 
 func (PlanThreadItem) isThreadItem() {}
 
 // PlanThreadItem proposed plan item content. The completed plan item is authoritative and may not match the concatenation of `PlanDelta` text.
 type PlanThreadItem struct {
-	ID        string `json:"id"`
-	Text      string `json:"text"`
-	TypeValue string `json:"type"`
+	ID   string `json:"id"`
+	Text string `json:"text"`
+	Type string `json:"type"`
 }
 
 func (ReasoningThreadItem) isThreadItem() {}
 
 // ReasoningThreadItem is generated from the ReasoningThreadItem schema definition.
 type ReasoningThreadItem struct {
-	Content   []string `json:"content,omitzero"`
-	ID        string   `json:"id"`
-	Summary   []string `json:"summary,omitzero"`
-	TypeValue string   `json:"type"`
+	Content []string `json:"content,omitzero"`
+	ID      string   `json:"id"`
+	Summary []string `json:"summary,omitzero"`
+	Type    string   `json:"type"`
 }
 
 func (CommandExecutionThreadItem) isThreadItem() {}
@@ -6709,7 +8969,7 @@ type CommandExecutionThreadItem struct {
 	ProcessID *string                 `json:"processId,omitzero"`
 	Source    *CommandExecutionSource `json:"source,omitzero"`
 	Status    CommandExecutionStatus  `json:"status"`
-	TypeValue string                  `json:"type"`
+	Type      string                  `json:"type"`
 }
 
 func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -6724,7 +8984,7 @@ func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder
 		ProcessID        *string                 `json:"processId,omitzero"`
 		Source           *CommandExecutionSource `json:"source,omitzero"`
 		Status           CommandExecutionStatus  `json:"status"`
-		TypeValue        string                  `json:"type"`
+		Type             string                  `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6737,7 +8997,11 @@ func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder
 		value.CommandActions = make([]CommandAction, len(raw.CommandActions))
 		for i, item := range raw.CommandActions {
 			if item != nil {
-				value.CommandActions[i] = RawCommandAction(item)
+				decodedCommandActions, err := decodeGeneratedCommandAction(item)
+				if err != nil {
+					return err
+				}
+				value.CommandActions[i] = decodedCommandActions
 			}
 		}
 	}
@@ -6748,7 +9012,7 @@ func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder
 	value.ProcessID = raw.ProcessID
 	value.Source = raw.Source
 	value.Status = raw.Status
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -6756,10 +9020,10 @@ func (FileChangeThreadItem) isThreadItem() {}
 
 // FileChangeThreadItem is generated from the FileChangeThreadItem schema definition.
 type FileChangeThreadItem struct {
-	Changes   []FileUpdateChange `json:"changes"`
-	ID        string             `json:"id"`
-	Status    PatchApplyStatus   `json:"status"`
-	TypeValue string             `json:"type"`
+	Changes []FileUpdateChange `json:"changes"`
+	ID      string             `json:"id"`
+	Status  PatchApplyStatus   `json:"status"`
+	Type    string             `json:"type"`
 }
 
 func (MCPToolCallThreadItem) isThreadItem() {}
@@ -6777,7 +9041,7 @@ type MCPToolCallThreadItem struct {
 	Server            string             `json:"server"`
 	Status            MCPToolCallStatus  `json:"status"`
 	Tool              string             `json:"tool"`
-	TypeValue         string             `json:"type"`
+	Type              string             `json:"type"`
 }
 
 func (DynamicToolCallThreadItem) isThreadItem() {}
@@ -6794,7 +9058,7 @@ type DynamicToolCallThreadItem struct {
 	Status     DynamicToolCallStatus `json:"status"`
 	Success    *bool                 `json:"success,omitzero"`
 	Tool       string                `json:"tool"`
-	TypeValue  string                `json:"type"`
+	Type       string                `json:"type"`
 }
 
 func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -6807,7 +9071,7 @@ func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 		Status       DynamicToolCallStatus `json:"status"`
 		Success      *bool                 `json:"success,omitzero"`
 		Tool         string                `json:"tool"`
-		TypeValue    string                `json:"type"`
+		Type         string                `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6819,7 +9083,11 @@ func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 		value.ContentItems = make([]DynamicToolCallOutputContentItem, len(raw.ContentItems))
 		for i, item := range raw.ContentItems {
 			if item != nil {
-				value.ContentItems[i] = RawDynamicToolCallOutputContentItem(item)
+				decodedContentItems, err := decodeGeneratedDynamicToolCallOutputContentItem(item)
+				if err != nil {
+					return err
+				}
+				value.ContentItems[i] = decodedContentItems
 			}
 		}
 	}
@@ -6829,7 +9097,7 @@ func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	value.Status = raw.Status
 	value.Success = raw.Success
 	value.Tool = raw.Tool
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -6862,26 +9130,26 @@ type CollabAgentToolCallThreadItem struct {
 	Status CollabAgentToolCallStatus `json:"status"`
 
 	// Tool names of the collab tool that was invoked.
-	Tool      CollabAgentTool `json:"tool"`
-	TypeValue string          `json:"type"`
+	Tool CollabAgentTool `json:"tool"`
+	Type string          `json:"type"`
 }
 
 func (WebSearchThreadItem) isThreadItem() {}
 
 // WebSearchThreadItem is generated from the WebSearchThreadItem schema definition.
 type WebSearchThreadItem struct {
-	Action    *WebSearchAction `json:"action,omitzero"`
-	ID        string           `json:"id"`
-	Query     string           `json:"query"`
-	TypeValue string           `json:"type"`
+	Action *WebSearchAction `json:"action,omitzero"`
+	ID     string           `json:"id"`
+	Query  string           `json:"query"`
+	Type   string           `json:"type"`
 }
 
 func (value *WebSearchThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Action    jsontext.Value `json:"action,omitzero"`
-		ID        string         `json:"id"`
-		Query     string         `json:"query"`
-		TypeValue string         `json:"type"`
+		Action jsontext.Value `json:"action,omitzero"`
+		ID     string         `json:"id"`
+		Query  string         `json:"query"`
+		Type   string         `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6889,12 +9157,15 @@ func (value *WebSearchThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	if raw.Action == nil {
 		value.Action = nil
 	} else {
-		action := WebSearchAction(RawWebSearchAction(raw.Action))
-		value.Action = &action
+		decodedAction, err := decodeGeneratedWebSearchAction(raw.Action)
+		if err != nil {
+			return err
+		}
+		value.Action = &decodedAction
 	}
 	value.ID = raw.ID
 	value.Query = raw.Query
-	value.TypeValue = raw.TypeValue
+	value.Type = raw.Type
 	return nil
 }
 
@@ -6902,9 +9173,9 @@ func (ImageViewThreadItem) isThreadItem() {}
 
 // ImageViewThreadItem is generated from the ImageViewThreadItem schema definition.
 type ImageViewThreadItem struct {
-	ID        string `json:"id"`
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	ID   string `json:"id"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 func (ImageGenerationThreadItem) isThreadItem() {}
@@ -6916,33 +9187,144 @@ type ImageGenerationThreadItem struct {
 	RevisedPrompt *string `json:"revisedPrompt,omitzero"`
 	SavedPath     *string `json:"savedPath,omitzero"`
 	Status        string  `json:"status"`
-	TypeValue     string  `json:"type"`
+	Type          string  `json:"type"`
 }
 
 func (EnteredReviewModeThreadItem) isThreadItem() {}
 
 // EnteredReviewModeThreadItem is generated from the EnteredReviewModeThreadItem schema definition.
 type EnteredReviewModeThreadItem struct {
-	ID        string `json:"id"`
-	Review    string `json:"review"`
-	TypeValue string `json:"type"`
+	ID     string `json:"id"`
+	Review string `json:"review"`
+	Type   string `json:"type"`
 }
 
 func (ExitedReviewModeThreadItem) isThreadItem() {}
 
 // ExitedReviewModeThreadItem is generated from the ExitedReviewModeThreadItem schema definition.
 type ExitedReviewModeThreadItem struct {
-	ID        string `json:"id"`
-	Review    string `json:"review"`
-	TypeValue string `json:"type"`
+	ID     string `json:"id"`
+	Review string `json:"review"`
+	Type   string `json:"type"`
 }
 
 func (ContextCompactionThreadItem) isThreadItem() {}
 
 // ContextCompactionThreadItem is generated from the ContextCompactionThreadItem schema definition.
 type ContextCompactionThreadItem struct {
-	ID        string `json:"id"`
-	TypeValue string `json:"type"`
+	ID   string `json:"id"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedThreadItem(raw jsontext.Value) (ThreadItem, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "userMessage":
+			var value UserMessageThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "hookPrompt":
+			var value HookPromptThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "agentMessage":
+			var value AgentMessageThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "plan":
+			var value PlanThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "reasoning":
+			var value ReasoningThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "commandExecution":
+			var value CommandExecutionThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "fileChange":
+			var value FileChangeThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mcpToolCall":
+			var value MCPToolCallThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "dynamicToolCall":
+			var value DynamicToolCallThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "collabAgentToolCall":
+			var value CollabAgentToolCallThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "webSearch":
+			var value WebSearchThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "imageView":
+			var value ImageViewThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "imageGeneration":
+			var value ImageGenerationThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "enteredReviewMode":
+			var value EnteredReviewModeThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "exitedReviewMode":
+			var value ExitedReviewModeThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "contextCompaction":
+			var value ContextCompactionThreadItem
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawThreadItem(raw), nil
+	}
+	return RawThreadItem(raw), nil
 }
 
 // ThreadListCwdFilter is generated from the ThreadListCwdFilter schema definition.
@@ -6995,8 +9377,8 @@ type ThreadListParams struct {
 // ThreadListResponse is generated from the ThreadListResponse schema definition.
 type ThreadListResponse struct {
 	// BackwardsCursor opaque cursor to pass as `cursor` when reversing `sortDirection`. This is only populated when the page contains at least one thread. Use it with the opposite `sortDirection`; for timestamp sorts it anchors at the start of the page timestamp so same-second updates are not skipped.
-	BackwardsCursor *string          `json:"backwardsCursor,omitzero"`
-	Data            []ProtocolThread `json:"data"`
+	BackwardsCursor *string         `json:"backwardsCursor,omitzero"`
+	Data            []ThreadPayload `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.
 	NextCursor *string `json:"nextCursor,omitzero"`
@@ -7051,7 +9433,7 @@ type ThreadMetadataUpdateParams struct {
 
 // ThreadMetadataUpdateResponse is generated from the ThreadMetadataUpdateResponse schema definition.
 type ThreadMetadataUpdateResponse struct {
-	Thread ProtocolThread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadNameUpdatedNotification is generated from the ThreadNameUpdatedNotification schema definition.
@@ -7069,7 +9451,7 @@ type ThreadReadParams struct {
 
 // ThreadReadResponse is generated from the ThreadReadResponse schema definition.
 type ThreadReadResponse struct {
-	Thread ProtocolThread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadRealtimeAudioChunk thread realtime audio chunk.
@@ -7136,7 +9518,7 @@ func (WebsocketThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
 
 // WebsocketThreadRealtimeStartTransport is generated from the WebsocketThreadRealtimeStartTransport schema definition.
 type WebsocketThreadRealtimeStartTransport struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (WebrtcThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
@@ -7144,8 +9526,35 @@ func (WebrtcThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
 // WebrtcThreadRealtimeStartTransport is generated from the WebrtcThreadRealtimeStartTransport schema definition.
 type WebrtcThreadRealtimeStartTransport struct {
 	// SDP offer generated by a WebRTC RTCPeerConnection after configuring audio and the realtime events data channel.
-	SDP       string `json:"sdp"`
-	TypeValue string `json:"type"`
+	SDP  string `json:"sdp"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedThreadRealtimeStartTransport(raw jsontext.Value) (ThreadRealtimeStartTransport, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "websocket":
+			var value WebsocketThreadRealtimeStartTransport
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "webrtc":
+			var value WebrtcThreadRealtimeStartTransport
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawThreadRealtimeStartTransport(raw), nil
+	}
+	return RawThreadRealtimeStartTransport(raw), nil
 }
 
 // ThreadRealtimeStartedNotification emitted when thread realtime startup is accepted.
@@ -7211,9 +9620,9 @@ type ThreadResumeResponse struct {
 	ReasoningEffort    *ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `permissionProfile` when they need exact runtime permissions.
-	Sandbox     SandboxPolicy  `json:"sandbox"`
-	ServiceTier *string        `json:"serviceTier,omitzero"`
-	Thread      ProtocolThread `json:"thread"`
+	Sandbox     SandboxPolicy `json:"sandbox"`
+	ServiceTier *string       `json:"serviceTier,omitzero"`
+	Thread      ThreadPayload `json:"thread"`
 }
 
 func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -7227,7 +9636,7 @@ func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
-		Thread             ProtocolThread    `json:"thread"`
+		Thread             ThreadPayload     `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -7242,7 +9651,11 @@ func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	if raw.Sandbox == nil {
 		value.Sandbox = nil
 	} else {
-		value.Sandbox = RawSandboxPolicy(raw.Sandbox)
+		decodedSandbox, err := decodeGeneratedSandboxPolicy(raw.Sandbox)
+		if err != nil {
+			return err
+		}
+		value.Sandbox = decodedSandbox
 	}
 	value.ServiceTier = raw.ServiceTier
 	value.Thread = raw.Thread
@@ -7263,7 +9676,7 @@ type ThreadRollbackResponse struct {
 	// Thread represents an updated thread after applying the rollback, with `turns` populated.
 	//
 	// The ThreadItems stored in each Turn are lossy since we explicitly do not persist all agent interactions, such as command executions. This is the same behavior as `thread/resume`.
-	Thread ProtocolThread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadSetNameParams is generated from the ThreadSetNameParams schema definition.
@@ -7393,9 +9806,9 @@ type ThreadStartResponse struct {
 	ReasoningEffort    *ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `permissionProfile` when they need exact runtime permissions.
-	Sandbox     SandboxPolicy  `json:"sandbox"`
-	ServiceTier *string        `json:"serviceTier,omitzero"`
-	Thread      ProtocolThread `json:"thread"`
+	Sandbox     SandboxPolicy `json:"sandbox"`
+	ServiceTier *string       `json:"serviceTier,omitzero"`
+	Thread      ThreadPayload `json:"thread"`
 }
 
 func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -7409,7 +9822,7 @@ func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
-		Thread             ProtocolThread    `json:"thread"`
+		Thread             ThreadPayload     `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -7424,7 +9837,11 @@ func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	if raw.Sandbox == nil {
 		value.Sandbox = nil
 	} else {
-		value.Sandbox = RawSandboxPolicy(raw.Sandbox)
+		decodedSandbox, err := decodeGeneratedSandboxPolicy(raw.Sandbox)
+		if err != nil {
+			return err
+		}
+		value.Sandbox = decodedSandbox
 	}
 	value.ServiceTier = raw.ServiceTier
 	value.Thread = raw.Thread
@@ -7443,7 +9860,7 @@ const (
 
 // ThreadStartedNotification is generated from the ThreadStartedNotification schema definition.
 type ThreadStartedNotification struct {
-	Thread ProtocolThread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadStatus is generated from the ThreadStatus schema definition.
@@ -7471,21 +9888,21 @@ func (NotLoadedThreadStatus) isThreadStatus() {}
 
 // NotLoadedThreadStatus is generated from the NotLoadedThreadStatus schema definition.
 type NotLoadedThreadStatus struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (IDleThreadStatus) isThreadStatus() {}
 
 // IDleThreadStatus is generated from the IdleThreadStatus schema definition.
 type IDleThreadStatus struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (SystemErrorThreadStatus) isThreadStatus() {}
 
 // SystemErrorThreadStatus is generated from the SystemErrorThreadStatus schema definition.
 type SystemErrorThreadStatus struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
 }
 
 func (ActiveThreadStatus) isThreadStatus() {}
@@ -7493,7 +9910,46 @@ func (ActiveThreadStatus) isThreadStatus() {}
 // ActiveThreadStatus is generated from the ActiveThreadStatus schema definition.
 type ActiveThreadStatus struct {
 	ActiveFlags []ThreadActiveFlag `json:"activeFlags"`
-	TypeValue   string             `json:"type"`
+	Type        string             `json:"type"`
+}
+
+func decodeGeneratedThreadStatus(raw jsontext.Value) (ThreadStatus, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "notLoaded":
+			var value NotLoadedThreadStatus
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "idle":
+			var value IDleThreadStatus
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "systemError":
+			var value SystemErrorThreadStatus
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "active":
+			var value ActiveThreadStatus
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawThreadStatus(raw), nil
+	}
+	return RawThreadStatus(raw), nil
 }
 
 // ThreadStatusChangedNotification is generated from the ThreadStatusChangedNotification schema definition.
@@ -7513,7 +9969,11 @@ func (value *ThreadStatusChangedNotification) UnmarshalJSONFrom(dec *jsontext.De
 	if raw.Status == nil {
 		value.Status = nil
 	} else {
-		value.Status = RawThreadStatus(raw.Status)
+		decodedStatus, err := decodeGeneratedThreadStatus(raw.Status)
+		if err != nil {
+			return err
+		}
+		value.Status = decodedStatus
 	}
 	value.ThreadID = raw.ThreadID
 	return nil
@@ -7540,7 +10000,7 @@ type ThreadUnarchiveParams struct {
 
 // ThreadUnarchiveResponse is generated from the ThreadUnarchiveResponse schema definition.
 type ThreadUnarchiveResponse struct {
-	Thread ProtocolThread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadUnarchivedNotification is generated from the ThreadUnarchivedNotification schema definition.
@@ -7680,6 +10140,29 @@ type TurnError struct {
 	Message           string          `json:"message"`
 }
 
+func (value *TurnError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		AdditionalDetails *string        `json:"additionalDetails,omitzero"`
+		CodexErrorInfo    jsontext.Value `json:"codexErrorInfo,omitzero"`
+		Message           string         `json:"message"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.AdditionalDetails = raw.AdditionalDetails
+	if raw.CodexErrorInfo == nil {
+		value.CodexErrorInfo = nil
+	} else {
+		decodedCodexErrorInfo, err := decodeGeneratedCodexErrorInfo(raw.CodexErrorInfo)
+		if err != nil {
+			return err
+		}
+		value.CodexErrorInfo = &decodedCodexErrorInfo
+	}
+	value.Message = raw.Message
+	return nil
+}
+
 // TurnInterruptParams is generated from the TurnInterruptParams schema definition.
 type TurnInterruptParams struct {
 	ThreadID string `json:"threadId"`
@@ -7787,7 +10270,7 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Personality       *Personality       `json:"personality,omitzero"`
 		SandboxPolicy     jsontext.Value     `json:"sandboxPolicy,omitzero"`
 		ServiceTier       *string            `json:"serviceTier,omitzero"`
-		Summary           *ReasoningSummary  `json:"summary,omitzero"`
+		Summary           jsontext.Value     `json:"summary,omitzero"`
 		ThreadID          string             `json:"threadId"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -7803,7 +10286,11 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		value.Input = make([]UserInput, len(raw.Input))
 		for i, item := range raw.Input {
 			if item != nil {
-				value.Input[i] = RawUserInput(item)
+				decodedInput, err := decodeGeneratedUserInput(item)
+				if err != nil {
+					return err
+				}
+				value.Input[i] = decodedInput
 			}
 		}
 	}
@@ -7813,11 +10300,22 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if raw.SandboxPolicy == nil {
 		value.SandboxPolicy = nil
 	} else {
-		sandboxPolicy := SandboxPolicy(RawSandboxPolicy(raw.SandboxPolicy))
-		value.SandboxPolicy = &sandboxPolicy
+		decodedSandboxPolicy, err := decodeGeneratedSandboxPolicy(raw.SandboxPolicy)
+		if err != nil {
+			return err
+		}
+		value.SandboxPolicy = &decodedSandboxPolicy
 	}
 	value.ServiceTier = raw.ServiceTier
-	value.Summary = raw.Summary
+	if raw.Summary == nil {
+		value.Summary = nil
+	} else {
+		decodedSummary, err := decodeGeneratedReasoningSummary(raw.Summary)
+		if err != nil {
+			return err
+		}
+		value.Summary = &decodedSummary
+	}
 	value.ThreadID = raw.ThreadID
 	return nil
 }
@@ -7871,7 +10369,11 @@ func (value *TurnSteerParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		value.Input = make([]UserInput, len(raw.Input))
 		for i, item := range raw.Input {
 			if item != nil {
-				value.Input[i] = RawUserInput(item)
+				decodedInput, err := decodeGeneratedUserInput(item)
+				if err != nil {
+					return err
+				}
+				value.Input[i] = decodedInput
 			}
 		}
 	}
@@ -7913,41 +10415,86 @@ type TextUserInput struct {
 
 	// TextElements uI-defined spans within `text` used to render or persist special elements.
 	TextElements []TextElement `json:"text_elements,omitzero"`
-	TypeValue    string        `json:"type"`
+	Type         string        `json:"type"`
 }
 
 func (ImageUserInput) isUserInput() {}
 
 // ImageUserInput is generated from the ImageUserInput schema definition.
 type ImageUserInput struct {
-	TypeValue string `json:"type"`
-	URL       string `json:"url"`
+	Type string `json:"type"`
+	URL  string `json:"url"`
 }
 
 func (LocalImageUserInput) isUserInput() {}
 
 // LocalImageUserInput is generated from the LocalImageUserInput schema definition.
 type LocalImageUserInput struct {
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 func (SkillUserInput) isUserInput() {}
 
 // SkillUserInput is generated from the SkillUserInput schema definition.
 type SkillUserInput struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Type string `json:"type"`
 }
 
 func (MentionUserInput) isUserInput() {}
 
 // MentionUserInput is generated from the MentionUserInput schema definition.
 type MentionUserInput struct {
-	Name      string `json:"name"`
-	Path      string `json:"path"`
-	TypeValue string `json:"type"`
+	Name string `json:"name"`
+	Path string `json:"path"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedUserInput(raw jsontext.Value) (UserInput, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "text":
+			var value TextUserInput
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "image":
+			var value ImageUserInput
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "localImage":
+			var value LocalImageUserInput
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "skill":
+			var value SkillUserInput
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "mention":
+			var value MentionUserInput
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawUserInput(raw), nil
+	}
+	return RawUserInput(raw), nil
 }
 
 // Verbosity controls output length/detail on GPT-5 models via the Responses API. Serialized with lowercase values to match the OpenAI API.
@@ -7996,33 +10543,72 @@ func (SearchWebSearchAction) isWebSearchAction() {}
 
 // SearchWebSearchAction is generated from the SearchWebSearchAction schema definition.
 type SearchWebSearchAction struct {
-	Queries   []string `json:"queries,omitzero"`
-	Query     *string  `json:"query,omitzero"`
-	TypeValue string   `json:"type"`
+	Queries []string `json:"queries,omitzero"`
+	Query   *string  `json:"query,omitzero"`
+	Type    string   `json:"type"`
 }
 
 func (OpenPageWebSearchAction) isWebSearchAction() {}
 
 // OpenPageWebSearchAction is generated from the OpenPageWebSearchAction schema definition.
 type OpenPageWebSearchAction struct {
-	TypeValue string  `json:"type"`
-	URL       *string `json:"url,omitzero"`
+	Type string  `json:"type"`
+	URL  *string `json:"url,omitzero"`
 }
 
 func (FindInPageWebSearchAction) isWebSearchAction() {}
 
 // FindInPageWebSearchAction is generated from the FindInPageWebSearchAction schema definition.
 type FindInPageWebSearchAction struct {
-	Pattern   *string `json:"pattern,omitzero"`
-	TypeValue string  `json:"type"`
-	URL       *string `json:"url,omitzero"`
+	Pattern *string `json:"pattern,omitzero"`
+	Type    string  `json:"type"`
+	URL     *string `json:"url,omitzero"`
 }
 
 func (OtherWebSearchAction) isWebSearchAction() {}
 
 // OtherWebSearchAction is generated from the OtherWebSearchAction schema definition.
 type OtherWebSearchAction struct {
-	TypeValue string `json:"type"`
+	Type string `json:"type"`
+}
+
+func decodeGeneratedWebSearchAction(raw jsontext.Value) (WebSearchAction, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var object struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		switch object.Type {
+		case "search":
+			var value SearchWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "openPage":
+			var value OpenPageWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "findInPage":
+			var value FindInPageWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		case "other":
+			var value OtherWebSearchAction
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawWebSearchAction(raw), nil
+	}
+	return RawWebSearchAction(raw), nil
 }
 
 // WebSearchContextSize is generated from the WebSearchContextSize schema definition.

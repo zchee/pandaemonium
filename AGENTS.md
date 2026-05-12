@@ -38,7 +38,7 @@ Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `
 - JSON: use `github.com/go-json-experiment/json` and `jsontext`; struct tags use `omitzero`, never `omitempty`.
 - Test comparisons use `gocmp "github.com/google/go-cmp/cmp"` (aliased); do not introduce `testify`.
 - All `.go` files start with the Apache-2.0 header from `hack/boilerplate/boilerplate.go.txt` (year `2026`).
-- Package name is `codexappserver` (no hyphen); directory is `codex-app-server`. Keep generated names stable — when an upstream schema name would collide with an SDK type, the generator emits the `Protocol`-prefixed alias (e.g. `ProtocolConfig`, `ProtocolThread`); preserve these.
+- Package name is `codexappserver` (no hyphen); directory is `codex-app-server`.
 - Godoc comments end with a period and document exported identifiers.
 
 ## Testing Guidelines

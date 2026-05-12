@@ -195,11 +195,65 @@ func TestExportName(t *testing.T) {
 			input: "2fa_status",
 			want:  "Value2faStatus",
 		},
+		"success: exported type keyword is valid identifier": {
+			input: "type",
+			want:  "Type",
+		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			if got := exportName(tt.input); got != tt.want {
 				t.Fatalf("exportName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGoFieldName(t *testing.T) {
+	tests := map[string]struct {
+		input string
+		want  string
+	}{
+		"success: json type field uses idiomatic exported field": {
+			input: "type",
+			want:  "Type",
+		},
+		"success: other keyword-derived field names stay compatibility safe": {
+			input: "_default",
+			want:  "DefaultValue",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := goFieldName(tt.input); got != tt.want {
+				t.Fatalf("goFieldName(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestUnexportName(t *testing.T) {
+	tests := map[string]struct {
+		input string
+		want  string
+	}{
+		"success: regular identifier lowercases first rune": {
+			input: "ThreadID",
+			want:  "threadID",
+		},
+		"success: local go keyword gets suffix": {
+			input: "Type",
+			want:  "typeValue",
+		},
+		"success: empty identifier gets fallback": {
+			input: "",
+			want:  "value",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			if got := unexportName(tt.input); got != tt.want {
+				t.Fatalf("unexportName(%q) = %q, want %q", tt.input, got, tt.want)
 			}
 		})
 	}
@@ -315,17 +369,22 @@ func TestGenerateCodexAppServerPackageAvoidsSDKNameCollisions(t *testing.T) {
 	got := string(gotBytes)
 	wantFragments := []string{
 		"package codexappserver",
-		"type ProtocolConfig struct {",
-		"Thread *ProtocolThread `json:\"thread,omitzero\"`",
-		"type ProtocolThread struct {",
-		"Thread ProtocolThread `json:\"thread\"`",
+		"type ConfigPayload struct {",
+		"Thread *ThreadPayload `json:\"thread,omitzero\"`",
+		"type ThreadPayload struct {",
+		"Thread ThreadPayload `json:\"thread\"`",
 	}
 	for _, fragment := range wantFragments {
 		if !strings.Contains(got, fragment) {
 			t.Fatalf("generated source missing %q:\n%s", fragment, got)
 		}
 	}
-	for _, fragment := range []string{"type Config struct", "type Thread struct"} {
+	for _, fragment := range []string{
+		"type Config struct",
+		"type Thread struct",
+		"type ProtocolConfig struct",
+		"type ProtocolThread struct",
+	} {
 		if strings.Contains(got, fragment) {
 			t.Fatalf("generated source unexpectedly contains %q:\n%s", fragment, got)
 		}
@@ -454,6 +513,98 @@ func TestGenerateUnionDefinitions(t *testing.T) {
 		if !strings.Contains(got, fragment) {
 			t.Fatalf("generated source missing %q:\n%s", fragment, got)
 		}
+	}
+}
+
+func TestGenerateMixedUnionDefinitions(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"MixedSource": {
+			OneOf: []*jsonschema.Schema{
+				{
+					Type: "string",
+					Enum: []any{"cli", "vscode"},
+				},
+				{
+					Title:    "CustomSource",
+					Type:     "object",
+					Required: []string{"custom"},
+					Properties: map[string]*jsonschema.Schema{
+						"custom": {Type: "string"},
+					},
+				},
+				{
+					Title:    "NestedSource",
+					Type:     "object",
+					Required: []string{"nested"},
+					Properties: map[string]*jsonschema.Schema{
+						"nested": {Type: "string"},
+					},
+				},
+			},
+		},
+		"StringOnlyUnion": {
+			OneOf: []*jsonschema.Schema{
+				{Type: "string", Enum: []any{"auto", "detailed"}},
+				{Type: "string", Enum: []any{"none"}},
+			},
+		},
+		"Holder": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"source":  {Ref: "#/definitions/MixedSource"},
+				"summary": {Ref: "#/definitions/StringOnlyUnion"},
+			},
+			Required: []string{"source", "summary"},
+		},
+	}
+
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "protocol")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	wantFragments := []string{
+		"type MixedSource interface {",
+		"type RawMixedSource jsontext.Value",
+		"type MixedSourceValue string",
+		"MixedSourceValueCli MixedSourceValue = \"cli\"",
+		"MixedSourceValueVscode MixedSourceValue = \"vscode\"",
+		"type CustomSource struct {",
+		"Custom string `json:\"custom\"`",
+		"type NestedSource struct {",
+		"func decodeGeneratedMixedSource(raw jsontext.Value) (MixedSource, error) {",
+		"return MixedSourceValue(text), nil",
+		"Custom jsontext.Value `json:\"custom\"`",
+		"Nested jsontext.Value `json:\"nested\"`",
+		"if object.Custom != nil {",
+		"var value CustomSource",
+		"if object.Nested != nil {",
+		"var value NestedSource",
+		"type StringOnlyUnion interface {",
+		"type StringOnlyUnionValue string",
+		"StringOnlyUnionValueDetailed StringOnlyUnionValue = \"detailed\"",
+		"StringOnlyUnionValueNone StringOnlyUnionValue = \"none\"",
+		"func decodeGeneratedStringOnlyUnion(raw jsontext.Value) (StringOnlyUnion, error) {",
+		"Source jsontext.Value `json:\"source\"`",
+		"decodedSource, err := decodeGeneratedMixedSource(raw.Source)",
+		"value.Source = decodedSource",
+		"Summary jsontext.Value `json:\"summary\"`",
+		"decodedSummary, err := decodeGeneratedStringOnlyUnion(raw.Summary)",
+		"value.Summary = decodedSummary",
+	}
+	for _, fragment := range wantFragments {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	if strings.Contains(got, "var object map[string]jsontext.Value") {
+		t.Fatalf("mixed union decode helper should use a probe struct, not a map allocation:\n%s", got)
+	}
+	if strings.Contains(got, "type MixedSource jsontext.Value") {
+		t.Fatalf("mixed union collapsed to raw wrapper instead of interface:\n%s", got)
+	}
+	if strings.Contains(got, "type StringOnlyUnion jsontext.Value") {
+		t.Fatalf("string-only union collapsed to raw wrapper instead of interface:\n%s", got)
 	}
 }
 
@@ -771,19 +922,83 @@ func TestGenerateStructUnmarshalForRawUnionFields(t *testing.T) {
 		"Items []jsontext.Value `json:\"items\"`",
 		"MaybeItem jsontext.Value `json:\"maybeItem,omitzero\"`",
 		"Single SingleVariantUnion `json:\"single\"`",
-		"value.Item = RawObjectUnion(raw.Item)",
-		"maybeItem := ObjectUnion(RawObjectUnion(raw.MaybeItem))",
-		"value.MaybeItem = &maybeItem",
+		"decodedItem, err := decodeGeneratedObjectUnion(raw.Item)",
+		"value.Item = decodedItem",
+		"decodedMaybeItem, err := decodeGeneratedObjectUnion(raw.MaybeItem)",
+		"value.MaybeItem = &decodedMaybeItem",
 		"value.Items = make([]ObjectUnion, len(raw.Items))",
-		"value.Items[i] = RawObjectUnion(item)",
+		"decodedItems, err := decodeGeneratedObjectUnion(item)",
+		"value.Items[i] = decodedItems",
+		"func decodeGeneratedObjectUnion(raw jsontext.Value) (ObjectUnion, error) {",
+		"Type string `json:\"type\"`",
+		"switch object.Type {",
+		"case \"alpha\":",
+		"var value Alpha",
+		"case \"beta\":",
+		"var value Beta",
 	}
 	for _, fragment := range wantFragments {
 		if !strings.Contains(got, fragment) {
 			t.Fatalf("generated source missing %q:\n%s", fragment, got)
 		}
 	}
+	if strings.Contains(got, "rawDiscriminator") || strings.Contains(got, "object[\"type\"]") {
+		t.Fatalf("object union decode helper should use probe struct fields instead of map lookups:\n%s", got)
+	}
 	if strings.Contains(got, "RawSingleVariantUnion") {
 		t.Fatalf("single-variant aliases must not use a missing raw union wrapper:\n%s", got)
+	}
+}
+
+func TestGenerateUnionProbeFieldHandlesSharedDiscriminatorAndPresenceKey(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"SharedKeyUnion": {
+			OneOf: []*jsonschema.Schema{
+				{
+					Title: "DiscriminatedSharedKey",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"kind": {
+							Type: "string",
+							Enum: []any{"alpha"},
+						},
+						"value": {Type: "string"},
+					},
+					Required: []string{"kind", "value"},
+				},
+				{
+					Title: "PresenceSharedKey",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"kind": {Type: "string"},
+					},
+					Required: []string{"kind"},
+				},
+			},
+		},
+	}
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "protocol")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	wantFragments := []string{
+		"Kind jsontext.Value `json:\"kind\"`",
+		"if object.Kind != nil {",
+		"var discriminator string",
+		"if err := json.Unmarshal(object.Kind, &discriminator); err == nil {",
+		"switch discriminator {",
+		"case \"alpha\":",
+		"if object.Kind != nil {",
+		"var value PresenceSharedKey",
+	}
+	for _, fragment := range wantFragments {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	if strings.Contains(got, "var object struct {\n\t\tKind string `json:\"kind\"`") {
+		t.Fatalf("shared discriminator/presence key must keep a raw probe field:\n%s", got)
 	}
 }
 

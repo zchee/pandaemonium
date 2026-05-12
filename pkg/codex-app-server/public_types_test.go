@@ -27,9 +27,9 @@ var (
 )
 
 // TestPublicGeneratedTypeRenamePolicy keeps the documented collision-safe
-// generated names stable. The package must continue to expose the prefixed Go
-// names (`ProtocolConfig` and `ProtocolThread`) rather than the upstream Python
-// schema names that would collide with the higher-level SDK surface.
+// generated names stable. The package must continue to expose payload Go names
+// (`ConfigPayload` and `ThreadPayload`) rather than the upstream Python schema
+// names that would collide with the higher-level SDK surface.
 func TestPublicGeneratedTypeRenamePolicy(t *testing.T) {
 	t.Parallel()
 
@@ -38,12 +38,11 @@ func TestPublicGeneratedTypeRenamePolicy(t *testing.T) {
 		value any
 	}{
 		{name: "AskForApproval", value: AskForApproval{}},
-		{name: "ProtocolConfig", value: ProtocolConfig{}},
-		{name: "ProtocolThread", value: ProtocolThread{}},
+		{name: "ConfigPayload", value: ConfigPayload{}},
+		{name: "ThreadPayload", value: ThreadPayload{}},
 	}
 
 	for _, tt := range tests {
-		tt := tt
 		t.Run(tt.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -53,6 +52,50 @@ func TestPublicGeneratedTypeRenamePolicy(t *testing.T) {
 			}
 			if got := typ.PkgPath(); got != "github.com/zchee/pandaemonium/pkg/codex-app-server" {
 				t.Fatalf("type package path = %q, want pkg/codex-app-server", got)
+			}
+		})
+	}
+}
+
+func TestPublicGeneratedInterfaceUnionParityTypes(t *testing.T) {
+	t.Parallel()
+
+	var (
+		_ CodexErrorInfo   = CodexErrorInfoValueOther
+		_ CodexErrorInfo   = ActiveTurnNotSteerableCodexErrorInfo{}
+		_ CodexErrorInfo   = RawCodexErrorInfo{}
+		_ ReasoningSummary = ReasoningSummaryValueNone
+		_ ReasoningSummary = RawReasoningSummary{}
+		_ SessionSource    = SessionSourceValueCli
+		_ SessionSource    = CustomSessionSource{}
+		_ SessionSource    = SubAgentSessionSource{}
+		_ SessionSource    = RawSessionSource{}
+		_ SubAgentSource   = SubAgentSourceValueReview
+		_ SubAgentSource   = ThreadSpawnSubAgentSource{}
+		_ SubAgentSource   = OtherSubAgentSource{}
+		_ SubAgentSource   = RawSubAgentSource{}
+	)
+
+	tests := []struct {
+		name string
+		typ  reflect.Type
+	}{
+		{name: "CodexErrorInfoValue", typ: reflect.TypeOf(CodexErrorInfoValueOther)},
+		{name: "ActiveTurnNotSteerableCodexErrorInfo", typ: reflect.TypeOf(ActiveTurnNotSteerableCodexErrorInfo{})},
+		{name: "ReasoningSummaryValue", typ: reflect.TypeOf(ReasoningSummaryValueNone)},
+		{name: "SessionSourceValue", typ: reflect.TypeOf(SessionSourceValueCli)},
+		{name: "CustomSessionSource", typ: reflect.TypeOf(CustomSessionSource{})},
+		{name: "SubAgentSessionSource", typ: reflect.TypeOf(SubAgentSessionSource{})},
+		{name: "SubAgentSourceValue", typ: reflect.TypeOf(SubAgentSourceValueReview)},
+		{name: "ThreadSpawnSubAgentSource", typ: reflect.TypeOf(ThreadSpawnSubAgentSource{})},
+		{name: "OtherSubAgentSource", typ: reflect.TypeOf(OtherSubAgentSource{})},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := tt.typ.Name(); got != tt.name {
+				t.Fatalf("type name = %q, want %q", got, tt.name)
 			}
 		})
 	}

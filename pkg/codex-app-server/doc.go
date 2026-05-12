@@ -28,8 +28,8 @@
 // silently stealing each other's notifications.
 //
 // Generated protocol bindings intentionally preserve the upstream public type
-// surface where names do not collide, and they use package-root renamed types
-// such as `ProtocolConfig` and `ProtocolThread` when the upstream schema would
+// surface where names do not collide, and they use package-root payload types
+// such as `ConfigPayload` and `ThreadPayload` when the upstream schema would
 // otherwise shadow existing Go SDK concepts like `Config` and `Thread`. The
 // generated inventory is documented in tests so API drift fails fast instead of
 // being rediscovered through stale fixtures or wrapper mismatches.
@@ -51,8 +51,8 @@
 // `ThreadStartParams`, `TurnStartParams`, `ThreadItem`, `ReasoningEffort`,
 // `SandboxPolicy`) so callers can work with schema-backed models directly from
 // the package root. When the schema would otherwise collide with public SDK
-// names, the generator emits prefixed compatibility names such as
-// `ProtocolConfig` and `ProtocolThread` to keep the root package API stable.
+// names, the generator emits payload compatibility names such as
+// `ConfigPayload` and `ThreadPayload` to keep the root package API stable.
 //
 // Compile-time alias compatibility checks live in public_types_test.go, and
 // compatibility-sensitive aliases should be preserved unless the upstream schema
