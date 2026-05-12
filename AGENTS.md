@@ -1,10 +1,10 @@
 # Repository Guidelines
 
-`pandaemonium` is a Go module (`github.com/zchee/pandaemonium`) that hosts SDKs and tooling around the OpenAI Codex toolchain. The first package, `pkg/codex-app-server`, is a typed Go SDK for the Codex app-server JSON-RPC v2 protocol.
+`pandaemonium` is a Go module (`github.com/zchee/pandaemonium`) that hosts SDKs and tooling around the OpenAI Codex toolchain. The first package, `pkg/codex`, is a typed Go SDK for the Codex app-server JSON-RPC v2 protocol.
 
 ## Project Structure & Module Organization
 
-- `pkg/codex-app-server/` — Go SDK package (`codexappserver`).
+- `pkg/codex/` — Go SDK package (`codexappserver`).
   - `api.go`, `client.go`, `methods.go`, `router.go`, `run.go`, `stream_api.go` — public client + routing surface.
   - `notification.go`, `errors.go`, `retry.go`, `input.go`, `types.go`, `public_types.go` — protocol primitives and decoders.
   - `protocol_gen.go` — **generated**; do not edit by hand (see Generated Code below).
@@ -23,10 +23,10 @@ Run from the repository root.
 
 - `go build ./...` — compile every package; fails fast on type or vet-adjacent errors.
 - `go test ./...` — run all unit and SDK tests (excludes the opt-in real-server lane).
-- `RUN_REAL_CODEX_TESTS=1 go test ./pkg/codex-app-server/...` — run integration tests against a real `codex` binary on `PATH`.
-- `go test -run TestName ./pkg/codex-app-server` — focused test execution.
-- `go generate ./pkg/codex-app-server` — regenerate `protocol_gen.go` from the pinned upstream schema URL declared in `generate.go`.
-- `go run ./pkg/codex-app-server/internal/cmd/generate-protocol-types -schema <path-or-url> -out ./pkg/codex-app-server/protocol_gen.go -package codexappserver` — direct generator invocation (use a different `-schema` for local experimentation).
+- `RUN_REAL_CODEX_TESTS=1 go test ./pkg/codex/...` — run integration tests against a real `codex` binary on `PATH`.
+- `go test -run TestName ./pkg/codex` — focused test execution.
+- `go generate ./pkg/codex` — regenerate `protocol_gen.go` from the pinned upstream schema URL declared in `generate.go`.
+- `go run ./pkg/codex/internal/cmd/generate-protocol-types -schema <path-or-url> -out ./pkg/codex/protocol_gen.go -package codexappserver` — direct generator invocation (use a different `-schema` for local experimentation).
 - `go mod tidy && go mod vendor` — refresh module graph and the committed `vendor/` tree after dependency changes.
 
 Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `greenteagc`, `simd`, …) are active locally — generated code and tests assume them.
@@ -38,7 +38,7 @@ Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `
 - JSON: use `github.com/go-json-experiment/json` and `jsontext`; struct tags use `omitzero`, never `omitempty`.
 - Test comparisons use `gocmp "github.com/google/go-cmp/cmp"` (aliased); do not introduce `testify`.
 - All `.go` files start with the Apache-2.0 header from `hack/boilerplate/boilerplate.go.txt` (year `2026`).
-- Package name is `codexappserver` (no hyphen); directory is `codex-app-server`.
+- Package name is `codexappserver` (kept for API stability); directory is `codex`.
 - Godoc comments end with a period and document exported identifiers.
 
 ## Testing Guidelines
@@ -47,18 +47,18 @@ Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `
 - Table-driven tests use `tests := map[string]struct{...}{...}` keyed by descriptive names with a `success:` / `error:` prefix (see `internal/cmd/generate-protocol-types/main_test.go`).
 - Real-server coverage lives behind `RUN_REAL_CODEX_TESTS=1` and additionally requires `codex` on `PATH`; never assume the binary is present in CI by default.
 - When changing `notification.go` or the routing surface, update or extend the round-trip, unknown-payload, and turn-stream consumer tests called out in `review_notes.md`.
-- After regenerating `protocol_gen.go`, run `go test ./pkg/codex-app-server/...` — `protocol_gen_test.go` and `public_types_test.go` enforce rename/identity parity against `testdata/`.
+- After regenerating `protocol_gen.go`, run `go test ./pkg/codex/...` — `protocol_gen_test.go` and `public_types_test.go` enforce rename/identity parity against `testdata/`.
 
 ## Commit & Pull Request Guidelines
 
-- Commit subjects follow `scope: lowercase imperative subject`, where `scope` is the affected path or component, e.g. `codex-app-server: route turn notifications without global loss` or `pkg/codex-app-server/protocol: regenerate with description-derived godoc`. Use `test:` for test-only changes and `all:` for repo-wide work.
+- Commit subjects follow `scope: lowercase imperative subject`, where `scope` is the affected path or component, e.g. `codex-app-server: route turn notifications without global loss` or `pkg/codex/protocol: regenerate with description-derived godoc`. Use `test:` for test-only changes and `all:` for repo-wide work.
 - Sign commits: `git commit --gpg-sign` (project convention).
 - One logical change per commit; regenerated artifacts (`protocol_gen.go`, `testdata/`) belong in the same commit as the generator or schema change that produced them.
 - Pull requests must fill the `## Why` section of `.github/PULL_REQUEST_TEMPLATE.md` with the motivating change and link any upstream schema version (`rust-vX.Y.Z-...`) or issue. Note opt-in test runs (e.g. `RUN_REAL_CODEX_TESTS=1`) when they were exercised.
 
 ## Generated Code & Schema Pinning
 
-- The upstream schema URL is pinned in `pkg/codex-app-server/generate.go` (currently `rust-v0.131.0-alpha.5`). Bump that URL in the same commit that regenerates `protocol_gen.go`.
+- The upstream schema URL is pinned in `pkg/codex/generate.go` (currently `rust-v0.131.0-alpha.9`). Bump that URL in the same commit that regenerates `protocol_gen.go`.
 - Do not hand-edit `protocol_gen.go`. If the generator output is wrong, fix it in `internal/cmd/generate-protocol-types/main.go` and re-run `go generate`.
 - Vendor the resulting dependency graph (`go mod vendor`) so reproducible builds keep working offline.
 

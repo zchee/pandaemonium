@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	codexappserver "github.com/zchee/pandaemonium/pkg/codex-app-server"
+	codexappserver "github.com/zchee/pandaemonium/pkg/codex"
 )
 
 const runRealCodexTestsEnv = "RUN_REAL_CODEX_TESTS"
