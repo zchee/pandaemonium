@@ -309,19 +309,28 @@ func KnownNotificationMethods() []string {
 	return methods
 }
 
+// As decodes notification params when the method matches.
+//
+// The boolean return is false when notification.Method does not match method.
+// In that case the zero value is returned and params are not decoded.
+func (notification Notification) As[T any](method string) (T, bool, error) {
+	var zero T
+	if notification.Method != method {
+		return zero, false, nil
+	}
+	var got T
+	if err := json.Unmarshal(notification.Params, &got); err != nil {
+		return zero, true, fmt.Errorf("decode %s notification: %w", method, err)
+	}
+	return got, true, nil
+}
+
 // DecodeNotificationAs decodes notification params when the method matches.
 //
 // The boolean return is false when notification.Method does not match method.
 // In that case the zero value is returned and params are not decoded.
 func DecodeNotificationAs[T any](notification Notification, method string) (T, bool, error) {
-	var zero T
-	if notification.Method != method {
-		return zero, false, nil
-	}
-	if err := json.Unmarshal(notification.Params, &zero); err != nil {
-		return zero, true, fmt.Errorf("decode %s notification: %w", method, err)
-	}
-	return zero, true, nil
+	return notification.As[T](method)
 }
 
 // DecodeNotification decodes known server notifications from the upstream
@@ -352,37 +361,37 @@ func DecodeKnownNotification(notification Notification) (KnownNotification, bool
 
 // DecodeAgentMessageDeltaNotification decodes an item/agentMessage/delta notification.
 func DecodeAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
-	return DecodeNotificationAs[AgentMessageDeltaNotification](notification, NotificationMethodItemAgentMessageDelta)
+	return notification.As[AgentMessageDeltaNotification](NotificationMethodItemAgentMessageDelta)
 }
 
 // DecodeErrorNotification decodes an error notification.
 func DecodeErrorNotification(notification Notification) (ErrorNotification, bool, error) {
-	return DecodeNotificationAs[ErrorNotification](notification, NotificationMethodError)
+	return notification.As[ErrorNotification](NotificationMethodError)
 }
 
 // DecodeItemCompletedNotification decodes an item/completed notification.
 func DecodeItemCompletedNotification(notification Notification) (ItemCompletedNotification, bool, error) {
-	return DecodeNotificationAs[ItemCompletedNotification](notification, NotificationMethodItemCompleted)
+	return notification.As[ItemCompletedNotification](NotificationMethodItemCompleted)
 }
 
 // DecodeProcessExitedNotification decodes a process/exited notification.
 func DecodeProcessExitedNotification(notification Notification) (ProcessExitedNotification, bool, error) {
-	return DecodeNotificationAs[ProcessExitedNotification](notification, NotificationMethodProcessExited)
+	return notification.As[ProcessExitedNotification](NotificationMethodProcessExited)
 }
 
 // DecodeProcessOutputDeltaNotification decodes a process/outputDelta notification.
 func DecodeProcessOutputDeltaNotification(notification Notification) (ProcessOutputDeltaNotification, bool, error) {
-	return DecodeNotificationAs[ProcessOutputDeltaNotification](notification, NotificationMethodProcessOutputDelta)
+	return notification.As[ProcessOutputDeltaNotification](NotificationMethodProcessOutputDelta)
 }
 
 // DecodeThreadTokenUsageUpdatedNotification decodes a thread/tokenUsage/updated notification.
 func DecodeThreadTokenUsageUpdatedNotification(notification Notification) (ThreadTokenUsageUpdatedNotification, bool, error) {
-	return DecodeNotificationAs[ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
+	return notification.As[ThreadTokenUsageUpdatedNotification](NotificationMethodThreadTokenUsageUpdated)
 }
 
 // DecodeTurnCompletedNotification decodes a turn/completed notification.
 func DecodeTurnCompletedNotification(notification Notification) (TurnCompletedNotification, bool, error) {
-	return DecodeNotificationAs[TurnCompletedNotification](notification, NotificationMethodTurnCompleted)
+	return notification.As[TurnCompletedNotification](NotificationMethodTurnCompleted)
 }
 
 // AgentMessageDelta decodes an item/agentMessage/delta notification.

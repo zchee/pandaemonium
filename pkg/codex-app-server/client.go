@@ -237,7 +237,7 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 			ExperimentalAPI: &experimentalAPI,
 		},
 	}
-	resp, err := Request[InitializeResponse](ctx, c, "initialize", params)
+	resp, err := c.Request[InitializeResponse](ctx, "initialize", params)
 	if err != nil {
 		return InitializeResponse{}, err
 	}
@@ -248,19 +248,30 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 }
 
 // Request sends a typed request to the app-server.
-func Request[T any](ctx context.Context, c *Client, method string, params any) (T, error) {
+func (c *Client) Request[T any](ctx context.Context, method string, params any) (T, error) {
 	var zero T
 	raw, err := c.RequestRaw(ctx, method, params)
 	if err != nil {
 		return zero, err
 	}
+	return decodeRequestResult[T](method, raw)
+}
+
+// Request sends a typed request to the app-server.
+func Request[T any](ctx context.Context, c *Client, method string, params any) (T, error) {
+	return c.Request[T](ctx, method, params)
+}
+
+func decodeRequestResult[T any](method string, raw jsontext.Value) (T, error) {
+	var zero T
 	if len(raw) == 0 || string(raw) == "null" {
 		return zero, nil
 	}
-	if err := json.Unmarshal(raw, &zero); err != nil {
+	var got T
+	if err := json.Unmarshal(raw, &got); err != nil {
 		return zero, fmt.Errorf("decode %s response: %w", method, err)
 	}
-	return zero, nil
+	return got, nil
 }
 
 // RequestRaw sends a request and returns the raw result JSON.
@@ -297,21 +308,19 @@ func (c *Client) RequestWithRetryOnOverload(ctx context.Context, method string, 
 	})
 }
 
-// RequestWithRetryOnOverload is a package-level wrapper around [Client.RequestWithRetryOnOverload].
-func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method string, params any, cfg RetryConfig) (T, error) {
+// RequestWithRetryOnOverloadAs sends a typed request and retries retryable overload responses.
+func (c *Client) RequestWithRetryOnOverloadAs[T any](ctx context.Context, method string, params any, cfg RetryConfig) (T, error) {
 	var zero T
 	raw, err := c.RequestWithRetryOnOverload(ctx, method, params, cfg)
 	if err != nil {
 		return zero, err
 	}
-	if len(raw) == 0 || string(raw) == "null" {
-		return zero, nil
-	}
-	var got T
-	if err := json.Unmarshal(raw, &got); err != nil {
-		return zero, fmt.Errorf("decode %s response: %w", method, err)
-	}
-	return got, nil
+	return decodeRequestResult[T](method, raw)
+}
+
+// RequestWithRetryOnOverload is a package-level wrapper around [Client.RequestWithRetryOnOverloadAs].
+func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method string, params any, cfg RetryConfig) (T, error) {
+	return c.RequestWithRetryOnOverloadAs[T](ctx, method, params, cfg)
 }
 
 // Notify sends a JSON-RPC notification to the app-server.
@@ -700,17 +709,6 @@ type rpcErrorBody struct {
 	Code    int64          `json:"code"`
 	Message string         `json:"message"`
 	Data    jsontext.Value `json:"data,omitzero"`
-}
-
-func decodeNotification[T any](notification Notification, method string) (T, bool, error) {
-	var zero T
-	if notification.Method != method {
-		return zero, false, nil
-	}
-	if err := json.Unmarshal(notification.Params, &zero); err != nil {
-		return zero, true, fmt.Errorf("decode %s notification: %w", method, err)
-	}
-	return zero, true, nil
 }
 
 func cloneRaw(value jsontext.Value) jsontext.Value {

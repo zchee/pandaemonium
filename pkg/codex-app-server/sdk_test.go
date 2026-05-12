@@ -334,6 +334,56 @@ func TestClientRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
 	}
 }
 
+func TestClientRequestGenericMethodAndWrapperReturnTypedResult(t *testing.T) {
+	client := newHelperClient(t, "stream_thread_lifecycle")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	params := ThreadReadParams{ThreadID: "thr_stream_start"}
+	got, err := client.Request[ThreadReadResponse](t.Context(), "thread/read", params)
+	if err != nil {
+		t.Fatalf("Client.Request() error = %v", err)
+	}
+	if got.Thread.ID != "thr_stream_start" {
+		t.Fatalf("Client.Request() thread id = %q, want thr_stream_start", got.Thread.ID)
+	}
+
+	wrapper, err := Request[ThreadReadResponse](t.Context(), client, "thread/read", params)
+	if err != nil {
+		t.Fatalf("Request() wrapper error = %v", err)
+	}
+	if wrapper.Thread.ID != got.Thread.ID {
+		t.Fatalf("Request() wrapper thread id = %q, want %q", wrapper.Thread.ID, got.Thread.ID)
+	}
+}
+
+func TestClientRequestWithRetryOnOverloadAsRetriesAndReturnsResult(t *testing.T) {
+	client := newHelperClient(t, "retry_on_overload")
+	if err := client.Start(t.Context()); err != nil {
+		t.Fatalf("Start() error = %v", err)
+	}
+	defer func() { _ = client.Close() }()
+
+	got, err := client.RequestWithRetryOnOverloadAs[string](
+		t.Context(),
+		"ping",
+		nil,
+		RetryConfig{
+			MaxAttempts:  3,
+			InitialDelay: time.Nanosecond,
+			MaxDelay:     time.Nanosecond,
+		},
+	)
+	if err != nil {
+		t.Fatalf("Client.RequestWithRetryOnOverloadAs() error = %v", err)
+	}
+	if got != "ok" {
+		t.Fatalf("result = %q, want ok", got)
+	}
+}
+
 func TestClientStreamUntilMethods(t *testing.T) {
 	client := NewClient(nil, nil)
 

@@ -79,6 +79,13 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				if diff := gocmp.Diff(got, value); diff != "" {
 					t.Fatalf("wrapper mismatch (-want +got):\n%s", diff)
 				}
+				asValue, ok, err := tt.notification.As[ItemCompletedNotification](NotificationMethodItemCompleted)
+				if err != nil || !ok {
+					t.Fatalf("Notification.As() = (%#v, %v, %v), want success", asValue, ok, err)
+				}
+				if diff := gocmp.Diff(got, asValue); diff != "" {
+					t.Fatalf("Notification.As() mismatch (-want +got):\n%s", diff)
+				}
 				known, matched, err := DecodeKnownNotification(tt.notification)
 				if err != nil {
 					t.Fatalf("DecodeKnownNotification() error = %v", err)
@@ -112,6 +119,13 @@ func TestDecodeNotificationHelpers(t *testing.T) {
 				}
 				if diff := gocmp.Diff(got, value); diff != "" {
 					t.Fatalf("wrapper mismatch (-want +got):\n%s", diff)
+				}
+				asValue, ok, err := tt.notification.As[TurnCompletedNotification](NotificationMethodTurnCompleted)
+				if err != nil || !ok {
+					t.Fatalf("Notification.As() = (%#v, %v, %v), want success", asValue, ok, err)
+				}
+				if diff := gocmp.Diff(got, asValue); diff != "" {
+					t.Fatalf("Notification.As() mismatch (-want +got):\n%s", diff)
 				}
 				known, matched, err := DecodeKnownNotification(tt.notification)
 				if err != nil {
@@ -275,8 +289,20 @@ func TestKnownNotificationMethodsMatchesExpectedInventory(t *testing.T) {
 func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	t.Parallel()
 
-	mismatch, ok, err := DecodeNotificationAs[ErrorNotification](
-		Notification{Method: NotificationMethodTurnCompleted, Params: jsontext.Value([]byte(`{"message":"nope"}`))},
+	mismatchedNotification := Notification{Method: NotificationMethodTurnCompleted, Params: jsontext.Value([]byte(`{"message":"nope"}`))}
+	mismatch, ok, err := mismatchedNotification.As[ErrorNotification](NotificationMethodError)
+	if err != nil {
+		t.Fatalf("Notification.As() mismatch error = %v", err)
+	}
+	if ok {
+		t.Fatalf("Notification.As() mismatch ok = true, want false")
+	}
+	if diff := gocmp.Diff(ErrorNotification{}, mismatch); diff != "" {
+		t.Fatalf("Notification.As() mismatch value (-want +got):\n%s", diff)
+	}
+
+	mismatch, ok, err = DecodeNotificationAs[ErrorNotification](
+		mismatchedNotification,
 		NotificationMethodError,
 	)
 	if err != nil {
@@ -289,10 +315,19 @@ func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 		t.Fatalf("DecodeNotification() mismatch value (-want +got):\n%s", diff)
 	}
 
-	_, ok, err = DecodeErrorNotification(Notification{
+	malformedNotification := Notification{
 		Method: NotificationMethodError,
 		Params: jsontext.Value([]byte(`{"missing":"fields"`)),
-	})
+	}
+	_, ok, err = malformedNotification.As[ErrorNotification](NotificationMethodError)
+	if !ok {
+		t.Fatalf("Notification.As() malformed ok = false, want true")
+	}
+	if err == nil {
+		t.Fatalf("Notification.As() malformed err = nil, want error")
+	}
+
+	_, ok, err = DecodeErrorNotification(malformedNotification)
 	if !ok {
 		t.Fatalf("DecodeErrorNotification() malformed ok = false, want true")
 	}
