@@ -8,6 +8,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/go-json-experiment/json"
 	gocmp "github.com/google/go-cmp/cmp"
 	"github.com/google/jsonschema-go/jsonschema"
 )
@@ -171,6 +172,101 @@ func TestSchemaSourceLabel(t *testing.T) {
 				t.Fatalf("schemaSourceLabel() mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestGenerateDiscriminatorMethodConstants(t *testing.T) {
+	t.Parallel()
+
+	schema := []byte(`{
+		"definitions": {
+			"ClientRequest": {
+				"description": "requests from the client to the server",
+				"oneOf": [
+					{
+						"title": "PingRequest",
+						"type": "object",
+						"required": ["id", "method", "params"],
+						"properties": {
+							"id": {"type": "string"},
+							"method": {"type": "string", "enum": ["ping"]},
+							"params": {"type": "object"}
+						}
+					},
+					{
+						"title": "Foo/barRequest",
+						"type": "object",
+						"required": ["id", "method", "params"],
+						"properties": {
+							"id": {"type": "string"},
+							"method": {"type": "string", "enum": ["foo/bar"]},
+							"params": {"type": "object"}
+						}
+					}
+				]
+			},
+			"ServerNotification": {
+				"oneOf": [
+					{
+						"title": "NoticeOneNotification",
+						"type": "object",
+						"required": ["method", "params"],
+						"properties": {
+							"method": {"type": "string", "enum": ["notice/one"]},
+							"params": {"type": "object"}
+						}
+					},
+					{
+						"title": "NoticeTwoNotification",
+						"type": "object",
+						"required": ["method", "params"],
+						"properties": {
+							"method": {"type": "string", "enum": ["notice/two"]},
+							"params": {"type": "object"}
+						}
+					}
+				]
+			}
+		}
+	}`)
+
+	var parsed jsonschema.Schema
+	if err := json.Unmarshal(schema, &parsed); err != nil {
+		t.Fatalf("json.Unmarshal(schema) error = %v", err)
+	}
+	generated, err := newGenerator(parsed.Definitions).generate("testdata/schema.json", "codexappserver")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(generated)
+
+	for _, want := range []string{
+		`// RequestMethodPing is the "ping" ClientRequest method.`,
+		`RequestMethodPing = "ping"`,
+		`// RequestMethodFooBar is the "foo/bar" ClientRequest method.`,
+		`RequestMethodFooBar = "foo/bar"`,
+		`// NotificationMethodNoticeOne is the "notice/one" ServerNotification method.`,
+		`NotificationMethodNoticeOne = "notice/one"`,
+		`// NotificationMethodNoticeTwo is the "notice/two" ServerNotification method.`,
+		`NotificationMethodNoticeTwo = "notice/two"`,
+		`case RequestMethodPing:`,
+		`case RequestMethodFooBar:`,
+		`case NotificationMethodNoticeOne:`,
+		`case NotificationMethodNoticeTwo:`,
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("generated source missing %q:\n%s", want, got)
+		}
+	}
+	for _, unwanted := range []string{
+		`RequestMethodNoticeOne`,
+		`RequestMethodNoticeTwo`,
+		`NotificationMethodPing`,
+		`NotificationMethodFooBar`,
+	} {
+		if strings.Contains(got, unwanted) {
+			t.Fatalf("generated source contains unexpected method constant %q:\n%s", unwanted, got)
+		}
 	}
 }
 

@@ -342,7 +342,7 @@ func TestClientRequestGenericMethodAndWrapperReturnTypedResult(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	params := ThreadReadParams{ThreadID: "thr_stream_start"}
-	got, err := client.Request[ThreadReadResponse](t.Context(), "thread/read", params)
+	got, err := client.Request[ThreadReadResponse](t.Context(), RequestMethodThreadRead, params)
 	if err != nil {
 		t.Fatalf("Client.Request() error = %v", err)
 	}
@@ -350,7 +350,7 @@ func TestClientRequestGenericMethodAndWrapperReturnTypedResult(t *testing.T) {
 		t.Fatalf("Client.Request() thread id = %q, want thr_stream_start", got.Thread.ID)
 	}
 
-	wrapper, err := Request[ThreadReadResponse](t.Context(), client, "thread/read", params)
+	wrapper, err := Request[ThreadReadResponse](t.Context(), client, RequestMethodThreadRead, params)
 	if err != nil {
 		t.Fatalf("Request() wrapper error = %v", err)
 	}
@@ -1457,7 +1457,7 @@ func TestHelperProcess(t *testing.T) {
 var retryOnOverloadAttempts = map[string]int{}
 
 func handleInitializeScenario(writer *bufio.Writer, method, id string) {
-	if method == "initialize" {
+	if method == RequestMethodInitialize {
 		writeJSON(writer, Object{"id": id, "result": Object{"userAgent": "codex-test/1.2.3"}})
 		return
 	}
@@ -1469,10 +1469,10 @@ func handleInitializeScenario(writer *bufio.Writer, method, id string) {
 
 func handleProtocolScenario(reader *bufio.Reader, writer *bufio.Writer, method, id string) {
 	switch method {
-	case "thread/start":
+	case RequestMethodThreadStart:
 		writeJSON(writer, Object{"method": "thread/started", "params": Object{"threadId": "thr_protocol"}})
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_protocol"}}})
-	case "model/list":
+	case RequestMethodModelList:
 		writeJSON(writer, Object{"id": "server-approval-1", "method": "item/commandExecution/requestApproval", "params": Object{"command": "echo ok"}})
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -1491,7 +1491,7 @@ func handleProtocolScenario(reader *bufio.Reader, writer *bufio.Writer, method, 
 }
 
 func handleNotificationPassthroughScenario(writer *bufio.Writer, method, id string) {
-	if method == "thread/start" {
+	if method == RequestMethodThreadStart {
 		writeRawJSONLine(writer, `{"method":"custom/event","params":{"details":{"answer":42},"kind":"raw"}}`)
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_notifications"}}})
 		return
@@ -1500,7 +1500,7 @@ func handleNotificationPassthroughScenario(writer *bufio.Writer, method, id stri
 }
 
 func handleRunScenario(writer *bufio.Writer, method, id string) {
-	if method != "turn/start" {
+	if method != RequestMethodTurnStart {
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 		return
 	}
@@ -1512,7 +1512,7 @@ func handleRunScenario(writer *bufio.Writer, method, id string) {
 }
 
 func handleRunFailedScenario(writer *bufio.Writer, method, id string) {
-	if method != "turn/start" {
+	if method != RequestMethodTurnStart {
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 		return
 	}
@@ -1522,9 +1522,9 @@ func handleRunFailedScenario(writer *bufio.Writer, method, id string) {
 
 func handleStreamSteerScenario(writer *bufio.Writer, method, id string) {
 	switch method {
-	case "turn/start":
+	case RequestMethodTurnStart:
 		writeJSON(writer, Object{"id": id, "result": Object{"turn": Object{"id": "turn_stream", "status": "inProgress"}}})
-	case "turn/steer":
+	case RequestMethodTurnSteer:
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 		writeJSON(writer, Object{"method": "item/agentMessage/delta", "params": Object{"threadId": "thr_stream", "turnId": "turn_stream", "delta": "ok"}})
 		writeJSON(writer, Object{"method": "turn/completed", "params": Object{"turn": Object{"id": "turn_stream", "status": "completed"}}})
@@ -1535,20 +1535,20 @@ func handleStreamSteerScenario(writer *bufio.Writer, method, id string) {
 
 func handleStreamThreadLifecycleScenario(writer *bufio.Writer, method, id string) {
 	switch method {
-	case "initialize":
+	case RequestMethodInitialize:
 		writeJSON(writer, Object{"id": id, "result": Object{"userAgent": "codex-test/1.2.3"}})
 	case "initialized":
-	case "thread/start":
+	case RequestMethodThreadStart:
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_start"}}})
-	case "thread/resume":
+	case RequestMethodThreadResume:
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_resume"}}})
-	case "thread/fork":
+	case RequestMethodThreadFork:
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_fork"}}})
-	case "thread/unarchive":
+	case RequestMethodThreadUnarchive:
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_unarchive"}}})
-	case "thread/read":
+	case RequestMethodThreadRead:
 		writeJSON(writer, Object{"id": id, "result": Object{"thread": Object{"id": "thr_stream_start"}}})
-	case "thread/name/set", "thread/compact/start":
+	case RequestMethodThreadNameSet, RequestMethodThreadCompactStart:
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 	default:
 		writeJSON(writer, Object{"id": id, "result": Object{}})
@@ -1556,7 +1556,7 @@ func handleStreamThreadLifecycleScenario(writer *bufio.Writer, method, id string
 }
 
 func handleStreamCancelScenario(writer *bufio.Writer, method, id string) {
-	if method != "turn/start" {
+	if method != RequestMethodTurnStart {
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 		return
 	}
@@ -1587,7 +1587,7 @@ func handleRetryOnOverloadScenario(writer *bufio.Writer, method, id string) {
 
 func handleStreamTextScenario(writer *bufio.Writer, method, id string) {
 	switch method {
-	case "turn/start":
+	case RequestMethodTurnStart:
 		writeJSON(writer, Object{"id": id, "result": Object{"turn": Object{"id": "turn-stream-text", "status": "inProgress"}}})
 		writeJSON(writer, Object{"method": "item/agentMessage/delta", "params": Object{
 			"threadId": "thr_stream_text",
@@ -1624,7 +1624,7 @@ func handleConcurrentRequestsScenario(writer *bufio.Writer, method, id string) {
 }
 
 func handleNotificationOverflowScenario(writer *bufio.Writer, method, id string) {
-	if method != "thread/start" {
+	if method != RequestMethodThreadStart {
 		writeJSON(writer, Object{"id": id, "result": Object{}})
 		return
 	}

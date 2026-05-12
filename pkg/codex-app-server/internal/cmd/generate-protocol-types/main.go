@@ -1358,6 +1358,7 @@ func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *j
 	writeGodoc(out, "", goName, def.Description, fmt.Sprintf("%s is generated from the %s schema definition.", goName, goName))
 	fmt.Fprintf(out, "type %s interface {\n\tis%s()\n}\n\n", goName, goName)
 	g.emitRawUnionWrapper(out, goName)
+	methodConstants := g.emitMethodConstants(out, goName, info)
 
 	for _, variant := range info.variants {
 		switch variant.kind {
@@ -1387,8 +1388,62 @@ func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *j
 			out.WriteByte('\n')
 		}
 	}
-	g.emitUnionDecodeHelper(out, goName, info)
+	g.emitUnionDecodeHelper(out, goName, info, methodConstants)
 	return nil
+}
+
+type methodConstantConfig struct {
+	prefix    string
+	unionName string
+}
+
+func methodConstantConfigForUnion(unionName string) (methodConstantConfig, bool) {
+	switch unionName {
+	case "ClientRequest":
+		return methodConstantConfig{prefix: "RequestMethod", unionName: unionName}, true
+	case "ServerNotification":
+		return methodConstantConfig{prefix: "NotificationMethod", unionName: unionName}, true
+	default:
+		return methodConstantConfig{}, false
+	}
+}
+
+func (g *generator) emitMethodConstants(out *bytes.Buffer, unionName string, info *interfaceUnion) map[string]string {
+	config, ok := methodConstantConfigForUnion(unionName)
+	if !ok {
+		return nil
+	}
+
+	type methodConstant struct {
+		name  string
+		value string
+	}
+
+	used := map[string]int{}
+	constants := make([]methodConstant, 0, len(info.variants))
+	byVariant := make(map[string]string, len(info.variants))
+	for _, variant := range info.variants {
+		if variant.kind != unionVariantObject || variant.matchKey != "method" || variant.matchValue == "" {
+			continue
+		}
+		constName := uniqueName(config.prefix+exportName(variant.matchValue), used)
+		constants = append(constants, methodConstant{
+			name:  constName,
+			value: variant.matchValue,
+		})
+		byVariant[variant.typeName] = constName
+	}
+	if len(constants) == 0 {
+		return nil
+	}
+
+	fmt.Fprintf(out, "const (\n")
+	for _, constant := range constants {
+		fmt.Fprintf(out, "\t// %s is the %q %s method.\n", constant.name, constant.value, config.unionName)
+		fmt.Fprintf(out, "\t%s = %q\n", constant.name, constant.value)
+	}
+	fmt.Fprintf(out, ")\n\n")
+	return byVariant
 }
 
 func (g *generator) emitStringEnumUnionVariant(out *bytes.Buffer, unionName string, variant unionVariant) {
@@ -1404,7 +1459,7 @@ func (g *generator) emitStringEnumUnionVariant(out *bytes.Buffer, unionName stri
 	fmt.Fprintf(out, ")\n\n")
 }
 
-func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, info *interfaceUnion) {
+func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, info *interfaceUnion, methodConstants map[string]string) {
 	fmt.Fprintf(out, "func decodeGenerated%s(raw jsontext.Value) (%s, error) {\n", unionName, unionName)
 	fmt.Fprintf(out, "\tif raw == nil {\n")
 	fmt.Fprintf(out, "\t\treturn nil, nil\n")
@@ -1447,7 +1502,7 @@ func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, i
 		if probeFieldTypes[matchKey] == "string" {
 			fmt.Fprintf(out, "\t\tswitch object.%s {\n", fieldName)
 			for _, variant := range discriminatorVariants[matchKey] {
-				fmt.Fprintf(out, "\t\tcase %q:\n", variant.matchValue)
+				fmt.Fprintf(out, "\t\tcase %s:\n", unionObjectVariantMatchLabel(variant, methodConstants))
 				emitUnionObjectVariantReturn(out, "\t\t\t", variant.typeName)
 			}
 			fmt.Fprintf(out, "\t\t}\n")
@@ -1457,7 +1512,7 @@ func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, i
 			fmt.Fprintf(out, "\t\t\tif err := json.Unmarshal(object.%s, &discriminator); err == nil {\n", fieldName)
 			fmt.Fprintf(out, "\t\t\t\tswitch discriminator {\n")
 			for _, variant := range discriminatorVariants[matchKey] {
-				fmt.Fprintf(out, "\t\t\t\tcase %q:\n", variant.matchValue)
+				fmt.Fprintf(out, "\t\t\t\tcase %s:\n", unionObjectVariantMatchLabel(variant, methodConstants))
 				emitUnionObjectVariantReturn(out, "\t\t\t\t\t", variant.typeName)
 			}
 			fmt.Fprintf(out, "\t\t\t\t}\n")
@@ -1478,6 +1533,15 @@ func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, i
 	fmt.Fprintf(out, "\t}\n")
 	fmt.Fprintf(out, "\treturn Raw%s(raw), nil\n", unionName)
 	fmt.Fprintf(out, "}\n\n")
+}
+
+func unionObjectVariantMatchLabel(variant unionVariant, methodConstants map[string]string) string {
+	if variant.matchKey == "method" && methodConstants != nil {
+		if constantName, ok := methodConstants[variant.typeName]; ok {
+			return constantName
+		}
+	}
+	return strconv.Quote(variant.matchValue)
 }
 
 type unionObjectProbeField struct {
@@ -1605,36 +1669,6 @@ func (g *generator) unionVariantTypeName(unionName string, variant *jsonschema.S
 	}
 	name = exportName(name)
 	return uniqueName(name, used)
-}
-
-func (g *generator) unionObjectVariants(def *jsonschema.Schema) ([]*jsonschema.Schema, []*jsonschema.Schema) {
-	if def == nil {
-		return nil, nil
-	}
-	var rawVariants []*jsonschema.Schema
-	if len(def.AnyOf) > 0 {
-		rawVariants = def.AnyOf
-	} else if len(def.OneOf) > 0 {
-		rawVariants = def.OneOf
-	} else {
-		return nil, nil
-	}
-	if len(rawVariants) == 0 {
-		return nil, nil
-	}
-
-	resolvedVariants := make([]*jsonschema.Schema, 0, len(rawVariants))
-	for _, variant := range rawVariants {
-		if variant == nil {
-			return nil, nil
-		}
-		resolved := g.resolvedSchema(variant)
-		if !objectLikeSchema(resolved) {
-			return nil, nil
-		}
-		resolvedVariants = append(resolvedVariants, resolved)
-	}
-	return rawVariants, resolvedVariants
 }
 
 func (g *generator) interfaceUnionForSchema(unionName string, def *jsonschema.Schema) (*interfaceUnion, bool) {
@@ -1843,24 +1877,6 @@ func (g *generator) isObjectUnion(def *jsonschema.Schema) bool {
 		}
 	}
 	return true
-}
-
-func (g *generator) unionMetadata(variants []*jsonschema.Schema) (string, bool) {
-	for _, variant := range variants {
-		if variant == nil {
-			return "", false
-		}
-		if variant.Title != "" {
-			continue
-		}
-		if variant.Ref != "" {
-			continue
-		}
-		if len(variant.Required) == 0 {
-			return "", false
-		}
-	}
-	return "metadata", true
 }
 
 func (g *generator) unionDiscriminatorProperty(variants []*jsonschema.Schema) (string, bool) {

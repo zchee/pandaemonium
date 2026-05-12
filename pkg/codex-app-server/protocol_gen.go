@@ -435,6 +435,159 @@ func (value *RawClientRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
+const (
+	// RequestMethodInitialize is the "initialize" ClientRequest method.
+	RequestMethodInitialize = "initialize"
+	// RequestMethodThreadStart is the "thread/start" ClientRequest method.
+	RequestMethodThreadStart = "thread/start"
+	// RequestMethodThreadResume is the "thread/resume" ClientRequest method.
+	RequestMethodThreadResume = "thread/resume"
+	// RequestMethodThreadFork is the "thread/fork" ClientRequest method.
+	RequestMethodThreadFork = "thread/fork"
+	// RequestMethodThreadArchive is the "thread/archive" ClientRequest method.
+	RequestMethodThreadArchive = "thread/archive"
+	// RequestMethodThreadUnsubscribe is the "thread/unsubscribe" ClientRequest method.
+	RequestMethodThreadUnsubscribe = "thread/unsubscribe"
+	// RequestMethodThreadNameSet is the "thread/name/set" ClientRequest method.
+	RequestMethodThreadNameSet = "thread/name/set"
+	// RequestMethodThreadMetadataUpdate is the "thread/metadata/update" ClientRequest method.
+	RequestMethodThreadMetadataUpdate = "thread/metadata/update"
+	// RequestMethodThreadUnarchive is the "thread/unarchive" ClientRequest method.
+	RequestMethodThreadUnarchive = "thread/unarchive"
+	// RequestMethodThreadCompactStart is the "thread/compact/start" ClientRequest method.
+	RequestMethodThreadCompactStart = "thread/compact/start"
+	// RequestMethodThreadShellCommand is the "thread/shellCommand" ClientRequest method.
+	RequestMethodThreadShellCommand = "thread/shellCommand"
+	// RequestMethodThreadApproveGuardianDeniedAction is the "thread/approveGuardianDeniedAction" ClientRequest method.
+	RequestMethodThreadApproveGuardianDeniedAction = "thread/approveGuardianDeniedAction"
+	// RequestMethodThreadRollback is the "thread/rollback" ClientRequest method.
+	RequestMethodThreadRollback = "thread/rollback"
+	// RequestMethodThreadList is the "thread/list" ClientRequest method.
+	RequestMethodThreadList = "thread/list"
+	// RequestMethodThreadLoadedList is the "thread/loaded/list" ClientRequest method.
+	RequestMethodThreadLoadedList = "thread/loaded/list"
+	// RequestMethodThreadRead is the "thread/read" ClientRequest method.
+	RequestMethodThreadRead = "thread/read"
+	// RequestMethodThreadInjectItems is the "thread/inject_items" ClientRequest method.
+	RequestMethodThreadInjectItems = "thread/inject_items"
+	// RequestMethodSkillsList is the "skills/list" ClientRequest method.
+	RequestMethodSkillsList = "skills/list"
+	// RequestMethodHooksList is the "hooks/list" ClientRequest method.
+	RequestMethodHooksList = "hooks/list"
+	// RequestMethodMarketplaceAdd is the "marketplace/add" ClientRequest method.
+	RequestMethodMarketplaceAdd = "marketplace/add"
+	// RequestMethodMarketplaceRemove is the "marketplace/remove" ClientRequest method.
+	RequestMethodMarketplaceRemove = "marketplace/remove"
+	// RequestMethodMarketplaceUpgrade is the "marketplace/upgrade" ClientRequest method.
+	RequestMethodMarketplaceUpgrade = "marketplace/upgrade"
+	// RequestMethodPluginList is the "plugin/list" ClientRequest method.
+	RequestMethodPluginList = "plugin/list"
+	// RequestMethodPluginRead is the "plugin/read" ClientRequest method.
+	RequestMethodPluginRead = "plugin/read"
+	// RequestMethodPluginSkillRead is the "plugin/skill/read" ClientRequest method.
+	RequestMethodPluginSkillRead = "plugin/skill/read"
+	// RequestMethodPluginShareSave is the "plugin/share/save" ClientRequest method.
+	RequestMethodPluginShareSave = "plugin/share/save"
+	// RequestMethodPluginShareUpdateTargets is the "plugin/share/updateTargets" ClientRequest method.
+	RequestMethodPluginShareUpdateTargets = "plugin/share/updateTargets"
+	// RequestMethodPluginShareList is the "plugin/share/list" ClientRequest method.
+	RequestMethodPluginShareList = "plugin/share/list"
+	// RequestMethodPluginShareDelete is the "plugin/share/delete" ClientRequest method.
+	RequestMethodPluginShareDelete = "plugin/share/delete"
+	// RequestMethodAppList is the "app/list" ClientRequest method.
+	RequestMethodAppList = "app/list"
+	// RequestMethodFsReadFile is the "fs/readFile" ClientRequest method.
+	RequestMethodFsReadFile = "fs/readFile"
+	// RequestMethodFsWriteFile is the "fs/writeFile" ClientRequest method.
+	RequestMethodFsWriteFile = "fs/writeFile"
+	// RequestMethodFsCreateDirectory is the "fs/createDirectory" ClientRequest method.
+	RequestMethodFsCreateDirectory = "fs/createDirectory"
+	// RequestMethodFsGetMetadata is the "fs/getMetadata" ClientRequest method.
+	RequestMethodFsGetMetadata = "fs/getMetadata"
+	// RequestMethodFsReadDirectory is the "fs/readDirectory" ClientRequest method.
+	RequestMethodFsReadDirectory = "fs/readDirectory"
+	// RequestMethodFsRemove is the "fs/remove" ClientRequest method.
+	RequestMethodFsRemove = "fs/remove"
+	// RequestMethodFsCopy is the "fs/copy" ClientRequest method.
+	RequestMethodFsCopy = "fs/copy"
+	// RequestMethodFsWatch is the "fs/watch" ClientRequest method.
+	RequestMethodFsWatch = "fs/watch"
+	// RequestMethodFsUnwatch is the "fs/unwatch" ClientRequest method.
+	RequestMethodFsUnwatch = "fs/unwatch"
+	// RequestMethodSkillsConfigWrite is the "skills/config/write" ClientRequest method.
+	RequestMethodSkillsConfigWrite = "skills/config/write"
+	// RequestMethodPluginInstall is the "plugin/install" ClientRequest method.
+	RequestMethodPluginInstall = "plugin/install"
+	// RequestMethodPluginUninstall is the "plugin/uninstall" ClientRequest method.
+	RequestMethodPluginUninstall = "plugin/uninstall"
+	// RequestMethodTurnStart is the "turn/start" ClientRequest method.
+	RequestMethodTurnStart = "turn/start"
+	// RequestMethodTurnSteer is the "turn/steer" ClientRequest method.
+	RequestMethodTurnSteer = "turn/steer"
+	// RequestMethodTurnInterrupt is the "turn/interrupt" ClientRequest method.
+	RequestMethodTurnInterrupt = "turn/interrupt"
+	// RequestMethodReviewStart is the "review/start" ClientRequest method.
+	RequestMethodReviewStart = "review/start"
+	// RequestMethodModelList is the "model/list" ClientRequest method.
+	RequestMethodModelList = "model/list"
+	// RequestMethodModelProviderCapabilitiesRead is the "modelProvider/capabilities/read" ClientRequest method.
+	RequestMethodModelProviderCapabilitiesRead = "modelProvider/capabilities/read"
+	// RequestMethodExperimentalFeatureList is the "experimentalFeature/list" ClientRequest method.
+	RequestMethodExperimentalFeatureList = "experimentalFeature/list"
+	// RequestMethodExperimentalFeatureEnablementSet is the "experimentalFeature/enablement/set" ClientRequest method.
+	RequestMethodExperimentalFeatureEnablementSet = "experimentalFeature/enablement/set"
+	// RequestMethodMCPServerOAuthLogin is the "mcpServer/oauth/login" ClientRequest method.
+	RequestMethodMCPServerOAuthLogin = "mcpServer/oauth/login"
+	// RequestMethodConfigMCPServerReload is the "config/mcpServer/reload" ClientRequest method.
+	RequestMethodConfigMCPServerReload = "config/mcpServer/reload"
+	// RequestMethodMCPServerStatusList is the "mcpServerStatus/list" ClientRequest method.
+	RequestMethodMCPServerStatusList = "mcpServerStatus/list"
+	// RequestMethodMCPServerResourceRead is the "mcpServer/resource/read" ClientRequest method.
+	RequestMethodMCPServerResourceRead = "mcpServer/resource/read"
+	// RequestMethodMCPServerToolCall is the "mcpServer/tool/call" ClientRequest method.
+	RequestMethodMCPServerToolCall = "mcpServer/tool/call"
+	// RequestMethodWindowsSandboxSetupStart is the "windowsSandbox/setupStart" ClientRequest method.
+	RequestMethodWindowsSandboxSetupStart = "windowsSandbox/setupStart"
+	// RequestMethodWindowsSandboxReadiness is the "windowsSandbox/readiness" ClientRequest method.
+	RequestMethodWindowsSandboxReadiness = "windowsSandbox/readiness"
+	// RequestMethodAccountLoginStart is the "account/login/start" ClientRequest method.
+	RequestMethodAccountLoginStart = "account/login/start"
+	// RequestMethodAccountLoginCancel is the "account/login/cancel" ClientRequest method.
+	RequestMethodAccountLoginCancel = "account/login/cancel"
+	// RequestMethodAccountLogout is the "account/logout" ClientRequest method.
+	RequestMethodAccountLogout = "account/logout"
+	// RequestMethodAccountRateLimitsRead is the "account/rateLimits/read" ClientRequest method.
+	RequestMethodAccountRateLimitsRead = "account/rateLimits/read"
+	// RequestMethodAccountSendAddCreditsNudgeEmail is the "account/sendAddCreditsNudgeEmail" ClientRequest method.
+	RequestMethodAccountSendAddCreditsNudgeEmail = "account/sendAddCreditsNudgeEmail"
+	// RequestMethodFeedbackUpload is the "feedback/upload" ClientRequest method.
+	RequestMethodFeedbackUpload = "feedback/upload"
+	// RequestMethodCommandExec is the "command/exec" ClientRequest method.
+	RequestMethodCommandExec = "command/exec"
+	// RequestMethodCommandExecWrite is the "command/exec/write" ClientRequest method.
+	RequestMethodCommandExecWrite = "command/exec/write"
+	// RequestMethodCommandExecTerminate is the "command/exec/terminate" ClientRequest method.
+	RequestMethodCommandExecTerminate = "command/exec/terminate"
+	// RequestMethodCommandExecResize is the "command/exec/resize" ClientRequest method.
+	RequestMethodCommandExecResize = "command/exec/resize"
+	// RequestMethodConfigRead is the "config/read" ClientRequest method.
+	RequestMethodConfigRead = "config/read"
+	// RequestMethodExternalAgentConfigDetect is the "externalAgentConfig/detect" ClientRequest method.
+	RequestMethodExternalAgentConfigDetect = "externalAgentConfig/detect"
+	// RequestMethodExternalAgentConfigImport is the "externalAgentConfig/import" ClientRequest method.
+	RequestMethodExternalAgentConfigImport = "externalAgentConfig/import"
+	// RequestMethodConfigValueWrite is the "config/value/write" ClientRequest method.
+	RequestMethodConfigValueWrite = "config/value/write"
+	// RequestMethodConfigBatchWrite is the "config/batchWrite" ClientRequest method.
+	RequestMethodConfigBatchWrite = "config/batchWrite"
+	// RequestMethodConfigRequirementsRead is the "configRequirements/read" ClientRequest method.
+	RequestMethodConfigRequirementsRead = "configRequirements/read"
+	// RequestMethodAccountRead is the "account/read" ClientRequest method.
+	RequestMethodAccountRead = "account/read"
+	// RequestMethodFuzzyFileSearch is the "fuzzyFileSearch" ClientRequest method.
+	RequestMethodFuzzyFileSearch = "fuzzyFileSearch"
+)
+
 func (InitializeRequest) isClientRequest() {}
 
 // InitializeRequest is generated from the InitializeRequest schema definition.
@@ -1142,451 +1295,451 @@ func decodeGeneratedClientRequest(raw jsontext.Value) (ClientRequest, error) {
 	}
 	if err := json.Unmarshal(raw, &object); err == nil {
 		switch object.Method {
-		case "initialize":
+		case RequestMethodInitialize:
 			var value InitializeRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/start":
+		case RequestMethodThreadStart:
 			var value ThreadStartRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/resume":
+		case RequestMethodThreadResume:
 			var value ThreadResumeRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/fork":
+		case RequestMethodThreadFork:
 			var value ThreadForkRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/archive":
+		case RequestMethodThreadArchive:
 			var value ThreadArchiveRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/unsubscribe":
+		case RequestMethodThreadUnsubscribe:
 			var value ThreadUnsubscribeRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/name/set":
+		case RequestMethodThreadNameSet:
 			var value ThreadNameSetRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/metadata/update":
+		case RequestMethodThreadMetadataUpdate:
 			var value ThreadMetadataUpdateRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/unarchive":
+		case RequestMethodThreadUnarchive:
 			var value ThreadUnarchiveRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/compact/start":
+		case RequestMethodThreadCompactStart:
 			var value ThreadCompactStartRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/shellCommand":
+		case RequestMethodThreadShellCommand:
 			var value ThreadShellCommandRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/approveGuardianDeniedAction":
+		case RequestMethodThreadApproveGuardianDeniedAction:
 			var value ThreadApproveGuardianDeniedActionRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/rollback":
+		case RequestMethodThreadRollback:
 			var value ThreadRollbackRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/list":
+		case RequestMethodThreadList:
 			var value ThreadListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/loaded/list":
+		case RequestMethodThreadLoadedList:
 			var value ThreadLoadedListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/read":
+		case RequestMethodThreadRead:
 			var value ThreadReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/inject_items":
+		case RequestMethodThreadInjectItems:
 			var value ThreadInjectItemsRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "skills/list":
+		case RequestMethodSkillsList:
 			var value SkillsListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "hooks/list":
+		case RequestMethodHooksList:
 			var value HooksListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "marketplace/add":
+		case RequestMethodMarketplaceAdd:
 			var value MarketplaceAddRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "marketplace/remove":
+		case RequestMethodMarketplaceRemove:
 			var value MarketplaceRemoveRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "marketplace/upgrade":
+		case RequestMethodMarketplaceUpgrade:
 			var value MarketplaceUpgradeRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/list":
+		case RequestMethodPluginList:
 			var value PluginListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/read":
+		case RequestMethodPluginRead:
 			var value PluginReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/skill/read":
+		case RequestMethodPluginSkillRead:
 			var value PluginSkillReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/share/save":
+		case RequestMethodPluginShareSave:
 			var value PluginShareSaveRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/share/updateTargets":
+		case RequestMethodPluginShareUpdateTargets:
 			var value PluginShareUpdateTargetsRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/share/list":
+		case RequestMethodPluginShareList:
 			var value PluginShareListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/share/delete":
+		case RequestMethodPluginShareDelete:
 			var value PluginShareDeleteRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "app/list":
+		case RequestMethodAppList:
 			var value AppListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/readFile":
+		case RequestMethodFsReadFile:
 			var value FsReadFileRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/writeFile":
+		case RequestMethodFsWriteFile:
 			var value FsWriteFileRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/createDirectory":
+		case RequestMethodFsCreateDirectory:
 			var value FsCreateDirectoryRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/getMetadata":
+		case RequestMethodFsGetMetadata:
 			var value FsGetMetadataRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/readDirectory":
+		case RequestMethodFsReadDirectory:
 			var value FsReadDirectoryRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/remove":
+		case RequestMethodFsRemove:
 			var value FsRemoveRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/copy":
+		case RequestMethodFsCopy:
 			var value FsCopyRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/watch":
+		case RequestMethodFsWatch:
 			var value FsWatchRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/unwatch":
+		case RequestMethodFsUnwatch:
 			var value FsUnwatchRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "skills/config/write":
+		case RequestMethodSkillsConfigWrite:
 			var value SkillsConfigWriteRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/install":
+		case RequestMethodPluginInstall:
 			var value PluginInstallRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "plugin/uninstall":
+		case RequestMethodPluginUninstall:
 			var value PluginUninstallRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/start":
+		case RequestMethodTurnStart:
 			var value TurnStartRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/steer":
+		case RequestMethodTurnSteer:
 			var value TurnSteerRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/interrupt":
+		case RequestMethodTurnInterrupt:
 			var value TurnInterruptRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "review/start":
+		case RequestMethodReviewStart:
 			var value ReviewStartRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "model/list":
+		case RequestMethodModelList:
 			var value ModelListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "modelProvider/capabilities/read":
+		case RequestMethodModelProviderCapabilitiesRead:
 			var value ModelProviderCapabilitiesReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "experimentalFeature/list":
+		case RequestMethodExperimentalFeatureList:
 			var value ExperimentalFeatureListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "experimentalFeature/enablement/set":
+		case RequestMethodExperimentalFeatureEnablementSet:
 			var value ExperimentalFeatureEnablementSetRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "mcpServer/oauth/login":
+		case RequestMethodMCPServerOAuthLogin:
 			var value MCPServerOAuthLoginRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "config/mcpServer/reload":
+		case RequestMethodConfigMCPServerReload:
 			var value ConfigMCPServerReloadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "mcpServerStatus/list":
+		case RequestMethodMCPServerStatusList:
 			var value MCPServerStatusListRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "mcpServer/resource/read":
+		case RequestMethodMCPServerResourceRead:
 			var value MCPServerResourceReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "mcpServer/tool/call":
+		case RequestMethodMCPServerToolCall:
 			var value MCPServerToolCallRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "windowsSandbox/setupStart":
+		case RequestMethodWindowsSandboxSetupStart:
 			var value WindowsSandboxSetupStartRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "windowsSandbox/readiness":
+		case RequestMethodWindowsSandboxReadiness:
 			var value WindowsSandboxReadinessRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/login/start":
+		case RequestMethodAccountLoginStart:
 			var value AccountLoginStartRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/login/cancel":
+		case RequestMethodAccountLoginCancel:
 			var value AccountLoginCancelRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/logout":
+		case RequestMethodAccountLogout:
 			var value AccountLogoutRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/rateLimits/read":
+		case RequestMethodAccountRateLimitsRead:
 			var value AccountRateLimitsReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/sendAddCreditsNudgeEmail":
+		case RequestMethodAccountSendAddCreditsNudgeEmail:
 			var value AccountSendAddCreditsNudgeEmailRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "feedback/upload":
+		case RequestMethodFeedbackUpload:
 			var value FeedbackUploadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "command/exec":
+		case RequestMethodCommandExec:
 			var value CommandExecRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "command/exec/write":
+		case RequestMethodCommandExecWrite:
 			var value CommandExecWriteRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "command/exec/terminate":
+		case RequestMethodCommandExecTerminate:
 			var value CommandExecTerminateRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "command/exec/resize":
+		case RequestMethodCommandExecResize:
 			var value CommandExecResizeRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "config/read":
+		case RequestMethodConfigRead:
 			var value ConfigReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "externalAgentConfig/detect":
+		case RequestMethodExternalAgentConfigDetect:
 			var value ExternalAgentConfigDetectRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "externalAgentConfig/import":
+		case RequestMethodExternalAgentConfigImport:
 			var value ExternalAgentConfigImportRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "config/value/write":
+		case RequestMethodConfigValueWrite:
 			var value ConfigValueWriteRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "config/batchWrite":
+		case RequestMethodConfigBatchWrite:
 			var value ConfigBatchWriteRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "configRequirements/read":
+		case RequestMethodConfigRequirementsRead:
 			var value ConfigRequirementsReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/read":
+		case RequestMethodAccountRead:
 			var value AccountReadRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fuzzyFileSearch":
+		case RequestMethodFuzzyFileSearch:
 			var value FuzzyFileSearchRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
@@ -7238,6 +7391,135 @@ func (value *RawServerNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
+const (
+	// NotificationMethodError is the "error" ServerNotification method.
+	NotificationMethodError = "error"
+	// NotificationMethodThreadStarted is the "thread/started" ServerNotification method.
+	NotificationMethodThreadStarted = "thread/started"
+	// NotificationMethodThreadStatusChanged is the "thread/status/changed" ServerNotification method.
+	NotificationMethodThreadStatusChanged = "thread/status/changed"
+	// NotificationMethodThreadArchived is the "thread/archived" ServerNotification method.
+	NotificationMethodThreadArchived = "thread/archived"
+	// NotificationMethodThreadUnarchived is the "thread/unarchived" ServerNotification method.
+	NotificationMethodThreadUnarchived = "thread/unarchived"
+	// NotificationMethodThreadClosed is the "thread/closed" ServerNotification method.
+	NotificationMethodThreadClosed = "thread/closed"
+	// NotificationMethodSkillsChanged is the "skills/changed" ServerNotification method.
+	NotificationMethodSkillsChanged = "skills/changed"
+	// NotificationMethodThreadNameUpdated is the "thread/name/updated" ServerNotification method.
+	NotificationMethodThreadNameUpdated = "thread/name/updated"
+	// NotificationMethodThreadGoalUpdated is the "thread/goal/updated" ServerNotification method.
+	NotificationMethodThreadGoalUpdated = "thread/goal/updated"
+	// NotificationMethodThreadGoalCleared is the "thread/goal/cleared" ServerNotification method.
+	NotificationMethodThreadGoalCleared = "thread/goal/cleared"
+	// NotificationMethodThreadTokenUsageUpdated is the "thread/tokenUsage/updated" ServerNotification method.
+	NotificationMethodThreadTokenUsageUpdated = "thread/tokenUsage/updated"
+	// NotificationMethodTurnStarted is the "turn/started" ServerNotification method.
+	NotificationMethodTurnStarted = "turn/started"
+	// NotificationMethodHookStarted is the "hook/started" ServerNotification method.
+	NotificationMethodHookStarted = "hook/started"
+	// NotificationMethodTurnCompleted is the "turn/completed" ServerNotification method.
+	NotificationMethodTurnCompleted = "turn/completed"
+	// NotificationMethodHookCompleted is the "hook/completed" ServerNotification method.
+	NotificationMethodHookCompleted = "hook/completed"
+	// NotificationMethodTurnDiffUpdated is the "turn/diff/updated" ServerNotification method.
+	NotificationMethodTurnDiffUpdated = "turn/diff/updated"
+	// NotificationMethodTurnPlanUpdated is the "turn/plan/updated" ServerNotification method.
+	NotificationMethodTurnPlanUpdated = "turn/plan/updated"
+	// NotificationMethodItemStarted is the "item/started" ServerNotification method.
+	NotificationMethodItemStarted = "item/started"
+	// NotificationMethodItemAutoApprovalReviewStarted is the "item/autoApprovalReview/started" ServerNotification method.
+	NotificationMethodItemAutoApprovalReviewStarted = "item/autoApprovalReview/started"
+	// NotificationMethodItemAutoApprovalReviewCompleted is the "item/autoApprovalReview/completed" ServerNotification method.
+	NotificationMethodItemAutoApprovalReviewCompleted = "item/autoApprovalReview/completed"
+	// NotificationMethodItemCompleted is the "item/completed" ServerNotification method.
+	NotificationMethodItemCompleted = "item/completed"
+	// NotificationMethodItemAgentMessageDelta is the "item/agentMessage/delta" ServerNotification method.
+	NotificationMethodItemAgentMessageDelta = "item/agentMessage/delta"
+	// NotificationMethodItemPlanDelta is the "item/plan/delta" ServerNotification method.
+	NotificationMethodItemPlanDelta = "item/plan/delta"
+	// NotificationMethodCommandExecOutputDelta is the "command/exec/outputDelta" ServerNotification method.
+	NotificationMethodCommandExecOutputDelta = "command/exec/outputDelta"
+	// NotificationMethodProcessOutputDelta is the "process/outputDelta" ServerNotification method.
+	NotificationMethodProcessOutputDelta = "process/outputDelta"
+	// NotificationMethodProcessExited is the "process/exited" ServerNotification method.
+	NotificationMethodProcessExited = "process/exited"
+	// NotificationMethodItemCommandExecutionOutputDelta is the "item/commandExecution/outputDelta" ServerNotification method.
+	NotificationMethodItemCommandExecutionOutputDelta = "item/commandExecution/outputDelta"
+	// NotificationMethodItemCommandExecutionTerminalInteraction is the "item/commandExecution/terminalInteraction" ServerNotification method.
+	NotificationMethodItemCommandExecutionTerminalInteraction = "item/commandExecution/terminalInteraction"
+	// NotificationMethodItemFileChangeOutputDelta is the "item/fileChange/outputDelta" ServerNotification method.
+	NotificationMethodItemFileChangeOutputDelta = "item/fileChange/outputDelta"
+	// NotificationMethodItemFileChangePatchUpdated is the "item/fileChange/patchUpdated" ServerNotification method.
+	NotificationMethodItemFileChangePatchUpdated = "item/fileChange/patchUpdated"
+	// NotificationMethodServerRequestResolved is the "serverRequest/resolved" ServerNotification method.
+	NotificationMethodServerRequestResolved = "serverRequest/resolved"
+	// NotificationMethodItemMCPToolCallProgress is the "item/mcpToolCall/progress" ServerNotification method.
+	NotificationMethodItemMCPToolCallProgress = "item/mcpToolCall/progress"
+	// NotificationMethodMCPServerOAuthLoginCompleted is the "mcpServer/oauthLogin/completed" ServerNotification method.
+	NotificationMethodMCPServerOAuthLoginCompleted = "mcpServer/oauthLogin/completed"
+	// NotificationMethodMCPServerStartupStatusUpdated is the "mcpServer/startupStatus/updated" ServerNotification method.
+	NotificationMethodMCPServerStartupStatusUpdated = "mcpServer/startupStatus/updated"
+	// NotificationMethodAccountUpdated is the "account/updated" ServerNotification method.
+	NotificationMethodAccountUpdated = "account/updated"
+	// NotificationMethodAccountRateLimitsUpdated is the "account/rateLimits/updated" ServerNotification method.
+	NotificationMethodAccountRateLimitsUpdated = "account/rateLimits/updated"
+	// NotificationMethodAppListUpdated is the "app/list/updated" ServerNotification method.
+	NotificationMethodAppListUpdated = "app/list/updated"
+	// NotificationMethodRemoteControlStatusChanged is the "remoteControl/status/changed" ServerNotification method.
+	NotificationMethodRemoteControlStatusChanged = "remoteControl/status/changed"
+	// NotificationMethodExternalAgentConfigImportCompleted is the "externalAgentConfig/import/completed" ServerNotification method.
+	NotificationMethodExternalAgentConfigImportCompleted = "externalAgentConfig/import/completed"
+	// NotificationMethodFsChanged is the "fs/changed" ServerNotification method.
+	NotificationMethodFsChanged = "fs/changed"
+	// NotificationMethodItemReasoningSummaryTextDelta is the "item/reasoning/summaryTextDelta" ServerNotification method.
+	NotificationMethodItemReasoningSummaryTextDelta = "item/reasoning/summaryTextDelta"
+	// NotificationMethodItemReasoningSummaryPartAdded is the "item/reasoning/summaryPartAdded" ServerNotification method.
+	NotificationMethodItemReasoningSummaryPartAdded = "item/reasoning/summaryPartAdded"
+	// NotificationMethodItemReasoningTextDelta is the "item/reasoning/textDelta" ServerNotification method.
+	NotificationMethodItemReasoningTextDelta = "item/reasoning/textDelta"
+	// NotificationMethodThreadCompacted is the "thread/compacted" ServerNotification method.
+	NotificationMethodThreadCompacted = "thread/compacted"
+	// NotificationMethodModelRerouted is the "model/rerouted" ServerNotification method.
+	NotificationMethodModelRerouted = "model/rerouted"
+	// NotificationMethodModelVerification is the "model/verification" ServerNotification method.
+	NotificationMethodModelVerification = "model/verification"
+	// NotificationMethodWarning is the "warning" ServerNotification method.
+	NotificationMethodWarning = "warning"
+	// NotificationMethodGuardianWarning is the "guardianWarning" ServerNotification method.
+	NotificationMethodGuardianWarning = "guardianWarning"
+	// NotificationMethodDeprecationNotice is the "deprecationNotice" ServerNotification method.
+	NotificationMethodDeprecationNotice = "deprecationNotice"
+	// NotificationMethodConfigWarning is the "configWarning" ServerNotification method.
+	NotificationMethodConfigWarning = "configWarning"
+	// NotificationMethodFuzzyFileSearchSessionUpdated is the "fuzzyFileSearch/sessionUpdated" ServerNotification method.
+	NotificationMethodFuzzyFileSearchSessionUpdated = "fuzzyFileSearch/sessionUpdated"
+	// NotificationMethodFuzzyFileSearchSessionCompleted is the "fuzzyFileSearch/sessionCompleted" ServerNotification method.
+	NotificationMethodFuzzyFileSearchSessionCompleted = "fuzzyFileSearch/sessionCompleted"
+	// NotificationMethodThreadRealtimeStarted is the "thread/realtime/started" ServerNotification method.
+	NotificationMethodThreadRealtimeStarted = "thread/realtime/started"
+	// NotificationMethodThreadRealtimeItemAdded is the "thread/realtime/itemAdded" ServerNotification method.
+	NotificationMethodThreadRealtimeItemAdded = "thread/realtime/itemAdded"
+	// NotificationMethodThreadRealtimeTranscriptDelta is the "thread/realtime/transcript/delta" ServerNotification method.
+	NotificationMethodThreadRealtimeTranscriptDelta = "thread/realtime/transcript/delta"
+	// NotificationMethodThreadRealtimeTranscriptDone is the "thread/realtime/transcript/done" ServerNotification method.
+	NotificationMethodThreadRealtimeTranscriptDone = "thread/realtime/transcript/done"
+	// NotificationMethodThreadRealtimeOutputAudioDelta is the "thread/realtime/outputAudio/delta" ServerNotification method.
+	NotificationMethodThreadRealtimeOutputAudioDelta = "thread/realtime/outputAudio/delta"
+	// NotificationMethodThreadRealtimeSDP is the "thread/realtime/sdp" ServerNotification method.
+	NotificationMethodThreadRealtimeSDP = "thread/realtime/sdp"
+	// NotificationMethodThreadRealtimeError is the "thread/realtime/error" ServerNotification method.
+	NotificationMethodThreadRealtimeError = "thread/realtime/error"
+	// NotificationMethodThreadRealtimeClosed is the "thread/realtime/closed" ServerNotification method.
+	NotificationMethodThreadRealtimeClosed = "thread/realtime/closed"
+	// NotificationMethodWindowsWorldWritableWarning is the "windows/worldWritableWarning" ServerNotification method.
+	NotificationMethodWindowsWorldWritableWarning = "windows/worldWritableWarning"
+	// NotificationMethodWindowsSandboxSetupCompleted is the "windowsSandbox/setupCompleted" ServerNotification method.
+	NotificationMethodWindowsSandboxSetupCompleted = "windowsSandbox/setupCompleted"
+	// NotificationMethodAccountLoginCompleted is the "account/login/completed" ServerNotification method.
+	NotificationMethodAccountLoginCompleted = "account/login/completed"
+)
+
 func (ErrorNotification) isServerNotification() {}
 
 func (ThreadStartedNotification2) isServerNotification() {}
@@ -7721,379 +8003,379 @@ func decodeGeneratedServerNotification(raw jsontext.Value) (ServerNotification, 
 	}
 	if err := json.Unmarshal(raw, &object); err == nil {
 		switch object.Method {
-		case "error":
+		case NotificationMethodError:
 			var value ErrorNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/started":
+		case NotificationMethodThreadStarted:
 			var value ThreadStartedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/status/changed":
+		case NotificationMethodThreadStatusChanged:
 			var value ThreadStatusChangedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/archived":
+		case NotificationMethodThreadArchived:
 			var value ThreadArchivedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/unarchived":
+		case NotificationMethodThreadUnarchived:
 			var value ThreadUnarchivedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/closed":
+		case NotificationMethodThreadClosed:
 			var value ThreadClosedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "skills/changed":
+		case NotificationMethodSkillsChanged:
 			var value SkillsChangedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/name/updated":
+		case NotificationMethodThreadNameUpdated:
 			var value ThreadNameUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/goal/updated":
+		case NotificationMethodThreadGoalUpdated:
 			var value ThreadGoalUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/goal/cleared":
+		case NotificationMethodThreadGoalCleared:
 			var value ThreadGoalClearedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/tokenUsage/updated":
+		case NotificationMethodThreadTokenUsageUpdated:
 			var value ThreadTokenUsageUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/started":
+		case NotificationMethodTurnStarted:
 			var value TurnStartedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "hook/started":
+		case NotificationMethodHookStarted:
 			var value HookStartedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/completed":
+		case NotificationMethodTurnCompleted:
 			var value TurnCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "hook/completed":
+		case NotificationMethodHookCompleted:
 			var value HookCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/diff/updated":
+		case NotificationMethodTurnDiffUpdated:
 			var value TurnDiffUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "turn/plan/updated":
+		case NotificationMethodTurnPlanUpdated:
 			var value TurnPlanUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/started":
+		case NotificationMethodItemStarted:
 			var value ItemStartedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/autoApprovalReview/started":
+		case NotificationMethodItemAutoApprovalReviewStarted:
 			var value ItemAutoApprovalReviewStartedNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/autoApprovalReview/completed":
+		case NotificationMethodItemAutoApprovalReviewCompleted:
 			var value ItemAutoApprovalReviewCompletedNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/completed":
+		case NotificationMethodItemCompleted:
 			var value ItemCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/agentMessage/delta":
+		case NotificationMethodItemAgentMessageDelta:
 			var value ItemAgentMessageDeltaNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/plan/delta":
+		case NotificationMethodItemPlanDelta:
 			var value ItemPlanDeltaNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "command/exec/outputDelta":
+		case NotificationMethodCommandExecOutputDelta:
 			var value CommandExecOutputDeltaNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "process/outputDelta":
+		case NotificationMethodProcessOutputDelta:
 			var value ProcessOutputDeltaNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "process/exited":
+		case NotificationMethodProcessExited:
 			var value ProcessExitedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/commandExecution/outputDelta":
+		case NotificationMethodItemCommandExecutionOutputDelta:
 			var value ItemCommandExecutionOutputDeltaNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/commandExecution/terminalInteraction":
+		case NotificationMethodItemCommandExecutionTerminalInteraction:
 			var value ItemCommandExecutionTerminalInteractionNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/fileChange/outputDelta":
+		case NotificationMethodItemFileChangeOutputDelta:
 			var value ItemFileChangeOutputDeltaNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/fileChange/patchUpdated":
+		case NotificationMethodItemFileChangePatchUpdated:
 			var value ItemFileChangePatchUpdatedNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "serverRequest/resolved":
+		case NotificationMethodServerRequestResolved:
 			var value ServerRequestResolvedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/mcpToolCall/progress":
+		case NotificationMethodItemMCPToolCallProgress:
 			var value ItemMCPToolCallProgressNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "mcpServer/oauthLogin/completed":
+		case NotificationMethodMCPServerOAuthLoginCompleted:
 			var value MCPServerOAuthLoginCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "mcpServer/startupStatus/updated":
+		case NotificationMethodMCPServerStartupStatusUpdated:
 			var value MCPServerStartupStatusUpdatedNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/updated":
+		case NotificationMethodAccountUpdated:
 			var value AccountUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/rateLimits/updated":
+		case NotificationMethodAccountRateLimitsUpdated:
 			var value AccountRateLimitsUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "app/list/updated":
+		case NotificationMethodAppListUpdated:
 			var value AppListUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "remoteControl/status/changed":
+		case NotificationMethodRemoteControlStatusChanged:
 			var value RemoteControlStatusChangedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "externalAgentConfig/import/completed":
+		case NotificationMethodExternalAgentConfigImportCompleted:
 			var value ExternalAgentConfigImportCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fs/changed":
+		case NotificationMethodFsChanged:
 			var value FsChangedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/reasoning/summaryTextDelta":
+		case NotificationMethodItemReasoningSummaryTextDelta:
 			var value ItemReasoningSummaryTextDeltaNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/reasoning/summaryPartAdded":
+		case NotificationMethodItemReasoningSummaryPartAdded:
 			var value ItemReasoningSummaryPartAddedNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "item/reasoning/textDelta":
+		case NotificationMethodItemReasoningTextDelta:
 			var value ItemReasoningTextDeltaNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/compacted":
+		case NotificationMethodThreadCompacted:
 			var value ThreadCompactedNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "model/rerouted":
+		case NotificationMethodModelRerouted:
 			var value ModelReroutedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "model/verification":
+		case NotificationMethodModelVerification:
 			var value ModelVerificationNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "warning":
+		case NotificationMethodWarning:
 			var value WarningNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "guardianWarning":
+		case NotificationMethodGuardianWarning:
 			var value GuardianWarningNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "deprecationNotice":
+		case NotificationMethodDeprecationNotice:
 			var value DeprecationNoticeNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "configWarning":
+		case NotificationMethodConfigWarning:
 			var value ConfigWarningNotification
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fuzzyFileSearch/sessionUpdated":
+		case NotificationMethodFuzzyFileSearchSessionUpdated:
 			var value FuzzyFileSearchSessionUpdatedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "fuzzyFileSearch/sessionCompleted":
+		case NotificationMethodFuzzyFileSearchSessionCompleted:
 			var value FuzzyFileSearchSessionCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/started":
+		case NotificationMethodThreadRealtimeStarted:
 			var value ThreadRealtimeStartedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/itemAdded":
+		case NotificationMethodThreadRealtimeItemAdded:
 			var value ThreadRealtimeItemAddedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/transcript/delta":
+		case NotificationMethodThreadRealtimeTranscriptDelta:
 			var value ThreadRealtimeTranscriptDeltaNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/transcript/done":
+		case NotificationMethodThreadRealtimeTranscriptDone:
 			var value ThreadRealtimeTranscriptDoneNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/outputAudio/delta":
+		case NotificationMethodThreadRealtimeOutputAudioDelta:
 			var value ThreadRealtimeOutputAudioDeltaNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/sdp":
+		case NotificationMethodThreadRealtimeSDP:
 			var value ThreadRealtimeSDPNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/error":
+		case NotificationMethodThreadRealtimeError:
 			var value ThreadRealtimeErrorNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "thread/realtime/closed":
+		case NotificationMethodThreadRealtimeClosed:
 			var value ThreadRealtimeClosedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "windows/worldWritableWarning":
+		case NotificationMethodWindowsWorldWritableWarning:
 			var value WindowsWorldWritableWarningNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "windowsSandbox/setupCompleted":
+		case NotificationMethodWindowsSandboxSetupCompleted:
 			var value WindowsSandboxSetupCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case "account/login/completed":
+		case NotificationMethodAccountLoginCompleted:
 			var value AccountLoginCompletedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err

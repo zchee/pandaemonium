@@ -142,13 +142,95 @@ func TestGeneratedProtocolTypesDecodeRejectsInvalidDiscriminatorLikePayload(t *t
 	}
 }
 
+func TestGeneratedRequestMethodConstants(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		got  string
+		want string
+	}{
+		"success: initialize": {
+			got:  RequestMethodInitialize,
+			want: "initialize",
+		},
+		"success: slash-delimited thread method": {
+			got:  RequestMethodThreadMetadataUpdate,
+			want: "thread/metadata/update",
+		},
+		"success: camel-case mcp oauth method": {
+			got:  RequestMethodMCPServerOAuthLogin,
+			want: "mcpServer/oauth/login",
+		},
+		"success: alpha9 fuzzy search method": {
+			got:  RequestMethodFuzzyFileSearch,
+			want: "fuzzyFileSearch",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if tt.got != tt.want {
+				t.Fatalf("request method constant = %q, want %q", tt.got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGeneratedNotificationMethodConstants(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		got  string
+		want string
+	}{
+		"success: top-level error method": {
+			got:  NotificationMethodError,
+			want: "error",
+		},
+		"success: item agent message delta method": {
+			got:  NotificationMethodItemAgentMessageDelta,
+			want: "item/agentMessage/delta",
+		},
+		"success: thread token usage updated method": {
+			got:  NotificationMethodThreadTokenUsageUpdated,
+			want: "thread/tokenUsage/updated",
+		},
+		"success: alpha9 fuzzy search completed method": {
+			got:  NotificationMethodFuzzyFileSearchSessionCompleted,
+			want: "fuzzyFileSearch/sessionCompleted",
+		},
+		"success: alpha9 windows sandbox setup completed method": {
+			got:  NotificationMethodWindowsSandboxSetupCompleted,
+			want: "windowsSandbox/setupCompleted",
+		},
+		"success: deprecated agent message alias": {
+			got:  NotificationMethodAgentMessageDelta,
+			want: NotificationMethodItemAgentMessageDelta,
+		},
+		"success: deprecated token usage alias": {
+			got:  NotificationMethodThreadTokenUsageUpdatedLegacy,
+			want: NotificationMethodThreadTokenUsageUpdated,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if tt.got != tt.want {
+				t.Fatalf("notification method constant = %q, want %q", tt.got, tt.want)
+			}
+		})
+	}
+}
+
 func TestGeneratedProtocolClientRequestDecode(t *testing.T) {
 	t.Parallel()
 
 	t.Run("success: known method decodes concrete request", func(t *testing.T) {
 		t.Parallel()
 
-		got, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":"req-1","method":"model/list","params":{"includeHidden":true}}`))
+		got, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":"req-1","method":"` + RequestMethodModelList + `","params":{"includeHidden":true}}`))
 		if err != nil {
 			t.Fatalf("decodeGeneratedClientRequest() error = %v", err)
 		}
@@ -156,7 +238,7 @@ func TestGeneratedProtocolClientRequestDecode(t *testing.T) {
 		if !ok {
 			t.Fatalf("decodeGeneratedClientRequest() = %#v (%T), want ModelListRequest", got, got)
 		}
-		if request.ID != "req-1" || request.Method != "model/list" {
+		if request.ID != "req-1" || request.Method != RequestMethodModelList {
 			t.Fatalf("decoded request identity = (%q, %q), want (req-1, model/list)", request.ID, request.Method)
 		}
 		if request.Params.IncludeHidden == nil || !*request.Params.IncludeHidden {
@@ -179,7 +261,7 @@ func TestGeneratedProtocolClientRequestDecode(t *testing.T) {
 	t.Run("error: malformed known request rejects concrete payload", func(t *testing.T) {
 		t.Parallel()
 
-		if _, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":123,"method":"model/list","params":{}}`)); err == nil {
+		if _, err := decodeGeneratedClientRequest(jsontext.Value(`{"id":123,"method":"` + RequestMethodModelList + `","params":{}}`)); err == nil {
 			t.Fatal("decodeGeneratedClientRequest() error = nil, want malformed known request error")
 		}
 	})
@@ -192,7 +274,7 @@ func BenchmarkGeneratedProtocolClientRequestDecode(b *testing.B) {
 		input jsontext.Value
 	}{
 		"success: known method": {
-			input: jsontext.Value(`{"id":"req-1","method":"model/list","params":{"includeHidden":true}}`),
+			input: jsontext.Value(`{"id":"req-1","method":"` + RequestMethodModelList + `","params":{"includeHidden":true}}`),
 		},
 		"success: unknown method raw fallback": {
 			input: jsontext.Value(`{"id":"req-2","method":"future/method","params":{"x":1}}`),

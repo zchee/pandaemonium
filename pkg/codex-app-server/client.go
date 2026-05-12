@@ -237,7 +237,7 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 			ExperimentalAPI: &experimentalAPI,
 		},
 	}
-	resp, err := c.Request[InitializeResponse](ctx, "initialize", params)
+	resp, err := c.Request[InitializeResponse](ctx, RequestMethodInitialize, params)
 	if err != nil {
 		return InitializeResponse{}, err
 	}
