@@ -21,6 +21,7 @@ import (
 	"testing"
 	"testing/synctest"
 
+	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
 )
 
@@ -127,6 +128,63 @@ func TestNotificationRingRejectsAppendPastCapacity(t *testing.T) {
 	}
 	if ring.len() != notificationQueueCapacity {
 		t.Fatalf("ring len after rejected append = %d, want %d", ring.len(), notificationQueueCapacity)
+	}
+}
+
+func TestNotificationTurnIDExtractsSupportedShapes(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		params jsontext.Value
+		want   string
+	}{
+		"success: top-level camel case": {
+			params: jsontext.Value(`{"threadId":"thread","turnId":"turn-camel"}`),
+			want:   "turn-camel",
+		},
+		"success: top-level snake case": {
+			params: jsontext.Value(`{"threadId":"thread","turn_id":"turn-snake"}`),
+			want:   "turn-snake",
+		},
+		"success: nested turn id": {
+			params: jsontext.Value(`{"threadId":"thread","turn":{"id":"turn-nested","status":"completed"}}`),
+			want:   "turn-nested",
+		},
+		"success: nested explicit turn id wins over nested id": {
+			params: jsontext.Value(`{"threadId":"thread","turn":{"id":"turn-id","turnId":"turn-explicit","status":"completed"}}`),
+			want:   "turn-explicit",
+		},
+		"success: escaped field falls back to full decoder": {
+			params: jsontext.Value(`{"threadId":"thread","turn\u0049d":"turn-\u0031"}`),
+			want:   "turn-1",
+		},
+		"success: no turn id remains global": {
+			params: jsontext.Value(`{"threadId":"thread","phase":"global","payload":[1,2,3]}`),
+			want:   "",
+		},
+		"success: null params remain global": {
+			params: jsontext.Value(`null`),
+			want:   "",
+		},
+		"error: malformed params remain global": {
+			params: jsontext.Value(`{"threadId":"thread","turnId":`),
+			want:   "",
+		},
+		"error: non-string turn id remains global": {
+			params: jsontext.Value(`{"threadId":"thread","turnId":42}`),
+			want:   "",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := notificationTurnID(Notification{Method: NotificationMethodItemCompleted, Params: tt.params})
+			if got != tt.want {
+				t.Fatalf("notificationTurnID() = %q, want %q", got, tt.want)
+			}
+		})
 	}
 }
 

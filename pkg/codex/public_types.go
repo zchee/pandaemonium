@@ -21,9 +21,6 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 )
 
-// Indice preserves the Python root-model name for fuzzy-search indices.
-type Indice = int32
-
 // AskForApprovalValue is a Python-parity enum arm for AskForApproval.
 type AskForApprovalValue string
 
