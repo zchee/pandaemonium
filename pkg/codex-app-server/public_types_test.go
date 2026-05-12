@@ -80,15 +80,15 @@ func TestPublicGeneratedInterfaceUnionParityTypes(t *testing.T) {
 		name string
 		typ  reflect.Type
 	}{
-		{name: "CodexErrorInfoValue", typ: reflect.TypeOf(CodexErrorInfoValueOther)},
-		{name: "ActiveTurnNotSteerableCodexErrorInfo", typ: reflect.TypeOf(ActiveTurnNotSteerableCodexErrorInfo{})},
-		{name: "ReasoningSummaryValue", typ: reflect.TypeOf(ReasoningSummaryValueNone)},
-		{name: "SessionSourceValue", typ: reflect.TypeOf(SessionSourceValueCli)},
-		{name: "CustomSessionSource", typ: reflect.TypeOf(CustomSessionSource{})},
-		{name: "SubAgentSessionSource", typ: reflect.TypeOf(SubAgentSessionSource{})},
-		{name: "SubAgentSourceValue", typ: reflect.TypeOf(SubAgentSourceValueReview)},
-		{name: "ThreadSpawnSubAgentSource", typ: reflect.TypeOf(ThreadSpawnSubAgentSource{})},
-		{name: "OtherSubAgentSource", typ: reflect.TypeOf(OtherSubAgentSource{})},
+		{name: "CodexErrorInfoValue", typ: reflect.TypeFor[CodexErrorInfoValue]()},
+		{name: "ActiveTurnNotSteerableCodexErrorInfo", typ: reflect.TypeFor[ActiveTurnNotSteerableCodexErrorInfo]()},
+		{name: "ReasoningSummaryValue", typ: reflect.TypeFor[ReasoningSummaryValue]()},
+		{name: "SessionSourceValue", typ: reflect.TypeFor[SessionSourceValue]()},
+		{name: "CustomSessionSource", typ: reflect.TypeFor[CustomSessionSource]()},
+		{name: "SubAgentSessionSource", typ: reflect.TypeFor[SubAgentSessionSource]()},
+		{name: "SubAgentSourceValue", typ: reflect.TypeFor[SubAgentSourceValue]()},
+		{name: "ThreadSpawnSubAgentSource", typ: reflect.TypeFor[ThreadSpawnSubAgentSource]()},
+		{name: "OtherSubAgentSource", typ: reflect.TypeFor[OtherSubAgentSource]()},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
