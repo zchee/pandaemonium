@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package codexappserver provides a Go SDK for the Codex app-server JSON-RPC v2 protocol.
+// Package codex provides a Go SDK for the Codex app-server JSON-RPC v2 protocol.
 //
 // The package mirrors the practical surface of the upstream Python SDK: it can
 // launch `codex app-server --listen stdio://`, initialize the protocol, manage
