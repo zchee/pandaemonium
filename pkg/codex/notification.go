@@ -365,72 +365,646 @@ func DecodeKnownNotification(notification Notification) (KnownNotification, bool
 	return DecodeNotification(notification)
 }
 
-// DecodeAgentMessageDeltaNotification decodes an item/agentMessage/delta notification.
-func DecodeAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
-	return notification.As[AgentMessageDeltaNotification](NotificationMethodItemAgentMessageDelta)
+// DecodeAccountLoginCompletedNotification decodes the account/login/completed notification.
+func DecodeAccountLoginCompletedNotification(notification Notification) (AccountLoginCompletedNotification, bool, error) {
+	return notification.As[AccountLoginCompletedNotification](NotificationMethodAccountLoginCompleted)
 }
 
-// DecodeErrorNotification decodes an error notification.
+// DecodeAccountRateLimitsUpdatedNotification decodes the account/rateLimits/updated notification.
+func DecodeAccountRateLimitsUpdatedNotification(notification Notification) (AccountRateLimitsUpdatedNotification, bool, error) {
+	return notification.As[AccountRateLimitsUpdatedNotification](NotificationMethodAccountRateLimitsUpdated)
+}
+
+// DecodeAccountUpdatedNotification decodes the account/updated notification.
+func DecodeAccountUpdatedNotification(notification Notification) (AccountUpdatedNotification, bool, error) {
+	return notification.As[AccountUpdatedNotification](NotificationMethodAccountUpdated)
+}
+
+// DecodeAppListUpdatedNotification decodes the app/list/updated notification.
+func DecodeAppListUpdatedNotification(notification Notification) (AppListUpdatedNotification, bool, error) {
+	return notification.As[AppListUpdatedNotification](NotificationMethodAppListUpdated)
+}
+
+// DecodeCommandExecOutputDeltaNotification decodes the command/exec/outputDelta notification.
+func DecodeCommandExecOutputDeltaNotification(notification Notification) (CommandExecOutputDeltaNotification, bool, error) {
+	return notification.As[CommandExecOutputDeltaNotification](NotificationMethodCommandExecOutputDelta)
+}
+
+// DecodeConfigWarningNotification decodes the configWarning notification.
+func DecodeConfigWarningNotification(notification Notification) (ConfigWarningNotification, bool, error) {
+	return notification.As[ConfigWarningNotification](NotificationMethodConfigWarning)
+}
+
+// DecodeDeprecationNoticeNotification decodes the deprecationNotice notification.
+func DecodeDeprecationNoticeNotification(notification Notification) (DeprecationNoticeNotification, bool, error) {
+	return notification.As[DeprecationNoticeNotification](NotificationMethodDeprecationNotice)
+}
+
+// DecodeErrorNotification decodes the error notification.
 func DecodeErrorNotification(notification Notification) (ErrorNotification, bool, error) {
 	return notification.As[ErrorNotification](NotificationMethodError)
 }
 
-// DecodeItemCompletedNotification decodes an item/completed notification.
+// DecodeExternalAgentConfigImportCompletedNotification decodes the externalAgentConfig/import/completed notification.
+func DecodeExternalAgentConfigImportCompletedNotification(notification Notification) (ExternalAgentConfigImportCompletedNotification, bool, error) {
+	return notification.As[ExternalAgentConfigImportCompletedNotification](NotificationMethodExternalAgentConfigImportCompleted)
+}
+
+// DecodeFsChangedNotification decodes the fs/changed notification.
+func DecodeFsChangedNotification(notification Notification) (FsChangedNotification, bool, error) {
+	return notification.As[FsChangedNotification](NotificationMethodFsChanged)
+}
+
+// DecodeFuzzyFileSearchSessionCompletedNotification decodes the fuzzyFileSearch/sessionCompleted notification.
+func DecodeFuzzyFileSearchSessionCompletedNotification(notification Notification) (FuzzyFileSearchSessionCompletedNotification, bool, error) {
+	return notification.As[FuzzyFileSearchSessionCompletedNotification](NotificationMethodFuzzyFileSearchSessionCompleted)
+}
+
+// DecodeFuzzyFileSearchSessionUpdatedNotification decodes the fuzzyFileSearch/sessionUpdated notification.
+func DecodeFuzzyFileSearchSessionUpdatedNotification(notification Notification) (FuzzyFileSearchSessionUpdatedNotification, bool, error) {
+	return notification.As[FuzzyFileSearchSessionUpdatedNotification](NotificationMethodFuzzyFileSearchSessionUpdated)
+}
+
+// DecodeGuardianWarningNotification decodes the guardianWarning notification.
+func DecodeGuardianWarningNotification(notification Notification) (GuardianWarningNotification, bool, error) {
+	return notification.As[GuardianWarningNotification](NotificationMethodGuardianWarning)
+}
+
+// DecodeHookCompletedNotification decodes the hook/completed notification.
+func DecodeHookCompletedNotification(notification Notification) (HookCompletedNotification, bool, error) {
+	return notification.As[HookCompletedNotification](NotificationMethodHookCompleted)
+}
+
+// DecodeHookStartedNotification decodes the hook/started notification.
+func DecodeHookStartedNotification(notification Notification) (HookStartedNotification, bool, error) {
+	return notification.As[HookStartedNotification](NotificationMethodHookStarted)
+}
+
+// DecodeItemAgentMessageDeltaNotification decodes the item/agentMessage/delta notification.
+func DecodeItemAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
+	return notification.As[AgentMessageDeltaNotification](NotificationMethodItemAgentMessageDelta)
+}
+
+// DecodeItemAutoApprovalReviewCompletedNotification decodes the item/autoApprovalReview/completed notification.
+func DecodeItemAutoApprovalReviewCompletedNotification(notification Notification) (ItemGuardianApprovalReviewCompletedNotification, bool, error) {
+	return notification.As[ItemGuardianApprovalReviewCompletedNotification](NotificationMethodItemAutoApprovalReviewCompleted)
+}
+
+// DecodeItemAutoApprovalReviewStartedNotification decodes the item/autoApprovalReview/started notification.
+func DecodeItemAutoApprovalReviewStartedNotification(notification Notification) (ItemGuardianApprovalReviewStartedNotification, bool, error) {
+	return notification.As[ItemGuardianApprovalReviewStartedNotification](NotificationMethodItemAutoApprovalReviewStarted)
+}
+
+// DecodeItemCommandExecutionOutputDeltaNotification decodes the item/commandExecution/outputDelta notification.
+func DecodeItemCommandExecutionOutputDeltaNotification(notification Notification) (ItemCommandExecutionOutputDeltaNotification, bool, error) {
+	return notification.As[ItemCommandExecutionOutputDeltaNotification](NotificationMethodItemCommandExecutionOutputDelta)
+}
+
+// DecodeItemCommandExecutionTerminalInteractionNotification decodes the item/commandExecution/terminalInteraction notification.
+func DecodeItemCommandExecutionTerminalInteractionNotification(notification Notification) (ItemCommandExecutionTerminalInteractionNotification, bool, error) {
+	return notification.As[ItemCommandExecutionTerminalInteractionNotification](NotificationMethodItemCommandExecutionTerminalInteraction)
+}
+
+// DecodeItemCompletedNotification decodes the item/completed notification.
 func DecodeItemCompletedNotification(notification Notification) (ItemCompletedNotification, bool, error) {
 	return notification.As[ItemCompletedNotification](NotificationMethodItemCompleted)
 }
 
-// DecodeProcessExitedNotification decodes a process/exited notification.
+// DecodeItemFileChangeOutputDeltaNotification decodes the item/fileChange/outputDelta notification.
+func DecodeItemFileChangeOutputDeltaNotification(notification Notification) (ItemFileChangeOutputDeltaNotification, bool, error) {
+	return notification.As[ItemFileChangeOutputDeltaNotification](NotificationMethodItemFileChangeOutputDelta)
+}
+
+// DecodeItemFileChangePatchUpdatedNotification decodes the item/fileChange/patchUpdated notification.
+func DecodeItemFileChangePatchUpdatedNotification(notification Notification) (ItemFileChangePatchUpdatedNotification, bool, error) {
+	return notification.As[ItemFileChangePatchUpdatedNotification](NotificationMethodItemFileChangePatchUpdated)
+}
+
+// DecodeItemMCPToolCallProgressNotification decodes the item/mcpToolCall/progress notification.
+func DecodeItemMCPToolCallProgressNotification(notification Notification) (MCPToolCallProgressNotification, bool, error) {
+	return notification.As[MCPToolCallProgressNotification](NotificationMethodItemMCPToolCallProgress)
+}
+
+// DecodeItemPlanDeltaNotification decodes the item/plan/delta notification.
+func DecodeItemPlanDeltaNotification(notification Notification) (PlanDeltaNotification, bool, error) {
+	return notification.As[PlanDeltaNotification](NotificationMethodItemPlanDelta)
+}
+
+// DecodeItemReasoningSummaryPartAddedNotification decodes the item/reasoning/summaryPartAdded notification.
+func DecodeItemReasoningSummaryPartAddedNotification(notification Notification) (ReasoningSummaryPartAddedNotification, bool, error) {
+	return notification.As[ReasoningSummaryPartAddedNotification](NotificationMethodItemReasoningSummaryPartAdded)
+}
+
+// DecodeItemReasoningSummaryTextDeltaNotification decodes the item/reasoning/summaryTextDelta notification.
+func DecodeItemReasoningSummaryTextDeltaNotification(notification Notification) (ReasoningSummaryTextDeltaNotification, bool, error) {
+	return notification.As[ReasoningSummaryTextDeltaNotification](NotificationMethodItemReasoningSummaryTextDelta)
+}
+
+// DecodeItemReasoningTextDeltaNotification decodes the item/reasoning/textDelta notification.
+func DecodeItemReasoningTextDeltaNotification(notification Notification) (ReasoningTextDeltaNotification, bool, error) {
+	return notification.As[ReasoningTextDeltaNotification](NotificationMethodItemReasoningTextDelta)
+}
+
+// DecodeItemStartedNotification decodes the item/started notification.
+func DecodeItemStartedNotification(notification Notification) (ItemStartedNotification, bool, error) {
+	return notification.As[ItemStartedNotification](NotificationMethodItemStarted)
+}
+
+// DecodeMCPServerOAuthLoginCompletedNotification decodes the mcpServer/oauthLogin/completed notification.
+func DecodeMCPServerOAuthLoginCompletedNotification(notification Notification) (MCPServerOAuthLoginCompletedNotification, bool, error) {
+	return notification.As[MCPServerOAuthLoginCompletedNotification](NotificationMethodMCPServerOAuthLoginCompleted)
+}
+
+// DecodeMCPServerStartupStatusUpdatedNotification decodes the mcpServer/startupStatus/updated notification.
+func DecodeMCPServerStartupStatusUpdatedNotification(notification Notification) (MCPServerStartupStatusUpdatedNotification, bool, error) {
+	return notification.As[MCPServerStartupStatusUpdatedNotification](NotificationMethodMCPServerStartupStatusUpdated)
+}
+
+// DecodeModelReroutedNotification decodes the model/rerouted notification.
+func DecodeModelReroutedNotification(notification Notification) (ModelReroutedNotification, bool, error) {
+	return notification.As[ModelReroutedNotification](NotificationMethodModelRerouted)
+}
+
+// DecodeModelVerificationNotification decodes the model/verification notification.
+func DecodeModelVerificationNotification(notification Notification) (ModelVerificationNotification, bool, error) {
+	return notification.As[ModelVerificationNotification](NotificationMethodModelVerification)
+}
+
+// DecodeProcessExitedNotification decodes the process/exited notification.
 func DecodeProcessExitedNotification(notification Notification) (ProcessExitedNotification, bool, error) {
 	return notification.As[ProcessExitedNotification](NotificationMethodProcessExited)
 }
 
-// DecodeProcessOutputDeltaNotification decodes a process/outputDelta notification.
+// DecodeProcessOutputDeltaNotification decodes the process/outputDelta notification.
 func DecodeProcessOutputDeltaNotification(notification Notification) (ProcessOutputDeltaNotification, bool, error) {
 	return notification.As[ProcessOutputDeltaNotification](NotificationMethodProcessOutputDelta)
 }
 
-// DecodeThreadTokenUsageUpdatedNotification decodes a thread/tokenUsage/updated notification.
+// DecodeRemoteControlStatusChangedNotification decodes the remoteControl/status/changed notification.
+func DecodeRemoteControlStatusChangedNotification(notification Notification) (RemoteControlStatusChangedNotification, bool, error) {
+	return notification.As[RemoteControlStatusChangedNotification](NotificationMethodRemoteControlStatusChanged)
+}
+
+// DecodeServerRequestResolvedNotification decodes the serverRequest/resolved notification.
+func DecodeServerRequestResolvedNotification(notification Notification) (ServerRequestResolvedNotification, bool, error) {
+	return notification.As[ServerRequestResolvedNotification](NotificationMethodServerRequestResolved)
+}
+
+// DecodeSkillsChangedNotification decodes the skills/changed notification.
+func DecodeSkillsChangedNotification(notification Notification) (SkillsChangedNotification, bool, error) {
+	return notification.As[SkillsChangedNotification](NotificationMethodSkillsChanged)
+}
+
+// DecodeThreadArchivedNotification decodes the thread/archived notification.
+func DecodeThreadArchivedNotification(notification Notification) (ThreadArchivedNotification, bool, error) {
+	return notification.As[ThreadArchivedNotification](NotificationMethodThreadArchived)
+}
+
+// DecodeThreadClosedNotification decodes the thread/closed notification.
+func DecodeThreadClosedNotification(notification Notification) (ThreadClosedNotification, bool, error) {
+	return notification.As[ThreadClosedNotification](NotificationMethodThreadClosed)
+}
+
+// DecodeThreadCompactedNotification decodes the thread/compacted notification.
+func DecodeThreadCompactedNotification(notification Notification) (ContextCompactedNotification, bool, error) {
+	return notification.As[ContextCompactedNotification](NotificationMethodThreadCompacted)
+}
+
+// DecodeThreadGoalClearedNotification decodes the thread/goal/cleared notification.
+func DecodeThreadGoalClearedNotification(notification Notification) (ThreadGoalClearedNotification, bool, error) {
+	return notification.As[ThreadGoalClearedNotification](NotificationMethodThreadGoalCleared)
+}
+
+// DecodeThreadGoalUpdatedNotification decodes the thread/goal/updated notification.
+func DecodeThreadGoalUpdatedNotification(notification Notification) (ThreadGoalUpdatedNotification, bool, error) {
+	return notification.As[ThreadGoalUpdatedNotification](NotificationMethodThreadGoalUpdated)
+}
+
+// DecodeThreadNameUpdatedNotification decodes the thread/name/updated notification.
+func DecodeThreadNameUpdatedNotification(notification Notification) (ThreadNameUpdatedNotification, bool, error) {
+	return notification.As[ThreadNameUpdatedNotification](NotificationMethodThreadNameUpdated)
+}
+
+// DecodeThreadRealtimeClosedNotification decodes the thread/realtime/closed notification.
+func DecodeThreadRealtimeClosedNotification(notification Notification) (ThreadRealtimeClosedNotification, bool, error) {
+	return notification.As[ThreadRealtimeClosedNotification](NotificationMethodThreadRealtimeClosed)
+}
+
+// DecodeThreadRealtimeErrorNotification decodes the thread/realtime/error notification.
+func DecodeThreadRealtimeErrorNotification(notification Notification) (ThreadRealtimeErrorNotification, bool, error) {
+	return notification.As[ThreadRealtimeErrorNotification](NotificationMethodThreadRealtimeError)
+}
+
+// DecodeThreadRealtimeItemAddedNotification decodes the thread/realtime/itemAdded notification.
+func DecodeThreadRealtimeItemAddedNotification(notification Notification) (ThreadRealtimeItemAddedNotification, bool, error) {
+	return notification.As[ThreadRealtimeItemAddedNotification](NotificationMethodThreadRealtimeItemAdded)
+}
+
+// DecodeThreadRealtimeOutputAudioDeltaNotification decodes the thread/realtime/outputAudio/delta notification.
+func DecodeThreadRealtimeOutputAudioDeltaNotification(notification Notification) (ThreadRealtimeOutputAudioDeltaNotification, bool, error) {
+	return notification.As[ThreadRealtimeOutputAudioDeltaNotification](NotificationMethodThreadRealtimeOutputAudioDelta)
+}
+
+// DecodeThreadRealtimeSDPNotification decodes the thread/realtime/sdp notification.
+func DecodeThreadRealtimeSDPNotification(notification Notification) (ThreadRealtimeSDPNotification, bool, error) {
+	return notification.As[ThreadRealtimeSDPNotification](NotificationMethodThreadRealtimeSDP)
+}
+
+// DecodeThreadRealtimeStartedNotification decodes the thread/realtime/started notification.
+func DecodeThreadRealtimeStartedNotification(notification Notification) (ThreadRealtimeStartedNotification, bool, error) {
+	return notification.As[ThreadRealtimeStartedNotification](NotificationMethodThreadRealtimeStarted)
+}
+
+// DecodeThreadRealtimeTranscriptDeltaNotification decodes the thread/realtime/transcript/delta notification.
+func DecodeThreadRealtimeTranscriptDeltaNotification(notification Notification) (ThreadRealtimeTranscriptDeltaNotification, bool, error) {
+	return notification.As[ThreadRealtimeTranscriptDeltaNotification](NotificationMethodThreadRealtimeTranscriptDelta)
+}
+
+// DecodeThreadRealtimeTranscriptDoneNotification decodes the thread/realtime/transcript/done notification.
+func DecodeThreadRealtimeTranscriptDoneNotification(notification Notification) (ThreadRealtimeTranscriptDoneNotification, bool, error) {
+	return notification.As[ThreadRealtimeTranscriptDoneNotification](NotificationMethodThreadRealtimeTranscriptDone)
+}
+
+// DecodeThreadStartedNotification decodes the thread/started notification.
+func DecodeThreadStartedNotification(notification Notification) (ThreadStartedNotification, bool, error) {
+	return notification.As[ThreadStartedNotification](NotificationMethodThreadStarted)
+}
+
+// DecodeThreadStatusChangedNotification decodes the thread/status/changed notification.
+func DecodeThreadStatusChangedNotification(notification Notification) (ThreadStatusChangedNotification, bool, error) {
+	return notification.As[ThreadStatusChangedNotification](NotificationMethodThreadStatusChanged)
+}
+
+// DecodeThreadTokenUsageUpdatedNotification decodes the thread/tokenUsage/updated notification.
 func DecodeThreadTokenUsageUpdatedNotification(notification Notification) (ThreadTokenUsageUpdatedNotification, bool, error) {
 	return notification.As[ThreadTokenUsageUpdatedNotification](NotificationMethodThreadTokenUsageUpdated)
 }
 
-// DecodeTurnCompletedNotification decodes a turn/completed notification.
+// DecodeThreadUnarchivedNotification decodes the thread/unarchived notification.
+func DecodeThreadUnarchivedNotification(notification Notification) (ThreadUnarchivedNotification, bool, error) {
+	return notification.As[ThreadUnarchivedNotification](NotificationMethodThreadUnarchived)
+}
+
+// DecodeTurnCompletedNotification decodes the turn/completed notification.
 func DecodeTurnCompletedNotification(notification Notification) (TurnCompletedNotification, bool, error) {
 	return notification.As[TurnCompletedNotification](NotificationMethodTurnCompleted)
 }
 
-// AgentMessageDelta decodes an item/agentMessage/delta notification.
-func (notification Notification) AgentMessageDelta() (AgentMessageDeltaNotification, bool, error) {
-	return DecodeAgentMessageDeltaNotification(notification)
+// DecodeTurnDiffUpdatedNotification decodes the turn/diff/updated notification.
+func DecodeTurnDiffUpdatedNotification(notification Notification) (TurnDiffUpdatedNotification, bool, error) {
+	return notification.As[TurnDiffUpdatedNotification](NotificationMethodTurnDiffUpdated)
 }
 
-// ErrorNotification decodes an error notification.
+// DecodeTurnPlanUpdatedNotification decodes the turn/plan/updated notification.
+func DecodeTurnPlanUpdatedNotification(notification Notification) (TurnPlanUpdatedNotification, bool, error) {
+	return notification.As[TurnPlanUpdatedNotification](NotificationMethodTurnPlanUpdated)
+}
+
+// DecodeTurnStartedNotification decodes the turn/started notification.
+func DecodeTurnStartedNotification(notification Notification) (TurnStartedNotification, bool, error) {
+	return notification.As[TurnStartedNotification](NotificationMethodTurnStarted)
+}
+
+// DecodeWarningNotification decodes the warning notification.
+func DecodeWarningNotification(notification Notification) (WarningNotification, bool, error) {
+	return notification.As[WarningNotification](NotificationMethodWarning)
+}
+
+// DecodeWindowsWorldWritableWarningNotification decodes the windows/worldWritableWarning notification.
+func DecodeWindowsWorldWritableWarningNotification(notification Notification) (WindowsWorldWritableWarningNotification, bool, error) {
+	return notification.As[WindowsWorldWritableWarningNotification](NotificationMethodWindowsWorldWritableWarning)
+}
+
+// DecodeWindowsSandboxSetupCompletedNotification decodes the windowsSandbox/setupCompleted notification.
+func DecodeWindowsSandboxSetupCompletedNotification(notification Notification) (WindowsSandboxSetupCompletedNotification, bool, error) {
+	return notification.As[WindowsSandboxSetupCompletedNotification](NotificationMethodWindowsSandboxSetupCompleted)
+}
+
+// DecodeAgentMessageDeltaNotification decodes the item/agentMessage/delta notification.
+//
+// Deprecated: use DecodeItemAgentMessageDeltaNotification.
+func DecodeAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
+	return DecodeItemAgentMessageDeltaNotification(notification)
+}
+
+// AccountLoginCompleted decodes the account/login/completed notification.
+func (notification Notification) AccountLoginCompleted() (AccountLoginCompletedNotification, bool, error) {
+	return DecodeAccountLoginCompletedNotification(notification)
+}
+
+// AccountRateLimitsUpdated decodes the account/rateLimits/updated notification.
+func (notification Notification) AccountRateLimitsUpdated() (AccountRateLimitsUpdatedNotification, bool, error) {
+	return DecodeAccountRateLimitsUpdatedNotification(notification)
+}
+
+// AccountUpdated decodes the account/updated notification.
+func (notification Notification) AccountUpdated() (AccountUpdatedNotification, bool, error) {
+	return DecodeAccountUpdatedNotification(notification)
+}
+
+// AppListUpdated decodes the app/list/updated notification.
+func (notification Notification) AppListUpdated() (AppListUpdatedNotification, bool, error) {
+	return DecodeAppListUpdatedNotification(notification)
+}
+
+// CommandExecOutputDelta decodes the command/exec/outputDelta notification.
+func (notification Notification) CommandExecOutputDelta() (CommandExecOutputDeltaNotification, bool, error) {
+	return DecodeCommandExecOutputDeltaNotification(notification)
+}
+
+// ConfigWarning decodes the configWarning notification.
+func (notification Notification) ConfigWarning() (ConfigWarningNotification, bool, error) {
+	return DecodeConfigWarningNotification(notification)
+}
+
+// DeprecationNotice decodes the deprecationNotice notification.
+func (notification Notification) DeprecationNotice() (DeprecationNoticeNotification, bool, error) {
+	return DecodeDeprecationNoticeNotification(notification)
+}
+
+// ErrorNotification decodes the error notification.
 func (notification Notification) ErrorNotification() (ErrorNotification, bool, error) {
 	return DecodeErrorNotification(notification)
 }
 
-// ItemCompleted decodes an item/completed notification.
+// ExternalAgentConfigImportCompleted decodes the externalAgentConfig/import/completed notification.
+func (notification Notification) ExternalAgentConfigImportCompleted() (ExternalAgentConfigImportCompletedNotification, bool, error) {
+	return DecodeExternalAgentConfigImportCompletedNotification(notification)
+}
+
+// FsChanged decodes the fs/changed notification.
+func (notification Notification) FsChanged() (FsChangedNotification, bool, error) {
+	return DecodeFsChangedNotification(notification)
+}
+
+// FuzzyFileSearchSessionCompleted decodes the fuzzyFileSearch/sessionCompleted notification.
+func (notification Notification) FuzzyFileSearchSessionCompleted() (FuzzyFileSearchSessionCompletedNotification, bool, error) {
+	return DecodeFuzzyFileSearchSessionCompletedNotification(notification)
+}
+
+// FuzzyFileSearchSessionUpdated decodes the fuzzyFileSearch/sessionUpdated notification.
+func (notification Notification) FuzzyFileSearchSessionUpdated() (FuzzyFileSearchSessionUpdatedNotification, bool, error) {
+	return DecodeFuzzyFileSearchSessionUpdatedNotification(notification)
+}
+
+// GuardianWarning decodes the guardianWarning notification.
+func (notification Notification) GuardianWarning() (GuardianWarningNotification, bool, error) {
+	return DecodeGuardianWarningNotification(notification)
+}
+
+// HookCompleted decodes the hook/completed notification.
+func (notification Notification) HookCompleted() (HookCompletedNotification, bool, error) {
+	return DecodeHookCompletedNotification(notification)
+}
+
+// HookStarted decodes the hook/started notification.
+func (notification Notification) HookStarted() (HookStartedNotification, bool, error) {
+	return DecodeHookStartedNotification(notification)
+}
+
+// ItemAgentMessageDelta decodes the item/agentMessage/delta notification.
+func (notification Notification) ItemAgentMessageDelta() (AgentMessageDeltaNotification, bool, error) {
+	return DecodeItemAgentMessageDeltaNotification(notification)
+}
+
+// ItemAutoApprovalReviewCompleted decodes the item/autoApprovalReview/completed notification.
+func (notification Notification) ItemAutoApprovalReviewCompleted() (ItemGuardianApprovalReviewCompletedNotification, bool, error) {
+	return DecodeItemAutoApprovalReviewCompletedNotification(notification)
+}
+
+// ItemAutoApprovalReviewStarted decodes the item/autoApprovalReview/started notification.
+func (notification Notification) ItemAutoApprovalReviewStarted() (ItemGuardianApprovalReviewStartedNotification, bool, error) {
+	return DecodeItemAutoApprovalReviewStartedNotification(notification)
+}
+
+// ItemCommandExecutionOutputDelta decodes the item/commandExecution/outputDelta notification.
+func (notification Notification) ItemCommandExecutionOutputDelta() (ItemCommandExecutionOutputDeltaNotification, bool, error) {
+	return DecodeItemCommandExecutionOutputDeltaNotification(notification)
+}
+
+// ItemCommandExecutionTerminalInteraction decodes the item/commandExecution/terminalInteraction notification.
+func (notification Notification) ItemCommandExecutionTerminalInteraction() (ItemCommandExecutionTerminalInteractionNotification, bool, error) {
+	return DecodeItemCommandExecutionTerminalInteractionNotification(notification)
+}
+
+// ItemCompleted decodes the item/completed notification.
 func (notification Notification) ItemCompleted() (ItemCompletedNotification, bool, error) {
 	return DecodeItemCompletedNotification(notification)
 }
 
-// ProcessExited decodes a process/exited notification.
+// ItemFileChangeOutputDelta decodes the item/fileChange/outputDelta notification.
+func (notification Notification) ItemFileChangeOutputDelta() (ItemFileChangeOutputDeltaNotification, bool, error) {
+	return DecodeItemFileChangeOutputDeltaNotification(notification)
+}
+
+// ItemFileChangePatchUpdated decodes the item/fileChange/patchUpdated notification.
+func (notification Notification) ItemFileChangePatchUpdated() (ItemFileChangePatchUpdatedNotification, bool, error) {
+	return DecodeItemFileChangePatchUpdatedNotification(notification)
+}
+
+// ItemMCPToolCallProgress decodes the item/mcpToolCall/progress notification.
+func (notification Notification) ItemMCPToolCallProgress() (MCPToolCallProgressNotification, bool, error) {
+	return DecodeItemMCPToolCallProgressNotification(notification)
+}
+
+// ItemPlanDelta decodes the item/plan/delta notification.
+func (notification Notification) ItemPlanDelta() (PlanDeltaNotification, bool, error) {
+	return DecodeItemPlanDeltaNotification(notification)
+}
+
+// ItemReasoningSummaryPartAdded decodes the item/reasoning/summaryPartAdded notification.
+func (notification Notification) ItemReasoningSummaryPartAdded() (ReasoningSummaryPartAddedNotification, bool, error) {
+	return DecodeItemReasoningSummaryPartAddedNotification(notification)
+}
+
+// ItemReasoningSummaryTextDelta decodes the item/reasoning/summaryTextDelta notification.
+func (notification Notification) ItemReasoningSummaryTextDelta() (ReasoningSummaryTextDeltaNotification, bool, error) {
+	return DecodeItemReasoningSummaryTextDeltaNotification(notification)
+}
+
+// ItemReasoningTextDelta decodes the item/reasoning/textDelta notification.
+func (notification Notification) ItemReasoningTextDelta() (ReasoningTextDeltaNotification, bool, error) {
+	return DecodeItemReasoningTextDeltaNotification(notification)
+}
+
+// ItemStarted decodes the item/started notification.
+func (notification Notification) ItemStarted() (ItemStartedNotification, bool, error) {
+	return DecodeItemStartedNotification(notification)
+}
+
+// MCPServerOAuthLoginCompleted decodes the mcpServer/oauthLogin/completed notification.
+func (notification Notification) MCPServerOAuthLoginCompleted() (MCPServerOAuthLoginCompletedNotification, bool, error) {
+	return DecodeMCPServerOAuthLoginCompletedNotification(notification)
+}
+
+// MCPServerStartupStatusUpdated decodes the mcpServer/startupStatus/updated notification.
+func (notification Notification) MCPServerStartupStatusUpdated() (MCPServerStartupStatusUpdatedNotification, bool, error) {
+	return DecodeMCPServerStartupStatusUpdatedNotification(notification)
+}
+
+// ModelRerouted decodes the model/rerouted notification.
+func (notification Notification) ModelRerouted() (ModelReroutedNotification, bool, error) {
+	return DecodeModelReroutedNotification(notification)
+}
+
+// ModelVerification decodes the model/verification notification.
+func (notification Notification) ModelVerification() (ModelVerificationNotification, bool, error) {
+	return DecodeModelVerificationNotification(notification)
+}
+
+// ProcessExited decodes the process/exited notification.
 func (notification Notification) ProcessExited() (ProcessExitedNotification, bool, error) {
 	return DecodeProcessExitedNotification(notification)
 }
 
-// ProcessOutputDelta decodes a process/outputDelta notification.
+// ProcessOutputDelta decodes the process/outputDelta notification.
 func (notification Notification) ProcessOutputDelta() (ProcessOutputDeltaNotification, bool, error) {
 	return DecodeProcessOutputDeltaNotification(notification)
 }
 
-// ThreadTokenUsageUpdated decodes a thread/tokenUsage/updated notification.
+// RemoteControlStatusChanged decodes the remoteControl/status/changed notification.
+func (notification Notification) RemoteControlStatusChanged() (RemoteControlStatusChangedNotification, bool, error) {
+	return DecodeRemoteControlStatusChangedNotification(notification)
+}
+
+// ServerRequestResolved decodes the serverRequest/resolved notification.
+func (notification Notification) ServerRequestResolved() (ServerRequestResolvedNotification, bool, error) {
+	return DecodeServerRequestResolvedNotification(notification)
+}
+
+// SkillsChanged decodes the skills/changed notification.
+func (notification Notification) SkillsChanged() (SkillsChangedNotification, bool, error) {
+	return DecodeSkillsChangedNotification(notification)
+}
+
+// ThreadArchived decodes the thread/archived notification.
+func (notification Notification) ThreadArchived() (ThreadArchivedNotification, bool, error) {
+	return DecodeThreadArchivedNotification(notification)
+}
+
+// ThreadClosed decodes the thread/closed notification.
+func (notification Notification) ThreadClosed() (ThreadClosedNotification, bool, error) {
+	return DecodeThreadClosedNotification(notification)
+}
+
+// ThreadCompacted decodes the thread/compacted notification.
+func (notification Notification) ThreadCompacted() (ContextCompactedNotification, bool, error) {
+	return DecodeThreadCompactedNotification(notification)
+}
+
+// ThreadGoalCleared decodes the thread/goal/cleared notification.
+func (notification Notification) ThreadGoalCleared() (ThreadGoalClearedNotification, bool, error) {
+	return DecodeThreadGoalClearedNotification(notification)
+}
+
+// ThreadGoalUpdated decodes the thread/goal/updated notification.
+func (notification Notification) ThreadGoalUpdated() (ThreadGoalUpdatedNotification, bool, error) {
+	return DecodeThreadGoalUpdatedNotification(notification)
+}
+
+// ThreadNameUpdated decodes the thread/name/updated notification.
+func (notification Notification) ThreadNameUpdated() (ThreadNameUpdatedNotification, bool, error) {
+	return DecodeThreadNameUpdatedNotification(notification)
+}
+
+// ThreadRealtimeClosed decodes the thread/realtime/closed notification.
+func (notification Notification) ThreadRealtimeClosed() (ThreadRealtimeClosedNotification, bool, error) {
+	return DecodeThreadRealtimeClosedNotification(notification)
+}
+
+// ThreadRealtimeError decodes the thread/realtime/error notification.
+func (notification Notification) ThreadRealtimeError() (ThreadRealtimeErrorNotification, bool, error) {
+	return DecodeThreadRealtimeErrorNotification(notification)
+}
+
+// ThreadRealtimeItemAdded decodes the thread/realtime/itemAdded notification.
+func (notification Notification) ThreadRealtimeItemAdded() (ThreadRealtimeItemAddedNotification, bool, error) {
+	return DecodeThreadRealtimeItemAddedNotification(notification)
+}
+
+// ThreadRealtimeOutputAudioDelta decodes the thread/realtime/outputAudio/delta notification.
+func (notification Notification) ThreadRealtimeOutputAudioDelta() (ThreadRealtimeOutputAudioDeltaNotification, bool, error) {
+	return DecodeThreadRealtimeOutputAudioDeltaNotification(notification)
+}
+
+// ThreadRealtimeSDP decodes the thread/realtime/sdp notification.
+func (notification Notification) ThreadRealtimeSDP() (ThreadRealtimeSDPNotification, bool, error) {
+	return DecodeThreadRealtimeSDPNotification(notification)
+}
+
+// ThreadRealtimeStarted decodes the thread/realtime/started notification.
+func (notification Notification) ThreadRealtimeStarted() (ThreadRealtimeStartedNotification, bool, error) {
+	return DecodeThreadRealtimeStartedNotification(notification)
+}
+
+// ThreadRealtimeTranscriptDelta decodes the thread/realtime/transcript/delta notification.
+func (notification Notification) ThreadRealtimeTranscriptDelta() (ThreadRealtimeTranscriptDeltaNotification, bool, error) {
+	return DecodeThreadRealtimeTranscriptDeltaNotification(notification)
+}
+
+// ThreadRealtimeTranscriptDone decodes the thread/realtime/transcript/done notification.
+func (notification Notification) ThreadRealtimeTranscriptDone() (ThreadRealtimeTranscriptDoneNotification, bool, error) {
+	return DecodeThreadRealtimeTranscriptDoneNotification(notification)
+}
+
+// ThreadStarted decodes the thread/started notification.
+func (notification Notification) ThreadStarted() (ThreadStartedNotification, bool, error) {
+	return DecodeThreadStartedNotification(notification)
+}
+
+// ThreadStatusChanged decodes the thread/status/changed notification.
+func (notification Notification) ThreadStatusChanged() (ThreadStatusChangedNotification, bool, error) {
+	return DecodeThreadStatusChangedNotification(notification)
+}
+
+// ThreadTokenUsageUpdated decodes the thread/tokenUsage/updated notification.
 func (notification Notification) ThreadTokenUsageUpdated() (ThreadTokenUsageUpdatedNotification, bool, error) {
 	return DecodeThreadTokenUsageUpdatedNotification(notification)
 }
 
-// TurnCompleted decodes a turn/completed notification.
+// ThreadUnarchived decodes the thread/unarchived notification.
+func (notification Notification) ThreadUnarchived() (ThreadUnarchivedNotification, bool, error) {
+	return DecodeThreadUnarchivedNotification(notification)
+}
+
+// TurnCompleted decodes the turn/completed notification.
 func (notification Notification) TurnCompleted() (TurnCompletedNotification, bool, error) {
 	return DecodeTurnCompletedNotification(notification)
+}
+
+// TurnDiffUpdated decodes the turn/diff/updated notification.
+func (notification Notification) TurnDiffUpdated() (TurnDiffUpdatedNotification, bool, error) {
+	return DecodeTurnDiffUpdatedNotification(notification)
+}
+
+// TurnPlanUpdated decodes the turn/plan/updated notification.
+func (notification Notification) TurnPlanUpdated() (TurnPlanUpdatedNotification, bool, error) {
+	return DecodeTurnPlanUpdatedNotification(notification)
+}
+
+// TurnStarted decodes the turn/started notification.
+func (notification Notification) TurnStarted() (TurnStartedNotification, bool, error) {
+	return DecodeTurnStartedNotification(notification)
+}
+
+// Warning decodes the warning notification.
+func (notification Notification) Warning() (WarningNotification, bool, error) {
+	return DecodeWarningNotification(notification)
+}
+
+// WindowsWorldWritableWarning decodes the windows/worldWritableWarning notification.
+func (notification Notification) WindowsWorldWritableWarning() (WindowsWorldWritableWarningNotification, bool, error) {
+	return DecodeWindowsWorldWritableWarningNotification(notification)
+}
+
+// WindowsSandboxSetupCompleted decodes the windowsSandbox/setupCompleted notification.
+func (notification Notification) WindowsSandboxSetupCompleted() (WindowsSandboxSetupCompletedNotification, bool, error) {
+	return DecodeWindowsSandboxSetupCompletedNotification(notification)
+}
+
+// AgentMessageDelta decodes the item/agentMessage/delta notification.
+//
+// Deprecated: use ItemAgentMessageDelta.
+func (notification Notification) AgentMessageDelta() (AgentMessageDeltaNotification, bool, error) {
+	return notification.ItemAgentMessageDelta()
 }

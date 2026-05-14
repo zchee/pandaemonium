@@ -15,6 +15,7 @@
 package codex
 
 import (
+	"slices"
 	"testing"
 
 	"github.com/go-json-experiment/json"
@@ -279,6 +280,135 @@ func TestDecodeKnownProcessNotificationMalformedParamsPreservesRaw(t *testing.T)
 	}
 }
 
+func TestNotificationConvenienceHelpersCoverKnownMethods(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]notificationConvenienceCase{
+		"account/login/completed":                   newNotificationConvenienceCase(t, NotificationMethodAccountLoginCompleted, AccountLoginCompletedNotification{}, DecodeAccountLoginCompletedNotification, Notification.AccountLoginCompleted),
+		"account/rateLimits/updated":                newNotificationConvenienceCase(t, NotificationMethodAccountRateLimitsUpdated, AccountRateLimitsUpdatedNotification{}, DecodeAccountRateLimitsUpdatedNotification, Notification.AccountRateLimitsUpdated),
+		"account/updated":                           newNotificationConvenienceCase(t, NotificationMethodAccountUpdated, AccountUpdatedNotification{}, DecodeAccountUpdatedNotification, Notification.AccountUpdated),
+		"app/list/updated":                          newNotificationConvenienceCase(t, NotificationMethodAppListUpdated, AppListUpdatedNotification{}, DecodeAppListUpdatedNotification, Notification.AppListUpdated),
+		"command/exec/outputDelta":                  newNotificationConvenienceCase(t, NotificationMethodCommandExecOutputDelta, CommandExecOutputDeltaNotification{Stream: CommandExecOutputStreamValueStdout}, DecodeCommandExecOutputDeltaNotification, Notification.CommandExecOutputDelta),
+		"configWarning":                             newNotificationConvenienceCase(t, NotificationMethodConfigWarning, ConfigWarningNotification{}, DecodeConfigWarningNotification, Notification.ConfigWarning),
+		"deprecationNotice":                         newNotificationConvenienceCase(t, NotificationMethodDeprecationNotice, DeprecationNoticeNotification{}, DecodeDeprecationNoticeNotification, Notification.DeprecationNotice),
+		"error":                                     newNotificationConvenienceCase(t, NotificationMethodError, ErrorNotification{Error: TurnError{Message: "boom"}}, DecodeErrorNotification, Notification.ErrorNotification),
+		"externalAgentConfig/import/completed":      newNotificationConvenienceCase(t, NotificationMethodExternalAgentConfigImportCompleted, ExternalAgentConfigImportCompletedNotification{}, DecodeExternalAgentConfigImportCompletedNotification, Notification.ExternalAgentConfigImportCompleted),
+		"fs/changed":                                newNotificationConvenienceCase(t, NotificationMethodFsChanged, FsChangedNotification{}, DecodeFsChangedNotification, Notification.FsChanged),
+		"fuzzyFileSearch/sessionCompleted":          newNotificationConvenienceCase(t, NotificationMethodFuzzyFileSearchSessionCompleted, FuzzyFileSearchSessionCompletedNotification{}, DecodeFuzzyFileSearchSessionCompletedNotification, Notification.FuzzyFileSearchSessionCompleted),
+		"fuzzyFileSearch/sessionUpdated":            newNotificationConvenienceCase(t, NotificationMethodFuzzyFileSearchSessionUpdated, FuzzyFileSearchSessionUpdatedNotification{}, DecodeFuzzyFileSearchSessionUpdatedNotification, Notification.FuzzyFileSearchSessionUpdated),
+		"guardianWarning":                           newNotificationConvenienceCase(t, NotificationMethodGuardianWarning, GuardianWarningNotification{}, DecodeGuardianWarningNotification, Notification.GuardianWarning),
+		"hook/completed":                            newNotificationConvenienceCase(t, NotificationMethodHookCompleted, HookCompletedNotification{}, DecodeHookCompletedNotification, Notification.HookCompleted),
+		"hook/started":                              newNotificationConvenienceCase(t, NotificationMethodHookStarted, HookStartedNotification{}, DecodeHookStartedNotification, Notification.HookStarted),
+		"item/agentMessage/delta":                   newNotificationConvenienceCase(t, NotificationMethodItemAgentMessageDelta, AgentMessageDeltaNotification{}, DecodeItemAgentMessageDeltaNotification, Notification.ItemAgentMessageDelta),
+		"item/autoApprovalReview/completed":         newNotificationConvenienceCase(t, NotificationMethodItemAutoApprovalReviewCompleted, ItemGuardianApprovalReviewCompletedNotification{}, DecodeItemAutoApprovalReviewCompletedNotification, Notification.ItemAutoApprovalReviewCompleted),
+		"item/autoApprovalReview/started":           newNotificationConvenienceCase(t, NotificationMethodItemAutoApprovalReviewStarted, ItemGuardianApprovalReviewStartedNotification{}, DecodeItemAutoApprovalReviewStartedNotification, Notification.ItemAutoApprovalReviewStarted),
+		"item/commandExecution/outputDelta":         newNotificationConvenienceCase(t, NotificationMethodItemCommandExecutionOutputDelta, ItemCommandExecutionOutputDeltaNotification{}, DecodeItemCommandExecutionOutputDeltaNotification, Notification.ItemCommandExecutionOutputDelta),
+		"item/commandExecution/terminalInteraction": newNotificationConvenienceCase(t, NotificationMethodItemCommandExecutionTerminalInteraction, ItemCommandExecutionTerminalInteractionNotification{}, DecodeItemCommandExecutionTerminalInteractionNotification, Notification.ItemCommandExecutionTerminalInteraction),
+		"item/completed":                            newNotificationConvenienceCase(t, NotificationMethodItemCompleted, ItemCompletedNotification{Item: RawThreadItem(`{"type":"agentMessage","text":"hello"}`)}, DecodeItemCompletedNotification, Notification.ItemCompleted),
+		"item/fileChange/outputDelta":               newNotificationConvenienceCase(t, NotificationMethodItemFileChangeOutputDelta, ItemFileChangeOutputDeltaNotification{}, DecodeItemFileChangeOutputDeltaNotification, Notification.ItemFileChangeOutputDelta),
+		"item/fileChange/patchUpdated":              newNotificationConvenienceCase(t, NotificationMethodItemFileChangePatchUpdated, ItemFileChangePatchUpdatedNotification{}, DecodeItemFileChangePatchUpdatedNotification, Notification.ItemFileChangePatchUpdated),
+		"item/mcpToolCall/progress":                 newNotificationConvenienceCase(t, NotificationMethodItemMCPToolCallProgress, MCPToolCallProgressNotification{}, DecodeItemMCPToolCallProgressNotification, Notification.ItemMCPToolCallProgress),
+		"item/plan/delta":                           newNotificationConvenienceCase(t, NotificationMethodItemPlanDelta, PlanDeltaNotification{}, DecodeItemPlanDeltaNotification, Notification.ItemPlanDelta),
+		"item/reasoning/summaryPartAdded":           newNotificationConvenienceCase(t, NotificationMethodItemReasoningSummaryPartAdded, ReasoningSummaryPartAddedNotification{}, DecodeItemReasoningSummaryPartAddedNotification, Notification.ItemReasoningSummaryPartAdded),
+		"item/reasoning/summaryTextDelta":           newNotificationConvenienceCase(t, NotificationMethodItemReasoningSummaryTextDelta, ReasoningSummaryTextDeltaNotification{}, DecodeItemReasoningSummaryTextDeltaNotification, Notification.ItemReasoningSummaryTextDelta),
+		"item/reasoning/textDelta":                  newNotificationConvenienceCase(t, NotificationMethodItemReasoningTextDelta, ReasoningTextDeltaNotification{}, DecodeItemReasoningTextDeltaNotification, Notification.ItemReasoningTextDelta),
+		"item/started":                              newNotificationConvenienceCase(t, NotificationMethodItemStarted, ItemStartedNotification{Item: RawThreadItem(`{"type":"agentMessage","text":"hello"}`)}, DecodeItemStartedNotification, Notification.ItemStarted),
+		"mcpServer/oauthLogin/completed":            newNotificationConvenienceCase(t, NotificationMethodMCPServerOAuthLoginCompleted, MCPServerOAuthLoginCompletedNotification{}, DecodeMCPServerOAuthLoginCompletedNotification, Notification.MCPServerOAuthLoginCompleted),
+		"mcpServer/startupStatus/updated":           newNotificationConvenienceCase(t, NotificationMethodMCPServerStartupStatusUpdated, MCPServerStartupStatusUpdatedNotification{}, DecodeMCPServerStartupStatusUpdatedNotification, Notification.MCPServerStartupStatusUpdated),
+		"model/rerouted":                            newNotificationConvenienceCase(t, NotificationMethodModelRerouted, ModelReroutedNotification{}, DecodeModelReroutedNotification, Notification.ModelRerouted),
+		"model/verification":                        newNotificationConvenienceCase(t, NotificationMethodModelVerification, ModelVerificationNotification{}, DecodeModelVerificationNotification, Notification.ModelVerification),
+		"process/exited":                            newNotificationConvenienceCase(t, NotificationMethodProcessExited, ProcessExitedNotification{}, DecodeProcessExitedNotification, Notification.ProcessExited),
+		"process/outputDelta":                       newNotificationConvenienceCase(t, NotificationMethodProcessOutputDelta, ProcessOutputDeltaNotification{Stream: ProcessOutputStreamValueStdout}, DecodeProcessOutputDeltaNotification, Notification.ProcessOutputDelta),
+		"remoteControl/status/changed":              newNotificationConvenienceCase(t, NotificationMethodRemoteControlStatusChanged, RemoteControlStatusChangedNotification{}, DecodeRemoteControlStatusChangedNotification, Notification.RemoteControlStatusChanged),
+		"serverRequest/resolved":                    newNotificationConvenienceCase(t, NotificationMethodServerRequestResolved, ServerRequestResolvedNotification{}, DecodeServerRequestResolvedNotification, Notification.ServerRequestResolved),
+		"skills/changed":                            newNotificationConvenienceCase(t, NotificationMethodSkillsChanged, SkillsChangedNotification{}, DecodeSkillsChangedNotification, Notification.SkillsChanged),
+		"thread/archived":                           newNotificationConvenienceCase(t, NotificationMethodThreadArchived, ThreadArchivedNotification{}, DecodeThreadArchivedNotification, Notification.ThreadArchived),
+		"thread/closed":                             newNotificationConvenienceCase(t, NotificationMethodThreadClosed, ThreadClosedNotification{}, DecodeThreadClosedNotification, Notification.ThreadClosed),
+		"thread/compacted":                          newNotificationConvenienceCase(t, NotificationMethodThreadCompacted, ContextCompactedNotification{}, DecodeThreadCompactedNotification, Notification.ThreadCompacted),
+		"thread/goal/cleared":                       newNotificationConvenienceCase(t, NotificationMethodThreadGoalCleared, ThreadGoalClearedNotification{}, DecodeThreadGoalClearedNotification, Notification.ThreadGoalCleared),
+		"thread/goal/updated":                       newNotificationConvenienceCase(t, NotificationMethodThreadGoalUpdated, ThreadGoalUpdatedNotification{}, DecodeThreadGoalUpdatedNotification, Notification.ThreadGoalUpdated),
+		"thread/name/updated":                       newNotificationConvenienceCase(t, NotificationMethodThreadNameUpdated, ThreadNameUpdatedNotification{}, DecodeThreadNameUpdatedNotification, Notification.ThreadNameUpdated),
+		"thread/realtime/closed":                    newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeClosed, ThreadRealtimeClosedNotification{}, DecodeThreadRealtimeClosedNotification, Notification.ThreadRealtimeClosed),
+		"thread/realtime/error":                     newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeError, ThreadRealtimeErrorNotification{}, DecodeThreadRealtimeErrorNotification, Notification.ThreadRealtimeError),
+		"thread/realtime/itemAdded":                 newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeItemAdded, ThreadRealtimeItemAddedNotification{}, DecodeThreadRealtimeItemAddedNotification, Notification.ThreadRealtimeItemAdded),
+		"thread/realtime/outputAudio/delta":         newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeOutputAudioDelta, ThreadRealtimeOutputAudioDeltaNotification{}, DecodeThreadRealtimeOutputAudioDeltaNotification, Notification.ThreadRealtimeOutputAudioDelta),
+		"thread/realtime/sdp":                       newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeSDP, ThreadRealtimeSDPNotification{}, DecodeThreadRealtimeSDPNotification, Notification.ThreadRealtimeSDP),
+		"thread/realtime/started":                   newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeStarted, ThreadRealtimeStartedNotification{}, DecodeThreadRealtimeStartedNotification, Notification.ThreadRealtimeStarted),
+		"thread/realtime/transcript/delta":          newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeTranscriptDelta, ThreadRealtimeTranscriptDeltaNotification{}, DecodeThreadRealtimeTranscriptDeltaNotification, Notification.ThreadRealtimeTranscriptDelta),
+		"thread/realtime/transcript/done":           newNotificationConvenienceCase(t, NotificationMethodThreadRealtimeTranscriptDone, ThreadRealtimeTranscriptDoneNotification{}, DecodeThreadRealtimeTranscriptDoneNotification, Notification.ThreadRealtimeTranscriptDone),
+		"thread/started":                            newNotificationConvenienceCase(t, NotificationMethodThreadStarted, ThreadStartedNotification{}, DecodeThreadStartedNotification, Notification.ThreadStarted),
+		"thread/status/changed":                     newNotificationConvenienceCase(t, NotificationMethodThreadStatusChanged, ThreadStatusChangedNotification{Status: IDleThreadStatus{Type: "idle"}}, DecodeThreadStatusChangedNotification, Notification.ThreadStatusChanged),
+		"thread/tokenUsage/updated":                 newNotificationConvenienceCase(t, NotificationMethodThreadTokenUsageUpdated, ThreadTokenUsageUpdatedNotification{}, DecodeThreadTokenUsageUpdatedNotification, Notification.ThreadTokenUsageUpdated),
+		"thread/unarchived":                         newNotificationConvenienceCase(t, NotificationMethodThreadUnarchived, ThreadUnarchivedNotification{}, DecodeThreadUnarchivedNotification, Notification.ThreadUnarchived),
+		"turn/completed":                            newNotificationConvenienceCase(t, NotificationMethodTurnCompleted, TurnCompletedNotification{}, DecodeTurnCompletedNotification, Notification.TurnCompleted),
+		"turn/diff/updated":                         newNotificationConvenienceCase(t, NotificationMethodTurnDiffUpdated, TurnDiffUpdatedNotification{}, DecodeTurnDiffUpdatedNotification, Notification.TurnDiffUpdated),
+		"turn/plan/updated":                         newNotificationConvenienceCase(t, NotificationMethodTurnPlanUpdated, TurnPlanUpdatedNotification{}, DecodeTurnPlanUpdatedNotification, Notification.TurnPlanUpdated),
+		"turn/started":                              newNotificationConvenienceCase(t, NotificationMethodTurnStarted, TurnStartedNotification{}, DecodeTurnStartedNotification, Notification.TurnStarted),
+		"warning":                                   newNotificationConvenienceCase(t, NotificationMethodWarning, WarningNotification{}, DecodeWarningNotification, Notification.Warning),
+		"windows/worldWritableWarning":              newNotificationConvenienceCase(t, NotificationMethodWindowsWorldWritableWarning, WindowsWorldWritableWarningNotification{}, DecodeWindowsWorldWritableWarningNotification, Notification.WindowsWorldWritableWarning),
+		"windowsSandbox/setupCompleted":             newNotificationConvenienceCase(t, NotificationMethodWindowsSandboxSetupCompleted, WindowsSandboxSetupCompletedNotification{}, DecodeWindowsSandboxSetupCompletedNotification, Notification.WindowsSandboxSetupCompleted),
+	}
+
+	coveredMethods := make([]string, 0, len(tests))
+	for name, tt := range tests {
+		coveredMethods = append(coveredMethods, tt.method)
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			notification := Notification{Method: tt.method, Params: tt.params}
+			decoded, ok, err := tt.decode(notification)
+			if err != nil {
+				t.Fatalf("decode helper error = %v", err)
+			}
+			if !ok {
+				t.Fatalf("decode helper ok = false, want true")
+			}
+			received, ok, err := tt.receiver(notification)
+			if err != nil {
+				t.Fatalf("receiver helper error = %v", err)
+			}
+			if !ok {
+				t.Fatalf("receiver helper ok = false, want true")
+			}
+			if diff := gocmp.Diff(decoded, received); diff != "" {
+				t.Fatalf("receiver helper mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+
+	if diff := gocmp.Diff(KnownNotificationMethods(), sortedStrings(coveredMethods)); diff != "" {
+		t.Fatalf("notification helper coverage mismatch (-want +got):\n%s", diff)
+	}
+}
+
+func TestDeprecatedAgentMessageDeltaNotificationHelpersRemainCompatible(t *testing.T) {
+	t.Parallel()
+
+	notification := Notification{
+		Method: NotificationMethodItemAgentMessageDelta,
+		Params: mustJSON(t, AgentMessageDeltaNotification{}),
+	}
+
+	decoded, ok, err := DecodeAgentMessageDeltaNotification(notification)
+	if err != nil {
+		t.Fatalf("DecodeAgentMessageDeltaNotification() error = %v", err)
+	}
+	if !ok {
+		t.Fatalf("DecodeAgentMessageDeltaNotification() ok = false, want true")
+	}
+
+	received, ok, err := notification.AgentMessageDelta()
+	if err != nil {
+		t.Fatalf("Notification.AgentMessageDelta() error = %v", err)
+	}
+	if !ok {
+		t.Fatalf("Notification.AgentMessageDelta() ok = false, want true")
+	}
+	if diff := gocmp.Diff(decoded, received); diff != "" {
+		t.Fatalf("deprecated helper mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestKnownNotificationMethodsMatchesExpectedInventory(t *testing.T) {
 	t.Parallel()
 
@@ -404,4 +534,38 @@ func mustJSON(t *testing.T, value any) jsontext.Value {
 		t.Fatalf("json.Marshal() error = %v", err)
 	}
 	return jsontext.Value(raw)
+}
+
+type notificationConvenienceCase struct {
+	method   string
+	params   jsontext.Value
+	decode   func(Notification) (any, bool, error)
+	receiver func(Notification) (any, bool, error)
+}
+
+func newNotificationConvenienceCase[T any](
+	t *testing.T,
+	method string,
+	value T,
+	decode func(Notification) (T, bool, error),
+	receiver func(Notification) (T, bool, error),
+) notificationConvenienceCase {
+	t.Helper()
+	params := mustJSON(t, value)
+	return notificationConvenienceCase{
+		method: method,
+		params: params,
+		decode: func(notification Notification) (any, bool, error) {
+			return decode(notification)
+		},
+		receiver: func(notification Notification) (any, bool, error) {
+			return receiver(notification)
+		},
+	}
+}
+
+func sortedStrings(values []string) []string {
+	sorted := slices.Clone(values)
+	slices.Sort(sorted)
+	return sorted
 }
