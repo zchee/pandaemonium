@@ -5,7 +5,6 @@ import (
 	"errors"
 	"flag"
 	"fmt"
-	"go/format"
 	"io"
 	"net/http"
 	"net/url"
@@ -20,6 +19,7 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/google/jsonschema-go/jsonschema"
+	gofumpt "mvdan.cc/gofumpt/format"
 )
 
 type generator struct {
@@ -100,7 +100,14 @@ func main() {
 	if err != nil {
 		fatalf("generate: %v", err)
 	}
-	formatted, err := format.Source(generated)
+	formatted, err := gofumpt.Source(generated, gofumpt.Options{
+		LangVersion: "go1.27",
+		ModulePath:  "github.com/zchee/pandaemonium",
+		Extra: gofumpt.Extra{
+			GroupParams:   true,
+			ClotheReturns: true,
+		},
+	})
 	if err != nil {
 		fatalf("format generated source: %v\n%s", err, generated)
 	}

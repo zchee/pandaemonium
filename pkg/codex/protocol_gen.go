@@ -23,8 +23,10 @@ type RawAccount jsontext.Value
 
 func (RawAccount) isAccount() {}
 
-var _ json.MarshalerTo = RawAccount{}
-var _ json.UnmarshalerFrom = (*RawAccount)(nil)
+var (
+	_ json.MarshalerTo     = RawAccount{}
+	_ json.UnmarshalerFrom = (*RawAccount)(nil)
+)
 
 func (value RawAccount) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -365,8 +367,10 @@ type RawAskForApproval jsontext.Value
 
 func (RawAskForApproval) isAskForApproval() {}
 
-var _ json.MarshalerTo = RawAskForApproval{}
-var _ json.UnmarshalerFrom = (*RawAskForApproval)(nil)
+var (
+	_ json.MarshalerTo     = RawAskForApproval{}
+	_ json.UnmarshalerFrom = (*RawAskForApproval)(nil)
+)
 
 func (value RawAskForApproval) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -452,8 +456,10 @@ type RawAuthMode jsontext.Value
 
 func (RawAuthMode) isAuthMode() {}
 
-var _ json.MarshalerTo = RawAuthMode{}
-var _ json.UnmarshalerFrom = (*RawAuthMode)(nil)
+var (
+	_ json.MarshalerTo     = RawAuthMode{}
+	_ json.UnmarshalerFrom = (*RawAuthMode)(nil)
+)
 
 func (value RawAuthMode) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -551,8 +557,10 @@ type RawClientRequest jsontext.Value
 
 func (RawClientRequest) isClientRequest() {}
 
-var _ json.MarshalerTo = RawClientRequest{}
-var _ json.UnmarshalerFrom = (*RawClientRequest)(nil)
+var (
+	_ json.MarshalerTo     = RawClientRequest{}
+	_ json.UnmarshalerFrom = (*RawClientRequest)(nil)
+)
 
 func (value RawClientRequest) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -1890,8 +1898,10 @@ type RawCodexErrorInfo jsontext.Value
 
 func (RawCodexErrorInfo) isCodexErrorInfo() {}
 
-var _ json.MarshalerTo = RawCodexErrorInfo{}
-var _ json.UnmarshalerFrom = (*RawCodexErrorInfo)(nil)
+var (
+	_ json.MarshalerTo     = RawCodexErrorInfo{}
+	_ json.UnmarshalerFrom = (*RawCodexErrorInfo)(nil)
+)
 
 func (value RawCodexErrorInfo) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -2145,8 +2155,10 @@ type RawCommandAction jsontext.Value
 
 func (RawCommandAction) isCommandAction() {}
 
-var _ json.MarshalerTo = RawCommandAction{}
-var _ json.UnmarshalerFrom = (*RawCommandAction)(nil)
+var (
+	_ json.MarshalerTo     = RawCommandAction{}
+	_ json.UnmarshalerFrom = (*RawCommandAction)(nil)
+)
 
 func (value RawCommandAction) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -2284,8 +2296,10 @@ type RawCommandExecOutputStream jsontext.Value
 
 func (RawCommandExecOutputStream) isCommandExecOutputStream() {}
 
-var _ json.MarshalerTo = RawCommandExecOutputStream{}
-var _ json.UnmarshalerFrom = (*RawCommandExecOutputStream)(nil)
+var (
+	_ json.MarshalerTo     = RawCommandExecOutputStream{}
+	_ json.UnmarshalerFrom = (*RawCommandExecOutputStream)(nil)
+)
 
 func (value RawCommandExecOutputStream) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -2722,8 +2736,10 @@ type RawConfigLayerSource jsontext.Value
 
 func (RawConfigLayerSource) isConfigLayerSource() {}
 
-var _ json.MarshalerTo = RawConfigLayerSource{}
-var _ json.UnmarshalerFrom = (*RawConfigLayerSource)(nil)
+var (
+	_ json.MarshalerTo     = RawConfigLayerSource{}
+	_ json.UnmarshalerFrom = (*RawConfigLayerSource)(nil)
+)
 
 func (value RawConfigLayerSource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -2953,8 +2969,10 @@ type RawConfiguredHookHandler jsontext.Value
 
 func (RawConfiguredHookHandler) isConfiguredHookHandler() {}
 
-var _ json.MarshalerTo = RawConfiguredHookHandler{}
-var _ json.UnmarshalerFrom = (*RawConfiguredHookHandler)(nil)
+var (
+	_ json.MarshalerTo     = RawConfiguredHookHandler{}
+	_ json.UnmarshalerFrom = (*RawConfiguredHookHandler)(nil)
+)
 
 func (value RawConfiguredHookHandler) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3065,8 +3083,10 @@ type RawContentItem jsontext.Value
 
 func (RawContentItem) isContentItem() {}
 
-var _ json.MarshalerTo = RawContentItem{}
-var _ json.UnmarshalerFrom = (*RawContentItem)(nil)
+var (
+	_ json.MarshalerTo     = RawContentItem{}
+	_ json.UnmarshalerFrom = (*RawContentItem)(nil)
+)
 
 func (value RawContentItem) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3166,8 +3186,10 @@ type RawDynamicToolCallOutputContentItem jsontext.Value
 
 func (RawDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
 
-var _ json.MarshalerTo = RawDynamicToolCallOutputContentItem{}
-var _ json.UnmarshalerFrom = (*RawDynamicToolCallOutputContentItem)(nil)
+var (
+	_ json.MarshalerTo     = RawDynamicToolCallOutputContentItem{}
+	_ json.UnmarshalerFrom = (*RawDynamicToolCallOutputContentItem)(nil)
+)
 
 func (value RawDynamicToolCallOutputContentItem) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3345,8 +3367,10 @@ type RawExperimentalFeatureStage jsontext.Value
 
 func (RawExperimentalFeatureStage) isExperimentalFeatureStage() {}
 
-var _ json.MarshalerTo = RawExperimentalFeatureStage{}
-var _ json.UnmarshalerFrom = (*RawExperimentalFeatureStage)(nil)
+var (
+	_ json.MarshalerTo     = RawExperimentalFeatureStage{}
+	_ json.UnmarshalerFrom = (*RawExperimentalFeatureStage)(nil)
+)
 
 func (value RawExperimentalFeatureStage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3510,8 +3534,10 @@ type RawFileSystemPath jsontext.Value
 
 func (RawFileSystemPath) isFileSystemPath() {}
 
-var _ json.MarshalerTo = RawFileSystemPath{}
-var _ json.UnmarshalerFrom = (*RawFileSystemPath)(nil)
+var (
+	_ json.MarshalerTo     = RawFileSystemPath{}
+	_ json.UnmarshalerFrom = (*RawFileSystemPath)(nil)
+)
 
 func (value RawFileSystemPath) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3636,8 +3662,10 @@ type RawFileSystemSpecialPath jsontext.Value
 
 func (RawFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
-var _ json.MarshalerTo = RawFileSystemSpecialPath{}
-var _ json.UnmarshalerFrom = (*RawFileSystemSpecialPath)(nil)
+var (
+	_ json.MarshalerTo     = RawFileSystemSpecialPath{}
+	_ json.UnmarshalerFrom = (*RawFileSystemSpecialPath)(nil)
+)
 
 func (value RawFileSystemSpecialPath) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3940,8 +3968,10 @@ type RawFunctionCallOutputBody jsontext.Value
 
 func (RawFunctionCallOutputBody) isFunctionCallOutputBody() {}
 
-var _ json.MarshalerTo = RawFunctionCallOutputBody{}
-var _ json.UnmarshalerFrom = (*RawFunctionCallOutputBody)(nil)
+var (
+	_ json.MarshalerTo     = RawFunctionCallOutputBody{}
+	_ json.UnmarshalerFrom = (*RawFunctionCallOutputBody)(nil)
+)
 
 func (value RawFunctionCallOutputBody) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -3997,8 +4027,10 @@ type RawFunctionCallOutputContentItem jsontext.Value
 
 func (RawFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
 
-var _ json.MarshalerTo = RawFunctionCallOutputContentItem{}
-var _ json.UnmarshalerFrom = (*RawFunctionCallOutputContentItem)(nil)
+var (
+	_ json.MarshalerTo     = RawFunctionCallOutputContentItem{}
+	_ json.UnmarshalerFrom = (*RawFunctionCallOutputContentItem)(nil)
+)
 
 func (value RawFunctionCallOutputContentItem) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -4160,8 +4192,10 @@ type RawGuardianApprovalReviewAction jsontext.Value
 
 func (RawGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
-var _ json.MarshalerTo = RawGuardianApprovalReviewAction{}
-var _ json.UnmarshalerFrom = (*RawGuardianApprovalReviewAction)(nil)
+var (
+	_ json.MarshalerTo     = RawGuardianApprovalReviewAction{}
+	_ json.UnmarshalerFrom = (*RawGuardianApprovalReviewAction)(nil)
+)
 
 func (value RawGuardianApprovalReviewAction) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -4608,8 +4642,10 @@ type RawInputModality jsontext.Value
 
 func (RawInputModality) isInputModality() {}
 
-var _ json.MarshalerTo = RawInputModality{}
-var _ json.UnmarshalerFrom = (*RawInputModality)(nil)
+var (
+	_ json.MarshalerTo     = RawInputModality{}
+	_ json.UnmarshalerFrom = (*RawInputModality)(nil)
+)
 
 func (value RawInputModality) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -4886,8 +4922,10 @@ type RawLoginAccountParams jsontext.Value
 
 func (RawLoginAccountParams) isLoginAccountParams() {}
 
-var _ json.MarshalerTo = RawLoginAccountParams{}
-var _ json.UnmarshalerFrom = (*RawLoginAccountParams)(nil)
+var (
+	_ json.MarshalerTo     = RawLoginAccountParams{}
+	_ json.UnmarshalerFrom = (*RawLoginAccountParams)(nil)
+)
 
 func (value RawLoginAccountParams) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -4986,8 +5024,10 @@ type RawLoginAccountResponse jsontext.Value
 
 func (RawLoginAccountResponse) isLoginAccountResponse() {}
 
-var _ json.MarshalerTo = RawLoginAccountResponse{}
-var _ json.UnmarshalerFrom = (*RawLoginAccountResponse)(nil)
+var (
+	_ json.MarshalerTo     = RawLoginAccountResponse{}
+	_ json.UnmarshalerFrom = (*RawLoginAccountResponse)(nil)
+)
 
 func (value RawLoginAccountResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -5347,8 +5387,10 @@ type RawMessagePhase jsontext.Value
 
 func (RawMessagePhase) isMessagePhase() {}
 
-var _ json.MarshalerTo = RawMessagePhase{}
-var _ json.UnmarshalerFrom = (*RawMessagePhase)(nil)
+var (
+	_ json.MarshalerTo     = RawMessagePhase{}
+	_ json.UnmarshalerFrom = (*RawMessagePhase)(nil)
+)
 
 func (value RawMessagePhase) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -5675,8 +5717,10 @@ type RawPatchChangeKind jsontext.Value
 
 func (RawPatchChangeKind) isPatchChangeKind() {}
 
-var _ json.MarshalerTo = RawPatchChangeKind{}
-var _ json.UnmarshalerFrom = (*RawPatchChangeKind)(nil)
+var (
+	_ json.MarshalerTo     = RawPatchChangeKind{}
+	_ json.UnmarshalerFrom = (*RawPatchChangeKind)(nil)
+)
 
 func (value RawPatchChangeKind) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -5751,8 +5795,10 @@ type RawPermissionProfile jsontext.Value
 
 func (RawPermissionProfile) isPermissionProfile() {}
 
-var _ json.MarshalerTo = RawPermissionProfile{}
-var _ json.UnmarshalerFrom = (*RawPermissionProfile)(nil)
+var (
+	_ json.MarshalerTo     = RawPermissionProfile{}
+	_ json.UnmarshalerFrom = (*RawPermissionProfile)(nil)
+)
 
 func (value RawPermissionProfile) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -5852,8 +5898,10 @@ type RawPermissionProfileFileSystemPermissions jsontext.Value
 
 func (RawPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {}
 
-var _ json.MarshalerTo = RawPermissionProfileFileSystemPermissions{}
-var _ json.UnmarshalerFrom = (*RawPermissionProfileFileSystemPermissions)(nil)
+var (
+	_ json.MarshalerTo     = RawPermissionProfileFileSystemPermissions{}
+	_ json.UnmarshalerFrom = (*RawPermissionProfileFileSystemPermissions)(nil)
+)
 
 func (value RawPermissionProfileFileSystemPermissions) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -6006,8 +6054,10 @@ type RawPluginAvailability jsontext.Value
 
 func (RawPluginAvailability) isPluginAvailability() {}
 
-var _ json.MarshalerTo = RawPluginAvailability{}
-var _ json.UnmarshalerFrom = (*RawPluginAvailability)(nil)
+var (
+	_ json.MarshalerTo     = RawPluginAvailability{}
+	_ json.UnmarshalerFrom = (*RawPluginAvailability)(nil)
+)
 
 func (value RawPluginAvailability) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -6326,8 +6376,10 @@ type RawPluginSource jsontext.Value
 
 func (RawPluginSource) isPluginSource() {}
 
-var _ json.MarshalerTo = RawPluginSource{}
-var _ json.UnmarshalerFrom = (*RawPluginSource)(nil)
+var (
+	_ json.MarshalerTo     = RawPluginSource{}
+	_ json.UnmarshalerFrom = (*RawPluginSource)(nil)
+)
 
 func (value RawPluginSource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -6555,8 +6607,10 @@ type RawProcessOutputStream jsontext.Value
 
 func (RawProcessOutputStream) isProcessOutputStream() {}
 
-var _ json.MarshalerTo = RawProcessOutputStream{}
-var _ json.UnmarshalerFrom = (*RawProcessOutputStream)(nil)
+var (
+	_ json.MarshalerTo     = RawProcessOutputStream{}
+	_ json.UnmarshalerFrom = (*RawProcessOutputStream)(nil)
+)
 
 func (value RawProcessOutputStream) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -6838,8 +6892,10 @@ type RawReasoningItemContent jsontext.Value
 
 func (RawReasoningItemContent) isReasoningItemContent() {}
 
-var _ json.MarshalerTo = RawReasoningItemContent{}
-var _ json.UnmarshalerFrom = (*RawReasoningItemContent)(nil)
+var (
+	_ json.MarshalerTo     = RawReasoningItemContent{}
+	_ json.UnmarshalerFrom = (*RawReasoningItemContent)(nil)
+)
 
 func (value RawReasoningItemContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -6913,8 +6969,10 @@ type RawReasoningSummary jsontext.Value
 
 func (RawReasoningSummary) isReasoningSummary() {}
 
-var _ json.MarshalerTo = RawReasoningSummary{}
-var _ json.UnmarshalerFrom = (*RawReasoningSummary)(nil)
+var (
+	_ json.MarshalerTo     = RawReasoningSummary{}
+	_ json.UnmarshalerFrom = (*RawReasoningSummary)(nil)
+)
 
 func (value RawReasoningSummary) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -7048,8 +7106,10 @@ type RawResourceContent jsontext.Value
 
 func (RawResourceContent) isResourceContent() {}
 
-var _ json.MarshalerTo = RawResourceContent{}
-var _ json.UnmarshalerFrom = (*RawResourceContent)(nil)
+var (
+	_ json.MarshalerTo     = RawResourceContent{}
+	_ json.UnmarshalerFrom = (*RawResourceContent)(nil)
+)
 
 func (value RawResourceContent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -7131,8 +7191,10 @@ type RawResponseItem jsontext.Value
 
 func (RawResponseItem) isResponseItem() {}
 
-var _ json.MarshalerTo = RawResponseItem{}
-var _ json.UnmarshalerFrom = (*RawResponseItem)(nil)
+var (
+	_ json.MarshalerTo     = RawResponseItem{}
+	_ json.UnmarshalerFrom = (*RawResponseItem)(nil)
+)
 
 func (value RawResponseItem) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -7540,8 +7602,10 @@ type RawResponsesAPIWebSearchAction jsontext.Value
 
 func (RawResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
-var _ json.MarshalerTo = RawResponsesAPIWebSearchAction{}
-var _ json.UnmarshalerFrom = (*RawResponsesAPIWebSearchAction)(nil)
+var (
+	_ json.MarshalerTo     = RawResponsesAPIWebSearchAction{}
+	_ json.UnmarshalerFrom = (*RawResponsesAPIWebSearchAction)(nil)
+)
 
 func (value RawResponsesAPIWebSearchAction) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -7683,8 +7747,10 @@ type RawReviewTarget jsontext.Value
 
 func (RawReviewTarget) isReviewTarget() {}
 
-var _ json.MarshalerTo = RawReviewTarget{}
-var _ json.UnmarshalerFrom = (*RawReviewTarget)(nil)
+var (
+	_ json.MarshalerTo     = RawReviewTarget{}
+	_ json.UnmarshalerFrom = (*RawReviewTarget)(nil)
+)
 
 func (value RawReviewTarget) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -7789,8 +7855,10 @@ type RawSandboxPolicy jsontext.Value
 
 func (RawSandboxPolicy) isSandboxPolicy() {}
 
-var _ json.MarshalerTo = RawSandboxPolicy{}
-var _ json.UnmarshalerFrom = (*RawSandboxPolicy)(nil)
+var (
+	_ json.MarshalerTo     = RawSandboxPolicy{}
+	_ json.UnmarshalerFrom = (*RawSandboxPolicy)(nil)
+)
 
 func (value RawSandboxPolicy) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -7901,8 +7969,10 @@ type RawServerNotification jsontext.Value
 
 func (RawServerNotification) isServerNotification() {}
 
-var _ json.MarshalerTo = RawServerNotification{}
-var _ json.UnmarshalerFrom = (*RawServerNotification)(nil)
+var (
+	_ json.MarshalerTo     = RawServerNotification{}
+	_ json.UnmarshalerFrom = (*RawServerNotification)(nil)
+)
 
 func (value RawServerNotification) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -8931,8 +9001,10 @@ type RawSessionSource jsontext.Value
 
 func (RawSessionSource) isSessionSource() {}
 
-var _ json.MarshalerTo = RawSessionSource{}
-var _ json.UnmarshalerFrom = (*RawSessionSource)(nil)
+var (
+	_ json.MarshalerTo     = RawSessionSource{}
+	_ json.UnmarshalerFrom = (*RawSessionSource)(nil)
+)
 
 func (value RawSessionSource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -9175,8 +9247,10 @@ type RawSubAgentSource jsontext.Value
 
 func (RawSubAgentSource) isSubAgentSource() {}
 
-var _ json.MarshalerTo = RawSubAgentSource{}
-var _ json.UnmarshalerFrom = (*RawSubAgentSource)(nil)
+var (
+	_ json.MarshalerTo     = RawSubAgentSource{}
+	_ json.UnmarshalerFrom = (*RawSubAgentSource)(nil)
+)
 
 func (value RawSubAgentSource) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -9664,8 +9738,10 @@ type RawThreadItem jsontext.Value
 
 func (RawThreadItem) isThreadItem() {}
 
-var _ json.MarshalerTo = RawThreadItem{}
-var _ json.UnmarshalerFrom = (*RawThreadItem)(nil)
+var (
+	_ json.MarshalerTo     = RawThreadItem{}
+	_ json.UnmarshalerFrom = (*RawThreadItem)(nil)
+)
 
 func (value RawThreadItem) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -10173,8 +10249,10 @@ type RawThreadListCwdFilter jsontext.Value
 
 func (RawThreadListCwdFilter) isThreadListCwdFilter() {}
 
-var _ json.MarshalerTo = RawThreadListCwdFilter{}
-var _ json.UnmarshalerFrom = (*RawThreadListCwdFilter)(nil)
+var (
+	_ json.MarshalerTo     = RawThreadListCwdFilter{}
+	_ json.UnmarshalerFrom = (*RawThreadListCwdFilter)(nil)
+)
 
 func (value RawThreadListCwdFilter) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -10408,8 +10486,10 @@ type RawThreadRealtimeStartTransport jsontext.Value
 
 func (RawThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
 
-var _ json.MarshalerTo = RawThreadRealtimeStartTransport{}
-var _ json.UnmarshalerFrom = (*RawThreadRealtimeStartTransport)(nil)
+var (
+	_ json.MarshalerTo     = RawThreadRealtimeStartTransport{}
+	_ json.UnmarshalerFrom = (*RawThreadRealtimeStartTransport)(nil)
+)
 
 func (value RawThreadRealtimeStartTransport) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -10860,8 +10940,10 @@ type RawThreadStatus jsontext.Value
 
 func (RawThreadStatus) isThreadStatus() {}
 
-var _ json.MarshalerTo = RawThreadStatus{}
-var _ json.UnmarshalerFrom = (*RawThreadStatus)(nil)
+var (
+	_ json.MarshalerTo     = RawThreadStatus{}
+	_ json.UnmarshalerFrom = (*RawThreadStatus)(nil)
+)
 
 func (value RawThreadStatus) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -11181,8 +11263,10 @@ type RawTurnItemsView jsontext.Value
 
 func (RawTurnItemsView) isTurnItemsView() {}
 
-var _ json.MarshalerTo = RawTurnItemsView{}
-var _ json.UnmarshalerFrom = (*RawTurnItemsView)(nil)
+var (
+	_ json.MarshalerTo     = RawTurnItemsView{}
+	_ json.UnmarshalerFrom = (*RawTurnItemsView)(nil)
+)
 
 func (value RawTurnItemsView) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -11432,8 +11516,10 @@ type RawUserInput jsontext.Value
 
 func (RawUserInput) isUserInput() {}
 
-var _ json.MarshalerTo = RawUserInput{}
-var _ json.UnmarshalerFrom = (*RawUserInput)(nil)
+var (
+	_ json.MarshalerTo     = RawUserInput{}
+	_ json.UnmarshalerFrom = (*RawUserInput)(nil)
+)
 
 func (value RawUserInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
@@ -11564,8 +11650,10 @@ type RawWebSearchAction jsontext.Value
 
 func (RawWebSearchAction) isWebSearchAction() {}
 
-var _ json.MarshalerTo = RawWebSearchAction{}
-var _ json.UnmarshalerFrom = (*RawWebSearchAction)(nil)
+var (
+	_ json.MarshalerTo     = RawWebSearchAction{}
+	_ json.UnmarshalerFrom = (*RawWebSearchAction)(nil)
+)
 
 func (value RawWebSearchAction) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
