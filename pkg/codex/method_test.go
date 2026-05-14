@@ -98,27 +98,27 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			return err
 		}},
 		{name: "app/list", call: func() error { _, err := client.AppList(ctx, &AppsListParams{}); return err }},
-		{name: "fs/readFile", call: func() error { _, err := client.FsReadFile(ctx, &FsReadFileParams{Path: "/tmp/file"}); return err }},
+		{name: "fs/readFile", call: func() error { _, err := client.FSReadFile(ctx, &FSReadFileParams{Path: "/tmp/file"}); return err }},
 		{name: "fs/writeFile", call: func() error {
-			_, err := client.FsWriteFile(ctx, &FsWriteFileParams{Path: "/tmp/file", DataBase64: "b2s="})
+			_, err := client.FSWriteFile(ctx, &FSWriteFileParams{Path: "/tmp/file", DataBase64: "b2s="})
 			return err
 		}},
 		{name: "fs/createDirectory", call: func() error {
-			_, err := client.FsCreateDirectory(ctx, &FsCreateDirectoryParams{Path: "/tmp/dir"})
+			_, err := client.FSCreateDirectory(ctx, &FSCreateDirectoryParams{Path: "/tmp/dir"})
 			return err
 		}},
-		{name: "fs/getMetadata", call: func() error { _, err := client.FsGetMetadata(ctx, &FsGetMetadataParams{Path: "/tmp/file"}); return err }},
-		{name: "fs/readDirectory", call: func() error { _, err := client.FsReadDirectory(ctx, &FsReadDirectoryParams{Path: "/tmp"}); return err }},
-		{name: "fs/remove", call: func() error { _, err := client.FsRemove(ctx, &FsRemoveParams{Path: "/tmp/file"}); return err }},
+		{name: "fs/getMetadata", call: func() error { _, err := client.FSGetMetadata(ctx, &FSGetMetadataParams{Path: "/tmp/file"}); return err }},
+		{name: "fs/readDirectory", call: func() error { _, err := client.FSReadDirectory(ctx, &FSReadDirectoryParams{Path: "/tmp"}); return err }},
+		{name: "fs/remove", call: func() error { _, err := client.FSRemove(ctx, &FSRemoveParams{Path: "/tmp/file"}); return err }},
 		{name: "fs/copy", call: func() error {
-			_, err := client.FsCopy(ctx, &FsCopyParams{SourcePath: "/tmp/a", DestinationPath: "/tmp/b"})
+			_, err := client.FSCopy(ctx, &FSCopyParams{SourcePath: "/tmp/a", DestinationPath: "/tmp/b"})
 			return err
 		}},
 		{name: "fs/watch", call: func() error {
-			_, err := client.FsWatch(ctx, &FsWatchParams{Path: "/tmp", WatchID: "watch"})
+			_, err := client.FSWatch(ctx, &FSWatchParams{Path: "/tmp", WatchID: "watch"})
 			return err
 		}},
-		{name: "fs/unwatch", call: func() error { _, err := client.FsUnwatch(ctx, &FsUnwatchParams{WatchID: "watch"}); return err }},
+		{name: "fs/unwatch", call: func() error { _, err := client.FSUnwatch(ctx, &FSUnwatchParams{WatchID: "watch"}); return err }},
 		{name: "skills/config/write", call: func() error {
 			_, err := client.SkillsConfigWrite(ctx, &SkillsConfigWriteParams{Enabled: true})
 			return err

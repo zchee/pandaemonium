@@ -167,49 +167,49 @@ func (c *Client) AppList(ctx context.Context, params *AppsListParams) (AppsListR
 	return c.Request[AppsListResponse](ctx, RequestMethodAppList, paramsOrEmpty(params))
 }
 
-// FsReadFile calls fs/readFile.
-func (c *Client) FsReadFile(ctx context.Context, params *FsReadFileParams) (FsReadFileResponse, error) {
-	return c.Request[FsReadFileResponse](ctx, RequestMethodFsReadFile, paramsOrEmpty(params))
+// FSReadFile calls fs/readFile.
+func (c *Client) FSReadFile(ctx context.Context, params *FSReadFileParams) (FSReadFileResponse, error) {
+	return c.Request[FSReadFileResponse](ctx, RequestMethodFSReadFile, paramsOrEmpty(params))
 }
 
-// FsWriteFile calls fs/writeFile.
-func (c *Client) FsWriteFile(ctx context.Context, params *FsWriteFileParams) (FsWriteFileResponse, error) {
-	return c.Request[FsWriteFileResponse](ctx, RequestMethodFsWriteFile, paramsOrEmpty(params))
+// FSWriteFile calls fs/writeFile.
+func (c *Client) FSWriteFile(ctx context.Context, params *FSWriteFileParams) (FSWriteFileResponse, error) {
+	return c.Request[FSWriteFileResponse](ctx, RequestMethodFSWriteFile, paramsOrEmpty(params))
 }
 
-// FsCreateDirectory calls fs/createDirectory.
-func (c *Client) FsCreateDirectory(ctx context.Context, params *FsCreateDirectoryParams) (FsCreateDirectoryResponse, error) {
-	return c.Request[FsCreateDirectoryResponse](ctx, RequestMethodFsCreateDirectory, paramsOrEmpty(params))
+// FSCreateDirectory calls fs/createDirectory.
+func (c *Client) FSCreateDirectory(ctx context.Context, params *FSCreateDirectoryParams) (FSCreateDirectoryResponse, error) {
+	return c.Request[FSCreateDirectoryResponse](ctx, RequestMethodFSCreateDirectory, paramsOrEmpty(params))
 }
 
-// FsGetMetadata calls fs/getMetadata.
-func (c *Client) FsGetMetadata(ctx context.Context, params *FsGetMetadataParams) (FsGetMetadataResponse, error) {
-	return c.Request[FsGetMetadataResponse](ctx, RequestMethodFsGetMetadata, paramsOrEmpty(params))
+// FSGetMetadata calls fs/getMetadata.
+func (c *Client) FSGetMetadata(ctx context.Context, params *FSGetMetadataParams) (FSGetMetadataResponse, error) {
+	return c.Request[FSGetMetadataResponse](ctx, RequestMethodFSGetMetadata, paramsOrEmpty(params))
 }
 
-// FsReadDirectory calls fs/readDirectory.
-func (c *Client) FsReadDirectory(ctx context.Context, params *FsReadDirectoryParams) (FsReadDirectoryResponse, error) {
-	return c.Request[FsReadDirectoryResponse](ctx, RequestMethodFsReadDirectory, paramsOrEmpty(params))
+// FSReadDirectory calls fs/readDirectory.
+func (c *Client) FSReadDirectory(ctx context.Context, params *FSReadDirectoryParams) (FSReadDirectoryResponse, error) {
+	return c.Request[FSReadDirectoryResponse](ctx, RequestMethodFSReadDirectory, paramsOrEmpty(params))
 }
 
-// FsRemove calls fs/remove.
-func (c *Client) FsRemove(ctx context.Context, params *FsRemoveParams) (FsRemoveResponse, error) {
-	return c.Request[FsRemoveResponse](ctx, RequestMethodFsRemove, paramsOrEmpty(params))
+// FSRemove calls fs/remove.
+func (c *Client) FSRemove(ctx context.Context, params *FSRemoveParams) (FSRemoveResponse, error) {
+	return c.Request[FSRemoveResponse](ctx, RequestMethodFSRemove, paramsOrEmpty(params))
 }
 
-// FsCopy calls fs/copy.
-func (c *Client) FsCopy(ctx context.Context, params *FsCopyParams) (FsCopyResponse, error) {
-	return c.Request[FsCopyResponse](ctx, RequestMethodFsCopy, paramsOrEmpty(params))
+// FSCopy calls fs/copy.
+func (c *Client) FSCopy(ctx context.Context, params *FSCopyParams) (FSCopyResponse, error) {
+	return c.Request[FSCopyResponse](ctx, RequestMethodFSCopy, paramsOrEmpty(params))
 }
 
-// FsWatch calls fs/watch.
-func (c *Client) FsWatch(ctx context.Context, params *FsWatchParams) (FsWatchResponse, error) {
-	return c.Request[FsWatchResponse](ctx, RequestMethodFsWatch, paramsOrEmpty(params))
+// FSWatch calls fs/watch.
+func (c *Client) FSWatch(ctx context.Context, params *FSWatchParams) (FSWatchResponse, error) {
+	return c.Request[FSWatchResponse](ctx, RequestMethodFSWatch, paramsOrEmpty(params))
 }
 
-// FsUnwatch calls fs/unwatch.
-func (c *Client) FsUnwatch(ctx context.Context, params *FsUnwatchParams) (FsUnwatchResponse, error) {
-	return c.Request[FsUnwatchResponse](ctx, RequestMethodFsUnwatch, paramsOrEmpty(params))
+// FSUnwatch calls fs/unwatch.
+func (c *Client) FSUnwatch(ctx context.Context, params *FSUnwatchParams) (FSUnwatchResponse, error) {
+	return c.Request[FSUnwatchResponse](ctx, RequestMethodFSUnwatch, paramsOrEmpty(params))
 }
 
 // SkillsConfigWrite calls skills/config/write.

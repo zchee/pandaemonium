@@ -305,6 +305,18 @@ func TestExportName(t *testing.T) {
 			input: "httpsProxyUrl",
 			want:  "HTTPSProxyURL",
 		},
+		"success: short fs initialism is normalized": {
+			input: "fs/readFile",
+			want:  "FSReadFile",
+		},
+		"success: product initialism with suffix is normalized": {
+			input: "chatgptv2LoginAccount",
+			want:  "ChatGPTv2LoginAccount",
+		},
+		"success: product initialism field is normalized": {
+			input: "chatgptAccountId",
+			want:  "ChatGPTAccountID",
+		},
 		"success: pascal reference is preserved": {
 			input: "TurnError",
 			want:  "TurnError",

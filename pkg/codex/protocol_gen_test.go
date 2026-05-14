@@ -43,7 +43,7 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 			want: `{"command":["printf","hello"],"cwd":"/tmp/work","env":{"EMPTY":null,"FOO":"bar"},"streamStdoutStderr":true,"timeoutMs":2500}`,
 		},
 		"success: fs read file response uses base64 field": {
-			value: FsReadFileResponse{DataBase64: "aGVsbG8="},
+			value: FSReadFileResponse{DataBase64: "aGVsbG8="},
 			want:  `{"dataBase64":"aGVsbG8="}`,
 		},
 		"success: enum constants encode as strings": {

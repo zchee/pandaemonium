@@ -89,6 +89,7 @@ var goInitialisms = []struct {
 	{"css", "CSS", true},
 	{"dns", "DNS", true},
 	{"eof", "EOF", true},
+	{"fs", "FS", true},
 	{"gpu", "GPU", true},
 	{"html", "HTML", true},
 	{"https", "HTTPS", true},
@@ -113,6 +114,8 @@ var goInitialisms = []struct {
 	{"uuid", "UUID", true},
 	{"vm", "VM", true},
 	{"xml", "XML", true},
+	{"chatgpt", "ChatGPT", true},
+	{"chatgptv2", "ChatGPTv2", false},
 	{"id", "ID", true},
 	{"ui", "UI", true},
 }

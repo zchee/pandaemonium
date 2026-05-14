@@ -43,14 +43,14 @@ type APIKeyAccount struct {
 
 func (APIKeyAccount) isAccount() {}
 
-// ChatgptAccount is generated from the ChatgptAccount schema definition.
-type ChatgptAccount struct {
+// ChatGPTAccount is generated from the ChatgptAccount schema definition.
+type ChatGPTAccount struct {
 	Email    string   `json:"email"`
 	PlanType PlanType `json:"planType"`
 	Type     string   `json:"type"`
 }
 
-func (ChatgptAccount) isAccount() {}
+func (ChatGPTAccount) isAccount() {}
 
 // AmazonBedrockAccount is generated from the AmazonBedrockAccount schema definition.
 type AmazonBedrockAccount struct {
@@ -75,7 +75,7 @@ func decodeGeneratedAccount(raw jsontext.Value) (Account, error) {
 			}
 			return value, nil
 		case "chatgpt":
-			var value ChatgptAccount
+			var value ChatGPTAccount
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
@@ -479,10 +479,10 @@ const (
 	AuthModeValueAgentIDentity AuthModeValue = "agentIdentity"
 	// AuthModeValueApikey is the "apikey" AuthModeValue value.
 	AuthModeValueApikey AuthModeValue = "apikey"
-	// AuthModeValueChatgpt is the "chatgpt" AuthModeValue value.
-	AuthModeValueChatgpt AuthModeValue = "chatgpt"
-	// AuthModeValueChatgptAuthTokens is the "chatgptAuthTokens" AuthModeValue value.
-	AuthModeValueChatgptAuthTokens AuthModeValue = "chatgptAuthTokens"
+	// AuthModeValueChatGPT is the "chatgpt" AuthModeValue value.
+	AuthModeValueChatGPT AuthModeValue = "chatgpt"
+	// AuthModeValueChatGPTAuthTokens is the "chatgptAuthTokens" AuthModeValue value.
+	AuthModeValueChatGPTAuthTokens AuthModeValue = "chatgptAuthTokens"
 )
 
 func decodeGeneratedAuthMode(raw jsontext.Value) (AuthMode, error) {
@@ -631,24 +631,24 @@ const (
 	RequestMethodPluginShareDelete = "plugin/share/delete"
 	// RequestMethodAppList is the "app/list" ClientRequest method.
 	RequestMethodAppList = "app/list"
-	// RequestMethodFsReadFile is the "fs/readFile" ClientRequest method.
-	RequestMethodFsReadFile = "fs/readFile"
-	// RequestMethodFsWriteFile is the "fs/writeFile" ClientRequest method.
-	RequestMethodFsWriteFile = "fs/writeFile"
-	// RequestMethodFsCreateDirectory is the "fs/createDirectory" ClientRequest method.
-	RequestMethodFsCreateDirectory = "fs/createDirectory"
-	// RequestMethodFsGetMetadata is the "fs/getMetadata" ClientRequest method.
-	RequestMethodFsGetMetadata = "fs/getMetadata"
-	// RequestMethodFsReadDirectory is the "fs/readDirectory" ClientRequest method.
-	RequestMethodFsReadDirectory = "fs/readDirectory"
-	// RequestMethodFsRemove is the "fs/remove" ClientRequest method.
-	RequestMethodFsRemove = "fs/remove"
-	// RequestMethodFsCopy is the "fs/copy" ClientRequest method.
-	RequestMethodFsCopy = "fs/copy"
-	// RequestMethodFsWatch is the "fs/watch" ClientRequest method.
-	RequestMethodFsWatch = "fs/watch"
-	// RequestMethodFsUnwatch is the "fs/unwatch" ClientRequest method.
-	RequestMethodFsUnwatch = "fs/unwatch"
+	// RequestMethodFSReadFile is the "fs/readFile" ClientRequest method.
+	RequestMethodFSReadFile = "fs/readFile"
+	// RequestMethodFSWriteFile is the "fs/writeFile" ClientRequest method.
+	RequestMethodFSWriteFile = "fs/writeFile"
+	// RequestMethodFSCreateDirectory is the "fs/createDirectory" ClientRequest method.
+	RequestMethodFSCreateDirectory = "fs/createDirectory"
+	// RequestMethodFSGetMetadata is the "fs/getMetadata" ClientRequest method.
+	RequestMethodFSGetMetadata = "fs/getMetadata"
+	// RequestMethodFSReadDirectory is the "fs/readDirectory" ClientRequest method.
+	RequestMethodFSReadDirectory = "fs/readDirectory"
+	// RequestMethodFSRemove is the "fs/remove" ClientRequest method.
+	RequestMethodFSRemove = "fs/remove"
+	// RequestMethodFSCopy is the "fs/copy" ClientRequest method.
+	RequestMethodFSCopy = "fs/copy"
+	// RequestMethodFSWatch is the "fs/watch" ClientRequest method.
+	RequestMethodFSWatch = "fs/watch"
+	// RequestMethodFSUnwatch is the "fs/unwatch" ClientRequest method.
+	RequestMethodFSUnwatch = "fs/unwatch"
 	// RequestMethodSkillsConfigWrite is the "skills/config/write" ClientRequest method.
 	RequestMethodSkillsConfigWrite = "skills/config/write"
 	// RequestMethodPluginInstall is the "plugin/install" ClientRequest method.
@@ -993,86 +993,86 @@ type AppListRequest struct {
 
 func (AppListRequest) isClientRequest() {}
 
-// FsReadFileRequest is generated from the Fs/readFileRequest schema definition.
-type FsReadFileRequest struct {
+// FSReadFileRequest is generated from the Fs/readFileRequest schema definition.
+type FSReadFileRequest struct {
 	ID     string           `json:"id"`
 	Method string           `json:"method"`
-	Params FsReadFileParams `json:"params"`
+	Params FSReadFileParams `json:"params"`
 }
 
-func (FsReadFileRequest) isClientRequest() {}
+func (FSReadFileRequest) isClientRequest() {}
 
-// FsWriteFileRequest is generated from the Fs/writeFileRequest schema definition.
-type FsWriteFileRequest struct {
+// FSWriteFileRequest is generated from the Fs/writeFileRequest schema definition.
+type FSWriteFileRequest struct {
 	ID     string            `json:"id"`
 	Method string            `json:"method"`
-	Params FsWriteFileParams `json:"params"`
+	Params FSWriteFileParams `json:"params"`
 }
 
-func (FsWriteFileRequest) isClientRequest() {}
+func (FSWriteFileRequest) isClientRequest() {}
 
-// FsCreateDirectoryRequest is generated from the Fs/createDirectoryRequest schema definition.
-type FsCreateDirectoryRequest struct {
+// FSCreateDirectoryRequest is generated from the Fs/createDirectoryRequest schema definition.
+type FSCreateDirectoryRequest struct {
 	ID     string                  `json:"id"`
 	Method string                  `json:"method"`
-	Params FsCreateDirectoryParams `json:"params"`
+	Params FSCreateDirectoryParams `json:"params"`
 }
 
-func (FsCreateDirectoryRequest) isClientRequest() {}
+func (FSCreateDirectoryRequest) isClientRequest() {}
 
-// FsGetMetadataRequest is generated from the Fs/getMetadataRequest schema definition.
-type FsGetMetadataRequest struct {
+// FSGetMetadataRequest is generated from the Fs/getMetadataRequest schema definition.
+type FSGetMetadataRequest struct {
 	ID     string              `json:"id"`
 	Method string              `json:"method"`
-	Params FsGetMetadataParams `json:"params"`
+	Params FSGetMetadataParams `json:"params"`
 }
 
-func (FsGetMetadataRequest) isClientRequest() {}
+func (FSGetMetadataRequest) isClientRequest() {}
 
-// FsReadDirectoryRequest is generated from the Fs/readDirectoryRequest schema definition.
-type FsReadDirectoryRequest struct {
+// FSReadDirectoryRequest is generated from the Fs/readDirectoryRequest schema definition.
+type FSReadDirectoryRequest struct {
 	ID     string                `json:"id"`
 	Method string                `json:"method"`
-	Params FsReadDirectoryParams `json:"params"`
+	Params FSReadDirectoryParams `json:"params"`
 }
 
-func (FsReadDirectoryRequest) isClientRequest() {}
+func (FSReadDirectoryRequest) isClientRequest() {}
 
-// FsRemoveRequest is generated from the Fs/removeRequest schema definition.
-type FsRemoveRequest struct {
+// FSRemoveRequest is generated from the Fs/removeRequest schema definition.
+type FSRemoveRequest struct {
 	ID     string         `json:"id"`
 	Method string         `json:"method"`
-	Params FsRemoveParams `json:"params"`
+	Params FSRemoveParams `json:"params"`
 }
 
-func (FsRemoveRequest) isClientRequest() {}
+func (FSRemoveRequest) isClientRequest() {}
 
-// FsCopyRequest is generated from the Fs/copyRequest schema definition.
-type FsCopyRequest struct {
+// FSCopyRequest is generated from the Fs/copyRequest schema definition.
+type FSCopyRequest struct {
 	ID     string       `json:"id"`
 	Method string       `json:"method"`
-	Params FsCopyParams `json:"params"`
+	Params FSCopyParams `json:"params"`
 }
 
-func (FsCopyRequest) isClientRequest() {}
+func (FSCopyRequest) isClientRequest() {}
 
-// FsWatchRequest is generated from the Fs/watchRequest schema definition.
-type FsWatchRequest struct {
+// FSWatchRequest is generated from the Fs/watchRequest schema definition.
+type FSWatchRequest struct {
 	ID     string        `json:"id"`
 	Method string        `json:"method"`
-	Params FsWatchParams `json:"params"`
+	Params FSWatchParams `json:"params"`
 }
 
-func (FsWatchRequest) isClientRequest() {}
+func (FSWatchRequest) isClientRequest() {}
 
-// FsUnwatchRequest is generated from the Fs/unwatchRequest schema definition.
-type FsUnwatchRequest struct {
+// FSUnwatchRequest is generated from the Fs/unwatchRequest schema definition.
+type FSUnwatchRequest struct {
 	ID     string          `json:"id"`
 	Method string          `json:"method"`
-	Params FsUnwatchParams `json:"params"`
+	Params FSUnwatchParams `json:"params"`
 }
 
-func (FsUnwatchRequest) isClientRequest() {}
+func (FSUnwatchRequest) isClientRequest() {}
 
 // SkillsConfigWriteRequest is generated from the Skills/config/writeRequest schema definition.
 type SkillsConfigWriteRequest struct {
@@ -1610,56 +1610,56 @@ func decodeGeneratedClientRequest(raw jsontext.Value) (ClientRequest, error) {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsReadFile:
-			var value FsReadFileRequest
+		case RequestMethodFSReadFile:
+			var value FSReadFileRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsWriteFile:
-			var value FsWriteFileRequest
+		case RequestMethodFSWriteFile:
+			var value FSWriteFileRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsCreateDirectory:
-			var value FsCreateDirectoryRequest
+		case RequestMethodFSCreateDirectory:
+			var value FSCreateDirectoryRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsGetMetadata:
-			var value FsGetMetadataRequest
+		case RequestMethodFSGetMetadata:
+			var value FSGetMetadataRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsReadDirectory:
-			var value FsReadDirectoryRequest
+		case RequestMethodFSReadDirectory:
+			var value FSReadDirectoryRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsRemove:
-			var value FsRemoveRequest
+		case RequestMethodFSRemove:
+			var value FSRemoveRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsCopy:
-			var value FsCopyRequest
+		case RequestMethodFSCopy:
+			var value FSCopyRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsWatch:
-			var value FsWatchRequest
+		case RequestMethodFSWatch:
+			var value FSWatchRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
-		case RequestMethodFsUnwatch:
-			var value FsUnwatchRequest
+		case RequestMethodFSUnwatch:
+			var value FSUnwatchRequest
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
@@ -2556,7 +2556,7 @@ type ConfigPayload struct {
 	ApprovalsReviewer          *ApprovalsReviewer     `json:"approvals_reviewer,omitzero"`
 	CompactPrompt              *string                `json:"compact_prompt,omitzero"`
 	DeveloperInstructions      *string                `json:"developer_instructions,omitzero"`
-	ForcedChatgptWorkspaceID   *string                `json:"forced_chatgpt_workspace_id,omitzero"`
+	ForcedChatGPTWorkspaceID   *string                `json:"forced_chatgpt_workspace_id,omitzero"`
 	ForcedLoginMethod          *ForcedLoginMethod     `json:"forced_login_method,omitzero"`
 	Instructions               *string                `json:"instructions,omitzero"`
 	Model                      *string                `json:"model,omitzero"`
@@ -2583,7 +2583,7 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		ApprovalsReviewer          *ApprovalsReviewer     `json:"approvals_reviewer,omitzero"`
 		CompactPrompt              *string                `json:"compact_prompt,omitzero"`
 		DeveloperInstructions      *string                `json:"developer_instructions,omitzero"`
-		ForcedChatgptWorkspaceID   *string                `json:"forced_chatgpt_workspace_id,omitzero"`
+		ForcedChatGPTWorkspaceID   *string                `json:"forced_chatgpt_workspace_id,omitzero"`
 		ForcedLoginMethod          *ForcedLoginMethod     `json:"forced_login_method,omitzero"`
 		Instructions               *string                `json:"instructions,omitzero"`
 		Model                      *string                `json:"model,omitzero"`
@@ -2618,7 +2618,7 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.CompactPrompt = raw.CompactPrompt
 	value.DeveloperInstructions = raw.DeveloperInstructions
-	value.ForcedChatgptWorkspaceID = raw.ForcedChatgptWorkspaceID
+	value.ForcedChatGPTWorkspaceID = raw.ForcedChatGPTWorkspaceID
 	value.ForcedLoginMethod = raw.ForcedLoginMethod
 	value.Instructions = raw.Instructions
 	value.Model = raw.Model
@@ -3805,14 +3805,14 @@ func (value *FileUpdateChange) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 type ForcedLoginMethod string
 
 const (
-	// ForcedLoginMethodChatgpt is the "chatgpt" ForcedLoginMethod value.
-	ForcedLoginMethodChatgpt ForcedLoginMethod = "chatgpt"
+	// ForcedLoginMethodChatGPT is the "chatgpt" ForcedLoginMethod value.
+	ForcedLoginMethodChatGPT ForcedLoginMethod = "chatgpt"
 	// ForcedLoginMethodAPI is the "api" ForcedLoginMethod value.
 	ForcedLoginMethodAPI ForcedLoginMethod = "api"
 )
 
-// FsChangedNotification filesystem watch notification emitted for `fs/watch` subscribers.
-type FsChangedNotification struct {
+// FSChangedNotification filesystem watch notification emitted for `fs/watch` subscribers.
+type FSChangedNotification struct {
 	// ChangedPaths file or directory paths associated with this event.
 	ChangedPaths []string `json:"changedPaths"`
 
@@ -3820,8 +3820,8 @@ type FsChangedNotification struct {
 	WatchID string `json:"watchId"`
 }
 
-// FsCopyParams copies a file or directory tree on the host filesystem.
-type FsCopyParams struct {
+// FSCopyParams copies a file or directory tree on the host filesystem.
+type FSCopyParams struct {
 	// DestinationPath absolute destination path.
 	DestinationPath string `json:"destinationPath"`
 
@@ -3832,11 +3832,11 @@ type FsCopyParams struct {
 	SourcePath string `json:"sourcePath"`
 }
 
-// FsCopyResponse successful response for `fs/copy`.
-type FsCopyResponse struct{}
+// FSCopyResponse successful response for `fs/copy`.
+type FSCopyResponse struct{}
 
-// FsCreateDirectoryParams creates a directory on the host filesystem.
-type FsCreateDirectoryParams struct {
+// FSCreateDirectoryParams creates a directory on the host filesystem.
+type FSCreateDirectoryParams struct {
 	// Path absolute directory path to create.
 	Path string `json:"path"`
 
@@ -3844,17 +3844,17 @@ type FsCreateDirectoryParams struct {
 	Recursive *bool `json:"recursive,omitzero"`
 }
 
-// FsCreateDirectoryResponse successful response for `fs/createDirectory`.
-type FsCreateDirectoryResponse struct{}
+// FSCreateDirectoryResponse successful response for `fs/createDirectory`.
+type FSCreateDirectoryResponse struct{}
 
-// FsGetMetadataParams requests metadata for an absolute path.
-type FsGetMetadataParams struct {
+// FSGetMetadataParams requests metadata for an absolute path.
+type FSGetMetadataParams struct {
 	// Path absolute path to inspect.
 	Path string `json:"path"`
 }
 
-// FsGetMetadataResponse metadata returned by `fs/getMetadata`.
-type FsGetMetadataResponse struct {
+// FSGetMetadataResponse metadata returned by `fs/getMetadata`.
+type FSGetMetadataResponse struct {
 	// CreatedAtMs file creation time in Unix milliseconds when available, otherwise `0`.
 	CreatedAtMs int64 `json:"createdAtMs"`
 
@@ -3871,8 +3871,8 @@ type FsGetMetadataResponse struct {
 	ModifiedAtMs int64 `json:"modifiedAtMs"`
 }
 
-// FsReadDirectoryEntry represents a directory entry returned by `fs/readDirectory`.
-type FsReadDirectoryEntry struct {
+// FSReadDirectoryEntry represents a directory entry returned by `fs/readDirectory`.
+type FSReadDirectoryEntry struct {
 	// FileName direct child entry name only, not an absolute or relative path.
 	FileName string `json:"fileName"`
 
@@ -3883,32 +3883,32 @@ type FsReadDirectoryEntry struct {
 	IsFile bool `json:"isFile"`
 }
 
-// FsReadDirectoryParams lists direct child names for a directory.
-type FsReadDirectoryParams struct {
+// FSReadDirectoryParams lists direct child names for a directory.
+type FSReadDirectoryParams struct {
 	// Path absolute directory path to read.
 	Path string `json:"path"`
 }
 
-// FsReadDirectoryResponse directory entries returned by `fs/readDirectory`.
-type FsReadDirectoryResponse struct {
+// FSReadDirectoryResponse directory entries returned by `fs/readDirectory`.
+type FSReadDirectoryResponse struct {
 	// Entries direct child entries in the requested directory.
-	Entries []FsReadDirectoryEntry `json:"entries"`
+	Entries []FSReadDirectoryEntry `json:"entries"`
 }
 
-// FsReadFileParams reads a file from the host filesystem.
-type FsReadFileParams struct {
+// FSReadFileParams reads a file from the host filesystem.
+type FSReadFileParams struct {
 	// Path absolute path to read.
 	Path string `json:"path"`
 }
 
-// FsReadFileResponse base64-encoded file contents returned by `fs/readFile`.
-type FsReadFileResponse struct {
+// FSReadFileResponse base64-encoded file contents returned by `fs/readFile`.
+type FSReadFileResponse struct {
 	// DataBase64 file contents encoded as base64.
 	DataBase64 string `json:"dataBase64"`
 }
 
-// FsRemoveParams removes a file or directory tree from the host filesystem.
-type FsRemoveParams struct {
+// FSRemoveParams removes a file or directory tree from the host filesystem.
+type FSRemoveParams struct {
 	// Force reports whether missing paths should be ignored. Defaults to `true`.
 	Force *bool `json:"force,omitzero"`
 
@@ -3919,20 +3919,20 @@ type FsRemoveParams struct {
 	Recursive *bool `json:"recursive,omitzero"`
 }
 
-// FsRemoveResponse successful response for `fs/remove`.
-type FsRemoveResponse struct{}
+// FSRemoveResponse successful response for `fs/remove`.
+type FSRemoveResponse struct{}
 
-// FsUnwatchParams stops filesystem watch notifications for a prior `fs/watch`.
-type FsUnwatchParams struct {
+// FSUnwatchParams stops filesystem watch notifications for a prior `fs/watch`.
+type FSUnwatchParams struct {
 	// WatchID watches identifier previously provided to `fs/watch`.
 	WatchID string `json:"watchId"`
 }
 
-// FsUnwatchResponse successful response for `fs/unwatch`.
-type FsUnwatchResponse struct{}
+// FSUnwatchResponse successful response for `fs/unwatch`.
+type FSUnwatchResponse struct{}
 
-// FsWatchParams starts filesystem watch notifications for an absolute path.
-type FsWatchParams struct {
+// FSWatchParams starts filesystem watch notifications for an absolute path.
+type FSWatchParams struct {
 	// Path absolute file or directory path to watch.
 	Path string `json:"path"`
 
@@ -3940,14 +3940,14 @@ type FsWatchParams struct {
 	WatchID string `json:"watchId"`
 }
 
-// FsWatchResponse successful response for `fs/watch`.
-type FsWatchResponse struct {
+// FSWatchResponse successful response for `fs/watch`.
+type FSWatchResponse struct {
 	// Path canonicalized path associated with the watch.
 	Path string `json:"path"`
 }
 
-// FsWriteFileParams writes a file on the host filesystem.
-type FsWriteFileParams struct {
+// FSWriteFileParams writes a file on the host filesystem.
+type FSWriteFileParams struct {
 	// DataBase64 file contents encoded as base64.
 	DataBase64 string `json:"dataBase64"`
 
@@ -3955,8 +3955,8 @@ type FsWriteFileParams struct {
 	Path string `json:"path"`
 }
 
-// FsWriteFileResponse successful response for `fs/writeFile`.
-type FsWriteFileResponse struct{}
+// FSWriteFileResponse successful response for `fs/writeFile`.
+type FSWriteFileResponse struct{}
 
 // FunctionCallOutputBody is generated from the FunctionCallOutputBody schema definition.
 type FunctionCallOutputBody interface {
@@ -4943,37 +4943,37 @@ type APIKeyv2LoginAccountParams struct {
 
 func (APIKeyv2LoginAccountParams) isLoginAccountParams() {}
 
-// Chatgptv2LoginAccountParams is generated from the Chatgptv2::LoginAccountParams schema definition.
-type Chatgptv2LoginAccountParams struct {
+// ChatGPTv2LoginAccountParams is generated from the Chatgptv2::LoginAccountParams schema definition.
+type ChatGPTv2LoginAccountParams struct {
 	CodexStreamlinedLogin *bool  `json:"codexStreamlinedLogin,omitzero"`
 	Type                  string `json:"type"`
 }
 
-func (Chatgptv2LoginAccountParams) isLoginAccountParams() {}
+func (ChatGPTv2LoginAccountParams) isLoginAccountParams() {}
 
-// ChatgptDeviceCodev2LoginAccountParams is generated from the ChatgptDeviceCodev2::LoginAccountParams schema definition.
-type ChatgptDeviceCodev2LoginAccountParams struct {
+// ChatGPTDeviceCodev2LoginAccountParams is generated from the ChatgptDeviceCodev2::LoginAccountParams schema definition.
+type ChatGPTDeviceCodev2LoginAccountParams struct {
 	Type string `json:"type"`
 }
 
-func (ChatgptDeviceCodev2LoginAccountParams) isLoginAccountParams() {}
+func (ChatGPTDeviceCodev2LoginAccountParams) isLoginAccountParams() {}
 
-// ChatgptAuthTokensv2LoginAccountParams [UNSTABLE] FOR OPENAI INTERNAL USE ONLY - DO NOT USE. The access token must contain the same scopes that Codex-managed ChatGPT auth tokens have.
-type ChatgptAuthTokensv2LoginAccountParams struct {
+// ChatGPTAuthTokensv2LoginAccountParams [UNSTABLE] FOR OPENAI INTERNAL USE ONLY - DO NOT USE. The access token must contain the same scopes that Codex-managed ChatGPT auth tokens have.
+type ChatGPTAuthTokensv2LoginAccountParams struct {
 	// AccessToken access token (JWT) supplied by the client. This token is used for backend API requests and email extraction.
 	AccessToken string `json:"accessToken"`
 
-	// ChatgptAccountID workspace/account identifier supplied by the client.
-	ChatgptAccountID string `json:"chatgptAccountId"`
+	// ChatGPTAccountID workspace/account identifier supplied by the client.
+	ChatGPTAccountID string `json:"chatgptAccountId"`
 
-	// ChatgptPlanType optional plan type supplied by the client.
+	// ChatGPTPlanType optional plan type supplied by the client.
 	//
 	// When `null`, Codex attempts to derive the plan type from access-token claims. If unavailable, the plan defaults to `unknown`.
-	ChatgptPlanType *string `json:"chatgptPlanType,omitzero"`
+	ChatGPTPlanType *string `json:"chatgptPlanType,omitzero"`
 	Type            string  `json:"type"`
 }
 
-func (ChatgptAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
+func (ChatGPTAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
 
 func decodeGeneratedLoginAccountParams(raw jsontext.Value) (LoginAccountParams, error) {
 	if raw == nil {
@@ -4991,19 +4991,19 @@ func decodeGeneratedLoginAccountParams(raw jsontext.Value) (LoginAccountParams, 
 			}
 			return value, nil
 		case "chatgpt":
-			var value Chatgptv2LoginAccountParams
+			var value ChatGPTv2LoginAccountParams
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
 		case "chatgptDeviceCode":
-			var value ChatgptDeviceCodev2LoginAccountParams
+			var value ChatGPTDeviceCodev2LoginAccountParams
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
 		case "chatgptAuthTokens":
-			var value ChatgptAuthTokensv2LoginAccountParams
+			var value ChatGPTAuthTokensv2LoginAccountParams
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
@@ -5044,18 +5044,18 @@ type APIKeyv2LoginAccountResponse struct {
 
 func (APIKeyv2LoginAccountResponse) isLoginAccountResponse() {}
 
-// Chatgptv2LoginAccountResponse is generated from the Chatgptv2::LoginAccountResponse schema definition.
-type Chatgptv2LoginAccountResponse struct {
+// ChatGPTv2LoginAccountResponse is generated from the Chatgptv2::LoginAccountResponse schema definition.
+type ChatGPTv2LoginAccountResponse struct {
 	// AuthURL URL the client should open in a browser to initiate the OAuth flow.
 	AuthURL string `json:"authUrl"`
 	LoginID string `json:"loginId"`
 	Type    string `json:"type"`
 }
 
-func (Chatgptv2LoginAccountResponse) isLoginAccountResponse() {}
+func (ChatGPTv2LoginAccountResponse) isLoginAccountResponse() {}
 
-// ChatgptDeviceCodev2LoginAccountResponse is generated from the ChatgptDeviceCodev2::LoginAccountResponse schema definition.
-type ChatgptDeviceCodev2LoginAccountResponse struct {
+// ChatGPTDeviceCodev2LoginAccountResponse is generated from the ChatgptDeviceCodev2::LoginAccountResponse schema definition.
+type ChatGPTDeviceCodev2LoginAccountResponse struct {
 	LoginID string `json:"loginId"`
 	Type    string `json:"type"`
 
@@ -5066,14 +5066,14 @@ type ChatgptDeviceCodev2LoginAccountResponse struct {
 	VerificationURL string `json:"verificationUrl"`
 }
 
-func (ChatgptDeviceCodev2LoginAccountResponse) isLoginAccountResponse() {}
+func (ChatGPTDeviceCodev2LoginAccountResponse) isLoginAccountResponse() {}
 
-// ChatgptAuthTokensv2LoginAccountResponse is generated from the ChatgptAuthTokensv2::LoginAccountResponse schema definition.
-type ChatgptAuthTokensv2LoginAccountResponse struct {
+// ChatGPTAuthTokensv2LoginAccountResponse is generated from the ChatgptAuthTokensv2::LoginAccountResponse schema definition.
+type ChatGPTAuthTokensv2LoginAccountResponse struct {
 	Type string `json:"type"`
 }
 
-func (ChatgptAuthTokensv2LoginAccountResponse) isLoginAccountResponse() {}
+func (ChatGPTAuthTokensv2LoginAccountResponse) isLoginAccountResponse() {}
 
 func decodeGeneratedLoginAccountResponse(raw jsontext.Value) (LoginAccountResponse, error) {
 	if raw == nil {
@@ -5091,19 +5091,19 @@ func decodeGeneratedLoginAccountResponse(raw jsontext.Value) (LoginAccountRespon
 			}
 			return value, nil
 		case "chatgpt":
-			var value Chatgptv2LoginAccountResponse
+			var value ChatGPTv2LoginAccountResponse
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
 		case "chatgptDeviceCode":
-			var value ChatgptDeviceCodev2LoginAccountResponse
+			var value ChatGPTDeviceCodev2LoginAccountResponse
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
 			return value, nil
 		case "chatgptAuthTokens":
-			var value ChatgptAuthTokensv2LoginAccountResponse
+			var value ChatGPTAuthTokensv2LoginAccountResponse
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}
@@ -6664,7 +6664,7 @@ type ProfileV2 struct {
 
 	// ApprovalsReviewer [UNSTABLE] Optional profile-level override for where approval requests are routed for review. If omitted, the enclosing config default is used.
 	ApprovalsReviewer     *ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
-	ChatgptBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
+	ChatGPTBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
 	Model                 *string            `json:"model,omitzero"`
 	ModelProvider         *string            `json:"model_provider,omitzero"`
 	ModelReasoningEffort  *ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
@@ -6679,7 +6679,7 @@ func (value *ProfileV2) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ApprovalPolicy        jsontext.Value     `json:"approval_policy,omitzero"`
 		ApprovalsReviewer     *ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
-		ChatgptBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
+		ChatGPTBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
 		Model                 *string            `json:"model,omitzero"`
 		ModelProvider         *string            `json:"model_provider,omitzero"`
 		ModelReasoningEffort  *ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
@@ -6702,7 +6702,7 @@ func (value *ProfileV2) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		value.ApprovalPolicy = &decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
-	value.ChatgptBaseURL = raw.ChatgptBaseURL
+	value.ChatGPTBaseURL = raw.ChatGPTBaseURL
 	value.Model = raw.Model
 	value.ModelProvider = raw.ModelProvider
 	value.ModelReasoningEffort = raw.ModelReasoningEffort
@@ -8061,8 +8061,8 @@ const (
 	NotificationMethodRemoteControlStatusChanged = "remoteControl/status/changed"
 	// NotificationMethodExternalAgentConfigImportCompleted is the "externalAgentConfig/import/completed" ServerNotification method.
 	NotificationMethodExternalAgentConfigImportCompleted = "externalAgentConfig/import/completed"
-	// NotificationMethodFsChanged is the "fs/changed" ServerNotification method.
-	NotificationMethodFsChanged = "fs/changed"
+	// NotificationMethodFSChanged is the "fs/changed" ServerNotification method.
+	NotificationMethodFSChanged = "fs/changed"
 	// NotificationMethodItemReasoningSummaryTextDelta is the "item/reasoning/summaryTextDelta" ServerNotification method.
 	NotificationMethodItemReasoningSummaryTextDelta = "item/reasoning/summaryTextDelta"
 	// NotificationMethodItemReasoningSummaryPartAdded is the "item/reasoning/summaryPartAdded" ServerNotification method.
@@ -8417,13 +8417,13 @@ type ExternalAgentConfigImportCompletedNotification2 struct {
 
 func (ExternalAgentConfigImportCompletedNotification2) isServerNotification() {}
 
-// FsChangedNotification2 is generated from the Fs/changedNotification schema definition.
-type FsChangedNotification2 struct {
+// FSChangedNotification2 is generated from the Fs/changedNotification schema definition.
+type FSChangedNotification2 struct {
 	Method string                `json:"method"`
-	Params FsChangedNotification `json:"params"`
+	Params FSChangedNotification `json:"params"`
 }
 
-func (FsChangedNotification2) isServerNotification() {}
+func (FSChangedNotification2) isServerNotification() {}
 
 // ItemReasoningSummaryTextDeltaNotification is generated from the Item/reasoning/summaryTextDeltaNotification schema definition.
 type ItemReasoningSummaryTextDeltaNotification struct {
@@ -8826,8 +8826,8 @@ func decodeGeneratedServerNotification(raw jsontext.Value) (ServerNotification, 
 				return nil, err
 			}
 			return value, nil
-		case NotificationMethodFsChanged:
-			var value FsChangedNotification2
+		case NotificationMethodFSChanged:
+			var value FSChangedNotification2
 			if err := json.Unmarshal(raw, &value); err != nil {
 				return nil, err
 			}

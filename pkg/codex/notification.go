@@ -42,7 +42,7 @@ var notificationMethodList = []string{
 	NotificationMethodDeprecationNotice,
 	NotificationMethodError,
 	NotificationMethodExternalAgentConfigImportCompleted,
-	NotificationMethodFsChanged,
+	NotificationMethodFSChanged,
 	NotificationMethodFuzzyFileSearchSessionCompleted,
 	NotificationMethodFuzzyFileSearchSessionUpdated,
 	NotificationMethodGuardianWarning,
@@ -135,8 +135,8 @@ var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodExternalAgentConfigImportCompleted: func(notification Notification) (any, bool, error) {
 		return DecodeNotificationAs[ExternalAgentConfigImportCompletedNotification](notification, NotificationMethodExternalAgentConfigImportCompleted)
 	},
-	NotificationMethodFsChanged: func(notification Notification) (any, bool, error) {
-		return DecodeNotificationAs[FsChangedNotification](notification, NotificationMethodFsChanged)
+	NotificationMethodFSChanged: func(notification Notification) (any, bool, error) {
+		return DecodeNotificationAs[FSChangedNotification](notification, NotificationMethodFSChanged)
 	},
 	NotificationMethodFuzzyFileSearchSessionCompleted: func(notification Notification) (any, bool, error) {
 		return DecodeNotificationAs[FuzzyFileSearchSessionCompletedNotification](notification, NotificationMethodFuzzyFileSearchSessionCompleted)
@@ -410,9 +410,9 @@ func DecodeExternalAgentConfigImportCompletedNotification(notification Notificat
 	return notification.As[ExternalAgentConfigImportCompletedNotification](NotificationMethodExternalAgentConfigImportCompleted)
 }
 
-// DecodeFsChangedNotification decodes the fs/changed notification.
-func DecodeFsChangedNotification(notification Notification) (FsChangedNotification, bool, error) {
-	return notification.As[FsChangedNotification](NotificationMethodFsChanged)
+// DecodeFSChangedNotification decodes the fs/changed notification.
+func DecodeFSChangedNotification(notification Notification) (FSChangedNotification, bool, error) {
+	return notification.As[FSChangedNotification](NotificationMethodFSChanged)
 }
 
 // DecodeFuzzyFileSearchSessionCompletedNotification decodes the fuzzyFileSearch/sessionCompleted notification.
@@ -732,9 +732,9 @@ func (notification Notification) ExternalAgentConfigImportCompleted() (ExternalA
 	return DecodeExternalAgentConfigImportCompletedNotification(notification)
 }
 
-// FsChanged decodes the fs/changed notification.
-func (notification Notification) FsChanged() (FsChangedNotification, bool, error) {
-	return DecodeFsChangedNotification(notification)
+// FSChanged decodes the fs/changed notification.
+func (notification Notification) FSChanged() (FSChangedNotification, bool, error) {
+	return DecodeFSChangedNotification(notification)
 }
 
 // FuzzyFileSearchSessionCompleted decodes the fuzzyFileSearch/sessionCompleted notification.
