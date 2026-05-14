@@ -16,7 +16,25 @@ package codex
 
 import (
 	"fmt"
+
+	"github.com/go-json-experiment/json/jsontext"
 )
+
+// Object is a JSON object exchanged with the Codex app-server.
+type Object = map[string]any
+
+// ServerInfo describes the app-server process returned by initialize.
+type ServerInfo struct {
+	Name    string `json:"name,omitzero"`
+	Version string `json:"version,omitzero"`
+}
+
+// InitializeResponse is the metadata returned by the app-server initialize method.
+type InitializeResponse struct {
+	UserAgent  string         `json:"userAgent,omitzero"`
+	ServerInfo *ServerInfo    `json:"serverInfo,omitzero"`
+	Raw        jsontext.Value `json:",inline"`
+}
 
 // ApprovalMode is a high-level approval preset compatible with the Python SDK.
 type ApprovalMode string
