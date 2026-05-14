@@ -315,11 +315,11 @@ func KnownNotificationMethods() []string {
 	return methods
 }
 
-// As decodes notification params when the method matches.
+// DecodeNotificationAs decodes notification params when the method matches.
 //
 // The boolean return is false when notification.Method does not match method.
 // In that case the zero value is returned and params are not decoded.
-func (notification Notification) As[T any](method string) (T, bool, error) {
+func DecodeNotificationAs[T any](notification Notification, method string) (T, bool, error) {
 	var zero T
 	if notification.Method != method {
 		return zero, false, nil
@@ -329,14 +329,6 @@ func (notification Notification) As[T any](method string) (T, bool, error) {
 		return zero, true, fmt.Errorf("decode %s notification: %w", method, err)
 	}
 	return got, true, nil
-}
-
-// DecodeNotificationAs decodes notification params when the method matches.
-//
-// The boolean return is false when notification.Method does not match method.
-// In that case the zero value is returned and params are not decoded.
-func DecodeNotificationAs[T any](notification Notification, method string) (T, bool, error) {
-	return notification.As[T](method)
 }
 
 // DecodeNotification decodes known server notifications from the upstream
@@ -367,317 +359,317 @@ func DecodeKnownNotification(notification Notification) (KnownNotification, bool
 
 // DecodeAccountLoginCompletedNotification decodes the account/login/completed notification.
 func DecodeAccountLoginCompletedNotification(notification Notification) (AccountLoginCompletedNotification, bool, error) {
-	return notification.As[AccountLoginCompletedNotification](NotificationMethodAccountLoginCompleted)
+	return DecodeNotificationAs[AccountLoginCompletedNotification](notification, NotificationMethodAccountLoginCompleted)
 }
 
 // DecodeAccountRateLimitsUpdatedNotification decodes the account/rateLimits/updated notification.
 func DecodeAccountRateLimitsUpdatedNotification(notification Notification) (AccountRateLimitsUpdatedNotification, bool, error) {
-	return notification.As[AccountRateLimitsUpdatedNotification](NotificationMethodAccountRateLimitsUpdated)
+	return DecodeNotificationAs[AccountRateLimitsUpdatedNotification](notification, NotificationMethodAccountRateLimitsUpdated)
 }
 
 // DecodeAccountUpdatedNotification decodes the account/updated notification.
 func DecodeAccountUpdatedNotification(notification Notification) (AccountUpdatedNotification, bool, error) {
-	return notification.As[AccountUpdatedNotification](NotificationMethodAccountUpdated)
+	return DecodeNotificationAs[AccountUpdatedNotification](notification, NotificationMethodAccountUpdated)
 }
 
 // DecodeAppListUpdatedNotification decodes the app/list/updated notification.
 func DecodeAppListUpdatedNotification(notification Notification) (AppListUpdatedNotification, bool, error) {
-	return notification.As[AppListUpdatedNotification](NotificationMethodAppListUpdated)
+	return DecodeNotificationAs[AppListUpdatedNotification](notification, NotificationMethodAppListUpdated)
 }
 
 // DecodeCommandExecOutputDeltaNotification decodes the command/exec/outputDelta notification.
 func DecodeCommandExecOutputDeltaNotification(notification Notification) (CommandExecOutputDeltaNotification, bool, error) {
-	return notification.As[CommandExecOutputDeltaNotification](NotificationMethodCommandExecOutputDelta)
+	return DecodeNotificationAs[CommandExecOutputDeltaNotification](notification, NotificationMethodCommandExecOutputDelta)
 }
 
 // DecodeConfigWarningNotification decodes the configWarning notification.
 func DecodeConfigWarningNotification(notification Notification) (ConfigWarningNotification, bool, error) {
-	return notification.As[ConfigWarningNotification](NotificationMethodConfigWarning)
+	return DecodeNotificationAs[ConfigWarningNotification](notification, NotificationMethodConfigWarning)
 }
 
 // DecodeDeprecationNoticeNotification decodes the deprecationNotice notification.
 func DecodeDeprecationNoticeNotification(notification Notification) (DeprecationNoticeNotification, bool, error) {
-	return notification.As[DeprecationNoticeNotification](NotificationMethodDeprecationNotice)
+	return DecodeNotificationAs[DeprecationNoticeNotification](notification, NotificationMethodDeprecationNotice)
 }
 
 // DecodeErrorNotification decodes the error notification.
 func DecodeErrorNotification(notification Notification) (ErrorNotification, bool, error) {
-	return notification.As[ErrorNotification](NotificationMethodError)
+	return DecodeNotificationAs[ErrorNotification](notification, NotificationMethodError)
 }
 
 // DecodeExternalAgentConfigImportCompletedNotification decodes the externalAgentConfig/import/completed notification.
 func DecodeExternalAgentConfigImportCompletedNotification(notification Notification) (ExternalAgentConfigImportCompletedNotification, bool, error) {
-	return notification.As[ExternalAgentConfigImportCompletedNotification](NotificationMethodExternalAgentConfigImportCompleted)
+	return DecodeNotificationAs[ExternalAgentConfigImportCompletedNotification](notification, NotificationMethodExternalAgentConfigImportCompleted)
 }
 
 // DecodeFSChangedNotification decodes the fs/changed notification.
 func DecodeFSChangedNotification(notification Notification) (FSChangedNotification, bool, error) {
-	return notification.As[FSChangedNotification](NotificationMethodFSChanged)
+	return DecodeNotificationAs[FSChangedNotification](notification, NotificationMethodFSChanged)
 }
 
 // DecodeFuzzyFileSearchSessionCompletedNotification decodes the fuzzyFileSearch/sessionCompleted notification.
 func DecodeFuzzyFileSearchSessionCompletedNotification(notification Notification) (FuzzyFileSearchSessionCompletedNotification, bool, error) {
-	return notification.As[FuzzyFileSearchSessionCompletedNotification](NotificationMethodFuzzyFileSearchSessionCompleted)
+	return DecodeNotificationAs[FuzzyFileSearchSessionCompletedNotification](notification, NotificationMethodFuzzyFileSearchSessionCompleted)
 }
 
 // DecodeFuzzyFileSearchSessionUpdatedNotification decodes the fuzzyFileSearch/sessionUpdated notification.
 func DecodeFuzzyFileSearchSessionUpdatedNotification(notification Notification) (FuzzyFileSearchSessionUpdatedNotification, bool, error) {
-	return notification.As[FuzzyFileSearchSessionUpdatedNotification](NotificationMethodFuzzyFileSearchSessionUpdated)
+	return DecodeNotificationAs[FuzzyFileSearchSessionUpdatedNotification](notification, NotificationMethodFuzzyFileSearchSessionUpdated)
 }
 
 // DecodeGuardianWarningNotification decodes the guardianWarning notification.
 func DecodeGuardianWarningNotification(notification Notification) (GuardianWarningNotification, bool, error) {
-	return notification.As[GuardianWarningNotification](NotificationMethodGuardianWarning)
+	return DecodeNotificationAs[GuardianWarningNotification](notification, NotificationMethodGuardianWarning)
 }
 
 // DecodeHookCompletedNotification decodes the hook/completed notification.
 func DecodeHookCompletedNotification(notification Notification) (HookCompletedNotification, bool, error) {
-	return notification.As[HookCompletedNotification](NotificationMethodHookCompleted)
+	return DecodeNotificationAs[HookCompletedNotification](notification, NotificationMethodHookCompleted)
 }
 
 // DecodeHookStartedNotification decodes the hook/started notification.
 func DecodeHookStartedNotification(notification Notification) (HookStartedNotification, bool, error) {
-	return notification.As[HookStartedNotification](NotificationMethodHookStarted)
+	return DecodeNotificationAs[HookStartedNotification](notification, NotificationMethodHookStarted)
 }
 
 // DecodeItemAgentMessageDeltaNotification decodes the item/agentMessage/delta notification.
 func DecodeItemAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
-	return notification.As[AgentMessageDeltaNotification](NotificationMethodItemAgentMessageDelta)
+	return DecodeNotificationAs[AgentMessageDeltaNotification](notification, NotificationMethodItemAgentMessageDelta)
 }
 
 // DecodeItemAutoApprovalReviewCompletedNotification decodes the item/autoApprovalReview/completed notification.
 func DecodeItemAutoApprovalReviewCompletedNotification(notification Notification) (ItemGuardianApprovalReviewCompletedNotification, bool, error) {
-	return notification.As[ItemGuardianApprovalReviewCompletedNotification](NotificationMethodItemAutoApprovalReviewCompleted)
+	return DecodeNotificationAs[ItemGuardianApprovalReviewCompletedNotification](notification, NotificationMethodItemAutoApprovalReviewCompleted)
 }
 
 // DecodeItemAutoApprovalReviewStartedNotification decodes the item/autoApprovalReview/started notification.
 func DecodeItemAutoApprovalReviewStartedNotification(notification Notification) (ItemGuardianApprovalReviewStartedNotification, bool, error) {
-	return notification.As[ItemGuardianApprovalReviewStartedNotification](NotificationMethodItemAutoApprovalReviewStarted)
+	return DecodeNotificationAs[ItemGuardianApprovalReviewStartedNotification](notification, NotificationMethodItemAutoApprovalReviewStarted)
 }
 
 // DecodeItemCommandExecutionOutputDeltaNotification decodes the item/commandExecution/outputDelta notification.
 func DecodeItemCommandExecutionOutputDeltaNotification(notification Notification) (ItemCommandExecutionOutputDeltaNotification, bool, error) {
-	return notification.As[ItemCommandExecutionOutputDeltaNotification](NotificationMethodItemCommandExecutionOutputDelta)
+	return DecodeNotificationAs[ItemCommandExecutionOutputDeltaNotification](notification, NotificationMethodItemCommandExecutionOutputDelta)
 }
 
 // DecodeItemCommandExecutionTerminalInteractionNotification decodes the item/commandExecution/terminalInteraction notification.
 func DecodeItemCommandExecutionTerminalInteractionNotification(notification Notification) (ItemCommandExecutionTerminalInteractionNotification, bool, error) {
-	return notification.As[ItemCommandExecutionTerminalInteractionNotification](NotificationMethodItemCommandExecutionTerminalInteraction)
+	return DecodeNotificationAs[ItemCommandExecutionTerminalInteractionNotification](notification, NotificationMethodItemCommandExecutionTerminalInteraction)
 }
 
 // DecodeItemCompletedNotification decodes the item/completed notification.
 func DecodeItemCompletedNotification(notification Notification) (ItemCompletedNotification, bool, error) {
-	return notification.As[ItemCompletedNotification](NotificationMethodItemCompleted)
+	return DecodeNotificationAs[ItemCompletedNotification](notification, NotificationMethodItemCompleted)
 }
 
 // DecodeItemFileChangeOutputDeltaNotification decodes the item/fileChange/outputDelta notification.
 func DecodeItemFileChangeOutputDeltaNotification(notification Notification) (ItemFileChangeOutputDeltaNotification, bool, error) {
-	return notification.As[ItemFileChangeOutputDeltaNotification](NotificationMethodItemFileChangeOutputDelta)
+	return DecodeNotificationAs[ItemFileChangeOutputDeltaNotification](notification, NotificationMethodItemFileChangeOutputDelta)
 }
 
 // DecodeItemFileChangePatchUpdatedNotification decodes the item/fileChange/patchUpdated notification.
 func DecodeItemFileChangePatchUpdatedNotification(notification Notification) (ItemFileChangePatchUpdatedNotification, bool, error) {
-	return notification.As[ItemFileChangePatchUpdatedNotification](NotificationMethodItemFileChangePatchUpdated)
+	return DecodeNotificationAs[ItemFileChangePatchUpdatedNotification](notification, NotificationMethodItemFileChangePatchUpdated)
 }
 
 // DecodeItemMCPToolCallProgressNotification decodes the item/mcpToolCall/progress notification.
 func DecodeItemMCPToolCallProgressNotification(notification Notification) (MCPToolCallProgressNotification, bool, error) {
-	return notification.As[MCPToolCallProgressNotification](NotificationMethodItemMCPToolCallProgress)
+	return DecodeNotificationAs[MCPToolCallProgressNotification](notification, NotificationMethodItemMCPToolCallProgress)
 }
 
 // DecodeItemPlanDeltaNotification decodes the item/plan/delta notification.
 func DecodeItemPlanDeltaNotification(notification Notification) (PlanDeltaNotification, bool, error) {
-	return notification.As[PlanDeltaNotification](NotificationMethodItemPlanDelta)
+	return DecodeNotificationAs[PlanDeltaNotification](notification, NotificationMethodItemPlanDelta)
 }
 
 // DecodeItemReasoningSummaryPartAddedNotification decodes the item/reasoning/summaryPartAdded notification.
 func DecodeItemReasoningSummaryPartAddedNotification(notification Notification) (ReasoningSummaryPartAddedNotification, bool, error) {
-	return notification.As[ReasoningSummaryPartAddedNotification](NotificationMethodItemReasoningSummaryPartAdded)
+	return DecodeNotificationAs[ReasoningSummaryPartAddedNotification](notification, NotificationMethodItemReasoningSummaryPartAdded)
 }
 
 // DecodeItemReasoningSummaryTextDeltaNotification decodes the item/reasoning/summaryTextDelta notification.
 func DecodeItemReasoningSummaryTextDeltaNotification(notification Notification) (ReasoningSummaryTextDeltaNotification, bool, error) {
-	return notification.As[ReasoningSummaryTextDeltaNotification](NotificationMethodItemReasoningSummaryTextDelta)
+	return DecodeNotificationAs[ReasoningSummaryTextDeltaNotification](notification, NotificationMethodItemReasoningSummaryTextDelta)
 }
 
 // DecodeItemReasoningTextDeltaNotification decodes the item/reasoning/textDelta notification.
 func DecodeItemReasoningTextDeltaNotification(notification Notification) (ReasoningTextDeltaNotification, bool, error) {
-	return notification.As[ReasoningTextDeltaNotification](NotificationMethodItemReasoningTextDelta)
+	return DecodeNotificationAs[ReasoningTextDeltaNotification](notification, NotificationMethodItemReasoningTextDelta)
 }
 
 // DecodeItemStartedNotification decodes the item/started notification.
 func DecodeItemStartedNotification(notification Notification) (ItemStartedNotification, bool, error) {
-	return notification.As[ItemStartedNotification](NotificationMethodItemStarted)
+	return DecodeNotificationAs[ItemStartedNotification](notification, NotificationMethodItemStarted)
 }
 
 // DecodeMCPServerOAuthLoginCompletedNotification decodes the mcpServer/oauthLogin/completed notification.
 func DecodeMCPServerOAuthLoginCompletedNotification(notification Notification) (MCPServerOAuthLoginCompletedNotification, bool, error) {
-	return notification.As[MCPServerOAuthLoginCompletedNotification](NotificationMethodMCPServerOAuthLoginCompleted)
+	return DecodeNotificationAs[MCPServerOAuthLoginCompletedNotification](notification, NotificationMethodMCPServerOAuthLoginCompleted)
 }
 
 // DecodeMCPServerStartupStatusUpdatedNotification decodes the mcpServer/startupStatus/updated notification.
 func DecodeMCPServerStartupStatusUpdatedNotification(notification Notification) (MCPServerStartupStatusUpdatedNotification, bool, error) {
-	return notification.As[MCPServerStartupStatusUpdatedNotification](NotificationMethodMCPServerStartupStatusUpdated)
+	return DecodeNotificationAs[MCPServerStartupStatusUpdatedNotification](notification, NotificationMethodMCPServerStartupStatusUpdated)
 }
 
 // DecodeModelReroutedNotification decodes the model/rerouted notification.
 func DecodeModelReroutedNotification(notification Notification) (ModelReroutedNotification, bool, error) {
-	return notification.As[ModelReroutedNotification](NotificationMethodModelRerouted)
+	return DecodeNotificationAs[ModelReroutedNotification](notification, NotificationMethodModelRerouted)
 }
 
 // DecodeModelVerificationNotification decodes the model/verification notification.
 func DecodeModelVerificationNotification(notification Notification) (ModelVerificationNotification, bool, error) {
-	return notification.As[ModelVerificationNotification](NotificationMethodModelVerification)
+	return DecodeNotificationAs[ModelVerificationNotification](notification, NotificationMethodModelVerification)
 }
 
 // DecodeProcessExitedNotification decodes the process/exited notification.
 func DecodeProcessExitedNotification(notification Notification) (ProcessExitedNotification, bool, error) {
-	return notification.As[ProcessExitedNotification](NotificationMethodProcessExited)
+	return DecodeNotificationAs[ProcessExitedNotification](notification, NotificationMethodProcessExited)
 }
 
 // DecodeProcessOutputDeltaNotification decodes the process/outputDelta notification.
 func DecodeProcessOutputDeltaNotification(notification Notification) (ProcessOutputDeltaNotification, bool, error) {
-	return notification.As[ProcessOutputDeltaNotification](NotificationMethodProcessOutputDelta)
+	return DecodeNotificationAs[ProcessOutputDeltaNotification](notification, NotificationMethodProcessOutputDelta)
 }
 
 // DecodeRemoteControlStatusChangedNotification decodes the remoteControl/status/changed notification.
 func DecodeRemoteControlStatusChangedNotification(notification Notification) (RemoteControlStatusChangedNotification, bool, error) {
-	return notification.As[RemoteControlStatusChangedNotification](NotificationMethodRemoteControlStatusChanged)
+	return DecodeNotificationAs[RemoteControlStatusChangedNotification](notification, NotificationMethodRemoteControlStatusChanged)
 }
 
 // DecodeServerRequestResolvedNotification decodes the serverRequest/resolved notification.
 func DecodeServerRequestResolvedNotification(notification Notification) (ServerRequestResolvedNotification, bool, error) {
-	return notification.As[ServerRequestResolvedNotification](NotificationMethodServerRequestResolved)
+	return DecodeNotificationAs[ServerRequestResolvedNotification](notification, NotificationMethodServerRequestResolved)
 }
 
 // DecodeSkillsChangedNotification decodes the skills/changed notification.
 func DecodeSkillsChangedNotification(notification Notification) (SkillsChangedNotification, bool, error) {
-	return notification.As[SkillsChangedNotification](NotificationMethodSkillsChanged)
+	return DecodeNotificationAs[SkillsChangedNotification](notification, NotificationMethodSkillsChanged)
 }
 
 // DecodeThreadArchivedNotification decodes the thread/archived notification.
 func DecodeThreadArchivedNotification(notification Notification) (ThreadArchivedNotification, bool, error) {
-	return notification.As[ThreadArchivedNotification](NotificationMethodThreadArchived)
+	return DecodeNotificationAs[ThreadArchivedNotification](notification, NotificationMethodThreadArchived)
 }
 
 // DecodeThreadClosedNotification decodes the thread/closed notification.
 func DecodeThreadClosedNotification(notification Notification) (ThreadClosedNotification, bool, error) {
-	return notification.As[ThreadClosedNotification](NotificationMethodThreadClosed)
+	return DecodeNotificationAs[ThreadClosedNotification](notification, NotificationMethodThreadClosed)
 }
 
 // DecodeThreadCompactedNotification decodes the thread/compacted notification.
 func DecodeThreadCompactedNotification(notification Notification) (ContextCompactedNotification, bool, error) {
-	return notification.As[ContextCompactedNotification](NotificationMethodThreadCompacted)
+	return DecodeNotificationAs[ContextCompactedNotification](notification, NotificationMethodThreadCompacted)
 }
 
 // DecodeThreadGoalClearedNotification decodes the thread/goal/cleared notification.
 func DecodeThreadGoalClearedNotification(notification Notification) (ThreadGoalClearedNotification, bool, error) {
-	return notification.As[ThreadGoalClearedNotification](NotificationMethodThreadGoalCleared)
+	return DecodeNotificationAs[ThreadGoalClearedNotification](notification, NotificationMethodThreadGoalCleared)
 }
 
 // DecodeThreadGoalUpdatedNotification decodes the thread/goal/updated notification.
 func DecodeThreadGoalUpdatedNotification(notification Notification) (ThreadGoalUpdatedNotification, bool, error) {
-	return notification.As[ThreadGoalUpdatedNotification](NotificationMethodThreadGoalUpdated)
+	return DecodeNotificationAs[ThreadGoalUpdatedNotification](notification, NotificationMethodThreadGoalUpdated)
 }
 
 // DecodeThreadNameUpdatedNotification decodes the thread/name/updated notification.
 func DecodeThreadNameUpdatedNotification(notification Notification) (ThreadNameUpdatedNotification, bool, error) {
-	return notification.As[ThreadNameUpdatedNotification](NotificationMethodThreadNameUpdated)
+	return DecodeNotificationAs[ThreadNameUpdatedNotification](notification, NotificationMethodThreadNameUpdated)
 }
 
 // DecodeThreadRealtimeClosedNotification decodes the thread/realtime/closed notification.
 func DecodeThreadRealtimeClosedNotification(notification Notification) (ThreadRealtimeClosedNotification, bool, error) {
-	return notification.As[ThreadRealtimeClosedNotification](NotificationMethodThreadRealtimeClosed)
+	return DecodeNotificationAs[ThreadRealtimeClosedNotification](notification, NotificationMethodThreadRealtimeClosed)
 }
 
 // DecodeThreadRealtimeErrorNotification decodes the thread/realtime/error notification.
 func DecodeThreadRealtimeErrorNotification(notification Notification) (ThreadRealtimeErrorNotification, bool, error) {
-	return notification.As[ThreadRealtimeErrorNotification](NotificationMethodThreadRealtimeError)
+	return DecodeNotificationAs[ThreadRealtimeErrorNotification](notification, NotificationMethodThreadRealtimeError)
 }
 
 // DecodeThreadRealtimeItemAddedNotification decodes the thread/realtime/itemAdded notification.
 func DecodeThreadRealtimeItemAddedNotification(notification Notification) (ThreadRealtimeItemAddedNotification, bool, error) {
-	return notification.As[ThreadRealtimeItemAddedNotification](NotificationMethodThreadRealtimeItemAdded)
+	return DecodeNotificationAs[ThreadRealtimeItemAddedNotification](notification, NotificationMethodThreadRealtimeItemAdded)
 }
 
 // DecodeThreadRealtimeOutputAudioDeltaNotification decodes the thread/realtime/outputAudio/delta notification.
 func DecodeThreadRealtimeOutputAudioDeltaNotification(notification Notification) (ThreadRealtimeOutputAudioDeltaNotification, bool, error) {
-	return notification.As[ThreadRealtimeOutputAudioDeltaNotification](NotificationMethodThreadRealtimeOutputAudioDelta)
+	return DecodeNotificationAs[ThreadRealtimeOutputAudioDeltaNotification](notification, NotificationMethodThreadRealtimeOutputAudioDelta)
 }
 
 // DecodeThreadRealtimeSDPNotification decodes the thread/realtime/sdp notification.
 func DecodeThreadRealtimeSDPNotification(notification Notification) (ThreadRealtimeSDPNotification, bool, error) {
-	return notification.As[ThreadRealtimeSDPNotification](NotificationMethodThreadRealtimeSDP)
+	return DecodeNotificationAs[ThreadRealtimeSDPNotification](notification, NotificationMethodThreadRealtimeSDP)
 }
 
 // DecodeThreadRealtimeStartedNotification decodes the thread/realtime/started notification.
 func DecodeThreadRealtimeStartedNotification(notification Notification) (ThreadRealtimeStartedNotification, bool, error) {
-	return notification.As[ThreadRealtimeStartedNotification](NotificationMethodThreadRealtimeStarted)
+	return DecodeNotificationAs[ThreadRealtimeStartedNotification](notification, NotificationMethodThreadRealtimeStarted)
 }
 
 // DecodeThreadRealtimeTranscriptDeltaNotification decodes the thread/realtime/transcript/delta notification.
 func DecodeThreadRealtimeTranscriptDeltaNotification(notification Notification) (ThreadRealtimeTranscriptDeltaNotification, bool, error) {
-	return notification.As[ThreadRealtimeTranscriptDeltaNotification](NotificationMethodThreadRealtimeTranscriptDelta)
+	return DecodeNotificationAs[ThreadRealtimeTranscriptDeltaNotification](notification, NotificationMethodThreadRealtimeTranscriptDelta)
 }
 
 // DecodeThreadRealtimeTranscriptDoneNotification decodes the thread/realtime/transcript/done notification.
 func DecodeThreadRealtimeTranscriptDoneNotification(notification Notification) (ThreadRealtimeTranscriptDoneNotification, bool, error) {
-	return notification.As[ThreadRealtimeTranscriptDoneNotification](NotificationMethodThreadRealtimeTranscriptDone)
+	return DecodeNotificationAs[ThreadRealtimeTranscriptDoneNotification](notification, NotificationMethodThreadRealtimeTranscriptDone)
 }
 
 // DecodeThreadStartedNotification decodes the thread/started notification.
 func DecodeThreadStartedNotification(notification Notification) (ThreadStartedNotification, bool, error) {
-	return notification.As[ThreadStartedNotification](NotificationMethodThreadStarted)
+	return DecodeNotificationAs[ThreadStartedNotification](notification, NotificationMethodThreadStarted)
 }
 
 // DecodeThreadStatusChangedNotification decodes the thread/status/changed notification.
 func DecodeThreadStatusChangedNotification(notification Notification) (ThreadStatusChangedNotification, bool, error) {
-	return notification.As[ThreadStatusChangedNotification](NotificationMethodThreadStatusChanged)
+	return DecodeNotificationAs[ThreadStatusChangedNotification](notification, NotificationMethodThreadStatusChanged)
 }
 
 // DecodeThreadTokenUsageUpdatedNotification decodes the thread/tokenUsage/updated notification.
 func DecodeThreadTokenUsageUpdatedNotification(notification Notification) (ThreadTokenUsageUpdatedNotification, bool, error) {
-	return notification.As[ThreadTokenUsageUpdatedNotification](NotificationMethodThreadTokenUsageUpdated)
+	return DecodeNotificationAs[ThreadTokenUsageUpdatedNotification](notification, NotificationMethodThreadTokenUsageUpdated)
 }
 
 // DecodeThreadUnarchivedNotification decodes the thread/unarchived notification.
 func DecodeThreadUnarchivedNotification(notification Notification) (ThreadUnarchivedNotification, bool, error) {
-	return notification.As[ThreadUnarchivedNotification](NotificationMethodThreadUnarchived)
+	return DecodeNotificationAs[ThreadUnarchivedNotification](notification, NotificationMethodThreadUnarchived)
 }
 
 // DecodeTurnCompletedNotification decodes the turn/completed notification.
 func DecodeTurnCompletedNotification(notification Notification) (TurnCompletedNotification, bool, error) {
-	return notification.As[TurnCompletedNotification](NotificationMethodTurnCompleted)
+	return DecodeNotificationAs[TurnCompletedNotification](notification, NotificationMethodTurnCompleted)
 }
 
 // DecodeTurnDiffUpdatedNotification decodes the turn/diff/updated notification.
 func DecodeTurnDiffUpdatedNotification(notification Notification) (TurnDiffUpdatedNotification, bool, error) {
-	return notification.As[TurnDiffUpdatedNotification](NotificationMethodTurnDiffUpdated)
+	return DecodeNotificationAs[TurnDiffUpdatedNotification](notification, NotificationMethodTurnDiffUpdated)
 }
 
 // DecodeTurnPlanUpdatedNotification decodes the turn/plan/updated notification.
 func DecodeTurnPlanUpdatedNotification(notification Notification) (TurnPlanUpdatedNotification, bool, error) {
-	return notification.As[TurnPlanUpdatedNotification](NotificationMethodTurnPlanUpdated)
+	return DecodeNotificationAs[TurnPlanUpdatedNotification](notification, NotificationMethodTurnPlanUpdated)
 }
 
 // DecodeTurnStartedNotification decodes the turn/started notification.
 func DecodeTurnStartedNotification(notification Notification) (TurnStartedNotification, bool, error) {
-	return notification.As[TurnStartedNotification](NotificationMethodTurnStarted)
+	return DecodeNotificationAs[TurnStartedNotification](notification, NotificationMethodTurnStarted)
 }
 
 // DecodeWarningNotification decodes the warning notification.
 func DecodeWarningNotification(notification Notification) (WarningNotification, bool, error) {
-	return notification.As[WarningNotification](NotificationMethodWarning)
+	return DecodeNotificationAs[WarningNotification](notification, NotificationMethodWarning)
 }
 
 // DecodeWindowsWorldWritableWarningNotification decodes the windows/worldWritableWarning notification.
 func DecodeWindowsWorldWritableWarningNotification(notification Notification) (WindowsWorldWritableWarningNotification, bool, error) {
-	return notification.As[WindowsWorldWritableWarningNotification](NotificationMethodWindowsWorldWritableWarning)
+	return DecodeNotificationAs[WindowsWorldWritableWarningNotification](notification, NotificationMethodWindowsWorldWritableWarning)
 }
 
 // DecodeWindowsSandboxSetupCompletedNotification decodes the windowsSandbox/setupCompleted notification.
 func DecodeWindowsSandboxSetupCompletedNotification(notification Notification) (WindowsSandboxSetupCompletedNotification, bool, error) {
-	return notification.As[WindowsSandboxSetupCompletedNotification](NotificationMethodWindowsSandboxSetupCompleted)
+	return DecodeNotificationAs[WindowsSandboxSetupCompletedNotification](notification, NotificationMethodWindowsSandboxSetupCompleted)
 }
 
 // DecodeAgentMessageDeltaNotification decodes the item/agentMessage/delta notification.

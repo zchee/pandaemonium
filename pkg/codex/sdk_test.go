@@ -316,8 +316,7 @@ func TestClientRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	got, err := RequestWithRetryOnOverload[string](
-		t.Context(),
-		client,
+		t.Context(), client,
 		"ping",
 		nil,
 		RetryConfig{
@@ -334,7 +333,7 @@ func TestClientRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
 	}
 }
 
-func TestClientRequestGenericMethodAndWrapperReturnTypedResult(t *testing.T) {
+func TestPackageRequestReturnsTypedResult(t *testing.T) {
 	client := newHelperClient(t, "stream_thread_lifecycle")
 	if err := client.Start(t.Context()); err != nil {
 		t.Fatalf("Start() error = %v", err)
@@ -342,12 +341,12 @@ func TestClientRequestGenericMethodAndWrapperReturnTypedResult(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	params := ThreadReadParams{ThreadID: "thr_stream_start"}
-	got, err := client.Request[ThreadReadResponse](t.Context(), RequestMethodThreadRead, params)
+	got, err := Request[ThreadReadResponse](t.Context(), client, RequestMethodThreadRead, params)
 	if err != nil {
-		t.Fatalf("Client.Request() error = %v", err)
+		t.Fatalf("Request() error = %v", err)
 	}
 	if got.Thread.ID != "thr_stream_start" {
-		t.Fatalf("Client.Request() thread id = %q, want thr_stream_start", got.Thread.ID)
+		t.Fatalf("Request() thread id = %q, want thr_stream_start", got.Thread.ID)
 	}
 
 	wrapper, err := Request[ThreadReadResponse](t.Context(), client, RequestMethodThreadRead, params)
@@ -359,15 +358,15 @@ func TestClientRequestGenericMethodAndWrapperReturnTypedResult(t *testing.T) {
 	}
 }
 
-func TestClientRequestWithRetryOnOverloadAsRetriesAndReturnsResult(t *testing.T) {
+func TestPackageRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
 	client := newHelperClient(t, "retry_on_overload")
 	if err := client.Start(t.Context()); err != nil {
 		t.Fatalf("Start() error = %v", err)
 	}
 	defer func() { _ = client.Close() }()
 
-	got, err := client.RequestWithRetryOnOverloadAs[string](
-		t.Context(),
+	got, err := RequestWithRetryOnOverload[string](
+		t.Context(), client,
 		"ping",
 		nil,
 		RetryConfig{
@@ -377,7 +376,7 @@ func TestClientRequestWithRetryOnOverloadAsRetriesAndReturnsResult(t *testing.T)
 		},
 	)
 	if err != nil {
-		t.Fatalf("Client.RequestWithRetryOnOverloadAs() error = %v", err)
+		t.Fatalf("RequestWithRetryOnOverload() error = %v", err)
 	}
 	if got != "ok" {
 		t.Fatalf("result = %q, want ok", got)

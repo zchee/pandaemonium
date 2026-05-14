@@ -22,209 +22,209 @@ import (
 
 // ThreadStart calls thread/start.
 func (c *Client) ThreadStart(ctx context.Context, params *ThreadStartParams) (ThreadStartResponse, error) {
-	return c.Request[ThreadStartResponse](ctx, RequestMethodThreadStart, paramsOrEmpty(params))
+	return Request[ThreadStartResponse](ctx, c, RequestMethodThreadStart, paramsOrEmpty(params))
 }
 
 // ThreadResume calls thread/resume.
 func (c *Client) ThreadResume(ctx context.Context, threadID string, params *ThreadResumeParams) (ThreadResumeResponse, error) {
 	payload := mergeParams(params, Object{"threadId": threadID})
-	return c.Request[ThreadResumeResponse](ctx, RequestMethodThreadResume, payload)
+	return Request[ThreadResumeResponse](ctx, c, RequestMethodThreadResume, payload)
 }
 
 // ThreadFork calls thread/fork.
 func (c *Client) ThreadFork(ctx context.Context, threadID string, params *ThreadForkParams) (ThreadForkResponse, error) {
 	payload := mergeParams(params, Object{"threadId": threadID})
-	return c.Request[ThreadForkResponse](ctx, RequestMethodThreadFork, payload)
+	return Request[ThreadForkResponse](ctx, c, RequestMethodThreadFork, payload)
 }
 
 // ThreadList calls thread/list.
 func (c *Client) ThreadList(ctx context.Context, params *ThreadListParams) (ThreadListResponse, error) {
-	return c.Request[ThreadListResponse](ctx, RequestMethodThreadList, paramsOrEmpty(params))
+	return Request[ThreadListResponse](ctx, c, RequestMethodThreadList, paramsOrEmpty(params))
 }
 
 // ThreadRead calls thread/read.
 func (c *Client) ThreadRead(ctx context.Context, threadID string, includeTurns bool) (ThreadReadResponse, error) {
-	return c.Request[ThreadReadResponse](ctx, RequestMethodThreadRead, ThreadReadParams{ThreadID: threadID, IncludeTurns: &includeTurns})
+	return Request[ThreadReadResponse](ctx, c, RequestMethodThreadRead, ThreadReadParams{ThreadID: threadID, IncludeTurns: &includeTurns})
 }
 
 // ThreadArchive calls thread/archive.
 func (c *Client) ThreadArchive(ctx context.Context, threadID string) (ThreadArchiveResponse, error) {
-	return c.Request[ThreadArchiveResponse](ctx, RequestMethodThreadArchive, ThreadArchiveParams{ThreadID: threadID})
+	return Request[ThreadArchiveResponse](ctx, c, RequestMethodThreadArchive, ThreadArchiveParams{ThreadID: threadID})
 }
 
 // ThreadUnsubscribe calls thread/unsubscribe.
 func (c *Client) ThreadUnsubscribe(ctx context.Context, params *ThreadUnsubscribeParams) (ThreadUnsubscribeResponse, error) {
-	return c.Request[ThreadUnsubscribeResponse](ctx, RequestMethodThreadUnsubscribe, paramsOrEmpty(params))
+	return Request[ThreadUnsubscribeResponse](ctx, c, RequestMethodThreadUnsubscribe, paramsOrEmpty(params))
 }
 
 // ThreadMetadataUpdate calls thread/metadata/update.
 func (c *Client) ThreadMetadataUpdate(ctx context.Context, params *ThreadMetadataUpdateParams) (ThreadMetadataUpdateResponse, error) {
-	return c.Request[ThreadMetadataUpdateResponse](ctx, RequestMethodThreadMetadataUpdate, paramsOrEmpty(params))
+	return Request[ThreadMetadataUpdateResponse](ctx, c, RequestMethodThreadMetadataUpdate, paramsOrEmpty(params))
 }
 
 // ThreadUnarchive calls thread/unarchive.
 func (c *Client) ThreadUnarchive(ctx context.Context, threadID string) (ThreadUnarchiveResponse, error) {
-	return c.Request[ThreadUnarchiveResponse](ctx, RequestMethodThreadUnarchive, ThreadUnarchiveParams{ThreadID: threadID})
+	return Request[ThreadUnarchiveResponse](ctx, c, RequestMethodThreadUnarchive, ThreadUnarchiveParams{ThreadID: threadID})
 }
 
 // ThreadSetName calls thread/name/set.
 func (c *Client) ThreadSetName(ctx context.Context, threadID, name string) (ThreadSetNameResponse, error) {
-	return c.Request[ThreadSetNameResponse](ctx, RequestMethodThreadNameSet, ThreadSetNameParams{ThreadID: threadID, Name: name})
+	return Request[ThreadSetNameResponse](ctx, c, RequestMethodThreadNameSet, ThreadSetNameParams{ThreadID: threadID, Name: name})
 }
 
 // ThreadCompact calls thread/compact/start.
 func (c *Client) ThreadCompact(ctx context.Context, threadID string) (ThreadCompactStartResponse, error) {
-	return c.Request[ThreadCompactStartResponse](ctx, RequestMethodThreadCompactStart, ThreadCompactStartParams{ThreadID: threadID})
+	return Request[ThreadCompactStartResponse](ctx, c, RequestMethodThreadCompactStart, ThreadCompactStartParams{ThreadID: threadID})
 }
 
 // ThreadShellCommand calls thread/shellCommand.
 func (c *Client) ThreadShellCommand(ctx context.Context, params *ThreadShellCommandParams) (ThreadShellCommandResponse, error) {
-	return c.Request[ThreadShellCommandResponse](ctx, RequestMethodThreadShellCommand, paramsOrEmpty(params))
+	return Request[ThreadShellCommandResponse](ctx, c, RequestMethodThreadShellCommand, paramsOrEmpty(params))
 }
 
 // ThreadApproveGuardianDeniedAction calls thread/approveGuardianDeniedAction.
 func (c *Client) ThreadApproveGuardianDeniedAction(ctx context.Context, params *ThreadApproveGuardianDeniedActionParams) (ThreadApproveGuardianDeniedActionResponse, error) {
-	return c.Request[ThreadApproveGuardianDeniedActionResponse](ctx, RequestMethodThreadApproveGuardianDeniedAction, paramsOrEmpty(params))
+	return Request[ThreadApproveGuardianDeniedActionResponse](ctx, c, RequestMethodThreadApproveGuardianDeniedAction, paramsOrEmpty(params))
 }
 
 // ThreadRollback calls thread/rollback.
 func (c *Client) ThreadRollback(ctx context.Context, params *ThreadRollbackParams) (ThreadRollbackResponse, error) {
-	return c.Request[ThreadRollbackResponse](ctx, RequestMethodThreadRollback, paramsOrEmpty(params))
+	return Request[ThreadRollbackResponse](ctx, c, RequestMethodThreadRollback, paramsOrEmpty(params))
 }
 
 // ThreadLoadedList calls thread/loaded/list.
 func (c *Client) ThreadLoadedList(ctx context.Context, params *ThreadLoadedListParams) (ThreadLoadedListResponse, error) {
-	return c.Request[ThreadLoadedListResponse](ctx, RequestMethodThreadLoadedList, paramsOrEmpty(params))
+	return Request[ThreadLoadedListResponse](ctx, c, RequestMethodThreadLoadedList, paramsOrEmpty(params))
 }
 
 // ThreadInjectItems calls thread/inject_items.
 func (c *Client) ThreadInjectItems(ctx context.Context, params *ThreadInjectItemsParams) (ThreadInjectItemsResponse, error) {
-	return c.Request[ThreadInjectItemsResponse](ctx, RequestMethodThreadInjectItems, paramsOrEmpty(params))
+	return Request[ThreadInjectItemsResponse](ctx, c, RequestMethodThreadInjectItems, paramsOrEmpty(params))
 }
 
 // SkillsList calls skills/list.
 func (c *Client) SkillsList(ctx context.Context, params *SkillsListParams) (SkillsListResponse, error) {
-	return c.Request[SkillsListResponse](ctx, RequestMethodSkillsList, paramsOrEmpty(params))
+	return Request[SkillsListResponse](ctx, c, RequestMethodSkillsList, paramsOrEmpty(params))
 }
 
 // HooksList calls hooks/list.
 func (c *Client) HooksList(ctx context.Context, params *HooksListParams) (HooksListResponse, error) {
-	return c.Request[HooksListResponse](ctx, RequestMethodHooksList, paramsOrEmpty(params))
+	return Request[HooksListResponse](ctx, c, RequestMethodHooksList, paramsOrEmpty(params))
 }
 
 // MarketplaceAdd calls marketplace/add.
 func (c *Client) MarketplaceAdd(ctx context.Context, params *MarketplaceAddParams) (MarketplaceAddResponse, error) {
-	return c.Request[MarketplaceAddResponse](ctx, RequestMethodMarketplaceAdd, paramsOrEmpty(params))
+	return Request[MarketplaceAddResponse](ctx, c, RequestMethodMarketplaceAdd, paramsOrEmpty(params))
 }
 
 // MarketplaceRemove calls marketplace/remove.
 func (c *Client) MarketplaceRemove(ctx context.Context, params *MarketplaceRemoveParams) (MarketplaceRemoveResponse, error) {
-	return c.Request[MarketplaceRemoveResponse](ctx, RequestMethodMarketplaceRemove, paramsOrEmpty(params))
+	return Request[MarketplaceRemoveResponse](ctx, c, RequestMethodMarketplaceRemove, paramsOrEmpty(params))
 }
 
 // MarketplaceUpgrade calls marketplace/upgrade.
 func (c *Client) MarketplaceUpgrade(ctx context.Context, params *MarketplaceUpgradeParams) (MarketplaceUpgradeResponse, error) {
-	return c.Request[MarketplaceUpgradeResponse](ctx, RequestMethodMarketplaceUpgrade, paramsOrEmpty(params))
+	return Request[MarketplaceUpgradeResponse](ctx, c, RequestMethodMarketplaceUpgrade, paramsOrEmpty(params))
 }
 
 // PluginList calls plugin/list.
 func (c *Client) PluginList(ctx context.Context, params *PluginListParams) (PluginListResponse, error) {
-	return c.Request[PluginListResponse](ctx, RequestMethodPluginList, paramsOrEmpty(params))
+	return Request[PluginListResponse](ctx, c, RequestMethodPluginList, paramsOrEmpty(params))
 }
 
 // PluginRead calls plugin/read.
 func (c *Client) PluginRead(ctx context.Context, params *PluginReadParams) (PluginReadResponse, error) {
-	return c.Request[PluginReadResponse](ctx, RequestMethodPluginRead, paramsOrEmpty(params))
+	return Request[PluginReadResponse](ctx, c, RequestMethodPluginRead, paramsOrEmpty(params))
 }
 
 // PluginSkillRead calls plugin/skill/read.
 func (c *Client) PluginSkillRead(ctx context.Context, params *PluginSkillReadParams) (PluginSkillReadResponse, error) {
-	return c.Request[PluginSkillReadResponse](ctx, RequestMethodPluginSkillRead, paramsOrEmpty(params))
+	return Request[PluginSkillReadResponse](ctx, c, RequestMethodPluginSkillRead, paramsOrEmpty(params))
 }
 
 // PluginShareSave calls plugin/share/save.
 func (c *Client) PluginShareSave(ctx context.Context, params *PluginShareSaveParams) (PluginShareSaveResponse, error) {
-	return c.Request[PluginShareSaveResponse](ctx, RequestMethodPluginShareSave, paramsOrEmpty(params))
+	return Request[PluginShareSaveResponse](ctx, c, RequestMethodPluginShareSave, paramsOrEmpty(params))
 }
 
 // PluginShareUpdateTargets calls plugin/share/updateTargets.
 func (c *Client) PluginShareUpdateTargets(ctx context.Context, params *PluginShareUpdateTargetsParams) (PluginShareUpdateTargetsResponse, error) {
-	return c.Request[PluginShareUpdateTargetsResponse](ctx, RequestMethodPluginShareUpdateTargets, paramsOrEmpty(params))
+	return Request[PluginShareUpdateTargetsResponse](ctx, c, RequestMethodPluginShareUpdateTargets, paramsOrEmpty(params))
 }
 
 // PluginShareList calls plugin/share/list.
 func (c *Client) PluginShareList(ctx context.Context, params *PluginShareListParams) (PluginShareListResponse, error) {
-	return c.Request[PluginShareListResponse](ctx, RequestMethodPluginShareList, paramsOrEmpty(params))
+	return Request[PluginShareListResponse](ctx, c, RequestMethodPluginShareList, paramsOrEmpty(params))
 }
 
 // PluginShareDelete calls plugin/share/delete.
 func (c *Client) PluginShareDelete(ctx context.Context, params *PluginShareDeleteParams) (PluginShareDeleteResponse, error) {
-	return c.Request[PluginShareDeleteResponse](ctx, RequestMethodPluginShareDelete, paramsOrEmpty(params))
+	return Request[PluginShareDeleteResponse](ctx, c, RequestMethodPluginShareDelete, paramsOrEmpty(params))
 }
 
 // AppList calls app/list.
 func (c *Client) AppList(ctx context.Context, params *AppsListParams) (AppsListResponse, error) {
-	return c.Request[AppsListResponse](ctx, RequestMethodAppList, paramsOrEmpty(params))
+	return Request[AppsListResponse](ctx, c, RequestMethodAppList, paramsOrEmpty(params))
 }
 
 // FSReadFile calls fs/readFile.
 func (c *Client) FSReadFile(ctx context.Context, params *FSReadFileParams) (FSReadFileResponse, error) {
-	return c.Request[FSReadFileResponse](ctx, RequestMethodFSReadFile, paramsOrEmpty(params))
+	return Request[FSReadFileResponse](ctx, c, RequestMethodFSReadFile, paramsOrEmpty(params))
 }
 
 // FSWriteFile calls fs/writeFile.
 func (c *Client) FSWriteFile(ctx context.Context, params *FSWriteFileParams) (FSWriteFileResponse, error) {
-	return c.Request[FSWriteFileResponse](ctx, RequestMethodFSWriteFile, paramsOrEmpty(params))
+	return Request[FSWriteFileResponse](ctx, c, RequestMethodFSWriteFile, paramsOrEmpty(params))
 }
 
 // FSCreateDirectory calls fs/createDirectory.
 func (c *Client) FSCreateDirectory(ctx context.Context, params *FSCreateDirectoryParams) (FSCreateDirectoryResponse, error) {
-	return c.Request[FSCreateDirectoryResponse](ctx, RequestMethodFSCreateDirectory, paramsOrEmpty(params))
+	return Request[FSCreateDirectoryResponse](ctx, c, RequestMethodFSCreateDirectory, paramsOrEmpty(params))
 }
 
 // FSGetMetadata calls fs/getMetadata.
 func (c *Client) FSGetMetadata(ctx context.Context, params *FSGetMetadataParams) (FSGetMetadataResponse, error) {
-	return c.Request[FSGetMetadataResponse](ctx, RequestMethodFSGetMetadata, paramsOrEmpty(params))
+	return Request[FSGetMetadataResponse](ctx, c, RequestMethodFSGetMetadata, paramsOrEmpty(params))
 }
 
 // FSReadDirectory calls fs/readDirectory.
 func (c *Client) FSReadDirectory(ctx context.Context, params *FSReadDirectoryParams) (FSReadDirectoryResponse, error) {
-	return c.Request[FSReadDirectoryResponse](ctx, RequestMethodFSReadDirectory, paramsOrEmpty(params))
+	return Request[FSReadDirectoryResponse](ctx, c, RequestMethodFSReadDirectory, paramsOrEmpty(params))
 }
 
 // FSRemove calls fs/remove.
 func (c *Client) FSRemove(ctx context.Context, params *FSRemoveParams) (FSRemoveResponse, error) {
-	return c.Request[FSRemoveResponse](ctx, RequestMethodFSRemove, paramsOrEmpty(params))
+	return Request[FSRemoveResponse](ctx, c, RequestMethodFSRemove, paramsOrEmpty(params))
 }
 
 // FSCopy calls fs/copy.
 func (c *Client) FSCopy(ctx context.Context, params *FSCopyParams) (FSCopyResponse, error) {
-	return c.Request[FSCopyResponse](ctx, RequestMethodFSCopy, paramsOrEmpty(params))
+	return Request[FSCopyResponse](ctx, c, RequestMethodFSCopy, paramsOrEmpty(params))
 }
 
 // FSWatch calls fs/watch.
 func (c *Client) FSWatch(ctx context.Context, params *FSWatchParams) (FSWatchResponse, error) {
-	return c.Request[FSWatchResponse](ctx, RequestMethodFSWatch, paramsOrEmpty(params))
+	return Request[FSWatchResponse](ctx, c, RequestMethodFSWatch, paramsOrEmpty(params))
 }
 
 // FSUnwatch calls fs/unwatch.
 func (c *Client) FSUnwatch(ctx context.Context, params *FSUnwatchParams) (FSUnwatchResponse, error) {
-	return c.Request[FSUnwatchResponse](ctx, RequestMethodFSUnwatch, paramsOrEmpty(params))
+	return Request[FSUnwatchResponse](ctx, c, RequestMethodFSUnwatch, paramsOrEmpty(params))
 }
 
 // SkillsConfigWrite calls skills/config/write.
 func (c *Client) SkillsConfigWrite(ctx context.Context, params *SkillsConfigWriteParams) (SkillsConfigWriteResponse, error) {
-	return c.Request[SkillsConfigWriteResponse](ctx, RequestMethodSkillsConfigWrite, paramsOrEmpty(params))
+	return Request[SkillsConfigWriteResponse](ctx, c, RequestMethodSkillsConfigWrite, paramsOrEmpty(params))
 }
 
 // PluginInstall calls plugin/install.
 func (c *Client) PluginInstall(ctx context.Context, params *PluginInstallParams) (PluginInstallResponse, error) {
-	return c.Request[PluginInstallResponse](ctx, RequestMethodPluginInstall, paramsOrEmpty(params))
+	return Request[PluginInstallResponse](ctx, c, RequestMethodPluginInstall, paramsOrEmpty(params))
 }
 
 // PluginUninstall calls plugin/uninstall.
 func (c *Client) PluginUninstall(ctx context.Context, params *PluginUninstallParams) (PluginUninstallResponse, error) {
-	return c.Request[PluginUninstallResponse](ctx, RequestMethodPluginUninstall, paramsOrEmpty(params))
+	return Request[PluginUninstallResponse](ctx, c, RequestMethodPluginUninstall, paramsOrEmpty(params))
 }
 
 // TurnStart calls turn/start.
@@ -234,12 +234,12 @@ func (c *Client) TurnStart(ctx context.Context, threadID string, input any, para
 		return TurnStartResponse{}, err
 	}
 	payload := mergeParams(params, Object{"threadId": threadID, "input": items})
-	return c.Request[TurnStartResponse](ctx, RequestMethodTurnStart, payload)
+	return Request[TurnStartResponse](ctx, c, RequestMethodTurnStart, payload)
 }
 
 // TurnInterrupt calls turn/interrupt.
 func (c *Client) TurnInterrupt(ctx context.Context, threadID, turnID string) (TurnInterruptResponse, error) {
-	return c.Request[TurnInterruptResponse](ctx, RequestMethodTurnInterrupt, Object{"threadId": threadID, "turnId": turnID})
+	return Request[TurnInterruptResponse](ctx, c, RequestMethodTurnInterrupt, Object{"threadId": threadID, "turnId": turnID})
 }
 
 // TurnSteer calls turn/steer.
@@ -248,152 +248,152 @@ func (c *Client) TurnSteer(ctx context.Context, threadID, expectedTurnID string,
 	if err != nil {
 		return TurnSteerResponse{}, err
 	}
-	return c.Request[TurnSteerResponse](ctx, RequestMethodTurnSteer, Object{"threadId": threadID, "expectedTurnId": expectedTurnID, "input": items})
+	return Request[TurnSteerResponse](ctx, c, RequestMethodTurnSteer, Object{"threadId": threadID, "expectedTurnId": expectedTurnID, "input": items})
 }
 
 // ReviewStart calls review/start.
 func (c *Client) ReviewStart(ctx context.Context, params *ReviewStartParams) (ReviewStartResponse, error) {
-	return c.Request[ReviewStartResponse](ctx, RequestMethodReviewStart, paramsOrEmpty(params))
+	return Request[ReviewStartResponse](ctx, c, RequestMethodReviewStart, paramsOrEmpty(params))
 }
 
 // ModelList calls model/list.
 func (c *Client) ModelList(ctx context.Context, includeHidden bool) (ModelListResponse, error) {
-	return c.Request[ModelListResponse](ctx, RequestMethodModelList, ModelListParams{IncludeHidden: &includeHidden})
+	return Request[ModelListResponse](ctx, c, RequestMethodModelList, ModelListParams{IncludeHidden: &includeHidden})
 }
 
 // ModelProviderCapabilitiesRead calls modelProvider/capabilities/read.
 func (c *Client) ModelProviderCapabilitiesRead(ctx context.Context, params *ModelProviderCapabilitiesReadParams) (ModelProviderCapabilitiesReadResponse, error) {
-	return c.Request[ModelProviderCapabilitiesReadResponse](ctx, RequestMethodModelProviderCapabilitiesRead, paramsOrEmpty(params))
+	return Request[ModelProviderCapabilitiesReadResponse](ctx, c, RequestMethodModelProviderCapabilitiesRead, paramsOrEmpty(params))
 }
 
 // ExperimentalFeatureList calls experimentalFeature/list.
 func (c *Client) ExperimentalFeatureList(ctx context.Context, params *ExperimentalFeatureListParams) (ExperimentalFeatureListResponse, error) {
-	return c.Request[ExperimentalFeatureListResponse](ctx, RequestMethodExperimentalFeatureList, paramsOrEmpty(params))
+	return Request[ExperimentalFeatureListResponse](ctx, c, RequestMethodExperimentalFeatureList, paramsOrEmpty(params))
 }
 
 // ExperimentalFeatureEnablementSet calls experimentalFeature/enablement/set.
 func (c *Client) ExperimentalFeatureEnablementSet(ctx context.Context, params *ExperimentalFeatureEnablementSetParams) (ExperimentalFeatureEnablementSetResponse, error) {
-	return c.Request[ExperimentalFeatureEnablementSetResponse](ctx, RequestMethodExperimentalFeatureEnablementSet, paramsOrEmpty(params))
+	return Request[ExperimentalFeatureEnablementSetResponse](ctx, c, RequestMethodExperimentalFeatureEnablementSet, paramsOrEmpty(params))
 }
 
 // MCPServerOAuthLogin calls mcpServer/oauth/login.
 func (c *Client) MCPServerOAuthLogin(ctx context.Context, params *MCPServerOAuthLoginParams) (MCPServerOAuthLoginResponse, error) {
-	return c.Request[MCPServerOAuthLoginResponse](ctx, RequestMethodMCPServerOAuthLogin, paramsOrEmpty(params))
+	return Request[MCPServerOAuthLoginResponse](ctx, c, RequestMethodMCPServerOAuthLogin, paramsOrEmpty(params))
 }
 
 // ConfigMCPServerReload calls config/mcpServer/reload.
 func (c *Client) ConfigMCPServerReload(ctx context.Context) (MCPServerRefreshResponse, error) {
-	return c.Request[MCPServerRefreshResponse](ctx, RequestMethodConfigMCPServerReload, nil)
+	return Request[MCPServerRefreshResponse](ctx, c, RequestMethodConfigMCPServerReload, nil)
 }
 
 // MCPServerStatusList calls mcpServerStatus/list.
 func (c *Client) MCPServerStatusList(ctx context.Context, params *ListMCPServerStatusParams) (ListMCPServerStatusResponse, error) {
-	return c.Request[ListMCPServerStatusResponse](ctx, RequestMethodMCPServerStatusList, paramsOrEmpty(params))
+	return Request[ListMCPServerStatusResponse](ctx, c, RequestMethodMCPServerStatusList, paramsOrEmpty(params))
 }
 
 // MCPServerResourceRead calls mcpServer/resource/read.
 func (c *Client) MCPServerResourceRead(ctx context.Context, params *MCPResourceReadParams) (MCPResourceReadResponse, error) {
-	return c.Request[MCPResourceReadResponse](ctx, RequestMethodMCPServerResourceRead, paramsOrEmpty(params))
+	return Request[MCPResourceReadResponse](ctx, c, RequestMethodMCPServerResourceRead, paramsOrEmpty(params))
 }
 
 // MCPServerToolCall calls mcpServer/tool/call.
 func (c *Client) MCPServerToolCall(ctx context.Context, params *MCPServerToolCallParams) (MCPServerToolCallResponse, error) {
-	return c.Request[MCPServerToolCallResponse](ctx, RequestMethodMCPServerToolCall, paramsOrEmpty(params))
+	return Request[MCPServerToolCallResponse](ctx, c, RequestMethodMCPServerToolCall, paramsOrEmpty(params))
 }
 
 // WindowsSandboxSetupStart calls windowsSandbox/setupStart.
 func (c *Client) WindowsSandboxSetupStart(ctx context.Context, params *WindowsSandboxSetupStartParams) (WindowsSandboxSetupStartResponse, error) {
-	return c.Request[WindowsSandboxSetupStartResponse](ctx, RequestMethodWindowsSandboxSetupStart, paramsOrEmpty(params))
+	return Request[WindowsSandboxSetupStartResponse](ctx, c, RequestMethodWindowsSandboxSetupStart, paramsOrEmpty(params))
 }
 
 // WindowsSandboxReadiness calls windowsSandbox/readiness.
 func (c *Client) WindowsSandboxReadiness(ctx context.Context) (WindowsSandboxReadinessResponse, error) {
-	return c.Request[WindowsSandboxReadinessResponse](ctx, RequestMethodWindowsSandboxReadiness, nil)
+	return Request[WindowsSandboxReadinessResponse](ctx, c, RequestMethodWindowsSandboxReadiness, nil)
 }
 
 // AccountLoginStart calls account/login/start.
 func (c *Client) AccountLoginStart(ctx context.Context, params LoginAccountParams) (LoginAccountResponse, error) {
-	return c.Request[LoginAccountResponse](ctx, RequestMethodAccountLoginStart, paramsOrEmpty(params))
+	return Request[LoginAccountResponse](ctx, c, RequestMethodAccountLoginStart, paramsOrEmpty(params))
 }
 
 // AccountLoginCancel calls account/login/cancel.
 func (c *Client) AccountLoginCancel(ctx context.Context, params *CancelLoginAccountParams) (CancelLoginAccountResponse, error) {
-	return c.Request[CancelLoginAccountResponse](ctx, RequestMethodAccountLoginCancel, paramsOrEmpty(params))
+	return Request[CancelLoginAccountResponse](ctx, c, RequestMethodAccountLoginCancel, paramsOrEmpty(params))
 }
 
 // AccountLogout calls account/logout.
 func (c *Client) AccountLogout(ctx context.Context) (LogoutAccountResponse, error) {
-	return c.Request[LogoutAccountResponse](ctx, RequestMethodAccountLogout, nil)
+	return Request[LogoutAccountResponse](ctx, c, RequestMethodAccountLogout, nil)
 }
 
 // AccountRateLimitsRead calls account/rateLimits/read.
 func (c *Client) AccountRateLimitsRead(ctx context.Context) (GetAccountRateLimitsResponse, error) {
-	return c.Request[GetAccountRateLimitsResponse](ctx, RequestMethodAccountRateLimitsRead, nil)
+	return Request[GetAccountRateLimitsResponse](ctx, c, RequestMethodAccountRateLimitsRead, nil)
 }
 
 // AccountSendAddCreditsNudgeEmail calls account/sendAddCreditsNudgeEmail.
 func (c *Client) AccountSendAddCreditsNudgeEmail(ctx context.Context, params *SendAddCreditsNudgeEmailParams) (SendAddCreditsNudgeEmailResponse, error) {
-	return c.Request[SendAddCreditsNudgeEmailResponse](ctx, RequestMethodAccountSendAddCreditsNudgeEmail, paramsOrEmpty(params))
+	return Request[SendAddCreditsNudgeEmailResponse](ctx, c, RequestMethodAccountSendAddCreditsNudgeEmail, paramsOrEmpty(params))
 }
 
 // FeedbackUpload calls feedback/upload.
 func (c *Client) FeedbackUpload(ctx context.Context, params *FeedbackUploadParams) (FeedbackUploadResponse, error) {
-	return c.Request[FeedbackUploadResponse](ctx, RequestMethodFeedbackUpload, paramsOrEmpty(params))
+	return Request[FeedbackUploadResponse](ctx, c, RequestMethodFeedbackUpload, paramsOrEmpty(params))
 }
 
 // CommandExec calls command/exec.
 func (c *Client) CommandExec(ctx context.Context, params *CommandExecParams) (CommandExecResponse, error) {
-	return c.Request[CommandExecResponse](ctx, RequestMethodCommandExec, paramsOrEmpty(params))
+	return Request[CommandExecResponse](ctx, c, RequestMethodCommandExec, paramsOrEmpty(params))
 }
 
 // CommandExecWrite calls command/exec/write.
 func (c *Client) CommandExecWrite(ctx context.Context, params *CommandExecWriteParams) (CommandExecWriteResponse, error) {
-	return c.Request[CommandExecWriteResponse](ctx, RequestMethodCommandExecWrite, paramsOrEmpty(params))
+	return Request[CommandExecWriteResponse](ctx, c, RequestMethodCommandExecWrite, paramsOrEmpty(params))
 }
 
 // CommandExecTerminate calls command/exec/terminate.
 func (c *Client) CommandExecTerminate(ctx context.Context, params *CommandExecTerminateParams) (CommandExecTerminateResponse, error) {
-	return c.Request[CommandExecTerminateResponse](ctx, RequestMethodCommandExecTerminate, paramsOrEmpty(params))
+	return Request[CommandExecTerminateResponse](ctx, c, RequestMethodCommandExecTerminate, paramsOrEmpty(params))
 }
 
 // CommandExecResize calls command/exec/resize.
 func (c *Client) CommandExecResize(ctx context.Context, params *CommandExecResizeParams) (CommandExecResizeResponse, error) {
-	return c.Request[CommandExecResizeResponse](ctx, RequestMethodCommandExecResize, paramsOrEmpty(params))
+	return Request[CommandExecResizeResponse](ctx, c, RequestMethodCommandExecResize, paramsOrEmpty(params))
 }
 
 // ConfigRead calls config/read.
 func (c *Client) ConfigRead(ctx context.Context, params *ConfigReadParams) (ConfigReadResponse, error) {
-	return c.Request[ConfigReadResponse](ctx, RequestMethodConfigRead, paramsOrEmpty(params))
+	return Request[ConfigReadResponse](ctx, c, RequestMethodConfigRead, paramsOrEmpty(params))
 }
 
 // ExternalAgentConfigDetect calls externalAgentConfig/detect.
 func (c *Client) ExternalAgentConfigDetect(ctx context.Context, params *ExternalAgentConfigDetectParams) (ExternalAgentConfigDetectResponse, error) {
-	return c.Request[ExternalAgentConfigDetectResponse](ctx, RequestMethodExternalAgentConfigDetect, paramsOrEmpty(params))
+	return Request[ExternalAgentConfigDetectResponse](ctx, c, RequestMethodExternalAgentConfigDetect, paramsOrEmpty(params))
 }
 
 // ExternalAgentConfigImport calls externalAgentConfig/import.
 func (c *Client) ExternalAgentConfigImport(ctx context.Context, params *ExternalAgentConfigImportParams) (ExternalAgentConfigImportResponse, error) {
-	return c.Request[ExternalAgentConfigImportResponse](ctx, RequestMethodExternalAgentConfigImport, paramsOrEmpty(params))
+	return Request[ExternalAgentConfigImportResponse](ctx, c, RequestMethodExternalAgentConfigImport, paramsOrEmpty(params))
 }
 
 // ConfigValueWrite calls config/value/write.
 func (c *Client) ConfigValueWrite(ctx context.Context, params *ConfigValueWriteParams) (ConfigWriteResponse, error) {
-	return c.Request[ConfigWriteResponse](ctx, RequestMethodConfigValueWrite, paramsOrEmpty(params))
+	return Request[ConfigWriteResponse](ctx, c, RequestMethodConfigValueWrite, paramsOrEmpty(params))
 }
 
 // ConfigBatchWrite calls config/batchWrite.
 func (c *Client) ConfigBatchWrite(ctx context.Context, params *ConfigBatchWriteParams) (ConfigWriteResponse, error) {
-	return c.Request[ConfigWriteResponse](ctx, RequestMethodConfigBatchWrite, paramsOrEmpty(params))
+	return Request[ConfigWriteResponse](ctx, c, RequestMethodConfigBatchWrite, paramsOrEmpty(params))
 }
 
 // ConfigRequirementsRead calls configRequirements/read.
 func (c *Client) ConfigRequirementsRead(ctx context.Context) (ConfigRequirementsReadResponse, error) {
-	return c.Request[ConfigRequirementsReadResponse](ctx, RequestMethodConfigRequirementsRead, nil)
+	return Request[ConfigRequirementsReadResponse](ctx, c, RequestMethodConfigRequirementsRead, nil)
 }
 
 // AccountRead calls account/read.
 func (c *Client) AccountRead(ctx context.Context, params *GetAccountParams) (GetAccountResponse, error) {
-	return c.Request[GetAccountResponse](ctx, RequestMethodAccountRead, paramsOrEmpty(params))
+	return Request[GetAccountResponse](ctx, c, RequestMethodAccountRead, paramsOrEmpty(params))
 }
 
 // FuzzyFileSearch calls fuzzyFileSearch and returns the raw JSON result.
