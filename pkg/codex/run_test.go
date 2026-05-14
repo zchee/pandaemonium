@@ -75,3 +75,25 @@ func TestDecodeThreadItemRejectsMalformedPayload(t *testing.T) {
 		t.Fatal("decodeThreadItem() ok = true, want false for malformed payload")
 	}
 }
+
+func TestMergeParamsPreservesBaseThreadTurnFieldsWhenTypedParamsAreZero(t *testing.T) {
+	t.Parallel()
+
+	model := "gpt-test"
+	got := mergeParams(&TurnStartParams{Model: &model}, Object{
+		"threadId": "thread-1",
+		"input": []Object{
+			{"type": "text", "text": "hello"},
+		},
+	})
+	want := Object{
+		"threadId": "thread-1",
+		"input": []Object{
+			{"type": "text", "text": "hello"},
+		},
+		"model": "gpt-test",
+	}
+	if diff := gocmp.Diff(want, got); diff != "" {
+		t.Fatalf("mergeParams() mismatch (-want +got):\n%s", diff)
+	}
+}

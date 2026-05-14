@@ -142,8 +142,24 @@ func mergeParams(params any, base Object) Object {
 	}
 	for key, value := range decoded {
 		if value != nil {
+			if _, ok := base[key]; ok && decodedZeroValue(value) {
+				continue
+			}
 			out[key] = value
 		}
 	}
 	return out
+}
+
+func decodedZeroValue(value any) bool {
+	switch value := value.(type) {
+	case string:
+		return value == ""
+	case []any:
+		return len(value) == 0
+	case map[string]any:
+		return len(value) == 0
+	default:
+		return false
+	}
 }
