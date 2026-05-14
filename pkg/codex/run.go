@@ -53,8 +53,8 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			return RunResult{}, err
 		}
 		if ok && usageUpdated.TurnID == turnID {
-			copy := usageUpdated.TokenUsage
-			usage = &copy
+			snapshot := usageUpdated.TokenUsage
+			usage = &snapshot
 			continue
 		}
 		turnCompleted, ok, err := notification.TurnCompleted()
