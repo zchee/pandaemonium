@@ -165,7 +165,7 @@ func TestDecodeProcessNotifications(t *testing.T) {
 	})
 	outputDeltaParams := mustJSON(t, ProcessOutputDeltaNotification{
 		ProcessHandle: "proc-1",
-		Stream:        ProcessOutputStream(`"stdout"`),
+		Stream:        ProcessOutputStreamValueStdout,
 		DeltaBase64:   "aGVsbG8=",
 		CapReached:    true,
 	})
@@ -216,8 +216,9 @@ func TestDecodeProcessNotifications(t *testing.T) {
 				if got.ProcessHandle != "proc-1" || got.DeltaBase64 != "aGVsbG8=" || !got.CapReached {
 					t.Fatalf("decoded process output delta notification = %#v, want proc-1 capped hello chunk", got)
 				}
-				if string(got.Stream) != `"stdout"` {
-					t.Fatalf("decoded process output stream = %s, want stdout", got.Stream)
+				stream, ok := got.Stream.(ProcessOutputStreamValue)
+				if !ok || stream != ProcessOutputStreamValueStdout {
+					t.Fatalf("decoded process output stream = %#v (%T), want stdout", got.Stream, got.Stream)
 				}
 				value, ok, err := notification.ProcessOutputDelta()
 				if err != nil || !ok {
@@ -356,32 +357,36 @@ func TestDecodeKnownNotificationUnknownMethodPreservesNestedRaw(t *testing.T) {
 	}
 }
 
-func TestTurnCompletedNotificationRoundTripPreservesThreadItemSlices(t *testing.T) {
+func TestTurnCompletedNotificationDecodesKnownThreadItemsAndPreservesUnknownRaw(t *testing.T) {
 	t.Parallel()
 
-	original := TurnCompletedNotification{
-		ThreadID: "thr-1",
-		Turn: Turn{
-			ID:     "turn-1",
-			Status: TurnStatusCompleted,
-			Items: []ThreadItem{
-				RawThreadItem(jsontext.Value(`{"type":"agentMessage","text":"hello","meta":{"source":"assistant"}}`)),
-				RawThreadItem(jsontext.Value(`["nested",{"kind":"union"}]`)),
-			},
-		},
-	}
-
-	raw, err := json.Marshal(original)
-	if err != nil {
-		t.Fatalf("json.Marshal() error = %v", err)
-	}
-
 	var decoded TurnCompletedNotification
-	if err := json.Unmarshal(raw, &decoded); err != nil {
+	input := []byte(`{
+		"threadId":"thr-1",
+		"turn":{
+			"id":"turn-1",
+			"status":"completed",
+			"items":[
+				{"id":"item-1","type":"agentMessage","text":"hello"},
+				["nested",{"kind":"union"}]
+			]
+		}
+	}`)
+	if err := json.Unmarshal(input, &decoded); err != nil {
 		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-	if diff := gocmp.Diff(original, decoded); diff != "" {
-		t.Fatalf("turn completed round-trip mismatch (-want +got):\n%s", diff)
+	if decoded.ThreadID != "thr-1" || decoded.Turn.ID != "turn-1" || decoded.Turn.Status != TurnStatusCompleted {
+		t.Fatalf("decoded turn completed header = %#v, want thread/turn/status", decoded)
+	}
+	if len(decoded.Turn.Items) != 2 {
+		t.Fatalf("decoded item count = %d, want 2", len(decoded.Turn.Items))
+	}
+	agentMessage, ok := decoded.Turn.Items[0].(AgentMessageThreadItem)
+	if !ok {
+		t.Fatalf("first item = %#v (%T), want AgentMessageThreadItem", decoded.Turn.Items[0], decoded.Turn.Items[0])
+	}
+	if agentMessage.ID != "item-1" || agentMessage.Text != "hello" || agentMessage.Type != "agentMessage" {
+		t.Fatalf("agent message item = %#v, want typed hello item", agentMessage)
 	}
 	nestedRaw, err := json.Marshal(decoded.Turn.Items[1])
 	if err != nil {

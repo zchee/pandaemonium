@@ -16,14 +16,18 @@ package codex
 
 import (
 	"reflect"
+	"strings"
 	"testing"
 
 	"github.com/go-json-experiment/json"
 )
 
 var (
-	_ json.MarshalerTo     = AskForApproval{}
-	_ json.UnmarshalerFrom = (*AskForApproval)(nil)
+	_ AskForApproval       = AskForApprovalValueNever
+	_ AskForApproval       = GranularAskForApproval{}
+	_ AskForApproval       = RawAskForApproval{}
+	_ json.MarshalerTo     = RawAskForApproval{}
+	_ json.UnmarshalerFrom = (*RawAskForApproval)(nil)
 )
 
 // TestPublicGeneratedTypeRenamePolicy keeps the documented collision-safe
@@ -33,24 +37,29 @@ var (
 func TestPublicGeneratedTypeRenamePolicy(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name  string
-		value any
+	tests := map[string]struct {
+		typ reflect.Type
 	}{
-		{name: "AskForApproval", value: AskForApproval{}},
-		{name: "ConfigPayload", value: ConfigPayload{}},
-		{name: "ThreadPayload", value: ThreadPayload{}},
+		"success: AskForApproval": {
+			typ: reflect.TypeFor[AskForApproval](),
+		},
+		"success: ConfigPayload": {
+			typ: reflect.TypeFor[ConfigPayload](),
+		},
+		"success: ThreadPayload": {
+			typ: reflect.TypeFor[ThreadPayload](),
+		},
 	}
 
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			typ := reflect.TypeOf(tt.value)
-			if got := typ.Name(); got != tt.name {
-				t.Fatalf("type name = %q, want %q", got, tt.name)
+			want := strings.TrimPrefix(name, "success: ")
+			if got := tt.typ.Name(); got != want {
+				t.Fatalf("type name = %q, want %q", got, want)
 			}
-			if got := typ.PkgPath(); got != "github.com/zchee/pandaemonium/pkg/codex" {
+			if got := tt.typ.PkgPath(); got != "github.com/zchee/pandaemonium/pkg/codex" {
 				t.Fatalf("type package path = %q, want pkg/codex", got)
 			}
 		})

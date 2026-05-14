@@ -437,11 +437,35 @@ func TestTypeForSchema(t *testing.T) {
 
 func TestGenerateCodexAppServerPackageAvoidsSDKNameCollisions(t *testing.T) {
 	definitions := map[string]*jsonschema.Schema{
+		"AskForApproval": {
+			OneOf: []*jsonschema.Schema{
+				{Ref: "#/definitions/AskForApprovalValue"},
+				{Ref: "#/definitions/GranularAskForApproval"},
+			},
+		},
+		"AskForApprovalValue": {
+			Type: "string",
+			Enum: []any{"never", "on-failure", "on-request", "untrusted"},
+		},
 		"Config": {
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
 				"thread": {Ref: "#/definitions/Thread"},
 			},
+		},
+		"Granular": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"rules": {Type: "boolean"},
+			},
+			Required: []string{"rules"},
+		},
+		"GranularAskForApproval": {
+			Type: "object",
+			Properties: map[string]*jsonschema.Schema{
+				"granular": {Ref: "#/definitions/Granular"},
+			},
+			Required: []string{"granular"},
 		},
 		"Thread": {
 			Type: "object",
@@ -458,32 +482,54 @@ func TestGenerateCodexAppServerPackageAvoidsSDKNameCollisions(t *testing.T) {
 			Required: []string{"thread"},
 		},
 	}
-	gotBytes, err := newGenerator(definitions).generate("schema.json", "codexappserver")
-	if err != nil {
-		t.Fatalf("generate() error = %v", err)
+
+	tests := map[string]struct {
+		packageName string
+	}{
+		"success: current codex package": {
+			packageName: "codex",
+		},
+		"success: legacy codexappserver generator package": {
+			packageName: "codexappserver",
+		},
 	}
-	got := string(gotBytes)
-	wantFragments := []string{
-		"package codex",
-		"type ConfigPayload struct {",
-		"Thread *ThreadPayload `json:\"thread,omitzero\"`",
-		"type ThreadPayload struct {",
-		"Thread ThreadPayload `json:\"thread\"`",
-	}
-	for _, fragment := range wantFragments {
-		if !strings.Contains(got, fragment) {
-			t.Fatalf("generated source missing %q:\n%s", fragment, got)
-		}
-	}
-	for _, fragment := range []string{
-		"type Config struct",
-		"type Thread struct",
-		"type ProtocolConfig struct",
-		"type ProtocolThread struct",
-	} {
-		if strings.Contains(got, fragment) {
-			t.Fatalf("generated source unexpectedly contains %q:\n%s", fragment, got)
-		}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			gotBytes, err := newGenerator(definitions).generate("schema.json", tt.packageName)
+			if err != nil {
+				t.Fatalf("generate() error = %v", err)
+			}
+			got := string(gotBytes)
+			wantFragments := []string{
+				"package " + tt.packageName,
+				"type AskForApproval interface {",
+				"type AskForApprovalValue string",
+				"type Granular struct {",
+				"type GranularAskForApproval struct {",
+				"type ConfigPayload struct {",
+				"Thread *ThreadPayload `json:\"thread,omitzero\"`",
+				"type ThreadPayload struct {",
+				"Thread ThreadPayload `json:\"thread\"`",
+			}
+			for _, fragment := range wantFragments {
+				if !strings.Contains(got, fragment) {
+					t.Fatalf("generated source missing %q:\n%s", fragment, got)
+				}
+			}
+			for _, fragment := range []string{
+				"type AskForApproval jsontext.Value",
+				"type Config struct",
+				"type ProtocolConfig struct",
+				"type ProtocolThread struct",
+				"type Thread struct",
+			} {
+				if strings.Contains(got, fragment) {
+					t.Fatalf("generated source unexpectedly contains %q:\n%s", fragment, got)
+				}
+			}
+		})
 	}
 }
 
@@ -1115,6 +1161,144 @@ func TestGenerateRawWrappersAndCodecImports(t *testing.T) {
 	got = string(gotBytes)
 	if want := "import \"github.com/go-json-experiment/json/jsontext\"\n\n"; !strings.Contains(got, want) {
 		t.Fatalf("expected single import for non-raw schema; got:\n%s", got)
+	}
+}
+
+func TestGenerateConcreteEmptyObjectDefinition(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"EmptyResponse": {
+			Type:        "object",
+			Description: "Empty success response.",
+		},
+	}
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "protocol")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	for _, fragment := range []string{
+		"type EmptyResponse struct{}",
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	for _, fragment := range []string{
+		"type EmptyResponse jsontext.Value",
+		"var _ json.MarshalerTo = EmptyResponse{}",
+	} {
+		if strings.Contains(got, fragment) {
+			t.Fatalf("generated source unexpectedly contains %q:\n%s", fragment, got)
+		}
+	}
+}
+
+func TestGeneratePrimitiveAndArrayUnionDefinition(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"Body": {
+			AnyOf: []*jsonschema.Schema{
+				{Type: "string"},
+				{
+					Type: "array",
+					Items: &jsonschema.Schema{
+						Ref: "#/definitions/ContentItem",
+					},
+				},
+			},
+		},
+		"ContentItem": {
+			OneOf: []*jsonschema.Schema{
+				{
+					Title: "TextContentItem",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"text": {Type: "string"},
+						"type": {Type: "string", Enum: []any{"text"}},
+					},
+					Required: []string{"text", "type"},
+				},
+				{
+					Title: "ImageContentItem",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"type": {Type: "string", Enum: []any{"image"}},
+						"url":  {Type: "string"},
+					},
+					Required: []string{"type", "url"},
+				},
+			},
+		},
+	}
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "protocol")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	for _, fragment := range []string{
+		"type Body interface {",
+		"type BodyString string",
+		"type BodyItems []ContentItem",
+		"func (BodyString) isBody() {}",
+		"func (BodyItems) isBody() {}",
+		"var text string",
+		"return BodyString(text), nil",
+		"value := make(BodyItems, len(rawItems))",
+		"decodedItem, err := decodeGeneratedContentItem(item)",
+		"value[i] = decodedItem",
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	if strings.Contains(got, "type Body jsontext.Value") {
+		t.Fatalf("generated source unexpectedly fell back to raw Body:\n%s", got)
+	}
+}
+
+func TestGeneratePresenceMatchedObjectUnionDefinition(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"ResourceContent": {
+			AnyOf: []*jsonschema.Schema{
+				{
+					Type: "object",
+					Properties: map[string]*jsonschema.Schema{
+						"text": {Type: "string"},
+						"uri":  {Type: "string"},
+					},
+					Required: []string{"text", "uri"},
+				},
+				{
+					Type: "object",
+					Properties: map[string]*jsonschema.Schema{
+						"blob": {Type: "string"},
+						"uri":  {Type: "string"},
+					},
+					Required: []string{"blob", "uri"},
+				},
+			},
+		},
+	}
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "protocol")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	for _, fragment := range []string{
+		"type ResourceContent interface {",
+		"type ResourceContentText struct {",
+		"type ResourceContentBlob struct {",
+		"Text string `json:\"text\"`",
+		"Blob string `json:\"blob\"`",
+		"if object.Text != nil {",
+		"return value, nil",
+		"if object.Blob != nil {",
+	} {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	if strings.Contains(got, "func decodeGeneratedResourceContent(raw jsontext.Value) (ResourceContent, error) {\n\tif raw == nil {\n\t\treturn nil, nil\n\t}\n\treturn RawResourceContent(raw), nil\n}") {
+		t.Fatalf("presence-matched union should not immediately return raw:\n%s", got)
 	}
 }
 

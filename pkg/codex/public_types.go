@@ -16,19 +16,6 @@ package codex
 
 import (
 	"fmt"
-
-	"github.com/go-json-experiment/json"
-	"github.com/go-json-experiment/json/jsontext"
-)
-
-// AskForApprovalValue is a Python-parity enum arm for AskForApproval.
-type AskForApprovalValue string
-
-const (
-	AskForApprovalValueUntrusted AskForApprovalValue = "untrusted"
-	AskForApprovalValueOnFailure AskForApprovalValue = "on-failure"
-	AskForApprovalValueOnRequest AskForApprovalValue = "on-request"
-	AskForApprovalValueNever     AskForApprovalValue = "never"
 )
 
 // ApprovalMode is a high-level approval preset compatible with the Python SDK.
@@ -40,20 +27,6 @@ const (
 	// ApprovalModeAutoReview routes on-request approvals to the auto-reviewer.
 	ApprovalModeAutoReview ApprovalMode = "auto_review"
 )
-
-// Granular is the structured Python-parity arm for AskForApproval.
-type Granular struct {
-	MCPElicitations    bool  `json:"mcp_elicitations"`
-	RequestPermissions *bool `json:"request_permissions,omitzero"`
-	Rules              bool  `json:"rules"`
-	SandboxApproval    bool  `json:"sandbox_approval"`
-	SkillApproval      *bool `json:"skill_approval,omitzero"`
-}
-
-// GranularAskForApproval wraps granular approval settings for AskForApproval.
-type GranularAskForApproval struct {
-	Granular Granular `json:"granular"`
-}
 
 // NewAskForApprovalValue creates an AskForApproval root value from an enum arm.
 func NewAskForApprovalValue(value AskForApprovalValue) (AskForApproval, error) {
@@ -99,9 +72,16 @@ func ApprovalModeOverrideSettings(mode *ApprovalMode) (*AskForApproval, *Approva
 }
 
 func newAskForApproval(value any) (AskForApproval, error) {
-	raw, err := json.Marshal(value)
-	if err != nil {
-		return nil, fmt.Errorf("marshal AskForApproval: %w", err)
+	switch value := value.(type) {
+	case AskForApproval:
+		return value, nil
+	case AskForApprovalValue:
+		return value, nil
+	case GranularAskForApproval:
+		return value, nil
+	case RawAskForApproval:
+		return value, nil
+	default:
+		return nil, fmt.Errorf("unsupported AskForApproval value %T", value)
 	}
-	return AskForApproval(jsontext.Value(raw)), nil
 }

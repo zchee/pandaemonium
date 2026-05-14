@@ -306,18 +306,7 @@ type AppToolConfig struct {
 }
 
 // AppToolsConfig is generated from the AppToolsConfig schema definition.
-type AppToolsConfig jsontext.Value
-
-var _ json.MarshalerTo = AppToolsConfig{}
-var _ json.UnmarshalerFrom = (*AppToolsConfig)(nil)
-
-func (value AppToolsConfig) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *AppToolsConfig) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type AppToolsConfig struct{}
 
 // ApprovalsReviewer configures who approval requests are routed to for review. Examples include sandbox escapes, blocked network access, MCP approval prompts, and ARC escalations. Defaults to `user`. `auto_review` uses a carefully prompted subagent to gather relevant context and apply a risk-based decision framework before approving or denying the request. The legacy value `guardian_subagent` is accepted for compatibility.
 type ApprovalsReviewer string
@@ -2452,18 +2441,7 @@ type CommandExecResizeParams struct {
 }
 
 // CommandExecResizeResponse empty success response for `command/exec/resize`.
-type CommandExecResizeResponse jsontext.Value
-
-var _ json.MarshalerTo = CommandExecResizeResponse{}
-var _ json.UnmarshalerFrom = (*CommandExecResizeResponse)(nil)
-
-func (value CommandExecResizeResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *CommandExecResizeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type CommandExecResizeResponse struct{}
 
 // CommandExecResponse final buffered result for `command/exec`.
 type CommandExecResponse struct {
@@ -2497,18 +2475,7 @@ type CommandExecTerminateParams struct {
 }
 
 // CommandExecTerminateResponse empty success response for `command/exec/terminate`.
-type CommandExecTerminateResponse jsontext.Value
-
-var _ json.MarshalerTo = CommandExecTerminateResponse{}
-var _ json.UnmarshalerFrom = (*CommandExecTerminateResponse)(nil)
-
-func (value CommandExecTerminateResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *CommandExecTerminateResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type CommandExecTerminateResponse struct{}
 
 // CommandExecWriteParams writes stdin bytes to a running `command/exec` session, close stdin, or both.
 type CommandExecWriteParams struct {
@@ -2523,18 +2490,7 @@ type CommandExecWriteParams struct {
 }
 
 // CommandExecWriteResponse empty success response for `command/exec/write`.
-type CommandExecWriteResponse jsontext.Value
-
-var _ json.MarshalerTo = CommandExecWriteResponse{}
-var _ json.UnmarshalerFrom = (*CommandExecWriteResponse)(nil)
-
-func (value CommandExecWriteResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *CommandExecWriteResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type CommandExecWriteResponse struct{}
 
 // CommandExecutionOutputDeltaNotification is generated from the CommandExecutionOutputDeltaNotification schema definition.
 type CommandExecutionOutputDeltaNotification struct {
@@ -2577,8 +2533,8 @@ type CommandMigration struct {
 	Name string `json:"name"`
 }
 
-// Config is generated from the Config schema definition.
-type Config struct {
+// ConfigPayload is generated from the Config schema definition.
+type ConfigPayload struct {
 	Analytics      *AnalyticsConfig `json:"analytics,omitzero"`
 	ApprovalPolicy *AskForApproval  `json:"approval_policy,omitzero"`
 
@@ -2606,7 +2562,7 @@ type Config struct {
 	WebSearch                  *WebSearchMode         `json:"web_search,omitzero"`
 }
 
-func (value *Config) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Analytics                  *AnalyticsConfig       `json:"analytics,omitzero"`
 		ApprovalPolicy             jsontext.Value         `json:"approval_policy,omitzero"`
@@ -2900,7 +2856,7 @@ type ConfigReadParams struct {
 
 // ConfigReadResponse is generated from the ConfigReadResponse schema definition.
 type ConfigReadResponse struct {
-	Config  Config                         `json:"config"`
+	Config  ConfigPayload                  `json:"config"`
 	Layers  []ConfigLayer                  `json:"layers,omitzero"`
 	Origins map[string]ConfigLayerMetadata `json:"origins"`
 }
@@ -3456,18 +3412,7 @@ type ExternalAgentConfigDetectResponse struct {
 }
 
 // ExternalAgentConfigImportCompletedNotification is generated from the ExternalAgentConfigImportCompletedNotification schema definition.
-type ExternalAgentConfigImportCompletedNotification jsontext.Value
-
-var _ json.MarshalerTo = ExternalAgentConfigImportCompletedNotification{}
-var _ json.UnmarshalerFrom = (*ExternalAgentConfigImportCompletedNotification)(nil)
-
-func (value ExternalAgentConfigImportCompletedNotification) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ExternalAgentConfigImportCompletedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ExternalAgentConfigImportCompletedNotification struct{}
 
 // ExternalAgentConfigImportParams is generated from the ExternalAgentConfigImportParams schema definition.
 type ExternalAgentConfigImportParams struct {
@@ -3475,18 +3420,7 @@ type ExternalAgentConfigImportParams struct {
 }
 
 // ExternalAgentConfigImportResponse is generated from the ExternalAgentConfigImportResponse schema definition.
-type ExternalAgentConfigImportResponse jsontext.Value
-
-var _ json.MarshalerTo = ExternalAgentConfigImportResponse{}
-var _ json.UnmarshalerFrom = (*ExternalAgentConfigImportResponse)(nil)
-
-func (value ExternalAgentConfigImportResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ExternalAgentConfigImportResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ExternalAgentConfigImportResponse struct{}
 
 // ExternalAgentConfigMigrationItem is generated from the ExternalAgentConfigMigrationItem schema definition.
 type ExternalAgentConfigMigrationItem struct {
@@ -3871,18 +3805,7 @@ type FsCopyParams struct {
 }
 
 // FsCopyResponse successful response for `fs/copy`.
-type FsCopyResponse jsontext.Value
-
-var _ json.MarshalerTo = FsCopyResponse{}
-var _ json.UnmarshalerFrom = (*FsCopyResponse)(nil)
-
-func (value FsCopyResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *FsCopyResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type FsCopyResponse struct{}
 
 // FsCreateDirectoryParams creates a directory on the host filesystem.
 type FsCreateDirectoryParams struct {
@@ -3894,18 +3817,7 @@ type FsCreateDirectoryParams struct {
 }
 
 // FsCreateDirectoryResponse successful response for `fs/createDirectory`.
-type FsCreateDirectoryResponse jsontext.Value
-
-var _ json.MarshalerTo = FsCreateDirectoryResponse{}
-var _ json.UnmarshalerFrom = (*FsCreateDirectoryResponse)(nil)
-
-func (value FsCreateDirectoryResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *FsCreateDirectoryResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type FsCreateDirectoryResponse struct{}
 
 // FsGetMetadataParams requests metadata for an absolute path.
 type FsGetMetadataParams struct {
@@ -3980,18 +3892,7 @@ type FsRemoveParams struct {
 }
 
 // FsRemoveResponse successful response for `fs/remove`.
-type FsRemoveResponse jsontext.Value
-
-var _ json.MarshalerTo = FsRemoveResponse{}
-var _ json.UnmarshalerFrom = (*FsRemoveResponse)(nil)
-
-func (value FsRemoveResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *FsRemoveResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type FsRemoveResponse struct{}
 
 // FsUnwatchParams stops filesystem watch notifications for a prior `fs/watch`.
 type FsUnwatchParams struct {
@@ -4000,18 +3901,7 @@ type FsUnwatchParams struct {
 }
 
 // FsUnwatchResponse successful response for `fs/unwatch`.
-type FsUnwatchResponse jsontext.Value
-
-var _ json.MarshalerTo = FsUnwatchResponse{}
-var _ json.UnmarshalerFrom = (*FsUnwatchResponse)(nil)
-
-func (value FsUnwatchResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *FsUnwatchResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type FsUnwatchResponse struct{}
 
 // FsWatchParams starts filesystem watch notifications for an absolute path.
 type FsWatchParams struct {
@@ -4038,31 +3928,63 @@ type FsWriteFileParams struct {
 }
 
 // FsWriteFileResponse successful response for `fs/writeFile`.
-type FsWriteFileResponse jsontext.Value
-
-var _ json.MarshalerTo = FsWriteFileResponse{}
-var _ json.UnmarshalerFrom = (*FsWriteFileResponse)(nil)
-
-func (value FsWriteFileResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *FsWriteFileResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type FsWriteFileResponse struct{}
 
 // FunctionCallOutputBody is generated from the FunctionCallOutputBody schema definition.
-type FunctionCallOutputBody jsontext.Value
+type FunctionCallOutputBody interface {
+	isFunctionCallOutputBody()
+}
 
-var _ json.MarshalerTo = FunctionCallOutputBody{}
-var _ json.UnmarshalerFrom = (*FunctionCallOutputBody)(nil)
+// RawFunctionCallOutputBody preserves an uninterpreted FunctionCallOutputBody JSON value.
+type RawFunctionCallOutputBody jsontext.Value
 
-func (value FunctionCallOutputBody) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (RawFunctionCallOutputBody) isFunctionCallOutputBody() {}
+
+var _ json.MarshalerTo = RawFunctionCallOutputBody{}
+var _ json.UnmarshalerFrom = (*RawFunctionCallOutputBody)(nil)
+
+func (value RawFunctionCallOutputBody) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
 }
 
-func (value *FunctionCallOutputBody) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *RawFunctionCallOutputBody) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+// FunctionCallOutputBodyString is a FunctionCallOutputBody variant.
+type FunctionCallOutputBodyString string
+
+func (FunctionCallOutputBodyString) isFunctionCallOutputBody() {}
+
+// FunctionCallOutputBodyItems is a FunctionCallOutputBody variant.
+type FunctionCallOutputBodyItems []FunctionCallOutputContentItem
+
+func (FunctionCallOutputBodyItems) isFunctionCallOutputBody() {}
+
+func decodeGeneratedFunctionCallOutputBody(raw jsontext.Value) (FunctionCallOutputBody, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return FunctionCallOutputBodyString(text), nil
+	}
+	var rawItems []jsontext.Value
+	if err := json.Unmarshal(raw, &rawItems); err == nil {
+		value := make(FunctionCallOutputBodyItems, len(rawItems))
+		for i, item := range rawItems {
+			if item == nil {
+				continue
+			}
+			decodedItem, err := decodeGeneratedFunctionCallOutputContentItem(item)
+			if err != nil {
+				return nil, err
+			}
+			value[i] = decodedItem
+		}
+		return value, nil
+	}
+	return RawFunctionCallOutputBody(raw), nil
 }
 
 // FunctionCallOutputContentItem responses API compatible content items that can be returned by a tool call. This is a subset of ContentItem with the types we support as function call outputs.
@@ -5153,18 +5075,7 @@ func decodeGeneratedLoginAccountResponse(raw jsontext.Value) (LoginAccountRespon
 }
 
 // LogoutAccountResponse is generated from the LogoutAccountResponse schema definition.
-type LogoutAccountResponse jsontext.Value
-
-var _ json.MarshalerTo = LogoutAccountResponse{}
-var _ json.UnmarshalerFrom = (*LogoutAccountResponse)(nil)
-
-func (value LogoutAccountResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *LogoutAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type LogoutAccountResponse struct{}
 
 // ManagedHooksRequirements is generated from the ManagedHooksRequirements schema definition.
 type ManagedHooksRequirements struct {
@@ -5309,18 +5220,7 @@ type MCPServerOAuthLoginResponse struct {
 }
 
 // MCPServerRefreshResponse is generated from the McpServerRefreshResponse schema definition.
-type MCPServerRefreshResponse jsontext.Value
-
-var _ json.MarshalerTo = MCPServerRefreshResponse{}
-var _ json.UnmarshalerFrom = (*MCPServerRefreshResponse)(nil)
-
-func (value MCPServerRefreshResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *MCPServerRefreshResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type MCPServerRefreshResponse struct{}
 
 // MCPServerStartupState is generated from the McpServerStartupState schema definition.
 type MCPServerStartupState string
@@ -5605,18 +5505,7 @@ type ModelListResponse struct {
 }
 
 // ModelProviderCapabilitiesReadParams is generated from the ModelProviderCapabilitiesReadParams schema definition.
-type ModelProviderCapabilitiesReadParams jsontext.Value
-
-var _ json.MarshalerTo = ModelProviderCapabilitiesReadParams{}
-var _ json.UnmarshalerFrom = (*ModelProviderCapabilitiesReadParams)(nil)
-
-func (value ModelProviderCapabilitiesReadParams) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ModelProviderCapabilitiesReadParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ModelProviderCapabilitiesReadParams struct{}
 
 // ModelProviderCapabilitiesReadResponse is generated from the ModelProviderCapabilitiesReadResponse schema definition.
 type ModelProviderCapabilitiesReadResponse struct {
@@ -6301,18 +6190,7 @@ type PluginShareDeleteParams struct {
 }
 
 // PluginShareDeleteResponse is generated from the PluginShareDeleteResponse schema definition.
-type PluginShareDeleteResponse jsontext.Value
-
-var _ json.MarshalerTo = PluginShareDeleteResponse{}
-var _ json.UnmarshalerFrom = (*PluginShareDeleteResponse)(nil)
-
-func (value PluginShareDeleteResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *PluginShareDeleteResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type PluginShareDeleteResponse struct{}
 
 // PluginShareDiscoverability is generated from the PluginShareDiscoverability schema definition.
 type PluginShareDiscoverability string
@@ -6333,18 +6211,7 @@ type PluginShareListItem struct {
 }
 
 // PluginShareListParams is generated from the PluginShareListParams schema definition.
-type PluginShareListParams jsontext.Value
-
-var _ json.MarshalerTo = PluginShareListParams{}
-var _ json.UnmarshalerFrom = (*PluginShareListParams)(nil)
-
-func (value PluginShareListParams) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *PluginShareListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type PluginShareListParams struct{}
 
 // PluginShareListResponse is generated from the PluginShareListResponse schema definition.
 type PluginShareListResponse struct {
@@ -6601,18 +6468,7 @@ type PluginUninstallParams struct {
 }
 
 // PluginUninstallResponse is generated from the PluginUninstallResponse schema definition.
-type PluginUninstallResponse jsontext.Value
-
-var _ json.MarshalerTo = PluginUninstallResponse{}
-var _ json.UnmarshalerFrom = (*PluginUninstallResponse)(nil)
-
-func (value PluginUninstallResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *PluginUninstallResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type PluginUninstallResponse struct{}
 
 // PluginsMigration is generated from the PluginsMigration schema definition.
 type PluginsMigration struct {
@@ -7231,6 +7087,27 @@ func decodeGeneratedResourceContent(raw jsontext.Value) (ResourceContent, error)
 	if raw == nil {
 		return nil, nil
 	}
+	var object struct {
+		Text jsontext.Value `json:"text"`
+		Blob jsontext.Value `json:"blob"`
+	}
+	if err := json.Unmarshal(raw, &object); err == nil {
+		if object.Text != nil {
+			var value ResourceContentText
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		if object.Blob != nil {
+			var value ResourceContentBlob
+			if err := json.Unmarshal(raw, &value); err != nil {
+				return nil, err
+			}
+			return value, nil
+		}
+		return RawResourceContent(raw), nil
+	}
 	return RawResourceContent(raw), nil
 }
 
@@ -7404,6 +7281,29 @@ type FunctionCallOutputResponseItem struct {
 	Type   string                 `json:"type"`
 }
 
+func (value *FunctionCallOutputResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		CallID string         `json:"call_id"`
+		Output jsontext.Value `json:"output"`
+		Type   string         `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.CallID = raw.CallID
+	if raw.Output == nil {
+		value.Output = nil
+	} else {
+		decodedOutput, err := decodeGeneratedFunctionCallOutputBody(raw.Output)
+		if err != nil {
+			return err
+		}
+		value.Output = decodedOutput
+	}
+	value.Type = raw.Type
+	return nil
+}
+
 func (CustomToolCallResponseItem) isResponseItem() {}
 
 // CustomToolCallResponseItem is generated from the CustomToolCallResponseItem schema definition.
@@ -7424,6 +7324,31 @@ type CustomToolCallOutputResponseItem struct {
 	Name   *string                `json:"name,omitzero"`
 	Output FunctionCallOutputBody `json:"output"`
 	Type   string                 `json:"type"`
+}
+
+func (value *CustomToolCallOutputResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		CallID string         `json:"call_id"`
+		Name   *string        `json:"name,omitzero"`
+		Output jsontext.Value `json:"output"`
+		Type   string         `json:"type"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.CallID = raw.CallID
+	value.Name = raw.Name
+	if raw.Output == nil {
+		value.Output = nil
+	} else {
+		decodedOutput, err := decodeGeneratedFunctionCallOutputBody(raw.Output)
+		if err != nil {
+			return err
+		}
+		value.Output = decodedOutput
+	}
+	value.Type = raw.Type
+	return nil
 }
 
 func (ToolSearchOutputResponseItem) isResponseItem() {}
@@ -9191,18 +9116,7 @@ type SkillToolDependency struct {
 // SkillsChangedNotification notification emitted when watched local skill files change.
 //
 // Treat this as an invalidation signal and re-run `skills/list` with the client's current parameters when refreshed skill metadata is needed.
-type SkillsChangedNotification jsontext.Value
-
-var _ json.MarshalerTo = SkillsChangedNotification{}
-var _ json.UnmarshalerFrom = (*SkillsChangedNotification)(nil)
-
-func (value SkillsChangedNotification) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *SkillsChangedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type SkillsChangedNotification struct{}
 
 // SkillsConfigWriteParams is generated from the SkillsConfigWriteParams schema definition.
 type SkillsConfigWriteParams struct {
@@ -9387,8 +9301,8 @@ type TextRange struct {
 	Start TextPosition `json:"start"`
 }
 
-// Thread is generated from the Thread schema definition.
-type Thread struct {
+// ThreadPayload is generated from the Thread schema definition.
+type ThreadPayload struct {
 	// AgentNickname optional random unique nickname assigned to an AgentControl-spawned sub-agent.
 	AgentNickname *string `json:"agentNickname,omitzero"`
 
@@ -9445,7 +9359,7 @@ type Thread struct {
 	UpdatedAt int64 `json:"updatedAt"`
 }
 
-func (value *Thread) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *ThreadPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		AgentNickname *string        `json:"agentNickname,omitzero"`
 		AgentRole     *string        `json:"agentRole,omitzero"`
@@ -9526,18 +9440,7 @@ type ThreadApproveGuardianDeniedActionParams struct {
 }
 
 // ThreadApproveGuardianDeniedActionResponse is generated from the ThreadApproveGuardianDeniedActionResponse schema definition.
-type ThreadApproveGuardianDeniedActionResponse jsontext.Value
-
-var _ json.MarshalerTo = ThreadApproveGuardianDeniedActionResponse{}
-var _ json.UnmarshalerFrom = (*ThreadApproveGuardianDeniedActionResponse)(nil)
-
-func (value ThreadApproveGuardianDeniedActionResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ThreadApproveGuardianDeniedActionResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ThreadApproveGuardianDeniedActionResponse struct{}
 
 // ThreadArchiveParams is generated from the ThreadArchiveParams schema definition.
 type ThreadArchiveParams struct {
@@ -9545,18 +9448,7 @@ type ThreadArchiveParams struct {
 }
 
 // ThreadArchiveResponse is generated from the ThreadArchiveResponse schema definition.
-type ThreadArchiveResponse jsontext.Value
-
-var _ json.MarshalerTo = ThreadArchiveResponse{}
-var _ json.UnmarshalerFrom = (*ThreadArchiveResponse)(nil)
-
-func (value ThreadArchiveResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ThreadArchiveResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ThreadArchiveResponse struct{}
 
 // ThreadArchivedNotification is generated from the ThreadArchivedNotification schema definition.
 type ThreadArchivedNotification struct {
@@ -9574,18 +9466,7 @@ type ThreadCompactStartParams struct {
 }
 
 // ThreadCompactStartResponse is generated from the ThreadCompactStartResponse schema definition.
-type ThreadCompactStartResponse jsontext.Value
-
-var _ json.MarshalerTo = ThreadCompactStartResponse{}
-var _ json.UnmarshalerFrom = (*ThreadCompactStartResponse)(nil)
-
-func (value ThreadCompactStartResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ThreadCompactStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ThreadCompactStartResponse struct{}
 
 // ThreadForkParams there are two ways to fork a thread: 1. By thread_id: load the thread from disk by thread_id and fork it into a new thread. 2. By path: load the thread from disk by path and fork it into a new thread.
 //
@@ -9674,7 +9555,7 @@ type ThreadForkResponse struct {
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `permissionProfile` when they need exact runtime permissions.
 	Sandbox     SandboxPolicy `json:"sandbox"`
 	ServiceTier *string       `json:"serviceTier,omitzero"`
-	Thread      Thread        `json:"thread"`
+	Thread      ThreadPayload `json:"thread"`
 }
 
 func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -9688,7 +9569,7 @@ func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
-		Thread             Thread            `json:"thread"`
+		Thread             ThreadPayload     `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -9771,18 +9652,7 @@ type ThreadInjectItemsParams struct {
 }
 
 // ThreadInjectItemsResponse is generated from the ThreadInjectItemsResponse schema definition.
-type ThreadInjectItemsResponse jsontext.Value
-
-var _ json.MarshalerTo = ThreadInjectItemsResponse{}
-var _ json.UnmarshalerFrom = (*ThreadInjectItemsResponse)(nil)
-
-func (value ThreadInjectItemsResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ThreadInjectItemsResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ThreadInjectItemsResponse struct{}
 
 // ThreadItem is generated from the ThreadItem schema definition.
 type ThreadItem interface {
@@ -10294,17 +10164,49 @@ func decodeGeneratedThreadItem(raw jsontext.Value) (ThreadItem, error) {
 }
 
 // ThreadListCwdFilter is generated from the ThreadListCwdFilter schema definition.
-type ThreadListCwdFilter jsontext.Value
+type ThreadListCwdFilter interface {
+	isThreadListCwdFilter()
+}
 
-var _ json.MarshalerTo = ThreadListCwdFilter{}
-var _ json.UnmarshalerFrom = (*ThreadListCwdFilter)(nil)
+// RawThreadListCwdFilter preserves an uninterpreted ThreadListCwdFilter JSON value.
+type RawThreadListCwdFilter jsontext.Value
 
-func (value ThreadListCwdFilter) MarshalJSONTo(enc *jsontext.Encoder) error {
+func (RawThreadListCwdFilter) isThreadListCwdFilter() {}
+
+var _ json.MarshalerTo = RawThreadListCwdFilter{}
+var _ json.UnmarshalerFrom = (*RawThreadListCwdFilter)(nil)
+
+func (value RawThreadListCwdFilter) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return enc.WriteValue(jsontext.Value(value))
 }
 
-func (value *ThreadListCwdFilter) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+func (value *RawThreadListCwdFilter) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
+}
+
+// ThreadListCwdFilterString is a ThreadListCwdFilter variant.
+type ThreadListCwdFilterString string
+
+func (ThreadListCwdFilterString) isThreadListCwdFilter() {}
+
+// ThreadListCwdFilterItems is a ThreadListCwdFilter variant.
+type ThreadListCwdFilterItems []string
+
+func (ThreadListCwdFilterItems) isThreadListCwdFilter() {}
+
+func decodeGeneratedThreadListCwdFilter(raw jsontext.Value) (ThreadListCwdFilter, error) {
+	if raw == nil {
+		return nil, nil
+	}
+	var text string
+	if err := json.Unmarshal(raw, &text); err == nil {
+		return ThreadListCwdFilterString(text), nil
+	}
+	var value ThreadListCwdFilterItems
+	if err := json.Unmarshal(raw, &value); err == nil {
+		return value, nil
+	}
+	return RawThreadListCwdFilter(raw), nil
 }
 
 // ThreadListParams is generated from the ThreadListParams schema definition.
@@ -10340,11 +10242,48 @@ type ThreadListParams struct {
 	UseStateDbOnly *bool `json:"useStateDbOnly,omitzero"`
 }
 
+func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
+	var raw struct {
+		Archived       *bool              `json:"archived,omitzero"`
+		Cursor         *string            `json:"cursor,omitzero"`
+		Cwd            jsontext.Value     `json:"cwd,omitzero"`
+		Limit          *int32             `json:"limit,omitzero"`
+		ModelProviders []string           `json:"modelProviders,omitzero"`
+		SearchTerm     *string            `json:"searchTerm,omitzero"`
+		SortDirection  *SortDirection     `json:"sortDirection,omitzero"`
+		SortKey        *ThreadSortKey     `json:"sortKey,omitzero"`
+		SourceKinds    []ThreadSourceKind `json:"sourceKinds,omitzero"`
+		UseStateDbOnly *bool              `json:"useStateDbOnly,omitzero"`
+	}
+	if err := json.UnmarshalDecode(dec, &raw); err != nil {
+		return err
+	}
+	value.Archived = raw.Archived
+	value.Cursor = raw.Cursor
+	if raw.Cwd == nil {
+		value.Cwd = nil
+	} else {
+		decodedCwd, err := decodeGeneratedThreadListCwdFilter(raw.Cwd)
+		if err != nil {
+			return err
+		}
+		value.Cwd = &decodedCwd
+	}
+	value.Limit = raw.Limit
+	value.ModelProviders = raw.ModelProviders
+	value.SearchTerm = raw.SearchTerm
+	value.SortDirection = raw.SortDirection
+	value.SortKey = raw.SortKey
+	value.SourceKinds = raw.SourceKinds
+	value.UseStateDbOnly = raw.UseStateDbOnly
+	return nil
+}
+
 // ThreadListResponse is generated from the ThreadListResponse schema definition.
 type ThreadListResponse struct {
 	// BackwardsCursor opaque cursor to pass as `cursor` when reversing `sortDirection`. This is only populated when the page contains at least one thread. Use it with the opposite `sortDirection`; for timestamp sorts it anchors at the start of the page timestamp so same-second updates are not skipped.
-	BackwardsCursor *string  `json:"backwardsCursor,omitzero"`
-	Data            []Thread `json:"data"`
+	BackwardsCursor *string         `json:"backwardsCursor,omitzero"`
+	Data            []ThreadPayload `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.
 	NextCursor *string `json:"nextCursor,omitzero"`
@@ -10399,7 +10338,7 @@ type ThreadMetadataUpdateParams struct {
 
 // ThreadMetadataUpdateResponse is generated from the ThreadMetadataUpdateResponse schema definition.
 type ThreadMetadataUpdateResponse struct {
-	Thread Thread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadNameUpdatedNotification is generated from the ThreadNameUpdatedNotification schema definition.
@@ -10417,7 +10356,7 @@ type ThreadReadParams struct {
 
 // ThreadReadResponse is generated from the ThreadReadResponse schema definition.
 type ThreadReadResponse struct {
-	Thread Thread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadRealtimeAudioChunk thread realtime audio chunk.
@@ -10629,7 +10568,7 @@ type ThreadResumeResponse struct {
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `permissionProfile` when they need exact runtime permissions.
 	Sandbox     SandboxPolicy `json:"sandbox"`
 	ServiceTier *string       `json:"serviceTier,omitzero"`
-	Thread      Thread        `json:"thread"`
+	Thread      ThreadPayload `json:"thread"`
 }
 
 func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -10643,7 +10582,7 @@ func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
-		Thread             Thread            `json:"thread"`
+		Thread             ThreadPayload     `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -10691,7 +10630,7 @@ type ThreadRollbackResponse struct {
 	// Thread represents an updated thread after applying the rollback, with `turns` populated.
 	//
 	// The ThreadItems stored in each Turn are lossy since we explicitly do not persist all agent interactions, such as command executions. This is the same behavior as `thread/resume`.
-	Thread Thread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadSetNameParams is generated from the ThreadSetNameParams schema definition.
@@ -10701,18 +10640,7 @@ type ThreadSetNameParams struct {
 }
 
 // ThreadSetNameResponse is generated from the ThreadSetNameResponse schema definition.
-type ThreadSetNameResponse jsontext.Value
-
-var _ json.MarshalerTo = ThreadSetNameResponse{}
-var _ json.UnmarshalerFrom = (*ThreadSetNameResponse)(nil)
-
-func (value ThreadSetNameResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ThreadSetNameResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ThreadSetNameResponse struct{}
 
 // ThreadShellCommandParams is generated from the ThreadShellCommandParams schema definition.
 type ThreadShellCommandParams struct {
@@ -10722,18 +10650,7 @@ type ThreadShellCommandParams struct {
 }
 
 // ThreadShellCommandResponse is generated from the ThreadShellCommandResponse schema definition.
-type ThreadShellCommandResponse jsontext.Value
-
-var _ json.MarshalerTo = ThreadShellCommandResponse{}
-var _ json.UnmarshalerFrom = (*ThreadShellCommandResponse)(nil)
-
-func (value ThreadShellCommandResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *ThreadShellCommandResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type ThreadShellCommandResponse struct{}
 
 // ThreadSortKey is generated from the ThreadSortKey schema definition.
 type ThreadSortKey string
@@ -10870,7 +10787,7 @@ type ThreadStartResponse struct {
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `permissionProfile` when they need exact runtime permissions.
 	Sandbox     SandboxPolicy `json:"sandbox"`
 	ServiceTier *string       `json:"serviceTier,omitzero"`
-	Thread      Thread        `json:"thread"`
+	Thread      ThreadPayload `json:"thread"`
 }
 
 func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -10884,7 +10801,7 @@ func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
-		Thread             Thread            `json:"thread"`
+		Thread             ThreadPayload     `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -10930,7 +10847,7 @@ const (
 
 // ThreadStartedNotification is generated from the ThreadStartedNotification schema definition.
 type ThreadStartedNotification struct {
-	Thread Thread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadStatus is generated from the ThreadStatus schema definition.
@@ -11070,7 +10987,7 @@ type ThreadUnarchiveParams struct {
 
 // ThreadUnarchiveResponse is generated from the ThreadUnarchiveResponse schema definition.
 type ThreadUnarchiveResponse struct {
-	Thread Thread `json:"thread"`
+	Thread ThreadPayload `json:"thread"`
 }
 
 // ThreadUnarchivedNotification is generated from the ThreadUnarchivedNotification schema definition.
@@ -11252,18 +11169,7 @@ type TurnInterruptParams struct {
 }
 
 // TurnInterruptResponse is generated from the TurnInterruptResponse schema definition.
-type TurnInterruptResponse jsontext.Value
-
-var _ json.MarshalerTo = TurnInterruptResponse{}
-var _ json.UnmarshalerFrom = (*TurnInterruptResponse)(nil)
-
-func (value TurnInterruptResponse) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return enc.WriteValue(jsontext.Value(value))
-}
-
-func (value *TurnInterruptResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
-	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
-}
+type TurnInterruptResponse struct{}
 
 // TurnItemsView is generated from the TurnItemsView schema definition.
 type TurnItemsView interface {

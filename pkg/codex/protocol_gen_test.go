@@ -1,6 +1,9 @@
 package codex
 
 import (
+	"os"
+	"regexp"
+	"strings"
 	"testing"
 
 	json "github.com/go-json-experiment/json"
@@ -44,6 +47,43 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 			}
 			assertJSONEqual(t, tt.want, got)
 		})
+	}
+}
+
+func TestGeneratedProtocolTypesDoNotCollapseConcretePayloadsToRawJSON(t *testing.T) {
+	t.Parallel()
+
+	sourceBytes, err := os.ReadFile("protocol_gen.go")
+	if err != nil {
+		t.Fatalf("os.ReadFile(protocol_gen.go) error = %v", err)
+	}
+	source := string(sourceBytes)
+
+	aliasPattern := regexp.MustCompile(`(?m)^type ([A-Za-z][A-Za-z0-9_]*) jsontext\.Value$`)
+	for _, match := range aliasPattern.FindAllStringSubmatch(source, -1) {
+		typeName := match[1]
+		if !strings.HasPrefix(typeName, "Raw") {
+			t.Fatalf("generated top-level type %s still collapses to jsontext.Value", typeName)
+		}
+	}
+
+	for _, fragment := range []string{
+		"type AskForApproval interface {",
+		"type AuthMode interface {",
+		"type CommandExecOutputStream interface {",
+		"type ConfigLayerSource interface {",
+		"type ContentItem interface {",
+		"type DynamicToolCallOutputContentItem interface {",
+		"type ExperimentalFeatureStage interface {",
+		"type FileSystemPath interface {",
+		"type FileSystemSpecialPath interface {",
+		"type FunctionCallOutputBody interface {",
+		"type FunctionCallOutputContentItem interface {",
+		"type GuardianApprovalReviewAction interface {",
+	} {
+		if !strings.Contains(source, fragment) {
+			t.Fatalf("generated source missing concrete declaration %q", fragment)
+		}
 	}
 }
 
@@ -265,6 +305,38 @@ func TestGeneratedProtocolClientRequestDecode(t *testing.T) {
 			t.Fatal("decodeGeneratedClientRequest() error = nil, want malformed known request error")
 		}
 	})
+}
+
+func TestGeneratedResourceContentDecodesConcretePayloads(t *testing.T) {
+	t.Parallel()
+
+	input := `{
+		"contents": [
+			{"uri":"file://readme.md","text":"hello","mimeType":"text/plain"},
+			{"uri":"file://image.png","blob":"aGVsbG8="}
+		]
+	}`
+	var got MCPResourceReadResponse
+	if err := json.Unmarshal([]byte(input), &got); err != nil {
+		t.Fatalf("json.Unmarshal() error = %v", err)
+	}
+	if len(got.Contents) != 2 {
+		t.Fatalf("Contents length = %d, want 2", len(got.Contents))
+	}
+	textContent, ok := got.Contents[0].(ResourceContentText)
+	if !ok {
+		t.Fatalf("Contents[0] = %#v (%T), want ResourceContentText", got.Contents[0], got.Contents[0])
+	}
+	if textContent.URI != "file://readme.md" || textContent.Text != "hello" {
+		t.Fatalf("text resource = %#v, want readme hello", textContent)
+	}
+	blobContent, ok := got.Contents[1].(ResourceContentBlob)
+	if !ok {
+		t.Fatalf("Contents[1] = %#v (%T), want ResourceContentBlob", got.Contents[1], got.Contents[1])
+	}
+	if blobContent.URI != "file://image.png" || blobContent.Blob != "aGVsbG8=" {
+		t.Fatalf("blob resource = %#v, want image blob", blobContent)
+	}
 }
 
 var benchmarkGeneratedClientRequest ClientRequest
