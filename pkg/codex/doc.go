@@ -57,4 +57,4 @@
 // Compile-time alias compatibility checks live in public_types_test.go, and
 // compatibility-sensitive aliases should be preserved unless the upstream schema
 // contract explicitly changes.
-package codexappserver
+package codex

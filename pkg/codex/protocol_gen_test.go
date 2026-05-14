@@ -1,4 +1,4 @@
-package codexappserver
+package codex
 
 import (
 	"testing"

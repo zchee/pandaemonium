@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package codexappserver
+package codex
 
 import (
 	"bufio"
@@ -894,27 +894,6 @@ func waitForActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
 		select {
 		case <-deadline.C:
 			t.Fatalf("activeTurnID = %q, want %q", activeTurnConsumers(client), turnID)
-		case <-ticker.C:
-		}
-	}
-}
-
-func waitForPendingResponses(t *testing.T, client *Client, want int) {
-	t.Helper()
-	deadline := time.NewTimer(2 * time.Second)
-	defer deadline.Stop()
-	ticker := time.NewTicker(10 * time.Millisecond)
-	defer ticker.Stop()
-	for {
-		client.responseMu.Lock()
-		got := len(client.responses)
-		client.responseMu.Unlock()
-		if got == want {
-			return
-		}
-		select {
-		case <-deadline.C:
-			t.Fatalf("pending responses = %d, want %d", got, want)
 		case <-ticker.C:
 		}
 	}

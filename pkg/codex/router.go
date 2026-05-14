@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package codexappserver
+package codex
 
 import (
 	"context"
@@ -123,22 +123,6 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 		delete(r.pending, turnID)
 	}
 	r.queues[turnID] = queue
-	return queue, nil
-}
-
-func (r *turnNotificationRouter) queue(turnID string) (*turnNotificationQueue, error) {
-	if turnID == "" {
-		return nil, fmt.Errorf("turn notification router: empty turn id")
-	}
-	r.mu.Lock()
-	defer r.mu.Unlock()
-	if r.closed {
-		return nil, r.err
-	}
-	queue := r.queues[turnID]
-	if queue == nil {
-		return nil, fmt.Errorf("turn notification router: no active consumer for %s", turnID)
-	}
 	return queue, nil
 }
 

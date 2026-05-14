@@ -1,4 +1,4 @@
-package codexappserver_test
+package codex_test
 
 import (
 	"context"
@@ -8,7 +8,7 @@ import (
 	"testing"
 	"time"
 
-	codexappserver "github.com/zchee/pandaemonium/pkg/codex"
+	"github.com/zchee/pandaemonium/pkg/codex"
 )
 
 const runRealCodexTestsEnv = "RUN_REAL_CODEX_TESTS"
@@ -26,7 +26,7 @@ func TestRealCodexAppServerInitializeAndModelList(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 
-	codex, err := codexappserver.NewCodex(ctx, &codexappserver.Config{CodexBin: codexBin})
+	codex, err := codex.NewCodex(ctx, &codex.Config{CodexBin: codexBin})
 	if err != nil {
 		t.Fatalf("NewCodex() with real app-server error = %v", err)
 	}

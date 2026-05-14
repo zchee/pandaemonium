@@ -464,7 +464,7 @@ func TestGenerateCodexAppServerPackageAvoidsSDKNameCollisions(t *testing.T) {
 	}
 	got := string(gotBytes)
 	wantFragments := []string{
-		"package codexappserver",
+		"package codex",
 		"type ConfigPayload struct {",
 		"Thread *ThreadPayload `json:\"thread,omitzero\"`",
 		"type ThreadPayload struct {",
