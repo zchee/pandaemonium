@@ -62,17 +62,14 @@ type Client struct {
 	stdout *bufio.Reader
 	stderr io.ReadCloser
 
-	writeMu        sync.Mutex
-	closeMu        sync.Mutex
-	responseMu     sync.Mutex
-	stderrMu       sync.Mutex
-	turnConsumerMu sync.Mutex
+	writeMu    sync.Mutex
+	closeMu    sync.Mutex
+	responseMu sync.Mutex
+	stderrMu   sync.Mutex
 
 	responses     map[string]chan responseWait
 	notifications chan Notification
 	turnRouter    *turnNotificationRouter
-	activeTurnID  string
-	activeTurnIDs map[string]struct{}
 	stderrLines   []string
 	stderrDone    chan struct{}
 	readDone      chan struct{}
@@ -98,18 +95,15 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 	if approvalHandler == nil {
 		approvalHandler = defaultApprovalHandler
 	}
-	client := &Client{
+	return &Client{
 		config:          cfg,
 		approvalHandler: approvalHandler,
 		responses:       map[string]chan responseWait{},
 		notifications:   make(chan Notification, notificationQueueCapacity),
 		turnRouter:      newTurnNotificationRouter(),
-		activeTurnIDs:   map[string]struct{}{},
 		stderrDone:      make(chan struct{}),
 		readDone:        make(chan struct{}),
 	}
-	client.turnRouter = newTurnNotificationRouter()
-	return client
 }
 
 // DefaultCodexHome returns the default ~/.codex home directory location.
@@ -163,8 +157,6 @@ func (c *Client) Start(ctx context.Context) error {
 	c.readDone = make(chan struct{})
 	c.notifications = make(chan Notification, notificationQueueCapacity)
 	c.turnRouter = newTurnNotificationRouter()
-	c.activeTurnID = ""
-	c.activeTurnIDs = map[string]struct{}{}
 	c.responses = map[string]chan responseWait{}
 	go c.drainStderr(stderr, c.stderrDone)
 	go c.readLoop(c.readDone)
@@ -182,9 +174,7 @@ func (c *Client) Close() error {
 	readDone := c.readDone
 	stderrDone := c.stderrDone
 	c.cmd = nil
-	if c.turnRouter != nil {
-		c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
-	}
+	c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
 
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
@@ -257,7 +247,7 @@ func (c *Client) Request[T any](ctx context.Context, method string, params any) 
 	return decodeRequestResult[T](method, raw)
 }
 
-// Request sends a typed request to the app-server.
+// Request is a package-level wrapper around [Client.Request].
 func Request[T any](ctx context.Context, c *Client, method string, params any) (T, error) {
 	return c.Request[T](ctx, method, params)
 }
@@ -338,9 +328,6 @@ func (c *Client) Notify(ctx context.Context, method string, params any) error {
 // Notification so higher-level consumers can forward or inspect them without
 // losing information.
 func (c *Client) NextNotification(ctx context.Context) (Notification, error) {
-	if c.turnRouter == nil {
-		return nextNotificationFrom(ctx, c.notifications)
-	}
 	return c.turnRouter.nextGlobal(ctx, c.notifications)
 }
 
@@ -368,9 +355,6 @@ func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (TurnC
 }
 
 func (c *Client) openTurnConsumer(turnID string) (*turnNotificationQueue, error) {
-	if c.turnRouter == nil {
-		c.turnRouter = newTurnNotificationRouter()
-	}
 	return c.turnRouter.register(turnID)
 }
 
@@ -451,51 +435,19 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 }
 
 func (c *Client) nextTurnNotification(ctx context.Context, turnID string) (Notification, error) {
-	if c.turnRouter == nil {
-		return c.NextNotification(ctx)
-	}
 	return c.turnRouter.next(ctx, turnID)
 }
 
 func (c *Client) releaseTurnConsumer(turnID string) {
-	if c.turnRouter != nil {
-		c.turnRouter.unregister(turnID)
-	}
+	c.turnRouter.unregister(turnID)
 }
 
 func (c *Client) clearTurnPending(turnID string) {
-	if c.turnRouter != nil {
-		c.turnRouter.clearPending(turnID)
-	}
+	c.turnRouter.clearPending(turnID)
 }
 
 func (c *Client) routeNotification(notification Notification) error {
-	if c.turnRouter == nil {
-		c.turnRouter = newTurnNotificationRouter()
-	}
 	return c.turnRouter.route(notification)
-}
-
-func (c *Client) closeTurnRouter(err error) {
-	if c.turnRouter != nil {
-		c.turnRouter.close(err)
-	}
-	c.turnConsumerMu.Lock()
-	c.activeTurnID = ""
-	c.activeTurnIDs = map[string]struct{}{}
-	c.turnConsumerMu.Unlock()
-}
-
-func nextNotificationFrom(ctx context.Context, notifications <-chan Notification) (Notification, error) {
-	select {
-	case <-ctx.Done():
-		return Notification{}, ctx.Err()
-	case notification, ok := <-notifications:
-		if !ok {
-			return Notification{}, &TransportClosedError{Message: "app-server notification stream closed"}
-		}
-		return notification, nil
-	}
 }
 
 func (c *Client) experimentalAPI() bool {
@@ -584,7 +536,7 @@ func (c *Client) handleServerRequest(msg rpcMessage) Object {
 
 func (c *Client) readLoop(done chan<- struct{}) {
 	defer close(done)
-	defer c.closeTurnRouter(&TransportClosedError{Message: "app-server notification stream closed"})
+	defer c.turnRouter.close(&TransportClosedError{Message: "app-server notification stream closed"})
 	for {
 		msg, err := c.readMessage()
 		if err != nil {
