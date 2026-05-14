@@ -29,8 +29,6 @@ Run from the repository root.
 - `go run ./pkg/codex/internal/cmd/generate-protocol-types -schema <path-or-url> -out ./pkg/codex/protocol_gen.go -package codexappserver` — direct generator invocation (use a different `-schema` for local experimentation).
 - `go mod tidy && go mod vendor` — refresh module graph and the committed `vendor/` tree after dependency changes.
 
-Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `greenteagc`, `simd`, …) are active locally — generated code and tests assume them.
-
 ## Coding Style & Naming Conventions
 
 - Format with `gofmt -s -w .` and `gofumpt -w -extra .` before committing; tabs for indentation, LF endings (`.gitattributes`).
@@ -38,7 +36,7 @@ Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `
 - JSON: use `github.com/go-json-experiment/json` and `jsontext`; struct tags use `omitzero`, never `omitempty`.
 - Test comparisons use `gocmp "github.com/google/go-cmp/cmp"` (aliased); do not introduce `testify`.
 - All `.go` files start with the Apache-2.0 header from `hack/boilerplate/boilerplate.go.txt` (year `2026`).
-- Package name is `codexappserver` (kept for API stability); directory is `codex`.
+- Package name is `codex` (kept for API stability); directory is `codex`.
 - Godoc comments end with a period and document exported identifiers.
 
 ## Testing Guidelines
@@ -51,7 +49,7 @@ Use `direnv allow` (or source `.envrc`) so the `GOEXPERIMENT` flags (`jsonv2`, `
 
 ## Commit & Pull Request Guidelines
 
-- Commit subjects follow `scope: lowercase imperative subject`, where `scope` is the affected path or component, e.g. `codex-app-server: route turn notifications without global loss` or `pkg/codex/protocol: regenerate with description-derived godoc`. Use `test:` for test-only changes and `all:` for repo-wide work.
+- Commit subjects follow `scope: lowercase imperative subject`, where `scope` is the affected path or component, e.g. `codex-app-server: route turn notifications without global loss` or `pkg/codex/generator: regenerate with description-derived godoc`. Use `test:` for test-only changes and `all:` for repo-wide work.
 - Sign commits: `git commit --gpg-sign` (project convention).
 - One logical change per commit; regenerated artifacts (`protocol_gen.go`, `testdata/`) belong in the same commit as the generator or schema change that produced them.
 - Pull requests must fill the `## Why` section of `.github/PULL_REQUEST_TEMPLATE.md` with the motivating change and link any upstream schema version (`rust-vX.Y.Z-...`) or issue. Note opt-in test runs (e.g. `RUN_REAL_CODEX_TESTS=1`) when they were exercised.
