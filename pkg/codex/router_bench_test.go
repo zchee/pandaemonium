@@ -37,7 +37,7 @@ var (
 
 func BenchmarkNotificationTurnIDTopLevel(b *testing.B) {
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		if got := notificationTurnID(benchmarkTopLevelTurnNotification); got != "turn-router-bench" {
 			b.Fatalf("notificationTurnID() = %q, want turn-router-bench", got)
 		}
@@ -46,7 +46,7 @@ func BenchmarkNotificationTurnIDTopLevel(b *testing.B) {
 
 func BenchmarkNotificationTurnIDNestedTurn(b *testing.B) {
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		if got := notificationTurnID(benchmarkNestedTurnNotification); got != "turn-router-bench" {
 			b.Fatalf("notificationTurnID() = %q, want turn-router-bench", got)
 		}
@@ -55,7 +55,7 @@ func BenchmarkNotificationTurnIDNestedTurn(b *testing.B) {
 
 func BenchmarkNotificationTurnIDGlobal(b *testing.B) {
 	b.ReportAllocs()
-	for range b.N {
+	for b.Loop() {
 		if got := notificationTurnID(benchmarkGlobalNotification); got != "" {
 			b.Fatalf("notificationTurnID() = %q, want empty string", got)
 		}
@@ -70,9 +70,8 @@ func BenchmarkNotificationRingSteadyWrap(b *testing.B) {
 		}
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		if _, ok := ring.pop(); !ok {
 			b.Fatal("pop ok = false, want true")
 		}
@@ -88,9 +87,8 @@ func BenchmarkNotificationRingAppendPop128(b *testing.B) {
 		pending[i] = benchmarkTopLevelTurnNotification
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		ring := newNotificationRing(notificationQueueCapacity)
 		if ok := ring.appendAll(pending); !ok {
 			b.Fatal("appendAll ok = false, want true")
@@ -109,9 +107,8 @@ func BenchmarkTurnNotificationQueuePushPop(b *testing.B) {
 		notify:        make(chan struct{}, 1),
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		if err := queue.push(benchmarkTopLevelTurnNotification); err != nil {
 			b.Fatalf("push() error = %v", err)
 		}
@@ -128,9 +125,8 @@ func BenchmarkTurnNotificationRouterRouteActiveQueue(b *testing.B) {
 		b.Fatalf("register() error = %v", err)
 	}
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		if err := router.route(benchmarkTopLevelTurnNotification); err != nil {
 			b.Fatalf("route() error = %v", err)
 		}
@@ -143,9 +139,8 @@ func BenchmarkTurnNotificationRouterRouteActiveQueue(b *testing.B) {
 func BenchmarkTurnNotificationRouterRouteGlobal(b *testing.B) {
 	router := newTurnNotificationRouter()
 	b.ReportAllocs()
-	b.ResetTimer()
 
-	for range b.N {
+	for b.Loop() {
 		if err := router.route(benchmarkGlobalNotification); err != nil {
 			b.Fatalf("route() error = %v", err)
 		}
