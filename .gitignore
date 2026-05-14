@@ -65,3 +65,4 @@ bench.txt
 .codex/skills/.system/**
 !.codex/prompts/
 !.codex/prompts/**
+omx_wiki/
