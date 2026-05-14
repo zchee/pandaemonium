@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"maps"
 	"os"
 	"os/signal"
 	"strings"
@@ -814,9 +815,7 @@ func lifecycleFinalResponse(input string) string {
 
 func cloneObject(in codex.Object) codex.Object {
 	out := make(codex.Object, len(in))
-	for key, value := range in {
-		out[key] = value
-	}
+	maps.Copy(out, in)
 	return out
 }
 

@@ -177,7 +177,7 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 	t.Parallel()
 
-	anyType := reflect.TypeOf((*any)(nil)).Elem()
+	anyType := reflect.TypeFor[any]()
 	contextType := reflect.TypeFor[context.Context]()
 	errorType := reflect.TypeFor[error]()
 	tests := map[string]struct {

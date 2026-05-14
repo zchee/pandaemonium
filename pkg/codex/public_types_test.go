@@ -140,7 +140,7 @@ func TestApprovalModeSettings(t *testing.T) {
 		"success: auto review": {
 			mode:         ApprovalModeAutoReview,
 			wantApproval: `"on-request"`,
-			wantReviewer: ptr(ApprovalsReviewerAutoReview),
+			wantReviewer: new(ApprovalsReviewerAutoReview),
 		},
 		"error: unsupported approval mode": {
 			mode:    ApprovalMode("future"),
@@ -210,8 +210,4 @@ func TestApprovalModeOverrideSettings(t *testing.T) {
 	if gotReviewer == nil || *gotReviewer != ApprovalsReviewerAutoReview {
 		t.Fatalf("reviewer = %#v, want auto_review", gotReviewer)
 	}
-}
-
-func ptr[T any](value T) *T {
-	return &value
 }
