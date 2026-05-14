@@ -34,7 +34,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 )
 
-const sdkVersion = "0.116.0a1-go"
+const sdkVersion = "0.131.0a4-go"
 
 // ApprovalHandler answers app-server requests initiated during JSON-RPC processing.
 type ApprovalHandler func(method string, params jsontext.Value) (Object, error)
