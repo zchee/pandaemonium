@@ -63,27 +63,21 @@ func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *j
 		case unionVariantString, unionVariantArray:
 			g.emitTypedUnionVariant(out, goName, variant)
 		case unionVariantObject:
-			g.emitUnionTagger(out, goName, variant.typeName)
-			if variant.schema == nil || !objectLikeSchema(variant.schema) {
-				continue
+			if variant.schema != nil && objectLikeSchema(variant.schema) {
+				_, schemaTitleDefined := g.definitions[variant.schema.Title]
+				_, typeNameDefined := g.definitions[variant.typeName]
+				if !schemaTitleDefined && !typeNameDefined && variant.raw.Ref == "" {
+					commentName := variant.raw.Title
+					if commentName == "" {
+						commentName = variant.typeName
+					}
+					if err := g.emitStruct(out, variant.typeName, commentName, variant.schema); err != nil {
+						return err
+					}
+					out.WriteByte('\n')
+				}
 			}
-			if _, ok := g.definitions[variant.schema.Title]; ok {
-				continue
-			}
-			if _, ok := g.definitions[variant.typeName]; ok {
-				continue
-			}
-			if variant.raw.Ref != "" {
-				continue
-			}
-			commentName := variant.raw.Title
-			if commentName == "" {
-				commentName = variant.typeName
-			}
-			if err := g.emitStruct(out, variant.typeName, commentName, variant.schema); err != nil {
-				return err
-			}
-			out.WriteByte('\n')
+			g.emitObjectUnionTagger(out, goName, variant.typeName)
 		}
 	}
 	g.emitUnionDecodeHelper(out, goName, info, methodConstants)
@@ -383,15 +377,52 @@ func (g *generator) emitRawUnionWrapper(out *bytes.Buffer, unionName string) {
 	fmt.Fprintf(out, "}\n\n")
 }
 
-func (g *generator) emitUnionTagger(out *bytes.Buffer, unionName, targetType string) {
+func (g *generator) emitObjectUnionTagger(out *bytes.Buffer, unionName, targetType string) {
+	if _, emitted := g.emittedType[targetType]; emitted {
+		g.emitUnionTagger(out, unionName, targetType)
+		return
+	}
+	g.deferUnionTagger(unionName, targetType)
+}
+
+func (g *generator) deferUnionTagger(unionName, targetType string) {
 	if targetType == "" {
 		return
 	}
-	key := unionName + "\x00" + targetType
+	key := unionTaggerKey(unionName, targetType)
 	if _, ok := g.unionTagger[key]; ok {
 		return
 	}
 	g.unionTagger[key] = struct{}{}
+	g.pendingUnionTaggers = append(g.pendingUnionTaggers, unionTaggerMethod{
+		unionName:  unionName,
+		targetType: targetType,
+	})
+}
+
+func (g *generator) emitPendingUnionTaggers(out *bytes.Buffer) {
+	for _, tagger := range g.pendingUnionTaggers {
+		writeUnionTagger(out, tagger.unionName, tagger.targetType)
+	}
+}
+
+func (g *generator) emitUnionTagger(out *bytes.Buffer, unionName, targetType string) {
+	if targetType == "" {
+		return
+	}
+	key := unionTaggerKey(unionName, targetType)
+	if _, ok := g.unionTagger[key]; ok {
+		return
+	}
+	g.unionTagger[key] = struct{}{}
+	writeUnionTagger(out, unionName, targetType)
+}
+
+func unionTaggerKey(unionName, targetType string) string {
+	return unionName + "\x00" + targetType
+}
+
+func writeUnionTagger(out *bytes.Buffer, unionName, targetType string) {
 	fmt.Fprintf(out, "func (%s) is%s() {}\n\n", targetType, unionName)
 }
 

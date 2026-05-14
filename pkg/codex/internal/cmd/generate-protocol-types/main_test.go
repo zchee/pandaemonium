@@ -680,6 +680,28 @@ func TestGenerateUnionDefinitions(t *testing.T) {
 			t.Fatalf("generated source missing %q:\n%s", fragment, got)
 		}
 	}
+
+	assertGeneratedOrder(t, got, "type ExistingVariant struct {", "func (ExistingVariant) isCollisionUnion() {}")
+	assertGeneratedOrder(t, got, "type NamedVariant struct {", "func (NamedVariant) isAnonymousUnion() {}")
+	assertGeneratedOrder(t, got, "type AnonymousUnionKind struct {", "func (AnonymousUnionKind) isAnonymousUnion() {}")
+	assertGeneratedOrder(t, got, "type NoDiscriminatorUnionKind struct {", "func (NoDiscriminatorUnionKind) isNoDiscriminatorUnion() {}")
+	assertGeneratedOrder(t, got, "type NoDiscriminatorUnionStatus struct {", "func (NoDiscriminatorUnionStatus) isNoDiscriminatorUnion() {}")
+}
+
+func assertGeneratedOrder(t *testing.T, generated, before, after string) {
+	t.Helper()
+
+	beforeIndex := strings.Index(generated, before)
+	if beforeIndex < 0 {
+		t.Fatalf("generated source missing before marker %q:\n%s", before, generated)
+	}
+	afterIndex := strings.Index(generated, after)
+	if afterIndex < 0 {
+		t.Fatalf("generated source missing after marker %q:\n%s", after, generated)
+	}
+	if beforeIndex > afterIndex {
+		t.Fatalf("generated source orders %q after %q:\n%s", before, after, generated)
+	}
 }
 
 func TestGenerateMixedUnionDefinitions(t *testing.T) {

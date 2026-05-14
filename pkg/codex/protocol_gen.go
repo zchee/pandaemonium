@@ -36,14 +36,12 @@ func (value *RawAccount) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (APIKeyAccount) isAccount() {}
-
 // APIKeyAccount is generated from the ApiKeyAccount schema definition.
 type APIKeyAccount struct {
 	Type string `json:"type"`
 }
 
-func (ChatgptAccount) isAccount() {}
+func (APIKeyAccount) isAccount() {}
 
 // ChatgptAccount is generated from the ChatgptAccount schema definition.
 type ChatgptAccount struct {
@@ -52,12 +50,14 @@ type ChatgptAccount struct {
 	Type     string   `json:"type"`
 }
 
-func (AmazonBedrockAccount) isAccount() {}
+func (ChatgptAccount) isAccount() {}
 
 // AmazonBedrockAccount is generated from the AmazonBedrockAccount schema definition.
 type AmazonBedrockAccount struct {
 	Type string `json:"type"`
 }
+
+func (AmazonBedrockAccount) isAccount() {}
 
 func decodeGeneratedAccount(raw jsontext.Value) (Account, error) {
 	if raw == nil {
@@ -396,8 +396,6 @@ const (
 	AskForApprovalValueUntrusted AskForApprovalValue = "untrusted"
 )
 
-func (GranularAskForApproval) isAskForApproval() {}
-
 // Granular is generated from the Granular schema definition.
 type Granular struct {
 	MCPElicitations    bool  `json:"mcp_elicitations"`
@@ -411,6 +409,8 @@ type Granular struct {
 type GranularAskForApproval struct {
 	Granular Granular `json:"granular"`
 }
+
+func (GranularAskForApproval) isAskForApproval() {}
 
 func decodeGeneratedAskForApproval(raw jsontext.Value) (AskForApproval, error) {
 	if raw == nil {
@@ -723,8 +723,6 @@ const (
 	RequestMethodFuzzyFileSearch = "fuzzyFileSearch"
 )
 
-func (InitializeRequest) isClientRequest() {}
-
 // InitializeRequest is generated from the InitializeRequest schema definition.
 type InitializeRequest struct {
 	ID     string           `json:"id"`
@@ -732,7 +730,7 @@ type InitializeRequest struct {
 	Params InitializeParams `json:"params"`
 }
 
-func (ThreadStartRequest) isClientRequest() {}
+func (InitializeRequest) isClientRequest() {}
 
 // ThreadStartRequest NEW APIs.
 type ThreadStartRequest struct {
@@ -741,7 +739,7 @@ type ThreadStartRequest struct {
 	Params ThreadStartParams `json:"params"`
 }
 
-func (ThreadResumeRequest) isClientRequest() {}
+func (ThreadStartRequest) isClientRequest() {}
 
 // ThreadResumeRequest is generated from the Thread/resumeRequest schema definition.
 type ThreadResumeRequest struct {
@@ -750,7 +748,7 @@ type ThreadResumeRequest struct {
 	Params ThreadResumeParams `json:"params"`
 }
 
-func (ThreadForkRequest) isClientRequest() {}
+func (ThreadResumeRequest) isClientRequest() {}
 
 // ThreadForkRequest is generated from the Thread/forkRequest schema definition.
 type ThreadForkRequest struct {
@@ -759,7 +757,7 @@ type ThreadForkRequest struct {
 	Params ThreadForkParams `json:"params"`
 }
 
-func (ThreadArchiveRequest) isClientRequest() {}
+func (ThreadForkRequest) isClientRequest() {}
 
 // ThreadArchiveRequest is generated from the Thread/archiveRequest schema definition.
 type ThreadArchiveRequest struct {
@@ -768,7 +766,7 @@ type ThreadArchiveRequest struct {
 	Params ThreadArchiveParams `json:"params"`
 }
 
-func (ThreadUnsubscribeRequest) isClientRequest() {}
+func (ThreadArchiveRequest) isClientRequest() {}
 
 // ThreadUnsubscribeRequest is generated from the Thread/unsubscribeRequest schema definition.
 type ThreadUnsubscribeRequest struct {
@@ -777,7 +775,7 @@ type ThreadUnsubscribeRequest struct {
 	Params ThreadUnsubscribeParams `json:"params"`
 }
 
-func (ThreadNameSetRequest) isClientRequest() {}
+func (ThreadUnsubscribeRequest) isClientRequest() {}
 
 // ThreadNameSetRequest is generated from the Thread/name/setRequest schema definition.
 type ThreadNameSetRequest struct {
@@ -786,7 +784,7 @@ type ThreadNameSetRequest struct {
 	Params ThreadSetNameParams `json:"params"`
 }
 
-func (ThreadMetadataUpdateRequest) isClientRequest() {}
+func (ThreadNameSetRequest) isClientRequest() {}
 
 // ThreadMetadataUpdateRequest is generated from the Thread/metadata/updateRequest schema definition.
 type ThreadMetadataUpdateRequest struct {
@@ -795,7 +793,7 @@ type ThreadMetadataUpdateRequest struct {
 	Params ThreadMetadataUpdateParams `json:"params"`
 }
 
-func (ThreadUnarchiveRequest) isClientRequest() {}
+func (ThreadMetadataUpdateRequest) isClientRequest() {}
 
 // ThreadUnarchiveRequest is generated from the Thread/unarchiveRequest schema definition.
 type ThreadUnarchiveRequest struct {
@@ -804,7 +802,7 @@ type ThreadUnarchiveRequest struct {
 	Params ThreadUnarchiveParams `json:"params"`
 }
 
-func (ThreadCompactStartRequest) isClientRequest() {}
+func (ThreadUnarchiveRequest) isClientRequest() {}
 
 // ThreadCompactStartRequest is generated from the Thread/compact/startRequest schema definition.
 type ThreadCompactStartRequest struct {
@@ -813,7 +811,7 @@ type ThreadCompactStartRequest struct {
 	Params ThreadCompactStartParams `json:"params"`
 }
 
-func (ThreadShellCommandRequest) isClientRequest() {}
+func (ThreadCompactStartRequest) isClientRequest() {}
 
 // ThreadShellCommandRequest is generated from the Thread/shellCommandRequest schema definition.
 type ThreadShellCommandRequest struct {
@@ -822,7 +820,7 @@ type ThreadShellCommandRequest struct {
 	Params ThreadShellCommandParams `json:"params"`
 }
 
-func (ThreadApproveGuardianDeniedActionRequest) isClientRequest() {}
+func (ThreadShellCommandRequest) isClientRequest() {}
 
 // ThreadApproveGuardianDeniedActionRequest is generated from the Thread/approveGuardianDeniedActionRequest schema definition.
 type ThreadApproveGuardianDeniedActionRequest struct {
@@ -831,7 +829,7 @@ type ThreadApproveGuardianDeniedActionRequest struct {
 	Params ThreadApproveGuardianDeniedActionParams `json:"params"`
 }
 
-func (ThreadRollbackRequest) isClientRequest() {}
+func (ThreadApproveGuardianDeniedActionRequest) isClientRequest() {}
 
 // ThreadRollbackRequest is generated from the Thread/rollbackRequest schema definition.
 type ThreadRollbackRequest struct {
@@ -840,7 +838,7 @@ type ThreadRollbackRequest struct {
 	Params ThreadRollbackParams `json:"params"`
 }
 
-func (ThreadListRequest) isClientRequest() {}
+func (ThreadRollbackRequest) isClientRequest() {}
 
 // ThreadListRequest is generated from the Thread/listRequest schema definition.
 type ThreadListRequest struct {
@@ -849,7 +847,7 @@ type ThreadListRequest struct {
 	Params ThreadListParams `json:"params"`
 }
 
-func (ThreadLoadedListRequest) isClientRequest() {}
+func (ThreadListRequest) isClientRequest() {}
 
 // ThreadLoadedListRequest is generated from the Thread/loaded/listRequest schema definition.
 type ThreadLoadedListRequest struct {
@@ -858,7 +856,7 @@ type ThreadLoadedListRequest struct {
 	Params ThreadLoadedListParams `json:"params"`
 }
 
-func (ThreadReadRequest) isClientRequest() {}
+func (ThreadLoadedListRequest) isClientRequest() {}
 
 // ThreadReadRequest is generated from the Thread/readRequest schema definition.
 type ThreadReadRequest struct {
@@ -867,7 +865,7 @@ type ThreadReadRequest struct {
 	Params ThreadReadParams `json:"params"`
 }
 
-func (ThreadInjectItemsRequest) isClientRequest() {}
+func (ThreadReadRequest) isClientRequest() {}
 
 // ThreadInjectItemsRequest appends raw Responses API items to the thread history without starting a user turn.
 type ThreadInjectItemsRequest struct {
@@ -876,7 +874,7 @@ type ThreadInjectItemsRequest struct {
 	Params ThreadInjectItemsParams `json:"params"`
 }
 
-func (SkillsListRequest) isClientRequest() {}
+func (ThreadInjectItemsRequest) isClientRequest() {}
 
 // SkillsListRequest is generated from the Skills/listRequest schema definition.
 type SkillsListRequest struct {
@@ -885,7 +883,7 @@ type SkillsListRequest struct {
 	Params SkillsListParams `json:"params"`
 }
 
-func (HooksListRequest) isClientRequest() {}
+func (SkillsListRequest) isClientRequest() {}
 
 // HooksListRequest is generated from the Hooks/listRequest schema definition.
 type HooksListRequest struct {
@@ -894,7 +892,7 @@ type HooksListRequest struct {
 	Params HooksListParams `json:"params"`
 }
 
-func (MarketplaceAddRequest) isClientRequest() {}
+func (HooksListRequest) isClientRequest() {}
 
 // MarketplaceAddRequest is generated from the Marketplace/addRequest schema definition.
 type MarketplaceAddRequest struct {
@@ -903,7 +901,7 @@ type MarketplaceAddRequest struct {
 	Params MarketplaceAddParams `json:"params"`
 }
 
-func (MarketplaceRemoveRequest) isClientRequest() {}
+func (MarketplaceAddRequest) isClientRequest() {}
 
 // MarketplaceRemoveRequest is generated from the Marketplace/removeRequest schema definition.
 type MarketplaceRemoveRequest struct {
@@ -912,7 +910,7 @@ type MarketplaceRemoveRequest struct {
 	Params MarketplaceRemoveParams `json:"params"`
 }
 
-func (MarketplaceUpgradeRequest) isClientRequest() {}
+func (MarketplaceRemoveRequest) isClientRequest() {}
 
 // MarketplaceUpgradeRequest is generated from the Marketplace/upgradeRequest schema definition.
 type MarketplaceUpgradeRequest struct {
@@ -921,7 +919,7 @@ type MarketplaceUpgradeRequest struct {
 	Params MarketplaceUpgradeParams `json:"params"`
 }
 
-func (PluginListRequest) isClientRequest() {}
+func (MarketplaceUpgradeRequest) isClientRequest() {}
 
 // PluginListRequest is generated from the Plugin/listRequest schema definition.
 type PluginListRequest struct {
@@ -930,7 +928,7 @@ type PluginListRequest struct {
 	Params PluginListParams `json:"params"`
 }
 
-func (PluginReadRequest) isClientRequest() {}
+func (PluginListRequest) isClientRequest() {}
 
 // PluginReadRequest is generated from the Plugin/readRequest schema definition.
 type PluginReadRequest struct {
@@ -939,7 +937,7 @@ type PluginReadRequest struct {
 	Params PluginReadParams `json:"params"`
 }
 
-func (PluginSkillReadRequest) isClientRequest() {}
+func (PluginReadRequest) isClientRequest() {}
 
 // PluginSkillReadRequest is generated from the Plugin/skill/readRequest schema definition.
 type PluginSkillReadRequest struct {
@@ -948,7 +946,7 @@ type PluginSkillReadRequest struct {
 	Params PluginSkillReadParams `json:"params"`
 }
 
-func (PluginShareSaveRequest) isClientRequest() {}
+func (PluginSkillReadRequest) isClientRequest() {}
 
 // PluginShareSaveRequest is generated from the Plugin/share/saveRequest schema definition.
 type PluginShareSaveRequest struct {
@@ -957,7 +955,7 @@ type PluginShareSaveRequest struct {
 	Params PluginShareSaveParams `json:"params"`
 }
 
-func (PluginShareUpdateTargetsRequest) isClientRequest() {}
+func (PluginShareSaveRequest) isClientRequest() {}
 
 // PluginShareUpdateTargetsRequest is generated from the Plugin/share/updateTargetsRequest schema definition.
 type PluginShareUpdateTargetsRequest struct {
@@ -966,7 +964,7 @@ type PluginShareUpdateTargetsRequest struct {
 	Params PluginShareUpdateTargetsParams `json:"params"`
 }
 
-func (PluginShareListRequest) isClientRequest() {}
+func (PluginShareUpdateTargetsRequest) isClientRequest() {}
 
 // PluginShareListRequest is generated from the Plugin/share/listRequest schema definition.
 type PluginShareListRequest struct {
@@ -975,7 +973,7 @@ type PluginShareListRequest struct {
 	Params PluginShareListParams `json:"params"`
 }
 
-func (PluginShareDeleteRequest) isClientRequest() {}
+func (PluginShareListRequest) isClientRequest() {}
 
 // PluginShareDeleteRequest is generated from the Plugin/share/deleteRequest schema definition.
 type PluginShareDeleteRequest struct {
@@ -984,7 +982,7 @@ type PluginShareDeleteRequest struct {
 	Params PluginShareDeleteParams `json:"params"`
 }
 
-func (AppListRequest) isClientRequest() {}
+func (PluginShareDeleteRequest) isClientRequest() {}
 
 // AppListRequest is generated from the App/listRequest schema definition.
 type AppListRequest struct {
@@ -993,7 +991,7 @@ type AppListRequest struct {
 	Params AppsListParams `json:"params"`
 }
 
-func (FsReadFileRequest) isClientRequest() {}
+func (AppListRequest) isClientRequest() {}
 
 // FsReadFileRequest is generated from the Fs/readFileRequest schema definition.
 type FsReadFileRequest struct {
@@ -1002,7 +1000,7 @@ type FsReadFileRequest struct {
 	Params FsReadFileParams `json:"params"`
 }
 
-func (FsWriteFileRequest) isClientRequest() {}
+func (FsReadFileRequest) isClientRequest() {}
 
 // FsWriteFileRequest is generated from the Fs/writeFileRequest schema definition.
 type FsWriteFileRequest struct {
@@ -1011,7 +1009,7 @@ type FsWriteFileRequest struct {
 	Params FsWriteFileParams `json:"params"`
 }
 
-func (FsCreateDirectoryRequest) isClientRequest() {}
+func (FsWriteFileRequest) isClientRequest() {}
 
 // FsCreateDirectoryRequest is generated from the Fs/createDirectoryRequest schema definition.
 type FsCreateDirectoryRequest struct {
@@ -1020,7 +1018,7 @@ type FsCreateDirectoryRequest struct {
 	Params FsCreateDirectoryParams `json:"params"`
 }
 
-func (FsGetMetadataRequest) isClientRequest() {}
+func (FsCreateDirectoryRequest) isClientRequest() {}
 
 // FsGetMetadataRequest is generated from the Fs/getMetadataRequest schema definition.
 type FsGetMetadataRequest struct {
@@ -1029,7 +1027,7 @@ type FsGetMetadataRequest struct {
 	Params FsGetMetadataParams `json:"params"`
 }
 
-func (FsReadDirectoryRequest) isClientRequest() {}
+func (FsGetMetadataRequest) isClientRequest() {}
 
 // FsReadDirectoryRequest is generated from the Fs/readDirectoryRequest schema definition.
 type FsReadDirectoryRequest struct {
@@ -1038,7 +1036,7 @@ type FsReadDirectoryRequest struct {
 	Params FsReadDirectoryParams `json:"params"`
 }
 
-func (FsRemoveRequest) isClientRequest() {}
+func (FsReadDirectoryRequest) isClientRequest() {}
 
 // FsRemoveRequest is generated from the Fs/removeRequest schema definition.
 type FsRemoveRequest struct {
@@ -1047,7 +1045,7 @@ type FsRemoveRequest struct {
 	Params FsRemoveParams `json:"params"`
 }
 
-func (FsCopyRequest) isClientRequest() {}
+func (FsRemoveRequest) isClientRequest() {}
 
 // FsCopyRequest is generated from the Fs/copyRequest schema definition.
 type FsCopyRequest struct {
@@ -1056,7 +1054,7 @@ type FsCopyRequest struct {
 	Params FsCopyParams `json:"params"`
 }
 
-func (FsWatchRequest) isClientRequest() {}
+func (FsCopyRequest) isClientRequest() {}
 
 // FsWatchRequest is generated from the Fs/watchRequest schema definition.
 type FsWatchRequest struct {
@@ -1065,7 +1063,7 @@ type FsWatchRequest struct {
 	Params FsWatchParams `json:"params"`
 }
 
-func (FsUnwatchRequest) isClientRequest() {}
+func (FsWatchRequest) isClientRequest() {}
 
 // FsUnwatchRequest is generated from the Fs/unwatchRequest schema definition.
 type FsUnwatchRequest struct {
@@ -1074,7 +1072,7 @@ type FsUnwatchRequest struct {
 	Params FsUnwatchParams `json:"params"`
 }
 
-func (SkillsConfigWriteRequest) isClientRequest() {}
+func (FsUnwatchRequest) isClientRequest() {}
 
 // SkillsConfigWriteRequest is generated from the Skills/config/writeRequest schema definition.
 type SkillsConfigWriteRequest struct {
@@ -1083,7 +1081,7 @@ type SkillsConfigWriteRequest struct {
 	Params SkillsConfigWriteParams `json:"params"`
 }
 
-func (PluginInstallRequest) isClientRequest() {}
+func (SkillsConfigWriteRequest) isClientRequest() {}
 
 // PluginInstallRequest is generated from the Plugin/installRequest schema definition.
 type PluginInstallRequest struct {
@@ -1092,7 +1090,7 @@ type PluginInstallRequest struct {
 	Params PluginInstallParams `json:"params"`
 }
 
-func (PluginUninstallRequest) isClientRequest() {}
+func (PluginInstallRequest) isClientRequest() {}
 
 // PluginUninstallRequest is generated from the Plugin/uninstallRequest schema definition.
 type PluginUninstallRequest struct {
@@ -1101,7 +1099,7 @@ type PluginUninstallRequest struct {
 	Params PluginUninstallParams `json:"params"`
 }
 
-func (TurnStartRequest) isClientRequest() {}
+func (PluginUninstallRequest) isClientRequest() {}
 
 // TurnStartRequest is generated from the Turn/startRequest schema definition.
 type TurnStartRequest struct {
@@ -1110,7 +1108,7 @@ type TurnStartRequest struct {
 	Params TurnStartParams `json:"params"`
 }
 
-func (TurnSteerRequest) isClientRequest() {}
+func (TurnStartRequest) isClientRequest() {}
 
 // TurnSteerRequest is generated from the Turn/steerRequest schema definition.
 type TurnSteerRequest struct {
@@ -1119,7 +1117,7 @@ type TurnSteerRequest struct {
 	Params TurnSteerParams `json:"params"`
 }
 
-func (TurnInterruptRequest) isClientRequest() {}
+func (TurnSteerRequest) isClientRequest() {}
 
 // TurnInterruptRequest is generated from the Turn/interruptRequest schema definition.
 type TurnInterruptRequest struct {
@@ -1128,7 +1126,7 @@ type TurnInterruptRequest struct {
 	Params TurnInterruptParams `json:"params"`
 }
 
-func (ReviewStartRequest) isClientRequest() {}
+func (TurnInterruptRequest) isClientRequest() {}
 
 // ReviewStartRequest is generated from the Review/startRequest schema definition.
 type ReviewStartRequest struct {
@@ -1137,7 +1135,7 @@ type ReviewStartRequest struct {
 	Params ReviewStartParams `json:"params"`
 }
 
-func (ModelListRequest) isClientRequest() {}
+func (ReviewStartRequest) isClientRequest() {}
 
 // ModelListRequest is generated from the Model/listRequest schema definition.
 type ModelListRequest struct {
@@ -1146,7 +1144,7 @@ type ModelListRequest struct {
 	Params ModelListParams `json:"params"`
 }
 
-func (ModelProviderCapabilitiesReadRequest) isClientRequest() {}
+func (ModelListRequest) isClientRequest() {}
 
 // ModelProviderCapabilitiesReadRequest is generated from the ModelProvider/capabilities/readRequest schema definition.
 type ModelProviderCapabilitiesReadRequest struct {
@@ -1155,7 +1153,7 @@ type ModelProviderCapabilitiesReadRequest struct {
 	Params ModelProviderCapabilitiesReadParams `json:"params"`
 }
 
-func (ExperimentalFeatureListRequest) isClientRequest() {}
+func (ModelProviderCapabilitiesReadRequest) isClientRequest() {}
 
 // ExperimentalFeatureListRequest is generated from the ExperimentalFeature/listRequest schema definition.
 type ExperimentalFeatureListRequest struct {
@@ -1164,7 +1162,7 @@ type ExperimentalFeatureListRequest struct {
 	Params ExperimentalFeatureListParams `json:"params"`
 }
 
-func (ExperimentalFeatureEnablementSetRequest) isClientRequest() {}
+func (ExperimentalFeatureListRequest) isClientRequest() {}
 
 // ExperimentalFeatureEnablementSetRequest is generated from the ExperimentalFeature/enablement/setRequest schema definition.
 type ExperimentalFeatureEnablementSetRequest struct {
@@ -1173,7 +1171,7 @@ type ExperimentalFeatureEnablementSetRequest struct {
 	Params ExperimentalFeatureEnablementSetParams `json:"params"`
 }
 
-func (MCPServerOAuthLoginRequest) isClientRequest() {}
+func (ExperimentalFeatureEnablementSetRequest) isClientRequest() {}
 
 // MCPServerOAuthLoginRequest is generated from the McpServer/oauth/loginRequest schema definition.
 type MCPServerOAuthLoginRequest struct {
@@ -1182,7 +1180,7 @@ type MCPServerOAuthLoginRequest struct {
 	Params MCPServerOAuthLoginParams `json:"params"`
 }
 
-func (ConfigMCPServerReloadRequest) isClientRequest() {}
+func (MCPServerOAuthLoginRequest) isClientRequest() {}
 
 // ConfigMCPServerReloadRequest is generated from the Config/mcpServer/reloadRequest schema definition.
 type ConfigMCPServerReloadRequest struct {
@@ -1191,7 +1189,7 @@ type ConfigMCPServerReloadRequest struct {
 	Params jsontext.Value `json:"params,omitzero"`
 }
 
-func (MCPServerStatusListRequest) isClientRequest() {}
+func (ConfigMCPServerReloadRequest) isClientRequest() {}
 
 // MCPServerStatusListRequest is generated from the McpServerStatus/listRequest schema definition.
 type MCPServerStatusListRequest struct {
@@ -1200,7 +1198,7 @@ type MCPServerStatusListRequest struct {
 	Params ListMCPServerStatusParams `json:"params"`
 }
 
-func (MCPServerResourceReadRequest) isClientRequest() {}
+func (MCPServerStatusListRequest) isClientRequest() {}
 
 // MCPServerResourceReadRequest is generated from the McpServer/resource/readRequest schema definition.
 type MCPServerResourceReadRequest struct {
@@ -1209,7 +1207,7 @@ type MCPServerResourceReadRequest struct {
 	Params MCPResourceReadParams `json:"params"`
 }
 
-func (MCPServerToolCallRequest) isClientRequest() {}
+func (MCPServerResourceReadRequest) isClientRequest() {}
 
 // MCPServerToolCallRequest is generated from the McpServer/tool/callRequest schema definition.
 type MCPServerToolCallRequest struct {
@@ -1218,7 +1216,7 @@ type MCPServerToolCallRequest struct {
 	Params MCPServerToolCallParams `json:"params"`
 }
 
-func (WindowsSandboxSetupStartRequest) isClientRequest() {}
+func (MCPServerToolCallRequest) isClientRequest() {}
 
 // WindowsSandboxSetupStartRequest is generated from the WindowsSandbox/setupStartRequest schema definition.
 type WindowsSandboxSetupStartRequest struct {
@@ -1227,7 +1225,7 @@ type WindowsSandboxSetupStartRequest struct {
 	Params WindowsSandboxSetupStartParams `json:"params"`
 }
 
-func (WindowsSandboxReadinessRequest) isClientRequest() {}
+func (WindowsSandboxSetupStartRequest) isClientRequest() {}
 
 // WindowsSandboxReadinessRequest is generated from the WindowsSandbox/readinessRequest schema definition.
 type WindowsSandboxReadinessRequest struct {
@@ -1236,7 +1234,7 @@ type WindowsSandboxReadinessRequest struct {
 	Params jsontext.Value `json:"params,omitzero"`
 }
 
-func (AccountLoginStartRequest) isClientRequest() {}
+func (WindowsSandboxReadinessRequest) isClientRequest() {}
 
 // AccountLoginStartRequest is generated from the Account/login/startRequest schema definition.
 type AccountLoginStartRequest struct {
@@ -1268,7 +1266,7 @@ func (value *AccountLoginStartRequest) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 	return nil
 }
 
-func (AccountLoginCancelRequest) isClientRequest() {}
+func (AccountLoginStartRequest) isClientRequest() {}
 
 // AccountLoginCancelRequest is generated from the Account/login/cancelRequest schema definition.
 type AccountLoginCancelRequest struct {
@@ -1277,7 +1275,7 @@ type AccountLoginCancelRequest struct {
 	Params CancelLoginAccountParams `json:"params"`
 }
 
-func (AccountLogoutRequest) isClientRequest() {}
+func (AccountLoginCancelRequest) isClientRequest() {}
 
 // AccountLogoutRequest is generated from the Account/logoutRequest schema definition.
 type AccountLogoutRequest struct {
@@ -1286,7 +1284,7 @@ type AccountLogoutRequest struct {
 	Params jsontext.Value `json:"params,omitzero"`
 }
 
-func (AccountRateLimitsReadRequest) isClientRequest() {}
+func (AccountLogoutRequest) isClientRequest() {}
 
 // AccountRateLimitsReadRequest is generated from the Account/rateLimits/readRequest schema definition.
 type AccountRateLimitsReadRequest struct {
@@ -1295,7 +1293,7 @@ type AccountRateLimitsReadRequest struct {
 	Params jsontext.Value `json:"params,omitzero"`
 }
 
-func (AccountSendAddCreditsNudgeEmailRequest) isClientRequest() {}
+func (AccountRateLimitsReadRequest) isClientRequest() {}
 
 // AccountSendAddCreditsNudgeEmailRequest is generated from the Account/sendAddCreditsNudgeEmailRequest schema definition.
 type AccountSendAddCreditsNudgeEmailRequest struct {
@@ -1304,7 +1302,7 @@ type AccountSendAddCreditsNudgeEmailRequest struct {
 	Params SendAddCreditsNudgeEmailParams `json:"params"`
 }
 
-func (FeedbackUploadRequest) isClientRequest() {}
+func (AccountSendAddCreditsNudgeEmailRequest) isClientRequest() {}
 
 // FeedbackUploadRequest is generated from the Feedback/uploadRequest schema definition.
 type FeedbackUploadRequest struct {
@@ -1313,7 +1311,7 @@ type FeedbackUploadRequest struct {
 	Params FeedbackUploadParams `json:"params"`
 }
 
-func (CommandExecRequest) isClientRequest() {}
+func (FeedbackUploadRequest) isClientRequest() {}
 
 // CommandExecRequest executes a standalone command (argv vector) under the server's sandbox.
 type CommandExecRequest struct {
@@ -1322,7 +1320,7 @@ type CommandExecRequest struct {
 	Params CommandExecParams `json:"params"`
 }
 
-func (CommandExecWriteRequest) isClientRequest() {}
+func (CommandExecRequest) isClientRequest() {}
 
 // CommandExecWriteRequest writes stdin bytes to a running `command/exec` session or close stdin.
 type CommandExecWriteRequest struct {
@@ -1331,7 +1329,7 @@ type CommandExecWriteRequest struct {
 	Params CommandExecWriteParams `json:"params"`
 }
 
-func (CommandExecTerminateRequest) isClientRequest() {}
+func (CommandExecWriteRequest) isClientRequest() {}
 
 // CommandExecTerminateRequest terminates a running `command/exec` session by client-supplied `processId`.
 type CommandExecTerminateRequest struct {
@@ -1340,7 +1338,7 @@ type CommandExecTerminateRequest struct {
 	Params CommandExecTerminateParams `json:"params"`
 }
 
-func (CommandExecResizeRequest) isClientRequest() {}
+func (CommandExecTerminateRequest) isClientRequest() {}
 
 // CommandExecResizeRequest resizes a running PTY-backed `command/exec` session by client-supplied `processId`.
 type CommandExecResizeRequest struct {
@@ -1349,7 +1347,7 @@ type CommandExecResizeRequest struct {
 	Params CommandExecResizeParams `json:"params"`
 }
 
-func (ConfigReadRequest) isClientRequest() {}
+func (CommandExecResizeRequest) isClientRequest() {}
 
 // ConfigReadRequest is generated from the Config/readRequest schema definition.
 type ConfigReadRequest struct {
@@ -1358,7 +1356,7 @@ type ConfigReadRequest struct {
 	Params ConfigReadParams `json:"params"`
 }
 
-func (ExternalAgentConfigDetectRequest) isClientRequest() {}
+func (ConfigReadRequest) isClientRequest() {}
 
 // ExternalAgentConfigDetectRequest is generated from the ExternalAgentConfig/detectRequest schema definition.
 type ExternalAgentConfigDetectRequest struct {
@@ -1367,7 +1365,7 @@ type ExternalAgentConfigDetectRequest struct {
 	Params ExternalAgentConfigDetectParams `json:"params"`
 }
 
-func (ExternalAgentConfigImportRequest) isClientRequest() {}
+func (ExternalAgentConfigDetectRequest) isClientRequest() {}
 
 // ExternalAgentConfigImportRequest is generated from the ExternalAgentConfig/importRequest schema definition.
 type ExternalAgentConfigImportRequest struct {
@@ -1376,7 +1374,7 @@ type ExternalAgentConfigImportRequest struct {
 	Params ExternalAgentConfigImportParams `json:"params"`
 }
 
-func (ConfigValueWriteRequest) isClientRequest() {}
+func (ExternalAgentConfigImportRequest) isClientRequest() {}
 
 // ConfigValueWriteRequest is generated from the Config/value/writeRequest schema definition.
 type ConfigValueWriteRequest struct {
@@ -1385,7 +1383,7 @@ type ConfigValueWriteRequest struct {
 	Params ConfigValueWriteParams `json:"params"`
 }
 
-func (ConfigBatchWriteRequest) isClientRequest() {}
+func (ConfigValueWriteRequest) isClientRequest() {}
 
 // ConfigBatchWriteRequest is generated from the Config/batchWriteRequest schema definition.
 type ConfigBatchWriteRequest struct {
@@ -1394,7 +1392,7 @@ type ConfigBatchWriteRequest struct {
 	Params ConfigBatchWriteParams `json:"params"`
 }
 
-func (ConfigRequirementsReadRequest) isClientRequest() {}
+func (ConfigBatchWriteRequest) isClientRequest() {}
 
 // ConfigRequirementsReadRequest is generated from the ConfigRequirements/readRequest schema definition.
 type ConfigRequirementsReadRequest struct {
@@ -1403,7 +1401,7 @@ type ConfigRequirementsReadRequest struct {
 	Params jsontext.Value `json:"params,omitzero"`
 }
 
-func (AccountReadRequest) isClientRequest() {}
+func (ConfigRequirementsReadRequest) isClientRequest() {}
 
 // AccountReadRequest is generated from the Account/readRequest schema definition.
 type AccountReadRequest struct {
@@ -1412,7 +1410,7 @@ type AccountReadRequest struct {
 	Params GetAccountParams `json:"params"`
 }
 
-func (FuzzyFileSearchRequest) isClientRequest() {}
+func (AccountReadRequest) isClientRequest() {}
 
 // FuzzyFileSearchRequest is generated from the FuzzyFileSearchRequest schema definition.
 type FuzzyFileSearchRequest struct {
@@ -1420,6 +1418,8 @@ type FuzzyFileSearchRequest struct {
 	Method string                `json:"method"`
 	Params FuzzyFileSearchParams `json:"params"`
 }
+
+func (FuzzyFileSearchRequest) isClientRequest() {}
 
 func decodeGeneratedClientRequest(raw jsontext.Value) (ClientRequest, error) {
 	if raw == nil {
@@ -1939,8 +1939,6 @@ const (
 	CodexErrorInfoValueUsageLimitExceeded CodexErrorInfoValue = "usageLimitExceeded"
 )
 
-func (HTTPConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
-
 // HTTPConnectionFailed is generated from the HTTPConnectionFailed schema definition.
 type HTTPConnectionFailed struct {
 	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
@@ -1951,7 +1949,7 @@ type HTTPConnectionFailedCodexErrorInfo struct {
 	HTTPConnectionFailed HTTPConnectionFailed `json:"httpConnectionFailed"`
 }
 
-func (ResponseStreamConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
+func (HTTPConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
 
 // ResponseStreamConnectionFailed is generated from the ResponseStreamConnectionFailed schema definition.
 type ResponseStreamConnectionFailed struct {
@@ -1963,7 +1961,7 @@ type ResponseStreamConnectionFailedCodexErrorInfo struct {
 	ResponseStreamConnectionFailed ResponseStreamConnectionFailed `json:"responseStreamConnectionFailed"`
 }
 
-func (ResponseStreamDisconnectedCodexErrorInfo) isCodexErrorInfo() {}
+func (ResponseStreamConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
 
 // ResponseStreamDisconnected is generated from the ResponseStreamDisconnected schema definition.
 type ResponseStreamDisconnected struct {
@@ -1975,7 +1973,7 @@ type ResponseStreamDisconnectedCodexErrorInfo struct {
 	ResponseStreamDisconnected ResponseStreamDisconnected `json:"responseStreamDisconnected"`
 }
 
-func (ResponseTooManyFailedAttemptsCodexErrorInfo) isCodexErrorInfo() {}
+func (ResponseStreamDisconnectedCodexErrorInfo) isCodexErrorInfo() {}
 
 // ResponseTooManyFailedAttempts is generated from the ResponseTooManyFailedAttempts schema definition.
 type ResponseTooManyFailedAttempts struct {
@@ -1987,7 +1985,7 @@ type ResponseTooManyFailedAttemptsCodexErrorInfo struct {
 	ResponseTooManyFailedAttempts ResponseTooManyFailedAttempts `json:"responseTooManyFailedAttempts"`
 }
 
-func (ActiveTurnNotSteerableCodexErrorInfo) isCodexErrorInfo() {}
+func (ResponseTooManyFailedAttemptsCodexErrorInfo) isCodexErrorInfo() {}
 
 // ActiveTurnNotSteerable is generated from the ActiveTurnNotSteerable schema definition.
 type ActiveTurnNotSteerable struct {
@@ -1998,6 +1996,8 @@ type ActiveTurnNotSteerable struct {
 type ActiveTurnNotSteerableCodexErrorInfo struct {
 	ActiveTurnNotSteerable ActiveTurnNotSteerable `json:"activeTurnNotSteerable"`
 }
+
+func (ActiveTurnNotSteerableCodexErrorInfo) isCodexErrorInfo() {}
 
 func decodeGeneratedCodexErrorInfo(raw jsontext.Value) (CodexErrorInfo, error) {
 	if raw == nil {
@@ -2168,8 +2168,6 @@ func (value *RawCommandAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (ReadCommandAction) isCommandAction() {}
-
 // ReadCommandAction is generated from the ReadCommandAction schema definition.
 type ReadCommandAction struct {
 	Command string `json:"command"`
@@ -2178,7 +2176,7 @@ type ReadCommandAction struct {
 	Type    string `json:"type"`
 }
 
-func (ListFilesCommandAction) isCommandAction() {}
+func (ReadCommandAction) isCommandAction() {}
 
 // ListFilesCommandAction is generated from the ListFilesCommandAction schema definition.
 type ListFilesCommandAction struct {
@@ -2187,7 +2185,7 @@ type ListFilesCommandAction struct {
 	Type    string  `json:"type"`
 }
 
-func (SearchCommandAction) isCommandAction() {}
+func (ListFilesCommandAction) isCommandAction() {}
 
 // SearchCommandAction is generated from the SearchCommandAction schema definition.
 type SearchCommandAction struct {
@@ -2197,13 +2195,15 @@ type SearchCommandAction struct {
 	Type    string  `json:"type"`
 }
 
-func (UnknownCommandAction) isCommandAction() {}
+func (SearchCommandAction) isCommandAction() {}
 
 // UnknownCommandAction is generated from the UnknownCommandAction schema definition.
 type UnknownCommandAction struct {
 	Command string `json:"command"`
 	Type    string `json:"type"`
 }
+
+func (UnknownCommandAction) isCommandAction() {}
 
 func decodeGeneratedCommandAction(raw jsontext.Value) (CommandAction, error) {
 	if raw == nil {
@@ -2749,8 +2749,6 @@ func (value *RawConfigLayerSource) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (MdmConfigLayerSource) isConfigLayerSource() {}
-
 // MdmConfigLayerSource managed preferences layer delivered by MDM (macOS only).
 type MdmConfigLayerSource struct {
 	Domain string `json:"domain"`
@@ -2758,7 +2756,7 @@ type MdmConfigLayerSource struct {
 	Type   string `json:"type"`
 }
 
-func (SystemConfigLayerSource) isConfigLayerSource() {}
+func (MdmConfigLayerSource) isConfigLayerSource() {}
 
 // SystemConfigLayerSource managed config layer from a file (usually `managed_config.toml`).
 type SystemConfigLayerSource struct {
@@ -2767,7 +2765,7 @@ type SystemConfigLayerSource struct {
 	Type string `json:"type"`
 }
 
-func (UserConfigLayerSource) isConfigLayerSource() {}
+func (SystemConfigLayerSource) isConfigLayerSource() {}
 
 // UserConfigLayerSource user config layer from $CODEX_HOME/config.toml. This layer is special in that it is expected to be: - writable by the user - generally outside the workspace directory.
 type UserConfigLayerSource struct {
@@ -2776,7 +2774,7 @@ type UserConfigLayerSource struct {
 	Type string `json:"type"`
 }
 
-func (ProjectConfigLayerSource) isConfigLayerSource() {}
+func (UserConfigLayerSource) isConfigLayerSource() {}
 
 // ProjectConfigLayerSource path to a .codex/ folder within a project. There could be multiple of these between `cwd` and the project/repo root.
 type ProjectConfigLayerSource struct {
@@ -2784,14 +2782,14 @@ type ProjectConfigLayerSource struct {
 	Type           string `json:"type"`
 }
 
-func (SessionFlagsConfigLayerSource) isConfigLayerSource() {}
+func (ProjectConfigLayerSource) isConfigLayerSource() {}
 
 // SessionFlagsConfigLayerSource session-layer overrides supplied via `-c`/`--config`.
 type SessionFlagsConfigLayerSource struct {
 	Type string `json:"type"`
 }
 
-func (LegacyManagedConfigTomlFromFileConfigLayerSource) isConfigLayerSource() {}
+func (SessionFlagsConfigLayerSource) isConfigLayerSource() {}
 
 // LegacyManagedConfigTomlFromFileConfigLayerSource `managed_config.toml` was designed to be a config that was loaded as the last layer on top of everything else. This scheme did not quite work out as intended, but we keep this variant as a "best effort" while we phase out `managed_config.toml` in favor of `requirements.toml`.
 type LegacyManagedConfigTomlFromFileConfigLayerSource struct {
@@ -2799,12 +2797,14 @@ type LegacyManagedConfigTomlFromFileConfigLayerSource struct {
 	Type string `json:"type"`
 }
 
-func (LegacyManagedConfigTomlFromMdmConfigLayerSource) isConfigLayerSource() {}
+func (LegacyManagedConfigTomlFromFileConfigLayerSource) isConfigLayerSource() {}
 
 // LegacyManagedConfigTomlFromMdmConfigLayerSource is generated from the LegacyManagedConfigTomlFromMdmConfigLayerSource schema definition.
 type LegacyManagedConfigTomlFromMdmConfigLayerSource struct {
 	Type string `json:"type"`
 }
+
+func (LegacyManagedConfigTomlFromMdmConfigLayerSource) isConfigLayerSource() {}
 
 func decodeGeneratedConfigLayerSource(raw jsontext.Value) (ConfigLayerSource, error) {
 	if raw == nil {
@@ -2982,8 +2982,6 @@ func (value *RawConfiguredHookHandler) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (CommandConfiguredHookHandler) isConfiguredHookHandler() {}
-
 // CommandConfiguredHookHandler is generated from the CommandConfiguredHookHandler schema definition.
 type CommandConfiguredHookHandler struct {
 	Async          bool    `json:"async"`
@@ -2994,19 +2992,21 @@ type CommandConfiguredHookHandler struct {
 	Type           string  `json:"type"`
 }
 
-func (PromptConfiguredHookHandler) isConfiguredHookHandler() {}
+func (CommandConfiguredHookHandler) isConfiguredHookHandler() {}
 
 // PromptConfiguredHookHandler is generated from the PromptConfiguredHookHandler schema definition.
 type PromptConfiguredHookHandler struct {
 	Type string `json:"type"`
 }
 
-func (AgentConfiguredHookHandler) isConfiguredHookHandler() {}
+func (PromptConfiguredHookHandler) isConfiguredHookHandler() {}
 
 // AgentConfiguredHookHandler is generated from the AgentConfiguredHookHandler schema definition.
 type AgentConfiguredHookHandler struct {
 	Type string `json:"type"`
 }
+
+func (AgentConfiguredHookHandler) isConfiguredHookHandler() {}
 
 func decodeGeneratedConfiguredHookHandler(raw jsontext.Value) (ConfiguredHookHandler, error) {
 	if raw == nil {
@@ -3096,15 +3096,13 @@ func (value *RawContentItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (InputTextContentItem) isContentItem() {}
-
 // InputTextContentItem is generated from the InputTextContentItem schema definition.
 type InputTextContentItem struct {
 	Text string `json:"text"`
 	Type string `json:"type"`
 }
 
-func (InputImageContentItem) isContentItem() {}
+func (InputTextContentItem) isContentItem() {}
 
 // InputImageContentItem is generated from the InputImageContentItem schema definition.
 type InputImageContentItem struct {
@@ -3113,13 +3111,15 @@ type InputImageContentItem struct {
 	Type     string       `json:"type"`
 }
 
-func (OutputTextContentItem) isContentItem() {}
+func (InputImageContentItem) isContentItem() {}
 
 // OutputTextContentItem is generated from the OutputTextContentItem schema definition.
 type OutputTextContentItem struct {
 	Text string `json:"text"`
 	Type string `json:"type"`
 }
+
+func (OutputTextContentItem) isContentItem() {}
 
 func decodeGeneratedContentItem(raw jsontext.Value) (ContentItem, error) {
 	if raw == nil {
@@ -3199,21 +3199,21 @@ func (value *RawDynamicToolCallOutputContentItem) UnmarshalJSONFrom(dec *jsontex
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (InputTextDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
-
 // InputTextDynamicToolCallOutputContentItem is generated from the InputTextDynamicToolCallOutputContentItem schema definition.
 type InputTextDynamicToolCallOutputContentItem struct {
 	Text string `json:"text"`
 	Type string `json:"type"`
 }
 
-func (InputImageDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
+func (InputTextDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
 
 // InputImageDynamicToolCallOutputContentItem is generated from the InputImageDynamicToolCallOutputContentItem schema definition.
 type InputImageDynamicToolCallOutputContentItem struct {
 	ImageURL string `json:"imageUrl"`
 	Type     string `json:"type"`
 }
+
+func (InputImageDynamicToolCallOutputContentItem) isDynamicToolCallOutputContentItem() {}
 
 func decodeGeneratedDynamicToolCallOutputContentItem(raw jsontext.Value) (DynamicToolCallOutputContentItem, error) {
 	if raw == nil {
@@ -3547,15 +3547,13 @@ func (value *RawFileSystemPath) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (PathFileSystemPath) isFileSystemPath() {}
-
 // PathFileSystemPath is generated from the PathFileSystemPath schema definition.
 type PathFileSystemPath struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
 }
 
-func (GlobPatternFileSystemPath) isFileSystemPath() {}
+func (PathFileSystemPath) isFileSystemPath() {}
 
 // GlobPatternFileSystemPath is generated from the GlobPatternFileSystemPath schema definition.
 type GlobPatternFileSystemPath struct {
@@ -3563,7 +3561,7 @@ type GlobPatternFileSystemPath struct {
 	Type    string `json:"type"`
 }
 
-func (SpecialFileSystemPath) isFileSystemPath() {}
+func (GlobPatternFileSystemPath) isFileSystemPath() {}
 
 // SpecialFileSystemPath is generated from the SpecialFileSystemPath schema definition.
 type SpecialFileSystemPath struct {
@@ -3591,6 +3589,8 @@ func (value *SpecialFileSystemPath) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	}
 	return nil
 }
+
+func (SpecialFileSystemPath) isFileSystemPath() {}
 
 func decodeGeneratedFileSystemPath(raw jsontext.Value) (FileSystemPath, error) {
 	if raw == nil {
@@ -3675,21 +3675,19 @@ func (value *RawFileSystemSpecialPath) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (RootFileSystemSpecialPath) isFileSystemSpecialPath() {}
-
 // RootFileSystemSpecialPath is generated from the RootFileSystemSpecialPath schema definition.
 type RootFileSystemSpecialPath struct {
 	Kind string `json:"kind"`
 }
 
-func (MinimalFileSystemSpecialPath) isFileSystemSpecialPath() {}
+func (RootFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // MinimalFileSystemSpecialPath is generated from the MinimalFileSystemSpecialPath schema definition.
 type MinimalFileSystemSpecialPath struct {
 	Kind string `json:"kind"`
 }
 
-func (KindFileSystemSpecialPath) isFileSystemSpecialPath() {}
+func (MinimalFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // KindFileSystemSpecialPath is generated from the KindFileSystemSpecialPath schema definition.
 type KindFileSystemSpecialPath struct {
@@ -3697,21 +3695,21 @@ type KindFileSystemSpecialPath struct {
 	Subpath *string `json:"subpath,omitzero"`
 }
 
-func (TmpdirFileSystemSpecialPath) isFileSystemSpecialPath() {}
+func (KindFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // TmpdirFileSystemSpecialPath is generated from the TmpdirFileSystemSpecialPath schema definition.
 type TmpdirFileSystemSpecialPath struct {
 	Kind string `json:"kind"`
 }
 
-func (SlashTmpFileSystemSpecialPath) isFileSystemSpecialPath() {}
+func (TmpdirFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // SlashTmpFileSystemSpecialPath is generated from the SlashTmpFileSystemSpecialPath schema definition.
 type SlashTmpFileSystemSpecialPath struct {
 	Kind string `json:"kind"`
 }
 
-func (FileSystemSpecialPathKind) isFileSystemSpecialPath() {}
+func (SlashTmpFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // FileSystemSpecialPathKind is generated from the FileSystemSpecialPathKind schema definition.
 type FileSystemSpecialPathKind struct {
@@ -3719,6 +3717,8 @@ type FileSystemSpecialPathKind struct {
 	Path    string  `json:"path"`
 	Subpath *string `json:"subpath,omitzero"`
 }
+
+func (FileSystemSpecialPathKind) isFileSystemSpecialPath() {}
 
 func decodeGeneratedFileSystemSpecialPath(raw jsontext.Value) (FileSystemSpecialPath, error) {
 	if raw == nil {
@@ -4040,15 +4040,13 @@ func (value *RawFunctionCallOutputContentItem) UnmarshalJSONFrom(dec *jsontext.D
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (InputTextFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
-
 // InputTextFunctionCallOutputContentItem is generated from the InputTextFunctionCallOutputContentItem schema definition.
 type InputTextFunctionCallOutputContentItem struct {
 	Text string `json:"text"`
 	Type string `json:"type"`
 }
 
-func (InputImageFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
+func (InputTextFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
 
 // InputImageFunctionCallOutputContentItem is generated from the InputImageFunctionCallOutputContentItem schema definition.
 type InputImageFunctionCallOutputContentItem struct {
@@ -4056,6 +4054,8 @@ type InputImageFunctionCallOutputContentItem struct {
 	ImageURL string       `json:"image_url"`
 	Type     string       `json:"type"`
 }
+
+func (InputImageFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
 
 func decodeGeneratedFunctionCallOutputContentItem(raw jsontext.Value) (FunctionCallOutputContentItem, error) {
 	if raw == nil {
@@ -4205,8 +4205,6 @@ func (value *RawGuardianApprovalReviewAction) UnmarshalJSONFrom(dec *jsontext.De
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (CommandGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
-
 // CommandGuardianApprovalReviewAction is generated from the CommandGuardianApprovalReviewAction schema definition.
 type CommandGuardianApprovalReviewAction struct {
 	Command string                `json:"command"`
@@ -4215,7 +4213,7 @@ type CommandGuardianApprovalReviewAction struct {
 	Type    string                `json:"type"`
 }
 
-func (ExecveGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+func (CommandGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // ExecveGuardianApprovalReviewAction is generated from the ExecveGuardianApprovalReviewAction schema definition.
 type ExecveGuardianApprovalReviewAction struct {
@@ -4226,7 +4224,7 @@ type ExecveGuardianApprovalReviewAction struct {
 	Type    string                `json:"type"`
 }
 
-func (ApplyPatchGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+func (ExecveGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // ApplyPatchGuardianApprovalReviewAction is generated from the ApplyPatchGuardianApprovalReviewAction schema definition.
 type ApplyPatchGuardianApprovalReviewAction struct {
@@ -4235,7 +4233,7 @@ type ApplyPatchGuardianApprovalReviewAction struct {
 	Type  string   `json:"type"`
 }
 
-func (NetworkAccessGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+func (ApplyPatchGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // NetworkAccessGuardianApprovalReviewAction is generated from the NetworkAccessGuardianApprovalReviewAction schema definition.
 type NetworkAccessGuardianApprovalReviewAction struct {
@@ -4246,7 +4244,7 @@ type NetworkAccessGuardianApprovalReviewAction struct {
 	Type     string                  `json:"type"`
 }
 
-func (MCPToolCallGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+func (NetworkAccessGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // MCPToolCallGuardianApprovalReviewAction is generated from the McpToolCallGuardianApprovalReviewAction schema definition.
 type MCPToolCallGuardianApprovalReviewAction struct {
@@ -4258,7 +4256,7 @@ type MCPToolCallGuardianApprovalReviewAction struct {
 	Type          string  `json:"type"`
 }
 
-func (RequestPermissionsGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
+func (MCPToolCallGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 // RequestPermissionsGuardianApprovalReviewAction is generated from the RequestPermissionsGuardianApprovalReviewAction schema definition.
 type RequestPermissionsGuardianApprovalReviewAction struct {
@@ -4266,6 +4264,8 @@ type RequestPermissionsGuardianApprovalReviewAction struct {
 	Reason      *string                  `json:"reason,omitzero"`
 	Type        string                   `json:"type"`
 }
+
+func (RequestPermissionsGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
 
 func decodeGeneratedGuardianApprovalReviewAction(raw jsontext.Value) (GuardianApprovalReviewAction, error) {
 	if raw == nil {
@@ -4935,15 +4935,13 @@ func (value *RawLoginAccountParams) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (APIKeyv2LoginAccountParams) isLoginAccountParams() {}
-
 // APIKeyv2LoginAccountParams is generated from the ApiKeyv2::LoginAccountParams schema definition.
 type APIKeyv2LoginAccountParams struct {
 	APIKey string `json:"apiKey"`
 	Type   string `json:"type"`
 }
 
-func (Chatgptv2LoginAccountParams) isLoginAccountParams() {}
+func (APIKeyv2LoginAccountParams) isLoginAccountParams() {}
 
 // Chatgptv2LoginAccountParams is generated from the Chatgptv2::LoginAccountParams schema definition.
 type Chatgptv2LoginAccountParams struct {
@@ -4951,14 +4949,14 @@ type Chatgptv2LoginAccountParams struct {
 	Type                  string `json:"type"`
 }
 
-func (ChatgptDeviceCodev2LoginAccountParams) isLoginAccountParams() {}
+func (Chatgptv2LoginAccountParams) isLoginAccountParams() {}
 
 // ChatgptDeviceCodev2LoginAccountParams is generated from the ChatgptDeviceCodev2::LoginAccountParams schema definition.
 type ChatgptDeviceCodev2LoginAccountParams struct {
 	Type string `json:"type"`
 }
 
-func (ChatgptAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
+func (ChatgptDeviceCodev2LoginAccountParams) isLoginAccountParams() {}
 
 // ChatgptAuthTokensv2LoginAccountParams [UNSTABLE] FOR OPENAI INTERNAL USE ONLY - DO NOT USE. The access token must contain the same scopes that Codex-managed ChatGPT auth tokens have.
 type ChatgptAuthTokensv2LoginAccountParams struct {
@@ -4974,6 +4972,8 @@ type ChatgptAuthTokensv2LoginAccountParams struct {
 	ChatgptPlanType *string `json:"chatgptPlanType,omitzero"`
 	Type            string  `json:"type"`
 }
+
+func (ChatgptAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
 
 func decodeGeneratedLoginAccountParams(raw jsontext.Value) (LoginAccountParams, error) {
 	if raw == nil {
@@ -5037,14 +5037,12 @@ func (value *RawLoginAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (APIKeyv2LoginAccountResponse) isLoginAccountResponse() {}
-
 // APIKeyv2LoginAccountResponse is generated from the ApiKeyv2::LoginAccountResponse schema definition.
 type APIKeyv2LoginAccountResponse struct {
 	Type string `json:"type"`
 }
 
-func (Chatgptv2LoginAccountResponse) isLoginAccountResponse() {}
+func (APIKeyv2LoginAccountResponse) isLoginAccountResponse() {}
 
 // Chatgptv2LoginAccountResponse is generated from the Chatgptv2::LoginAccountResponse schema definition.
 type Chatgptv2LoginAccountResponse struct {
@@ -5054,7 +5052,7 @@ type Chatgptv2LoginAccountResponse struct {
 	Type    string `json:"type"`
 }
 
-func (ChatgptDeviceCodev2LoginAccountResponse) isLoginAccountResponse() {}
+func (Chatgptv2LoginAccountResponse) isLoginAccountResponse() {}
 
 // ChatgptDeviceCodev2LoginAccountResponse is generated from the ChatgptDeviceCodev2::LoginAccountResponse schema definition.
 type ChatgptDeviceCodev2LoginAccountResponse struct {
@@ -5068,12 +5066,14 @@ type ChatgptDeviceCodev2LoginAccountResponse struct {
 	VerificationURL string `json:"verificationUrl"`
 }
 
-func (ChatgptAuthTokensv2LoginAccountResponse) isLoginAccountResponse() {}
+func (ChatgptDeviceCodev2LoginAccountResponse) isLoginAccountResponse() {}
 
 // ChatgptAuthTokensv2LoginAccountResponse is generated from the ChatgptAuthTokensv2::LoginAccountResponse schema definition.
 type ChatgptAuthTokensv2LoginAccountResponse struct {
 	Type string `json:"type"`
 }
+
+func (ChatgptAuthTokensv2LoginAccountResponse) isLoginAccountResponse() {}
 
 func decodeGeneratedLoginAccountResponse(raw jsontext.Value) (LoginAccountResponse, error) {
 	if raw == nil {
@@ -5730,27 +5730,27 @@ func (value *RawPatchChangeKind) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (AddPatchChangeKind) isPatchChangeKind() {}
-
 // AddPatchChangeKind is generated from the AddPatchChangeKind schema definition.
 type AddPatchChangeKind struct {
 	Type string `json:"type"`
 }
 
-func (DeletePatchChangeKind) isPatchChangeKind() {}
+func (AddPatchChangeKind) isPatchChangeKind() {}
 
 // DeletePatchChangeKind is generated from the DeletePatchChangeKind schema definition.
 type DeletePatchChangeKind struct {
 	Type string `json:"type"`
 }
 
-func (UpdatePatchChangeKind) isPatchChangeKind() {}
+func (DeletePatchChangeKind) isPatchChangeKind() {}
 
 // UpdatePatchChangeKind is generated from the UpdatePatchChangeKind schema definition.
 type UpdatePatchChangeKind struct {
 	MovePath *string `json:"move_path,omitzero"`
 	Type     string  `json:"type"`
 }
+
+func (UpdatePatchChangeKind) isPatchChangeKind() {}
 
 func decodeGeneratedPatchChangeKind(raw jsontext.Value) (PatchChangeKind, error) {
 	if raw == nil {
@@ -5808,8 +5808,6 @@ func (value *RawPermissionProfile) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (ManagedPermissionProfile) isPermissionProfile() {}
-
 // ManagedPermissionProfile codex owns sandbox construction for this profile.
 type ManagedPermissionProfile struct {
 	FileSystem PermissionProfileFileSystemPermissions `json:"fileSystem"`
@@ -5840,20 +5838,22 @@ func (value *ManagedPermissionProfile) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 	return nil
 }
 
-func (DisabledPermissionProfile) isPermissionProfile() {}
+func (ManagedPermissionProfile) isPermissionProfile() {}
 
 // DisabledPermissionProfile does not apply an outer sandbox.
 type DisabledPermissionProfile struct {
 	Type string `json:"type"`
 }
 
-func (ExternalPermissionProfile) isPermissionProfile() {}
+func (DisabledPermissionProfile) isPermissionProfile() {}
 
 // ExternalPermissionProfile filesystem isolation is enforced by an external caller.
 type ExternalPermissionProfile struct {
 	Network PermissionProfileNetworkPermissions `json:"network"`
 	Type    string                              `json:"type"`
 }
+
+func (ExternalPermissionProfile) isPermissionProfile() {}
 
 func decodeGeneratedPermissionProfile(raw jsontext.Value) (PermissionProfile, error) {
 	if raw == nil {
@@ -5911,8 +5911,6 @@ func (value *RawPermissionProfileFileSystemPermissions) UnmarshalJSONFrom(dec *j
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (RestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {}
-
 // RestrictedPermissionProfileFileSystemPermissions is generated from the RestrictedPermissionProfileFileSystemPermissions schema definition.
 type RestrictedPermissionProfileFileSystemPermissions struct {
 	Entries          []FileSystemSandboxEntry `json:"entries"`
@@ -5920,12 +5918,14 @@ type RestrictedPermissionProfileFileSystemPermissions struct {
 	Type             string                   `json:"type"`
 }
 
-func (UnrestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {
-}
+func (RestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {}
 
 // UnrestrictedPermissionProfileFileSystemPermissions is generated from the UnrestrictedPermissionProfileFileSystemPermissions schema definition.
 type UnrestrictedPermissionProfileFileSystemPermissions struct {
 	Type string `json:"type"`
+}
+
+func (UnrestrictedPermissionProfileFileSystemPermissions) isPermissionProfileFileSystemPermissions() {
 }
 
 func decodeGeneratedPermissionProfileFileSystemPermissions(raw jsontext.Value) (PermissionProfileFileSystemPermissions, error) {
@@ -6389,15 +6389,13 @@ func (value *RawPluginSource) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (LocalPluginSource) isPluginSource() {}
-
 // LocalPluginSource is generated from the LocalPluginSource schema definition.
 type LocalPluginSource struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
 }
 
-func (GitPluginSource) isPluginSource() {}
+func (LocalPluginSource) isPluginSource() {}
 
 // GitPluginSource is generated from the GitPluginSource schema definition.
 type GitPluginSource struct {
@@ -6408,12 +6406,14 @@ type GitPluginSource struct {
 	URL     string  `json:"url"`
 }
 
-func (RemotePluginSource) isPluginSource() {}
+func (GitPluginSource) isPluginSource() {}
 
 // RemotePluginSource represents a plugin is available in the remote catalog. Download metadata is kept server-side and is not exposed through the app-server API.
 type RemotePluginSource struct {
 	Type string `json:"type"`
 }
+
+func (RemotePluginSource) isPluginSource() {}
 
 func decodeGeneratedPluginSource(raw jsontext.Value) (PluginSource, error) {
 	if raw == nil {
@@ -6905,21 +6905,21 @@ func (value *RawReasoningItemContent) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (ReasoningTextReasoningItemContent) isReasoningItemContent() {}
-
 // ReasoningTextReasoningItemContent is generated from the ReasoningTextReasoningItemContent schema definition.
 type ReasoningTextReasoningItemContent struct {
 	Text string `json:"text"`
 	Type string `json:"type"`
 }
 
-func (TextReasoningItemContent) isReasoningItemContent() {}
+func (ReasoningTextReasoningItemContent) isReasoningItemContent() {}
 
 // TextReasoningItemContent is generated from the TextReasoningItemContent schema definition.
 type TextReasoningItemContent struct {
 	Text string `json:"text"`
 	Type string `json:"type"`
 }
+
+func (TextReasoningItemContent) isReasoningItemContent() {}
 
 func decodeGeneratedReasoningItemContent(raw jsontext.Value) (ReasoningItemContent, error) {
 	if raw == nil {
@@ -7119,8 +7119,6 @@ func (value *RawResourceContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (ResourceContentText) isResourceContent() {}
-
 // ResourceContentText is generated from the ResourceContentText schema definition.
 type ResourceContentText struct {
 	Meta     jsontext.Value `json:"_meta,omitzero"`
@@ -7131,7 +7129,7 @@ type ResourceContentText struct {
 	URI string `json:"uri"`
 }
 
-func (ResourceContentBlob) isResourceContent() {}
+func (ResourceContentText) isResourceContent() {}
 
 // ResourceContentBlob is generated from the ResourceContentBlob schema definition.
 type ResourceContentBlob struct {
@@ -7142,6 +7140,8 @@ type ResourceContentBlob struct {
 	// URI represents an URI of this resource.
 	URI string `json:"uri"`
 }
+
+func (ResourceContentBlob) isResourceContent() {}
 
 func decodeGeneratedResourceContent(raw jsontext.Value) (ResourceContent, error) {
 	if raw == nil {
@@ -7204,8 +7204,6 @@ func (value *RawResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (MessageResponseItem) isResponseItem() {}
-
 // MessageResponseItem is generated from the MessageResponseItem schema definition.
 type MessageResponseItem struct {
 	Content []ContentItem `json:"content"`
@@ -7255,7 +7253,7 @@ func (value *MessageResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	return nil
 }
 
-func (ReasoningResponseItem) isResponseItem() {}
+func (MessageResponseItem) isResponseItem() {}
 
 // ReasoningResponseItem is generated from the ReasoningResponseItem schema definition.
 type ReasoningResponseItem struct {
@@ -7295,7 +7293,7 @@ func (value *ReasoningResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return nil
 }
 
-func (LocalShellCallResponseItem) isResponseItem() {}
+func (ReasoningResponseItem) isResponseItem() {}
 
 // LocalShellCallResponseItem is generated from the LocalShellCallResponseItem schema definition.
 type LocalShellCallResponseItem struct {
@@ -7310,7 +7308,7 @@ type LocalShellCallResponseItem struct {
 	Type   string           `json:"type"`
 }
 
-func (FunctionCallResponseItem) isResponseItem() {}
+func (LocalShellCallResponseItem) isResponseItem() {}
 
 // FunctionCallResponseItem is generated from the FunctionCallResponseItem schema definition.
 type FunctionCallResponseItem struct {
@@ -7322,7 +7320,7 @@ type FunctionCallResponseItem struct {
 	Type      string  `json:"type"`
 }
 
-func (ToolSearchCallResponseItem) isResponseItem() {}
+func (FunctionCallResponseItem) isResponseItem() {}
 
 // ToolSearchCallResponseItem is generated from the ToolSearchCallResponseItem schema definition.
 type ToolSearchCallResponseItem struct {
@@ -7334,7 +7332,7 @@ type ToolSearchCallResponseItem struct {
 	Type      string         `json:"type"`
 }
 
-func (FunctionCallOutputResponseItem) isResponseItem() {}
+func (ToolSearchCallResponseItem) isResponseItem() {}
 
 // FunctionCallOutputResponseItem is generated from the FunctionCallOutputResponseItem schema definition.
 type FunctionCallOutputResponseItem struct {
@@ -7366,7 +7364,7 @@ func (value *FunctionCallOutputResponseItem) UnmarshalJSONFrom(dec *jsontext.Dec
 	return nil
 }
 
-func (CustomToolCallResponseItem) isResponseItem() {}
+func (FunctionCallOutputResponseItem) isResponseItem() {}
 
 // CustomToolCallResponseItem is generated from the CustomToolCallResponseItem schema definition.
 type CustomToolCallResponseItem struct {
@@ -7378,7 +7376,7 @@ type CustomToolCallResponseItem struct {
 	Type   string  `json:"type"`
 }
 
-func (CustomToolCallOutputResponseItem) isResponseItem() {}
+func (CustomToolCallResponseItem) isResponseItem() {}
 
 // CustomToolCallOutputResponseItem is generated from the CustomToolCallOutputResponseItem schema definition.
 type CustomToolCallOutputResponseItem struct {
@@ -7413,7 +7411,7 @@ func (value *CustomToolCallOutputResponseItem) UnmarshalJSONFrom(dec *jsontext.D
 	return nil
 }
 
-func (ToolSearchOutputResponseItem) isResponseItem() {}
+func (CustomToolCallOutputResponseItem) isResponseItem() {}
 
 // ToolSearchOutputResponseItem is generated from the ToolSearchOutputResponseItem schema definition.
 type ToolSearchOutputResponseItem struct {
@@ -7424,7 +7422,7 @@ type ToolSearchOutputResponseItem struct {
 	Type      string           `json:"type"`
 }
 
-func (WebSearchCallResponseItem) isResponseItem() {}
+func (ToolSearchOutputResponseItem) isResponseItem() {}
 
 // WebSearchCallResponseItem is generated from the WebSearchCallResponseItem schema definition.
 type WebSearchCallResponseItem struct {
@@ -7459,7 +7457,7 @@ func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	return nil
 }
 
-func (ImageGenerationCallResponseItem) isResponseItem() {}
+func (WebSearchCallResponseItem) isResponseItem() {}
 
 // ImageGenerationCallResponseItem is generated from the ImageGenerationCallResponseItem schema definition.
 type ImageGenerationCallResponseItem struct {
@@ -7470,7 +7468,7 @@ type ImageGenerationCallResponseItem struct {
 	Type          string  `json:"type"`
 }
 
-func (CompactionResponseItem) isResponseItem() {}
+func (ImageGenerationCallResponseItem) isResponseItem() {}
 
 // CompactionResponseItem is generated from the CompactionResponseItem schema definition.
 type CompactionResponseItem struct {
@@ -7478,7 +7476,7 @@ type CompactionResponseItem struct {
 	Type             string `json:"type"`
 }
 
-func (ContextCompactionResponseItem) isResponseItem() {}
+func (CompactionResponseItem) isResponseItem() {}
 
 // ContextCompactionResponseItem is generated from the ContextCompactionResponseItem schema definition.
 type ContextCompactionResponseItem struct {
@@ -7486,12 +7484,14 @@ type ContextCompactionResponseItem struct {
 	Type             string  `json:"type"`
 }
 
-func (OtherResponseItem) isResponseItem() {}
+func (ContextCompactionResponseItem) isResponseItem() {}
 
 // OtherResponseItem is generated from the OtherResponseItem schema definition.
 type OtherResponseItem struct {
 	Type string `json:"type"`
 }
+
+func (OtherResponseItem) isResponseItem() {}
 
 func decodeGeneratedResponseItem(raw jsontext.Value) (ResponseItem, error) {
 	if raw == nil {
@@ -7615,8 +7615,6 @@ func (value *RawResponsesAPIWebSearchAction) UnmarshalJSONFrom(dec *jsontext.Dec
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (SearchResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
-
 // SearchResponsesAPIWebSearchAction is generated from the SearchResponsesApiWebSearchAction schema definition.
 type SearchResponsesAPIWebSearchAction struct {
 	Queries []string `json:"queries,omitzero"`
@@ -7624,7 +7622,7 @@ type SearchResponsesAPIWebSearchAction struct {
 	Type    string   `json:"type"`
 }
 
-func (OpenPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+func (SearchResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // OpenPageResponsesAPIWebSearchAction is generated from the OpenPageResponsesApiWebSearchAction schema definition.
 type OpenPageResponsesAPIWebSearchAction struct {
@@ -7632,7 +7630,7 @@ type OpenPageResponsesAPIWebSearchAction struct {
 	URL  *string `json:"url,omitzero"`
 }
 
-func (FindInPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+func (OpenPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // FindInPageResponsesAPIWebSearchAction is generated from the FindInPageResponsesApiWebSearchAction schema definition.
 type FindInPageResponsesAPIWebSearchAction struct {
@@ -7641,12 +7639,14 @@ type FindInPageResponsesAPIWebSearchAction struct {
 	URL     *string `json:"url,omitzero"`
 }
 
-func (OtherResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
+func (FindInPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // OtherResponsesAPIWebSearchAction is generated from the OtherResponsesApiWebSearchAction schema definition.
 type OtherResponsesAPIWebSearchAction struct {
 	Type string `json:"type"`
 }
+
+func (OtherResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 func decodeGeneratedResponsesAPIWebSearchAction(raw jsontext.Value) (ResponsesAPIWebSearchAction, error) {
 	if raw == nil {
@@ -7760,14 +7760,12 @@ func (value *RawReviewTarget) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (UncommittedChangesReviewTarget) isReviewTarget() {}
-
 // UncommittedChangesReviewTarget reviews the working tree: staged, unstaged, and untracked files.
 type UncommittedChangesReviewTarget struct {
 	Type string `json:"type"`
 }
 
-func (BaseBranchReviewTarget) isReviewTarget() {}
+func (UncommittedChangesReviewTarget) isReviewTarget() {}
 
 // BaseBranchReviewTarget reviews changes between the current branch and the given base branch.
 type BaseBranchReviewTarget struct {
@@ -7775,7 +7773,7 @@ type BaseBranchReviewTarget struct {
 	Type   string `json:"type"`
 }
 
-func (CommitReviewTarget) isReviewTarget() {}
+func (BaseBranchReviewTarget) isReviewTarget() {}
 
 // CommitReviewTarget reviews the changes introduced by a specific commit.
 type CommitReviewTarget struct {
@@ -7786,13 +7784,15 @@ type CommitReviewTarget struct {
 	Type  string  `json:"type"`
 }
 
-func (CustomReviewTarget) isReviewTarget() {}
+func (CommitReviewTarget) isReviewTarget() {}
 
 // CustomReviewTarget arbitrary instructions, equivalent to the old free-form prompt.
 type CustomReviewTarget struct {
 	Instructions string `json:"instructions"`
 	Type         string `json:"type"`
 }
+
+func (CustomReviewTarget) isReviewTarget() {}
 
 func decodeGeneratedReviewTarget(raw jsontext.Value) (ReviewTarget, error) {
 	if raw == nil {
@@ -7868,14 +7868,12 @@ func (value *RawSandboxPolicy) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (DangerFullAccessSandboxPolicy) isSandboxPolicy() {}
-
 // DangerFullAccessSandboxPolicy is generated from the DangerFullAccessSandboxPolicy schema definition.
 type DangerFullAccessSandboxPolicy struct {
 	Type string `json:"type"`
 }
 
-func (ReadOnlySandboxPolicy) isSandboxPolicy() {}
+func (DangerFullAccessSandboxPolicy) isSandboxPolicy() {}
 
 // ReadOnlySandboxPolicy is generated from the ReadOnlySandboxPolicy schema definition.
 type ReadOnlySandboxPolicy struct {
@@ -7883,7 +7881,7 @@ type ReadOnlySandboxPolicy struct {
 	Type          string `json:"type"`
 }
 
-func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
+func (ReadOnlySandboxPolicy) isSandboxPolicy() {}
 
 // ExternalSandboxSandboxPolicy is generated from the ExternalSandboxSandboxPolicy schema definition.
 type ExternalSandboxSandboxPolicy struct {
@@ -7891,7 +7889,7 @@ type ExternalSandboxSandboxPolicy struct {
 	Type          string         `json:"type"`
 }
 
-func (WorkspaceWriteSandboxPolicy) isSandboxPolicy() {}
+func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
 
 // WorkspaceWriteSandboxPolicy is generated from the WorkspaceWriteSandboxPolicy schema definition.
 type WorkspaceWriteSandboxPolicy struct {
@@ -7901,6 +7899,8 @@ type WorkspaceWriteSandboxPolicy struct {
 	Type                string   `json:"type"`
 	WritableRoots       []string `json:"writableRoots,omitzero"`
 }
+
+func (WorkspaceWriteSandboxPolicy) isSandboxPolicy() {}
 
 func decodeGeneratedSandboxPolicy(raw jsontext.Value) (SandboxPolicy, error) {
 	if raw == nil {
@@ -8113,15 +8113,13 @@ const (
 
 func (ErrorNotification) isServerNotification() {}
 
-func (ThreadStartedNotification2) isServerNotification() {}
-
 // ThreadStartedNotification2 is generated from the Thread/startedNotification schema definition.
 type ThreadStartedNotification2 struct {
 	Method string                    `json:"method"`
 	Params ThreadStartedNotification `json:"params"`
 }
 
-func (ThreadStatusChangedNotification2) isServerNotification() {}
+func (ThreadStartedNotification2) isServerNotification() {}
 
 // ThreadStatusChangedNotification2 is generated from the Thread/status/changedNotification schema definition.
 type ThreadStatusChangedNotification2 struct {
@@ -8129,7 +8127,7 @@ type ThreadStatusChangedNotification2 struct {
 	Params ThreadStatusChangedNotification `json:"params"`
 }
 
-func (ThreadArchivedNotification2) isServerNotification() {}
+func (ThreadStatusChangedNotification2) isServerNotification() {}
 
 // ThreadArchivedNotification2 is generated from the Thread/archivedNotification schema definition.
 type ThreadArchivedNotification2 struct {
@@ -8137,7 +8135,7 @@ type ThreadArchivedNotification2 struct {
 	Params ThreadArchivedNotification `json:"params"`
 }
 
-func (ThreadUnarchivedNotification2) isServerNotification() {}
+func (ThreadArchivedNotification2) isServerNotification() {}
 
 // ThreadUnarchivedNotification2 is generated from the Thread/unarchivedNotification schema definition.
 type ThreadUnarchivedNotification2 struct {
@@ -8145,7 +8143,7 @@ type ThreadUnarchivedNotification2 struct {
 	Params ThreadUnarchivedNotification `json:"params"`
 }
 
-func (ThreadClosedNotification2) isServerNotification() {}
+func (ThreadUnarchivedNotification2) isServerNotification() {}
 
 // ThreadClosedNotification2 is generated from the Thread/closedNotification schema definition.
 type ThreadClosedNotification2 struct {
@@ -8153,7 +8151,7 @@ type ThreadClosedNotification2 struct {
 	Params ThreadClosedNotification `json:"params"`
 }
 
-func (SkillsChangedNotification2) isServerNotification() {}
+func (ThreadClosedNotification2) isServerNotification() {}
 
 // SkillsChangedNotification2 is generated from the Skills/changedNotification schema definition.
 type SkillsChangedNotification2 struct {
@@ -8161,7 +8159,7 @@ type SkillsChangedNotification2 struct {
 	Params SkillsChangedNotification `json:"params"`
 }
 
-func (ThreadNameUpdatedNotification2) isServerNotification() {}
+func (SkillsChangedNotification2) isServerNotification() {}
 
 // ThreadNameUpdatedNotification2 is generated from the Thread/name/updatedNotification schema definition.
 type ThreadNameUpdatedNotification2 struct {
@@ -8169,7 +8167,7 @@ type ThreadNameUpdatedNotification2 struct {
 	Params ThreadNameUpdatedNotification `json:"params"`
 }
 
-func (ThreadGoalUpdatedNotification2) isServerNotification() {}
+func (ThreadNameUpdatedNotification2) isServerNotification() {}
 
 // ThreadGoalUpdatedNotification2 is generated from the Thread/goal/updatedNotification schema definition.
 type ThreadGoalUpdatedNotification2 struct {
@@ -8177,7 +8175,7 @@ type ThreadGoalUpdatedNotification2 struct {
 	Params ThreadGoalUpdatedNotification `json:"params"`
 }
 
-func (ThreadGoalClearedNotification2) isServerNotification() {}
+func (ThreadGoalUpdatedNotification2) isServerNotification() {}
 
 // ThreadGoalClearedNotification2 is generated from the Thread/goal/clearedNotification schema definition.
 type ThreadGoalClearedNotification2 struct {
@@ -8185,7 +8183,7 @@ type ThreadGoalClearedNotification2 struct {
 	Params ThreadGoalClearedNotification `json:"params"`
 }
 
-func (ThreadTokenUsageUpdatedNotification2) isServerNotification() {}
+func (ThreadGoalClearedNotification2) isServerNotification() {}
 
 // ThreadTokenUsageUpdatedNotification2 is generated from the Thread/tokenUsage/updatedNotification schema definition.
 type ThreadTokenUsageUpdatedNotification2 struct {
@@ -8193,7 +8191,7 @@ type ThreadTokenUsageUpdatedNotification2 struct {
 	Params ThreadTokenUsageUpdatedNotification `json:"params"`
 }
 
-func (TurnStartedNotification2) isServerNotification() {}
+func (ThreadTokenUsageUpdatedNotification2) isServerNotification() {}
 
 // TurnStartedNotification2 is generated from the Turn/startedNotification schema definition.
 type TurnStartedNotification2 struct {
@@ -8201,7 +8199,7 @@ type TurnStartedNotification2 struct {
 	Params TurnStartedNotification `json:"params"`
 }
 
-func (HookStartedNotification2) isServerNotification() {}
+func (TurnStartedNotification2) isServerNotification() {}
 
 // HookStartedNotification2 is generated from the Hook/startedNotification schema definition.
 type HookStartedNotification2 struct {
@@ -8209,7 +8207,7 @@ type HookStartedNotification2 struct {
 	Params HookStartedNotification `json:"params"`
 }
 
-func (TurnCompletedNotification2) isServerNotification() {}
+func (HookStartedNotification2) isServerNotification() {}
 
 // TurnCompletedNotification2 is generated from the Turn/completedNotification schema definition.
 type TurnCompletedNotification2 struct {
@@ -8217,7 +8215,7 @@ type TurnCompletedNotification2 struct {
 	Params TurnCompletedNotification `json:"params"`
 }
 
-func (HookCompletedNotification2) isServerNotification() {}
+func (TurnCompletedNotification2) isServerNotification() {}
 
 // HookCompletedNotification2 is generated from the Hook/completedNotification schema definition.
 type HookCompletedNotification2 struct {
@@ -8225,7 +8223,7 @@ type HookCompletedNotification2 struct {
 	Params HookCompletedNotification `json:"params"`
 }
 
-func (TurnDiffUpdatedNotification2) isServerNotification() {}
+func (HookCompletedNotification2) isServerNotification() {}
 
 // TurnDiffUpdatedNotification2 is generated from the Turn/diff/updatedNotification schema definition.
 type TurnDiffUpdatedNotification2 struct {
@@ -8233,7 +8231,7 @@ type TurnDiffUpdatedNotification2 struct {
 	Params TurnDiffUpdatedNotification `json:"params"`
 }
 
-func (TurnPlanUpdatedNotification2) isServerNotification() {}
+func (TurnDiffUpdatedNotification2) isServerNotification() {}
 
 // TurnPlanUpdatedNotification2 is generated from the Turn/plan/updatedNotification schema definition.
 type TurnPlanUpdatedNotification2 struct {
@@ -8241,7 +8239,7 @@ type TurnPlanUpdatedNotification2 struct {
 	Params TurnPlanUpdatedNotification `json:"params"`
 }
 
-func (ItemStartedNotification2) isServerNotification() {}
+func (TurnPlanUpdatedNotification2) isServerNotification() {}
 
 // ItemStartedNotification2 is generated from the Item/startedNotification schema definition.
 type ItemStartedNotification2 struct {
@@ -8249,7 +8247,7 @@ type ItemStartedNotification2 struct {
 	Params ItemStartedNotification `json:"params"`
 }
 
-func (ItemAutoApprovalReviewStartedNotification) isServerNotification() {}
+func (ItemStartedNotification2) isServerNotification() {}
 
 // ItemAutoApprovalReviewStartedNotification is generated from the Item/autoApprovalReview/startedNotification schema definition.
 type ItemAutoApprovalReviewStartedNotification struct {
@@ -8257,7 +8255,7 @@ type ItemAutoApprovalReviewStartedNotification struct {
 	Params ItemGuardianApprovalReviewStartedNotification `json:"params"`
 }
 
-func (ItemAutoApprovalReviewCompletedNotification) isServerNotification() {}
+func (ItemAutoApprovalReviewStartedNotification) isServerNotification() {}
 
 // ItemAutoApprovalReviewCompletedNotification is generated from the Item/autoApprovalReview/completedNotification schema definition.
 type ItemAutoApprovalReviewCompletedNotification struct {
@@ -8265,7 +8263,7 @@ type ItemAutoApprovalReviewCompletedNotification struct {
 	Params ItemGuardianApprovalReviewCompletedNotification `json:"params"`
 }
 
-func (ItemCompletedNotification2) isServerNotification() {}
+func (ItemAutoApprovalReviewCompletedNotification) isServerNotification() {}
 
 // ItemCompletedNotification2 is generated from the Item/completedNotification schema definition.
 type ItemCompletedNotification2 struct {
@@ -8273,7 +8271,7 @@ type ItemCompletedNotification2 struct {
 	Params ItemCompletedNotification `json:"params"`
 }
 
-func (ItemAgentMessageDeltaNotification) isServerNotification() {}
+func (ItemCompletedNotification2) isServerNotification() {}
 
 // ItemAgentMessageDeltaNotification is generated from the Item/agentMessage/deltaNotification schema definition.
 type ItemAgentMessageDeltaNotification struct {
@@ -8281,7 +8279,7 @@ type ItemAgentMessageDeltaNotification struct {
 	Params AgentMessageDeltaNotification `json:"params"`
 }
 
-func (ItemPlanDeltaNotification) isServerNotification() {}
+func (ItemAgentMessageDeltaNotification) isServerNotification() {}
 
 // ItemPlanDeltaNotification proposed plan streaming deltas for plan items.
 type ItemPlanDeltaNotification struct {
@@ -8289,7 +8287,7 @@ type ItemPlanDeltaNotification struct {
 	Params PlanDeltaNotification `json:"params"`
 }
 
-func (CommandExecOutputDeltaNotification2) isServerNotification() {}
+func (ItemPlanDeltaNotification) isServerNotification() {}
 
 // CommandExecOutputDeltaNotification2 streams base64-encoded stdout/stderr chunks for a running `command/exec` session.
 type CommandExecOutputDeltaNotification2 struct {
@@ -8297,7 +8295,7 @@ type CommandExecOutputDeltaNotification2 struct {
 	Params CommandExecOutputDeltaNotification `json:"params"`
 }
 
-func (ProcessOutputDeltaNotification2) isServerNotification() {}
+func (CommandExecOutputDeltaNotification2) isServerNotification() {}
 
 // ProcessOutputDeltaNotification2 streams base64-encoded stdout/stderr chunks for a running `process/spawn` session.
 type ProcessOutputDeltaNotification2 struct {
@@ -8305,7 +8303,7 @@ type ProcessOutputDeltaNotification2 struct {
 	Params ProcessOutputDeltaNotification `json:"params"`
 }
 
-func (ProcessExitedNotification2) isServerNotification() {}
+func (ProcessOutputDeltaNotification2) isServerNotification() {}
 
 // ProcessExitedNotification2 final exit notification for a `process/spawn` session.
 type ProcessExitedNotification2 struct {
@@ -8313,7 +8311,7 @@ type ProcessExitedNotification2 struct {
 	Params ProcessExitedNotification `json:"params"`
 }
 
-func (ItemCommandExecutionOutputDeltaNotification) isServerNotification() {}
+func (ProcessExitedNotification2) isServerNotification() {}
 
 // ItemCommandExecutionOutputDeltaNotification is generated from the Item/commandExecution/outputDeltaNotification schema definition.
 type ItemCommandExecutionOutputDeltaNotification struct {
@@ -8321,7 +8319,7 @@ type ItemCommandExecutionOutputDeltaNotification struct {
 	Params CommandExecutionOutputDeltaNotification `json:"params"`
 }
 
-func (ItemCommandExecutionTerminalInteractionNotification) isServerNotification() {}
+func (ItemCommandExecutionOutputDeltaNotification) isServerNotification() {}
 
 // ItemCommandExecutionTerminalInteractionNotification is generated from the Item/commandExecution/terminalInteractionNotification schema definition.
 type ItemCommandExecutionTerminalInteractionNotification struct {
@@ -8329,7 +8327,7 @@ type ItemCommandExecutionTerminalInteractionNotification struct {
 	Params TerminalInteractionNotification `json:"params"`
 }
 
-func (ItemFileChangeOutputDeltaNotification) isServerNotification() {}
+func (ItemCommandExecutionTerminalInteractionNotification) isServerNotification() {}
 
 // ItemFileChangeOutputDeltaNotification deprecated legacy apply_patch output stream notification.
 type ItemFileChangeOutputDeltaNotification struct {
@@ -8337,7 +8335,7 @@ type ItemFileChangeOutputDeltaNotification struct {
 	Params FileChangeOutputDeltaNotification `json:"params"`
 }
 
-func (ItemFileChangePatchUpdatedNotification) isServerNotification() {}
+func (ItemFileChangeOutputDeltaNotification) isServerNotification() {}
 
 // ItemFileChangePatchUpdatedNotification is generated from the Item/fileChange/patchUpdatedNotification schema definition.
 type ItemFileChangePatchUpdatedNotification struct {
@@ -8345,7 +8343,7 @@ type ItemFileChangePatchUpdatedNotification struct {
 	Params FileChangePatchUpdatedNotification `json:"params"`
 }
 
-func (ServerRequestResolvedNotification2) isServerNotification() {}
+func (ItemFileChangePatchUpdatedNotification) isServerNotification() {}
 
 // ServerRequestResolvedNotification2 is generated from the ServerRequest/resolvedNotification schema definition.
 type ServerRequestResolvedNotification2 struct {
@@ -8353,7 +8351,7 @@ type ServerRequestResolvedNotification2 struct {
 	Params ServerRequestResolvedNotification `json:"params"`
 }
 
-func (ItemMCPToolCallProgressNotification) isServerNotification() {}
+func (ServerRequestResolvedNotification2) isServerNotification() {}
 
 // ItemMCPToolCallProgressNotification is generated from the Item/mcpToolCall/progressNotification schema definition.
 type ItemMCPToolCallProgressNotification struct {
@@ -8361,7 +8359,7 @@ type ItemMCPToolCallProgressNotification struct {
 	Params MCPToolCallProgressNotification `json:"params"`
 }
 
-func (MCPServerOAuthLoginCompletedNotification2) isServerNotification() {}
+func (ItemMCPToolCallProgressNotification) isServerNotification() {}
 
 // MCPServerOAuthLoginCompletedNotification2 is generated from the McpServer/oauthLogin/completedNotification schema definition.
 type MCPServerOAuthLoginCompletedNotification2 struct {
@@ -8369,7 +8367,7 @@ type MCPServerOAuthLoginCompletedNotification2 struct {
 	Params MCPServerOAuthLoginCompletedNotification `json:"params"`
 }
 
-func (MCPServerStartupStatusUpdatedNotification) isServerNotification() {}
+func (MCPServerOAuthLoginCompletedNotification2) isServerNotification() {}
 
 // MCPServerStartupStatusUpdatedNotification is generated from the McpServer/startupStatus/updatedNotification schema definition.
 type MCPServerStartupStatusUpdatedNotification struct {
@@ -8377,7 +8375,7 @@ type MCPServerStartupStatusUpdatedNotification struct {
 	Params MCPServerStatusUpdatedNotification `json:"params"`
 }
 
-func (AccountUpdatedNotification2) isServerNotification() {}
+func (MCPServerStartupStatusUpdatedNotification) isServerNotification() {}
 
 // AccountUpdatedNotification2 is generated from the Account/updatedNotification schema definition.
 type AccountUpdatedNotification2 struct {
@@ -8385,7 +8383,7 @@ type AccountUpdatedNotification2 struct {
 	Params AccountUpdatedNotification `json:"params"`
 }
 
-func (AccountRateLimitsUpdatedNotification2) isServerNotification() {}
+func (AccountUpdatedNotification2) isServerNotification() {}
 
 // AccountRateLimitsUpdatedNotification2 is generated from the Account/rateLimits/updatedNotification schema definition.
 type AccountRateLimitsUpdatedNotification2 struct {
@@ -8393,7 +8391,7 @@ type AccountRateLimitsUpdatedNotification2 struct {
 	Params AccountRateLimitsUpdatedNotification `json:"params"`
 }
 
-func (AppListUpdatedNotification2) isServerNotification() {}
+func (AccountRateLimitsUpdatedNotification2) isServerNotification() {}
 
 // AppListUpdatedNotification2 is generated from the App/list/updatedNotification schema definition.
 type AppListUpdatedNotification2 struct {
@@ -8401,7 +8399,7 @@ type AppListUpdatedNotification2 struct {
 	Params AppListUpdatedNotification `json:"params"`
 }
 
-func (RemoteControlStatusChangedNotification2) isServerNotification() {}
+func (AppListUpdatedNotification2) isServerNotification() {}
 
 // RemoteControlStatusChangedNotification2 is generated from the RemoteControl/status/changedNotification schema definition.
 type RemoteControlStatusChangedNotification2 struct {
@@ -8409,7 +8407,7 @@ type RemoteControlStatusChangedNotification2 struct {
 	Params RemoteControlStatusChangedNotification `json:"params"`
 }
 
-func (ExternalAgentConfigImportCompletedNotification2) isServerNotification() {}
+func (RemoteControlStatusChangedNotification2) isServerNotification() {}
 
 // ExternalAgentConfigImportCompletedNotification2 is generated from the ExternalAgentConfig/import/completedNotification schema definition.
 type ExternalAgentConfigImportCompletedNotification2 struct {
@@ -8417,7 +8415,7 @@ type ExternalAgentConfigImportCompletedNotification2 struct {
 	Params ExternalAgentConfigImportCompletedNotification `json:"params"`
 }
 
-func (FsChangedNotification2) isServerNotification() {}
+func (ExternalAgentConfigImportCompletedNotification2) isServerNotification() {}
 
 // FsChangedNotification2 is generated from the Fs/changedNotification schema definition.
 type FsChangedNotification2 struct {
@@ -8425,7 +8423,7 @@ type FsChangedNotification2 struct {
 	Params FsChangedNotification `json:"params"`
 }
 
-func (ItemReasoningSummaryTextDeltaNotification) isServerNotification() {}
+func (FsChangedNotification2) isServerNotification() {}
 
 // ItemReasoningSummaryTextDeltaNotification is generated from the Item/reasoning/summaryTextDeltaNotification schema definition.
 type ItemReasoningSummaryTextDeltaNotification struct {
@@ -8433,7 +8431,7 @@ type ItemReasoningSummaryTextDeltaNotification struct {
 	Params ReasoningSummaryTextDeltaNotification `json:"params"`
 }
 
-func (ItemReasoningSummaryPartAddedNotification) isServerNotification() {}
+func (ItemReasoningSummaryTextDeltaNotification) isServerNotification() {}
 
 // ItemReasoningSummaryPartAddedNotification is generated from the Item/reasoning/summaryPartAddedNotification schema definition.
 type ItemReasoningSummaryPartAddedNotification struct {
@@ -8441,7 +8439,7 @@ type ItemReasoningSummaryPartAddedNotification struct {
 	Params ReasoningSummaryPartAddedNotification `json:"params"`
 }
 
-func (ItemReasoningTextDeltaNotification) isServerNotification() {}
+func (ItemReasoningSummaryPartAddedNotification) isServerNotification() {}
 
 // ItemReasoningTextDeltaNotification is generated from the Item/reasoning/textDeltaNotification schema definition.
 type ItemReasoningTextDeltaNotification struct {
@@ -8449,7 +8447,7 @@ type ItemReasoningTextDeltaNotification struct {
 	Params ReasoningTextDeltaNotification `json:"params"`
 }
 
-func (ThreadCompactedNotification) isServerNotification() {}
+func (ItemReasoningTextDeltaNotification) isServerNotification() {}
 
 // ThreadCompactedNotification deprecated: Use `ContextCompaction` item type instead.
 type ThreadCompactedNotification struct {
@@ -8457,7 +8455,7 @@ type ThreadCompactedNotification struct {
 	Params ContextCompactedNotification `json:"params"`
 }
 
-func (ModelReroutedNotification2) isServerNotification() {}
+func (ThreadCompactedNotification) isServerNotification() {}
 
 // ModelReroutedNotification2 is generated from the Model/reroutedNotification schema definition.
 type ModelReroutedNotification2 struct {
@@ -8465,7 +8463,7 @@ type ModelReroutedNotification2 struct {
 	Params ModelReroutedNotification `json:"params"`
 }
 
-func (ModelVerificationNotification2) isServerNotification() {}
+func (ModelReroutedNotification2) isServerNotification() {}
 
 // ModelVerificationNotification2 is generated from the Model/verificationNotification schema definition.
 type ModelVerificationNotification2 struct {
@@ -8473,7 +8471,7 @@ type ModelVerificationNotification2 struct {
 	Params ModelVerificationNotification `json:"params"`
 }
 
-func (WarningNotification) isServerNotification() {}
+func (ModelVerificationNotification2) isServerNotification() {}
 
 func (GuardianWarningNotification) isServerNotification() {}
 
@@ -8481,15 +8479,13 @@ func (DeprecationNoticeNotification) isServerNotification() {}
 
 func (ConfigWarningNotification) isServerNotification() {}
 
-func (FuzzyFileSearchSessionUpdatedNotification2) isServerNotification() {}
-
 // FuzzyFileSearchSessionUpdatedNotification2 is generated from the FuzzyFileSearch/sessionUpdatedNotification schema definition.
 type FuzzyFileSearchSessionUpdatedNotification2 struct {
 	Method string                                    `json:"method"`
 	Params FuzzyFileSearchSessionUpdatedNotification `json:"params"`
 }
 
-func (FuzzyFileSearchSessionCompletedNotification2) isServerNotification() {}
+func (FuzzyFileSearchSessionUpdatedNotification2) isServerNotification() {}
 
 // FuzzyFileSearchSessionCompletedNotification2 is generated from the FuzzyFileSearch/sessionCompletedNotification schema definition.
 type FuzzyFileSearchSessionCompletedNotification2 struct {
@@ -8497,7 +8493,7 @@ type FuzzyFileSearchSessionCompletedNotification2 struct {
 	Params FuzzyFileSearchSessionCompletedNotification `json:"params"`
 }
 
-func (ThreadRealtimeStartedNotification2) isServerNotification() {}
+func (FuzzyFileSearchSessionCompletedNotification2) isServerNotification() {}
 
 // ThreadRealtimeStartedNotification2 is generated from the Thread/realtime/startedNotification schema definition.
 type ThreadRealtimeStartedNotification2 struct {
@@ -8505,7 +8501,7 @@ type ThreadRealtimeStartedNotification2 struct {
 	Params ThreadRealtimeStartedNotification `json:"params"`
 }
 
-func (ThreadRealtimeItemAddedNotification2) isServerNotification() {}
+func (ThreadRealtimeStartedNotification2) isServerNotification() {}
 
 // ThreadRealtimeItemAddedNotification2 is generated from the Thread/realtime/itemAddedNotification schema definition.
 type ThreadRealtimeItemAddedNotification2 struct {
@@ -8513,7 +8509,7 @@ type ThreadRealtimeItemAddedNotification2 struct {
 	Params ThreadRealtimeItemAddedNotification `json:"params"`
 }
 
-func (ThreadRealtimeTranscriptDeltaNotification2) isServerNotification() {}
+func (ThreadRealtimeItemAddedNotification2) isServerNotification() {}
 
 // ThreadRealtimeTranscriptDeltaNotification2 is generated from the Thread/realtime/transcript/deltaNotification schema definition.
 type ThreadRealtimeTranscriptDeltaNotification2 struct {
@@ -8521,7 +8517,7 @@ type ThreadRealtimeTranscriptDeltaNotification2 struct {
 	Params ThreadRealtimeTranscriptDeltaNotification `json:"params"`
 }
 
-func (ThreadRealtimeTranscriptDoneNotification2) isServerNotification() {}
+func (ThreadRealtimeTranscriptDeltaNotification2) isServerNotification() {}
 
 // ThreadRealtimeTranscriptDoneNotification2 is generated from the Thread/realtime/transcript/doneNotification schema definition.
 type ThreadRealtimeTranscriptDoneNotification2 struct {
@@ -8529,7 +8525,7 @@ type ThreadRealtimeTranscriptDoneNotification2 struct {
 	Params ThreadRealtimeTranscriptDoneNotification `json:"params"`
 }
 
-func (ThreadRealtimeOutputAudioDeltaNotification2) isServerNotification() {}
+func (ThreadRealtimeTranscriptDoneNotification2) isServerNotification() {}
 
 // ThreadRealtimeOutputAudioDeltaNotification2 is generated from the Thread/realtime/outputAudio/deltaNotification schema definition.
 type ThreadRealtimeOutputAudioDeltaNotification2 struct {
@@ -8537,7 +8533,7 @@ type ThreadRealtimeOutputAudioDeltaNotification2 struct {
 	Params ThreadRealtimeOutputAudioDeltaNotification `json:"params"`
 }
 
-func (ThreadRealtimeSDPNotification2) isServerNotification() {}
+func (ThreadRealtimeOutputAudioDeltaNotification2) isServerNotification() {}
 
 // ThreadRealtimeSDPNotification2 is generated from the Thread/realtime/sdpNotification schema definition.
 type ThreadRealtimeSDPNotification2 struct {
@@ -8545,7 +8541,7 @@ type ThreadRealtimeSDPNotification2 struct {
 	Params ThreadRealtimeSDPNotification `json:"params"`
 }
 
-func (ThreadRealtimeErrorNotification2) isServerNotification() {}
+func (ThreadRealtimeSDPNotification2) isServerNotification() {}
 
 // ThreadRealtimeErrorNotification2 is generated from the Thread/realtime/errorNotification schema definition.
 type ThreadRealtimeErrorNotification2 struct {
@@ -8553,7 +8549,7 @@ type ThreadRealtimeErrorNotification2 struct {
 	Params ThreadRealtimeErrorNotification `json:"params"`
 }
 
-func (ThreadRealtimeClosedNotification2) isServerNotification() {}
+func (ThreadRealtimeErrorNotification2) isServerNotification() {}
 
 // ThreadRealtimeClosedNotification2 is generated from the Thread/realtime/closedNotification schema definition.
 type ThreadRealtimeClosedNotification2 struct {
@@ -8561,7 +8557,7 @@ type ThreadRealtimeClosedNotification2 struct {
 	Params ThreadRealtimeClosedNotification `json:"params"`
 }
 
-func (WindowsWorldWritableWarningNotification2) isServerNotification() {}
+func (ThreadRealtimeClosedNotification2) isServerNotification() {}
 
 // WindowsWorldWritableWarningNotification2 notifies the user of world-writable directories on Windows, which cannot be protected by the sandbox.
 type WindowsWorldWritableWarningNotification2 struct {
@@ -8569,7 +8565,7 @@ type WindowsWorldWritableWarningNotification2 struct {
 	Params WindowsWorldWritableWarningNotification `json:"params"`
 }
 
-func (WindowsSandboxSetupCompletedNotification2) isServerNotification() {}
+func (WindowsWorldWritableWarningNotification2) isServerNotification() {}
 
 // WindowsSandboxSetupCompletedNotification2 is generated from the WindowsSandbox/setupCompletedNotification schema definition.
 type WindowsSandboxSetupCompletedNotification2 struct {
@@ -8577,13 +8573,15 @@ type WindowsSandboxSetupCompletedNotification2 struct {
 	Params WindowsSandboxSetupCompletedNotification `json:"params"`
 }
 
-func (AccountLoginCompletedNotification2) isServerNotification() {}
+func (WindowsSandboxSetupCompletedNotification2) isServerNotification() {}
 
 // AccountLoginCompletedNotification2 is generated from the Account/login/completedNotification schema definition.
 type AccountLoginCompletedNotification2 struct {
 	Method string                            `json:"method"`
 	Params AccountLoginCompletedNotification `json:"params"`
 }
+
+func (AccountLoginCompletedNotification2) isServerNotification() {}
 
 func decodeGeneratedServerNotification(raw jsontext.Value) (ServerNotification, error) {
 	if raw == nil {
@@ -9032,14 +9030,12 @@ const (
 	SessionSourceValueVscode SessionSourceValue = "vscode"
 )
 
-func (CustomSessionSource) isSessionSource() {}
-
 // CustomSessionSource is generated from the CustomSessionSource schema definition.
 type CustomSessionSource struct {
 	Custom string `json:"custom"`
 }
 
-func (SubAgentSessionSource) isSessionSource() {}
+func (CustomSessionSource) isSessionSource() {}
 
 // SubAgentSessionSource is generated from the SubAgentSessionSource schema definition.
 type SubAgentSessionSource struct {
@@ -9064,6 +9060,8 @@ func (value *SubAgentSessionSource) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	}
 	return nil
 }
+
+func (SubAgentSessionSource) isSessionSource() {}
 
 func decodeGeneratedSessionSource(raw jsontext.Value) (SessionSource, error) {
 	if raw == nil {
@@ -9274,8 +9272,6 @@ const (
 	SubAgentSourceValueReview SubAgentSourceValue = "review"
 )
 
-func (ThreadSpawnSubAgentSource) isSubAgentSource() {}
-
 // ThreadSpawn is generated from the ThreadSpawn schema definition.
 type ThreadSpawn struct {
 	AgentNickname  *string    `json:"agent_nickname,omitzero"`
@@ -9290,12 +9286,14 @@ type ThreadSpawnSubAgentSource struct {
 	ThreadSpawn ThreadSpawn `json:"thread_spawn"`
 }
 
-func (OtherSubAgentSource) isSubAgentSource() {}
+func (ThreadSpawnSubAgentSource) isSubAgentSource() {}
 
 // OtherSubAgentSource is generated from the OtherSubAgentSource schema definition.
 type OtherSubAgentSource struct {
 	Other string `json:"other"`
 }
+
+func (OtherSubAgentSource) isSubAgentSource() {}
 
 func decodeGeneratedSubAgentSource(raw jsontext.Value) (SubAgentSource, error) {
 	if raw == nil {
@@ -9751,8 +9749,6 @@ func (value *RawThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (UserMessageThreadItem) isThreadItem() {}
-
 // UserMessageThreadItem is generated from the UserMessageThreadItem schema definition.
 type UserMessageThreadItem struct {
 	Content []UserInput `json:"content"`
@@ -9788,7 +9784,7 @@ func (value *UserMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 	return nil
 }
 
-func (HookPromptThreadItem) isThreadItem() {}
+func (UserMessageThreadItem) isThreadItem() {}
 
 // HookPromptThreadItem is generated from the HookPromptThreadItem schema definition.
 type HookPromptThreadItem struct {
@@ -9797,7 +9793,7 @@ type HookPromptThreadItem struct {
 	Type      string               `json:"type"`
 }
 
-func (AgentMessageThreadItem) isThreadItem() {}
+func (HookPromptThreadItem) isThreadItem() {}
 
 // AgentMessageThreadItem is generated from the AgentMessageThreadItem schema definition.
 type AgentMessageThreadItem struct {
@@ -9835,7 +9831,7 @@ func (value *AgentMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 	return nil
 }
 
-func (PlanThreadItem) isThreadItem() {}
+func (AgentMessageThreadItem) isThreadItem() {}
 
 // PlanThreadItem proposed plan item content. The completed plan item is authoritative and may not match the concatenation of `PlanDelta` text.
 type PlanThreadItem struct {
@@ -9844,7 +9840,7 @@ type PlanThreadItem struct {
 	Type string `json:"type"`
 }
 
-func (ReasoningThreadItem) isThreadItem() {}
+func (PlanThreadItem) isThreadItem() {}
 
 // ReasoningThreadItem is generated from the ReasoningThreadItem schema definition.
 type ReasoningThreadItem struct {
@@ -9854,7 +9850,7 @@ type ReasoningThreadItem struct {
 	Type    string   `json:"type"`
 }
 
-func (CommandExecutionThreadItem) isThreadItem() {}
+func (ReasoningThreadItem) isThreadItem() {}
 
 // CommandExecutionThreadItem is generated from the CommandExecutionThreadItem schema definition.
 type CommandExecutionThreadItem struct {
@@ -9928,7 +9924,7 @@ func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder
 	return nil
 }
 
-func (FileChangeThreadItem) isThreadItem() {}
+func (CommandExecutionThreadItem) isThreadItem() {}
 
 // FileChangeThreadItem is generated from the FileChangeThreadItem schema definition.
 type FileChangeThreadItem struct {
@@ -9938,7 +9934,7 @@ type FileChangeThreadItem struct {
 	Type    string             `json:"type"`
 }
 
-func (MCPToolCallThreadItem) isThreadItem() {}
+func (FileChangeThreadItem) isThreadItem() {}
 
 // MCPToolCallThreadItem is generated from the McpToolCallThreadItem schema definition.
 type MCPToolCallThreadItem struct {
@@ -9956,7 +9952,7 @@ type MCPToolCallThreadItem struct {
 	Type              string             `json:"type"`
 }
 
-func (DynamicToolCallThreadItem) isThreadItem() {}
+func (MCPToolCallThreadItem) isThreadItem() {}
 
 // DynamicToolCallThreadItem is generated from the DynamicToolCallThreadItem schema definition.
 type DynamicToolCallThreadItem struct {
@@ -10013,7 +10009,7 @@ func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	return nil
 }
 
-func (CollabAgentToolCallThreadItem) isThreadItem() {}
+func (DynamicToolCallThreadItem) isThreadItem() {}
 
 // CollabAgentToolCallThreadItem is generated from the CollabAgentToolCallThreadItem schema definition.
 type CollabAgentToolCallThreadItem struct {
@@ -10046,7 +10042,7 @@ type CollabAgentToolCallThreadItem struct {
 	Type string          `json:"type"`
 }
 
-func (WebSearchThreadItem) isThreadItem() {}
+func (CollabAgentToolCallThreadItem) isThreadItem() {}
 
 // WebSearchThreadItem is generated from the WebSearchThreadItem schema definition.
 type WebSearchThreadItem struct {
@@ -10081,7 +10077,7 @@ func (value *WebSearchThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 	return nil
 }
 
-func (ImageViewThreadItem) isThreadItem() {}
+func (WebSearchThreadItem) isThreadItem() {}
 
 // ImageViewThreadItem is generated from the ImageViewThreadItem schema definition.
 type ImageViewThreadItem struct {
@@ -10090,7 +10086,7 @@ type ImageViewThreadItem struct {
 	Type string `json:"type"`
 }
 
-func (ImageGenerationThreadItem) isThreadItem() {}
+func (ImageViewThreadItem) isThreadItem() {}
 
 // ImageGenerationThreadItem is generated from the ImageGenerationThreadItem schema definition.
 type ImageGenerationThreadItem struct {
@@ -10102,7 +10098,7 @@ type ImageGenerationThreadItem struct {
 	Type          string  `json:"type"`
 }
 
-func (EnteredReviewModeThreadItem) isThreadItem() {}
+func (ImageGenerationThreadItem) isThreadItem() {}
 
 // EnteredReviewModeThreadItem is generated from the EnteredReviewModeThreadItem schema definition.
 type EnteredReviewModeThreadItem struct {
@@ -10111,7 +10107,7 @@ type EnteredReviewModeThreadItem struct {
 	Type   string `json:"type"`
 }
 
-func (ExitedReviewModeThreadItem) isThreadItem() {}
+func (EnteredReviewModeThreadItem) isThreadItem() {}
 
 // ExitedReviewModeThreadItem is generated from the ExitedReviewModeThreadItem schema definition.
 type ExitedReviewModeThreadItem struct {
@@ -10120,13 +10116,15 @@ type ExitedReviewModeThreadItem struct {
 	Type   string `json:"type"`
 }
 
-func (ContextCompactionThreadItem) isThreadItem() {}
+func (ExitedReviewModeThreadItem) isThreadItem() {}
 
 // ContextCompactionThreadItem is generated from the ContextCompactionThreadItem schema definition.
 type ContextCompactionThreadItem struct {
 	ID   string `json:"id"`
 	Type string `json:"type"`
 }
+
+func (ContextCompactionThreadItem) isThreadItem() {}
 
 func decodeGeneratedThreadItem(raw jsontext.Value) (ThreadItem, error) {
 	if raw == nil {
@@ -10499,14 +10497,12 @@ func (value *RawThreadRealtimeStartTransport) UnmarshalJSONFrom(dec *jsontext.De
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (WebsocketThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
-
 // WebsocketThreadRealtimeStartTransport is generated from the WebsocketThreadRealtimeStartTransport schema definition.
 type WebsocketThreadRealtimeStartTransport struct {
 	Type string `json:"type"`
 }
 
-func (WebrtcThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
+func (WebsocketThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
 
 // WebrtcThreadRealtimeStartTransport is generated from the WebrtcThreadRealtimeStartTransport schema definition.
 type WebrtcThreadRealtimeStartTransport struct {
@@ -10514,6 +10510,8 @@ type WebrtcThreadRealtimeStartTransport struct {
 	SDP  string `json:"sdp"`
 	Type string `json:"type"`
 }
+
+func (WebrtcThreadRealtimeStartTransport) isThreadRealtimeStartTransport() {}
 
 func decodeGeneratedThreadRealtimeStartTransport(raw jsontext.Value) (ThreadRealtimeStartTransport, error) {
 	if raw == nil {
@@ -10953,34 +10951,34 @@ func (value *RawThreadStatus) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (NotLoadedThreadStatus) isThreadStatus() {}
-
 // NotLoadedThreadStatus is generated from the NotLoadedThreadStatus schema definition.
 type NotLoadedThreadStatus struct {
 	Type string `json:"type"`
 }
 
-func (IDleThreadStatus) isThreadStatus() {}
+func (NotLoadedThreadStatus) isThreadStatus() {}
 
 // IDleThreadStatus is generated from the IdleThreadStatus schema definition.
 type IDleThreadStatus struct {
 	Type string `json:"type"`
 }
 
-func (SystemErrorThreadStatus) isThreadStatus() {}
+func (IDleThreadStatus) isThreadStatus() {}
 
 // SystemErrorThreadStatus is generated from the SystemErrorThreadStatus schema definition.
 type SystemErrorThreadStatus struct {
 	Type string `json:"type"`
 }
 
-func (ActiveThreadStatus) isThreadStatus() {}
+func (SystemErrorThreadStatus) isThreadStatus() {}
 
 // ActiveThreadStatus is generated from the ActiveThreadStatus schema definition.
 type ActiveThreadStatus struct {
 	ActiveFlags []ThreadActiveFlag `json:"activeFlags"`
 	Type        string             `json:"type"`
 }
+
+func (ActiveThreadStatus) isThreadStatus() {}
 
 func decodeGeneratedThreadStatus(raw jsontext.Value) (ThreadStatus, error) {
 	if raw == nil {
@@ -11529,8 +11527,6 @@ func (value *RawUserInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (TextUserInput) isUserInput() {}
-
 // TextUserInput is generated from the TextUserInput schema definition.
 type TextUserInput struct {
 	Text string `json:"text"`
@@ -11540,7 +11536,7 @@ type TextUserInput struct {
 	Type         string        `json:"type"`
 }
 
-func (ImageUserInput) isUserInput() {}
+func (TextUserInput) isUserInput() {}
 
 // ImageUserInput is generated from the ImageUserInput schema definition.
 type ImageUserInput struct {
@@ -11548,7 +11544,7 @@ type ImageUserInput struct {
 	URL  string `json:"url"`
 }
 
-func (LocalImageUserInput) isUserInput() {}
+func (ImageUserInput) isUserInput() {}
 
 // LocalImageUserInput is generated from the LocalImageUserInput schema definition.
 type LocalImageUserInput struct {
@@ -11556,7 +11552,7 @@ type LocalImageUserInput struct {
 	Type string `json:"type"`
 }
 
-func (SkillUserInput) isUserInput() {}
+func (LocalImageUserInput) isUserInput() {}
 
 // SkillUserInput is generated from the SkillUserInput schema definition.
 type SkillUserInput struct {
@@ -11565,7 +11561,7 @@ type SkillUserInput struct {
 	Type string `json:"type"`
 }
 
-func (MentionUserInput) isUserInput() {}
+func (SkillUserInput) isUserInput() {}
 
 // MentionUserInput is generated from the MentionUserInput schema definition.
 type MentionUserInput struct {
@@ -11573,6 +11569,8 @@ type MentionUserInput struct {
 	Path string `json:"path"`
 	Type string `json:"type"`
 }
+
+func (MentionUserInput) isUserInput() {}
 
 func decodeGeneratedUserInput(raw jsontext.Value) (UserInput, error) {
 	if raw == nil {
@@ -11663,8 +11661,6 @@ func (value *RawWebSearchAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	return json.UnmarshalDecode(dec, (*jsontext.Value)(value))
 }
 
-func (SearchWebSearchAction) isWebSearchAction() {}
-
 // SearchWebSearchAction is generated from the SearchWebSearchAction schema definition.
 type SearchWebSearchAction struct {
 	Queries []string `json:"queries,omitzero"`
@@ -11672,7 +11668,7 @@ type SearchWebSearchAction struct {
 	Type    string   `json:"type"`
 }
 
-func (OpenPageWebSearchAction) isWebSearchAction() {}
+func (SearchWebSearchAction) isWebSearchAction() {}
 
 // OpenPageWebSearchAction is generated from the OpenPageWebSearchAction schema definition.
 type OpenPageWebSearchAction struct {
@@ -11680,7 +11676,7 @@ type OpenPageWebSearchAction struct {
 	URL  *string `json:"url,omitzero"`
 }
 
-func (FindInPageWebSearchAction) isWebSearchAction() {}
+func (OpenPageWebSearchAction) isWebSearchAction() {}
 
 // FindInPageWebSearchAction is generated from the FindInPageWebSearchAction schema definition.
 type FindInPageWebSearchAction struct {
@@ -11689,12 +11685,14 @@ type FindInPageWebSearchAction struct {
 	URL     *string `json:"url,omitzero"`
 }
 
-func (OtherWebSearchAction) isWebSearchAction() {}
+func (FindInPageWebSearchAction) isWebSearchAction() {}
 
 // OtherWebSearchAction is generated from the OtherWebSearchAction schema definition.
 type OtherWebSearchAction struct {
 	Type string `json:"type"`
 }
+
+func (OtherWebSearchAction) isWebSearchAction() {}
 
 func decodeGeneratedWebSearchAction(raw jsontext.Value) (WebSearchAction, error) {
 	if raw == nil {
@@ -11835,3 +11833,5 @@ const (
 	// WriteStatusOkOverridden is the "okOverridden" WriteStatus value.
 	WriteStatusOkOverridden WriteStatus = "okOverridden"
 )
+
+func (WarningNotification) isServerNotification() {}
