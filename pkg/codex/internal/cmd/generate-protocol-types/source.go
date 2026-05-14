@@ -76,7 +76,9 @@ func readHTTPSchemaSourceWithLimit(source string, maxBytes int64) ([]byte, error
 		}
 		return nil, fmt.Errorf("fetch %s: %w", sourceLabel, err)
 	}
-	defer response.Body.Close()
+	defer func() {
+		_ = response.Body.Close()
+	}()
 	if response.StatusCode < 200 || response.StatusCode > 299 {
 		return nil, fmt.Errorf("fetch %s: unexpected HTTP status %s", sourceLabel, response.Status)
 	}

@@ -23,6 +23,23 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
+type structField struct {
+	name       string
+	typ        string
+	tag        string
+	unionName  string
+	unionShape unionShape
+}
+
+type unionShape int
+
+const (
+	unionShapeNone unionShape = iota
+	unionShapeSingle
+	unionShapeOptionalSingle
+	unionShapeSlice
+)
+
 func (g *generator) emitDefinition(out *bytes.Buffer, name string, def *jsonschema.Schema) error {
 	if def == nil {
 		return fmt.Errorf("nil schema")

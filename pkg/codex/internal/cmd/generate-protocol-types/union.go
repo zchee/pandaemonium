@@ -23,6 +23,36 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
+type unionVariantKind int
+
+const (
+	unionVariantObject unionVariantKind = iota
+	unionVariantStringEnum
+	unionVariantString
+	unionVariantArray
+)
+
+type unionVariant struct {
+	raw          *jsonschema.Schema
+	schema       *jsonschema.Schema
+	typeName     string
+	kind         unionVariantKind
+	goType       string
+	stringValues []string
+	matchKey     string
+	matchValue   string
+}
+
+type interfaceUnion struct {
+	rawVariants []*jsonschema.Schema
+	variants    []unionVariant
+}
+
+type unionTaggerMethod struct {
+	unionName  string
+	targetType string
+}
+
 func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *jsonschema.Schema) error {
 	info, ok := g.interfaceUnionForSchema(goName, def)
 	if !ok || len(info.variants) == 0 {

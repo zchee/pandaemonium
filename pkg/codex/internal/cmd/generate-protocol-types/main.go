@@ -40,53 +40,6 @@ type generator struct {
 	emittedType         map[string]struct{}
 }
 
-type structField struct {
-	name       string
-	typ        string
-	tag        string
-	unionName  string
-	unionShape unionShape
-}
-
-type unionShape int
-
-const (
-	unionShapeNone unionShape = iota
-	unionShapeSingle
-	unionShapeOptionalSingle
-	unionShapeSlice
-)
-
-type unionVariantKind int
-
-const (
-	unionVariantObject unionVariantKind = iota
-	unionVariantStringEnum
-	unionVariantString
-	unionVariantArray
-)
-
-type unionVariant struct {
-	raw          *jsonschema.Schema
-	schema       *jsonschema.Schema
-	typeName     string
-	kind         unionVariantKind
-	goType       string
-	stringValues []string
-	matchKey     string
-	matchValue   string
-}
-
-type interfaceUnion struct {
-	rawVariants []*jsonschema.Schema
-	variants    []unionVariant
-}
-
-type unionTaggerMethod struct {
-	unionName  string
-	targetType string
-}
-
 const maxHTTPSchemaBytes = 32 << 20
 
 func main() {
