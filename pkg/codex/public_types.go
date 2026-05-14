@@ -73,13 +73,13 @@ func ApprovalModeOverrideSettings(mode *ApprovalMode) (*AskForApproval, *Approva
 
 func newAskForApproval(value any) (AskForApproval, error) {
 	switch value := value.(type) {
-	case AskForApproval:
-		return value, nil
 	case AskForApprovalValue:
 		return value, nil
 	case GranularAskForApproval:
 		return value, nil
 	case RawAskForApproval:
+		return value, nil
+	case AskForApproval:
 		return value, nil
 	default:
 		return nil, fmt.Errorf("unsupported AskForApproval value %T", value)
