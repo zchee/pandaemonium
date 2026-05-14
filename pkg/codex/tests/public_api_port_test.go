@@ -25,7 +25,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/google/go-cmp/cmp"
 
-	codex "github.com/zchee/pandaemonium/pkg/codex"
+	"github.com/zchee/pandaemonium/pkg/codex"
 )
 
 func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {

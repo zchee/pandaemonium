@@ -22,7 +22,7 @@ import (
 
 	"github.com/google/go-cmp/cmp"
 
-	codex "github.com/zchee/pandaemonium/pkg/codex"
+	"github.com/zchee/pandaemonium/pkg/codex"
 )
 
 func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {

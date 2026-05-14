@@ -82,7 +82,8 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 }
 
 func finalAssistantResponse(items []ThreadItem) string {
-	lastUnknownPhase := ""
+	var lastUnknownPhase string
+	foundUnknownPhase := false
 	for _, item := range slices.Backward(items) {
 		item, ok := decodeThreadItem(item)
 		if !ok || !item.agentMessage() {
@@ -91,8 +92,9 @@ func finalAssistantResponse(items []ThreadItem) string {
 		if item.Phase == "final_answer" || item.Phase == "finalAnswer" {
 			return item.Text
 		}
-		if item.Phase == "" && lastUnknownPhase == "" {
+		if item.Phase == "" && !foundUnknownPhase {
 			lastUnknownPhase = item.Text
+			foundUnknownPhase = true
 		}
 	}
 	return lastUnknownPhase
