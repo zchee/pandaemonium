@@ -1091,8 +1091,6 @@ func (g *generator) emitStruct(out *bytes.Buffer, goName, schemaName string, def
 		return nil
 	}
 	g.emittedType[goName] = struct{}{}
-	writeGodoc(out, "", goName, def.Description, fmt.Sprintf("%s is generated from the %s schema definition.", goName, schemaName))
-	fmt.Fprintf(out, "type %s struct {\n", goName)
 	properties := make([]string, 0, len(def.Properties))
 	for name := range def.Properties {
 		properties = append(properties, name)
@@ -1102,11 +1100,23 @@ func (g *generator) emitStruct(out *bytes.Buffer, goName, schemaName string, def
 	for _, name := range def.Required {
 		required[name] = true
 	}
+	namedInlineFields := g.namedInlineObjectFields(goName, def, properties, required)
+	for jsonName, typeName := range namedInlineFields {
+		if err := g.emitStruct(out, typeName, typeName, def.Properties[jsonName]); err != nil {
+			return err
+		}
+		out.WriteByte('\n')
+	}
+	writeGodoc(out, "", goName, def.Description, fmt.Sprintf("%s is generated from the %s schema definition.", goName, schemaName))
+	fmt.Fprintf(out, "type %s struct {\n", goName)
 	used := map[string]int{}
 	fields := make([]structField, 0, len(properties))
 	for index, jsonName := range properties {
 		fieldName := uniqueName(goFieldName(jsonName), used)
 		fieldType := g.typeForSchema(def.Properties[jsonName], !required[jsonName])
+		if namedType, ok := namedInlineFields[jsonName]; ok {
+			fieldType = pointerIfOptional(namedType, !required[jsonName])
+		}
 		tag := jsonName
 		if !required[jsonName] {
 			tag += ",omitzero"
@@ -1137,6 +1147,55 @@ func (g *generator) emitStruct(out *bytes.Buffer, goName, schemaName string, def
 		g.emitStructCustomUnmarshal(out, goName, fields)
 	}
 	return nil
+}
+
+func (g *generator) namedInlineObjectFields(parentGoName string, def *jsonschema.Schema, properties []string, required map[string]bool) map[string]string {
+	if !g.shouldNameInlineObjectFields(parentGoName, def, properties, required) {
+		return nil
+	}
+	used := g.reservedDefinitionTypeNames()
+	named := make(map[string]string)
+	for _, jsonName := range properties {
+		property := def.Properties[jsonName]
+		if !required[jsonName] || !nameableInlineObjectSchema(property) {
+			continue
+		}
+		named[jsonName] = uniqueName(goFieldName(jsonName), used)
+	}
+	return named
+}
+
+func (g *generator) shouldNameInlineObjectFields(parentGoName string, def *jsonschema.Schema, properties []string, required map[string]bool) bool {
+	if def == nil || len(properties) != 1 || len(required) != 1 {
+		return false
+	}
+	if g.isDefinitionType(parentGoName) {
+		return false
+	}
+	if _, ok := g.interfaceUnionForSchema(parentGoName, def); ok {
+		return false
+	}
+	matchKey, matchValue := g.unionVariantMatch(def)
+	return matchKey == properties[0] && matchValue == ""
+}
+
+func (g *generator) isDefinitionType(goName string) bool {
+	for name := range g.definitions {
+		if g.goTypeName(name) == goName {
+			return true
+		}
+	}
+	return false
+}
+
+func nameableInlineObjectSchema(def *jsonschema.Schema) bool {
+	if def == nil || def.Ref != "" || def.Title != "" {
+		return false
+	}
+	if !objectSchema(def) || len(def.Properties) == 0 {
+		return false
+	}
+	return def.AdditionalProperties == nil
 }
 
 func (g *generator) structNeedsCustomUnmarshal(def *jsonschema.Schema) bool {

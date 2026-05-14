@@ -34,6 +34,16 @@ const (
 	AskForApprovalValueNever     AskForApprovalValue = "never"
 )
 
+// ApprovalMode is a high-level approval preset compatible with the Python SDK.
+type ApprovalMode string
+
+const (
+	// ApprovalModeDenyAll denies all requests without routing to a reviewer.
+	ApprovalModeDenyAll ApprovalMode = "deny_all"
+	// ApprovalModeAutoReview routes on-request approvals to the auto-reviewer.
+	ApprovalModeAutoReview ApprovalMode = "auto_review"
+)
+
 // Granular is the structured Python-parity arm for AskForApproval.
 type Granular struct {
 	MCPElicitations    bool  `json:"mcp_elicitations"`
@@ -56,6 +66,39 @@ func NewAskForApprovalValue(value AskForApprovalValue) (AskForApproval, error) {
 // NewGranularAskForApproval creates an AskForApproval root value from settings.
 func NewGranularAskForApproval(value GranularAskForApproval) (AskForApproval, error) {
 	return newAskForApproval(value)
+}
+
+// ApprovalModeSettings maps a high-level approval preset to protocol settings.
+func ApprovalModeSettings(mode ApprovalMode) (AskForApproval, *ApprovalsReviewer, error) {
+	switch mode {
+	case ApprovalModeDenyAll:
+		approval, err := NewAskForApprovalValue(AskForApprovalValueNever)
+		if err != nil {
+			return nil, nil, err
+		}
+		return approval, nil, nil
+	case ApprovalModeAutoReview:
+		approval, err := NewAskForApprovalValue(AskForApprovalValueOnRequest)
+		if err != nil {
+			return nil, nil, err
+		}
+		reviewer := ApprovalsReviewerAutoReview
+		return approval, &reviewer, nil
+	default:
+		return nil, nil, fmt.Errorf("unsupported ApprovalMode %q", mode)
+	}
+}
+
+// ApprovalModeOverrideSettings maps an optional approval preset to pointer settings.
+func ApprovalModeOverrideSettings(mode *ApprovalMode) (*AskForApproval, *ApprovalsReviewer, error) {
+	if mode == nil {
+		return nil, nil, nil
+	}
+	approval, reviewer, err := ApprovalModeSettings(*mode)
+	if err != nil {
+		return nil, nil, err
+	}
+	return &approval, reviewer, nil
 }
 
 func newAskForApproval(value any) (AskForApproval, error) {

@@ -704,6 +704,182 @@ func TestGenerateMixedUnionDefinitions(t *testing.T) {
 	}
 }
 
+func TestGenerateUnionWrapperInlineObjectPayloads(t *testing.T) {
+	definitions := map[string]*jsonschema.Schema{
+		"CodexErrorInfo": {
+			OneOf: []*jsonschema.Schema{
+				{
+					Title: "HttpConnectionFailedCodexErrorInfo",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"httpConnectionFailed": {
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"httpStatusCode": {Type: "integer", Format: "uint16"},
+							},
+						},
+					},
+					Required: []string{"httpConnectionFailed"},
+				},
+				{
+					Title: "ResponseStreamConnectionFailedCodexErrorInfo",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"responseStreamConnectionFailed": {
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"httpStatusCode": {Types: []string{"integer", "null"}, Format: "uint16"},
+							},
+						},
+					},
+					Required: []string{"responseStreamConnectionFailed"},
+				},
+				{
+					Title: "ResponseStreamDisconnectedCodexErrorInfo",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"responseStreamDisconnected": {
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"httpStatusCode": {Types: []string{"integer", "null"}, Format: "uint16"},
+							},
+						},
+					},
+					Required: []string{"responseStreamDisconnected"},
+				},
+				{
+					Title: "ResponseTooManyFailedAttemptsCodexErrorInfo",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"responseTooManyFailedAttempts": {
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"httpStatusCode": {Types: []string{"integer", "null"}, Format: "uint16"},
+							},
+						},
+					},
+					Required: []string{"responseTooManyFailedAttempts"},
+				},
+				{
+					Title: "ActiveTurnNotSteerableCodexErrorInfo",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"activeTurnNotSteerable": {
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"turnKind": {Type: "string"},
+							},
+							Required: []string{"turnKind"},
+						},
+					},
+					Required: []string{"activeTurnNotSteerable"},
+				},
+			},
+		},
+		"SubAgentSource": {
+			OneOf: []*jsonschema.Schema{
+				{Type: "string", Enum: []any{"review"}},
+				{
+					Title: "ThreadSpawnSubAgentSource",
+					Type:  "object",
+					Properties: map[string]*jsonschema.Schema{
+						"thread_spawn": {
+							Type: "object",
+							Properties: map[string]*jsonschema.Schema{
+								"depth":            {Type: "integer", Format: "int32"},
+								"parent_thread_id": {Type: "string"},
+							},
+							Required: []string{"depth", "parent_thread_id"},
+						},
+					},
+					Required: []string{"thread_spawn"},
+				},
+			},
+		},
+		"Holder": {
+			Type:     "object",
+			Required: []string{"payload"},
+			Properties: map[string]*jsonschema.Schema{
+				"payload": {
+					Type: "object",
+					Properties: map[string]*jsonschema.Schema{
+						"value": {Type: "string"},
+					},
+					Required: []string{"value"},
+				},
+			},
+		},
+	}
+
+	gotBytes, err := newGenerator(definitions).generate("schema.json", "codexappserver")
+	if err != nil {
+		t.Fatalf("generate() error = %v", err)
+	}
+	got := string(gotBytes)
+	wantFragments := []string{
+		"type HTTPConnectionFailed struct {",
+		"HTTPStatusCode *int64 `json:\"httpStatusCode,omitzero\"`",
+		"type HTTPConnectionFailedCodexErrorInfo struct {",
+		"HTTPConnectionFailed HTTPConnectionFailed `json:\"httpConnectionFailed\"`",
+		"type ResponseStreamConnectionFailed struct {",
+		"ResponseStreamConnectionFailed ResponseStreamConnectionFailed `json:\"responseStreamConnectionFailed\"`",
+		"type ResponseStreamDisconnected struct {",
+		"ResponseStreamDisconnected ResponseStreamDisconnected `json:\"responseStreamDisconnected\"`",
+		"type ResponseTooManyFailedAttempts struct {",
+		"ResponseTooManyFailedAttempts ResponseTooManyFailedAttempts `json:\"responseTooManyFailedAttempts\"`",
+		"type ActiveTurnNotSteerable struct {",
+		"TurnKind string `json:\"turnKind\"`",
+		"ActiveTurnNotSteerable ActiveTurnNotSteerable `json:\"activeTurnNotSteerable\"`",
+		"type ThreadSpawn struct {",
+		"Depth int32 `json:\"depth\"`",
+		"ParentThreadID string `json:\"parent_thread_id\"`",
+		"ThreadSpawn ThreadSpawn `json:\"thread_spawn\"`",
+	}
+	for _, fragment := range wantFragments {
+		if !strings.Contains(got, fragment) {
+			t.Fatalf("generated source missing %q:\n%s", fragment, got)
+		}
+	}
+	rawWrapperFields := map[string]string{
+		"HTTPConnectionFailedCodexErrorInfo":           "HTTPConnectionFailed jsontext.Value",
+		"ResponseStreamConnectionFailedCodexErrorInfo": "ResponseStreamConnectionFailed jsontext.Value",
+		"ResponseStreamDisconnectedCodexErrorInfo":     "ResponseStreamDisconnected jsontext.Value",
+		"ResponseTooManyFailedAttemptsCodexErrorInfo":  "ResponseTooManyFailedAttempts jsontext.Value",
+		"ActiveTurnNotSteerableCodexErrorInfo":         "ActiveTurnNotSteerable jsontext.Value",
+		"ThreadSpawnSubAgentSource":                    "ThreadSpawn jsontext.Value",
+	}
+	for typeName, unwanted := range rawWrapperFields {
+		if body := generatedStructBody(t, got, typeName); strings.Contains(body, unwanted) {
+			t.Fatalf("generated %s still uses raw inline payload %q:\n%s", typeName, unwanted, got)
+		}
+	}
+	for _, unwanted := range []string{
+		"type Payload struct {",
+	} {
+		if strings.Contains(got, unwanted) {
+			t.Fatalf("generated source unexpectedly contains %q:\n%s", unwanted, got)
+		}
+	}
+	if !strings.Contains(got, "Payload jsontext.Value `json:\"payload\"`") {
+		t.Fatalf("top-level anonymous object field should remain raw:\n%s", got)
+	}
+}
+
+func generatedStructBody(t *testing.T, source, typeName string) string {
+	t.Helper()
+
+	start := strings.Index(source, "type "+typeName+" struct {")
+	if start < 0 {
+		t.Fatalf("generated source missing struct %s:\n%s", typeName, source)
+	}
+	bodyStart := start + len("type "+typeName+" struct {")
+	end := strings.Index(source[bodyStart:], "\n}")
+	if end < 0 {
+		t.Fatalf("generated source has unterminated struct %s:\n%s", typeName, source)
+	}
+	return source[bodyStart : bodyStart+end]
+}
+
 func TestGenerateUnionVariantNamesAvoidTopLevelDefinitionCollisions(t *testing.T) {
 	definitions := map[string]*jsonschema.Schema{
 		"Event": {

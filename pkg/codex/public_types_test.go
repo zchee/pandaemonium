@@ -62,6 +62,10 @@ func TestPublicGeneratedInterfaceUnionParityTypes(t *testing.T) {
 
 	var (
 		_ CodexErrorInfo   = CodexErrorInfoValueOther
+		_ CodexErrorInfo   = HTTPConnectionFailedCodexErrorInfo{}
+		_ CodexErrorInfo   = ResponseStreamConnectionFailedCodexErrorInfo{}
+		_ CodexErrorInfo   = ResponseStreamDisconnectedCodexErrorInfo{}
+		_ CodexErrorInfo   = ResponseTooManyFailedAttemptsCodexErrorInfo{}
 		_ CodexErrorInfo   = ActiveTurnNotSteerableCodexErrorInfo{}
 		_ CodexErrorInfo   = RawCodexErrorInfo{}
 		_ ReasoningSummary = ReasoningSummaryValueNone
@@ -81,12 +85,22 @@ func TestPublicGeneratedInterfaceUnionParityTypes(t *testing.T) {
 		typ  reflect.Type
 	}{
 		{name: "CodexErrorInfoValue", typ: reflect.TypeFor[CodexErrorInfoValue]()},
+		{name: "HTTPConnectionFailed", typ: reflect.TypeFor[HTTPConnectionFailed]()},
+		{name: "HTTPConnectionFailedCodexErrorInfo", typ: reflect.TypeFor[HTTPConnectionFailedCodexErrorInfo]()},
+		{name: "ResponseStreamConnectionFailed", typ: reflect.TypeFor[ResponseStreamConnectionFailed]()},
+		{name: "ResponseStreamConnectionFailedCodexErrorInfo", typ: reflect.TypeFor[ResponseStreamConnectionFailedCodexErrorInfo]()},
+		{name: "ResponseStreamDisconnected", typ: reflect.TypeFor[ResponseStreamDisconnected]()},
+		{name: "ResponseStreamDisconnectedCodexErrorInfo", typ: reflect.TypeFor[ResponseStreamDisconnectedCodexErrorInfo]()},
+		{name: "ResponseTooManyFailedAttempts", typ: reflect.TypeFor[ResponseTooManyFailedAttempts]()},
+		{name: "ResponseTooManyFailedAttemptsCodexErrorInfo", typ: reflect.TypeFor[ResponseTooManyFailedAttemptsCodexErrorInfo]()},
+		{name: "ActiveTurnNotSteerable", typ: reflect.TypeFor[ActiveTurnNotSteerable]()},
 		{name: "ActiveTurnNotSteerableCodexErrorInfo", typ: reflect.TypeFor[ActiveTurnNotSteerableCodexErrorInfo]()},
 		{name: "ReasoningSummaryValue", typ: reflect.TypeFor[ReasoningSummaryValue]()},
 		{name: "SessionSourceValue", typ: reflect.TypeFor[SessionSourceValue]()},
 		{name: "CustomSessionSource", typ: reflect.TypeFor[CustomSessionSource]()},
 		{name: "SubAgentSessionSource", typ: reflect.TypeFor[SubAgentSessionSource]()},
 		{name: "SubAgentSourceValue", typ: reflect.TypeFor[SubAgentSourceValue]()},
+		{name: "ThreadSpawn", typ: reflect.TypeFor[ThreadSpawn]()},
 		{name: "ThreadSpawnSubAgentSource", typ: reflect.TypeFor[ThreadSpawnSubAgentSource]()},
 		{name: "OtherSubAgentSource", typ: reflect.TypeFor[OtherSubAgentSource]()},
 	}
@@ -99,4 +113,96 @@ func TestPublicGeneratedInterfaceUnionParityTypes(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestApprovalModeSettings(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		mode         ApprovalMode
+		wantApproval string
+		wantReviewer *ApprovalsReviewer
+		wantErr      bool
+	}{
+		"success: deny all": {
+			mode:         ApprovalModeDenyAll,
+			wantApproval: `"never"`,
+		},
+		"success: auto review": {
+			mode:         ApprovalModeAutoReview,
+			wantApproval: `"on-request"`,
+			wantReviewer: ptr(ApprovalsReviewerAutoReview),
+		},
+		"error: unsupported approval mode": {
+			mode:    ApprovalMode("future"),
+			wantErr: true,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			gotApproval, gotReviewer, err := ApprovalModeSettings(tt.mode)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatal("ApprovalModeSettings() error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("ApprovalModeSettings() error = %v", err)
+			}
+			gotBytes, err := json.Marshal(gotApproval)
+			if err != nil {
+				t.Fatalf("json.Marshal(AskForApproval) error = %v", err)
+			}
+			if got := string(gotBytes); got != tt.wantApproval {
+				t.Fatalf("approval JSON = %s, want %s", got, tt.wantApproval)
+			}
+			if tt.wantReviewer == nil {
+				if gotReviewer != nil {
+					t.Fatalf("reviewer = %q, want nil", *gotReviewer)
+				}
+				return
+			}
+			if gotReviewer == nil || *gotReviewer != *tt.wantReviewer {
+				t.Fatalf("reviewer = %#v, want %#v", gotReviewer, tt.wantReviewer)
+			}
+		})
+	}
+}
+
+func TestApprovalModeOverrideSettings(t *testing.T) {
+	t.Parallel()
+
+	gotApproval, gotReviewer, err := ApprovalModeOverrideSettings(nil)
+	if err != nil {
+		t.Fatalf("ApprovalModeOverrideSettings(nil) error = %v", err)
+	}
+	if gotApproval != nil || gotReviewer != nil {
+		t.Fatalf("ApprovalModeOverrideSettings(nil) = (%#v, %#v), want nil pointers", gotApproval, gotReviewer)
+	}
+
+	mode := ApprovalModeAutoReview
+	gotApproval, gotReviewer, err = ApprovalModeOverrideSettings(&mode)
+	if err != nil {
+		t.Fatalf("ApprovalModeOverrideSettings(auto_review) error = %v", err)
+	}
+	if gotApproval == nil {
+		t.Fatal("approval pointer = nil, want value")
+	}
+	gotBytes, err := json.Marshal(*gotApproval)
+	if err != nil {
+		t.Fatalf("json.Marshal(AskForApproval) error = %v", err)
+	}
+	if got := string(gotBytes); got != `"on-request"` {
+		t.Fatalf("approval JSON = %s, want \"on-request\"", got)
+	}
+	if gotReviewer == nil || *gotReviewer != ApprovalsReviewerAutoReview {
+		t.Fatalf("reviewer = %#v, want auto_review", gotReviewer)
+	}
+}
+
+func ptr[T any](value T) *T {
+	return &value
 }

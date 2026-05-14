@@ -320,8 +320,88 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		if objectError.CodexErrorInfo == nil {
 			t.Fatal("CodexErrorInfo = nil, want object variant")
 		}
-		if _, ok := (*objectError.CodexErrorInfo).(ActiveTurnNotSteerableCodexErrorInfo); !ok {
+		activeTurn, ok := (*objectError.CodexErrorInfo).(ActiveTurnNotSteerableCodexErrorInfo)
+		if !ok {
 			t.Fatalf("CodexErrorInfo = %#v (%T), want ActiveTurnNotSteerableCodexErrorInfo", *objectError.CodexErrorInfo, *objectError.CodexErrorInfo)
+		}
+		if got := activeTurn.ActiveTurnNotSteerable.TurnKind; got != NonSteerableTurnKindReview {
+			t.Fatalf("ActiveTurnNotSteerable.TurnKind = %q, want %q", got, NonSteerableTurnKindReview)
+		}
+	})
+
+	t.Run("success: codex error info decodes typed retry payloads", func(t *testing.T) {
+		t.Parallel()
+
+		tests := map[string]struct {
+			input     string
+			assertion func(t *testing.T, got CodexErrorInfo)
+		}{
+			"success: http connection failed": {
+				input: `{"message":"http","codexErrorInfo":{"httpConnectionFailed":{"httpStatusCode":429}}}`,
+				assertion: func(t *testing.T, got CodexErrorInfo) {
+					t.Helper()
+					value, ok := got.(HTTPConnectionFailedCodexErrorInfo)
+					if !ok {
+						t.Fatalf("CodexErrorInfo = %#v (%T), want HTTPConnectionFailedCodexErrorInfo", got, got)
+					}
+					if value.HTTPConnectionFailed.HTTPStatusCode == nil || *value.HTTPConnectionFailed.HTTPStatusCode != 429 {
+						t.Fatalf("HTTPStatusCode = %#v, want 429", value.HTTPConnectionFailed.HTTPStatusCode)
+					}
+				},
+			},
+			"success: response stream connection failed": {
+				input: `{"message":"sse","codexErrorInfo":{"responseStreamConnectionFailed":{"httpStatusCode":503}}}`,
+				assertion: func(t *testing.T, got CodexErrorInfo) {
+					t.Helper()
+					value, ok := got.(ResponseStreamConnectionFailedCodexErrorInfo)
+					if !ok {
+						t.Fatalf("CodexErrorInfo = %#v (%T), want ResponseStreamConnectionFailedCodexErrorInfo", got, got)
+					}
+					if value.ResponseStreamConnectionFailed.HTTPStatusCode == nil || *value.ResponseStreamConnectionFailed.HTTPStatusCode != 503 {
+						t.Fatalf("HTTPStatusCode = %#v, want 503", value.ResponseStreamConnectionFailed.HTTPStatusCode)
+					}
+				},
+			},
+			"success: response stream disconnected": {
+				input: `{"message":"sse","codexErrorInfo":{"responseStreamDisconnected":{"httpStatusCode":502}}}`,
+				assertion: func(t *testing.T, got CodexErrorInfo) {
+					t.Helper()
+					value, ok := got.(ResponseStreamDisconnectedCodexErrorInfo)
+					if !ok {
+						t.Fatalf("CodexErrorInfo = %#v (%T), want ResponseStreamDisconnectedCodexErrorInfo", got, got)
+					}
+					if value.ResponseStreamDisconnected.HTTPStatusCode == nil || *value.ResponseStreamDisconnected.HTTPStatusCode != 502 {
+						t.Fatalf("HTTPStatusCode = %#v, want 502", value.ResponseStreamDisconnected.HTTPStatusCode)
+					}
+				},
+			},
+			"success: response too many failed attempts": {
+				input: `{"message":"retry","codexErrorInfo":{"responseTooManyFailedAttempts":{"httpStatusCode":500}}}`,
+				assertion: func(t *testing.T, got CodexErrorInfo) {
+					t.Helper()
+					value, ok := got.(ResponseTooManyFailedAttemptsCodexErrorInfo)
+					if !ok {
+						t.Fatalf("CodexErrorInfo = %#v (%T), want ResponseTooManyFailedAttemptsCodexErrorInfo", got, got)
+					}
+					if value.ResponseTooManyFailedAttempts.HTTPStatusCode == nil || *value.ResponseTooManyFailedAttempts.HTTPStatusCode != 500 {
+						t.Fatalf("HTTPStatusCode = %#v, want 500", value.ResponseTooManyFailedAttempts.HTTPStatusCode)
+					}
+				},
+			},
+		}
+		for name, tt := range tests {
+			t.Run(name, func(t *testing.T) {
+				t.Parallel()
+
+				var got TurnError
+				if err := json.Unmarshal([]byte(tt.input), &got); err != nil {
+					t.Fatalf("json.Unmarshal() error = %v", err)
+				}
+				if got.CodexErrorInfo == nil {
+					t.Fatal("CodexErrorInfo = nil, want typed variant")
+				}
+				tt.assertion(t, *got.CodexErrorInfo)
+			})
 		}
 	})
 
@@ -382,6 +462,50 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		}
 		if subAgent, ok := source.SubAgent.(OtherSubAgentSource); !ok || subAgent.Other != "external" {
 			t.Fatalf("SubAgent = %#v (%T), want OtherSubAgentSource", source.SubAgent, source.SubAgent)
+		}
+	})
+
+	t.Run("success: session source decodes typed thread-spawn sub-agent payload", func(t *testing.T) {
+		t.Parallel()
+
+		input := `{
+			"cliVersion":"0.1.0",
+			"createdAt":1,
+			"cwd":"/tmp/project",
+			"ephemeral":false,
+			"id":"thr-1",
+			"modelProvider":"openai",
+			"preview":"",
+			"sessionId":"sess-1",
+			"source":{"subAgent":{"thread_spawn":{"depth":2,"parent_thread_id":"parent-thread","agent_nickname":"reviewer","agent_role":"critic"}}},
+			"status":{"type":"idle"},
+			"turns":[],
+			"updatedAt":2
+		}`
+		var got ThreadPayload
+		if err := json.Unmarshal([]byte(input), &got); err != nil {
+			t.Fatalf("json.Unmarshal() error = %v", err)
+		}
+		source, ok := got.Source.(SubAgentSessionSource)
+		if !ok {
+			t.Fatalf("Source = %#v (%T), want SubAgentSessionSource", got.Source, got.Source)
+		}
+		subAgent, ok := source.SubAgent.(ThreadSpawnSubAgentSource)
+		if !ok {
+			t.Fatalf("SubAgent = %#v (%T), want ThreadSpawnSubAgentSource", source.SubAgent, source.SubAgent)
+		}
+		threadSpawn := subAgent.ThreadSpawn
+		if threadSpawn.Depth != 2 {
+			t.Fatalf("ThreadSpawn.Depth = %d, want 2", threadSpawn.Depth)
+		}
+		if threadSpawn.ParentThreadID != "parent-thread" {
+			t.Fatalf("ThreadSpawn.ParentThreadID = %q, want parent-thread", threadSpawn.ParentThreadID)
+		}
+		if threadSpawn.AgentNickname == nil || *threadSpawn.AgentNickname != "reviewer" {
+			t.Fatalf("ThreadSpawn.AgentNickname = %#v, want reviewer", threadSpawn.AgentNickname)
+		}
+		if threadSpawn.AgentRole == nil || *threadSpawn.AgentRole != "critic" {
+			t.Fatalf("ThreadSpawn.AgentRole = %#v, want critic", threadSpawn.AgentRole)
 		}
 	})
 }

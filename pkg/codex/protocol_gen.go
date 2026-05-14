@@ -1804,37 +1804,62 @@ const (
 
 func (HTTPConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
 
+// HTTPConnectionFailed is generated from the HTTPConnectionFailed schema definition.
+type HTTPConnectionFailed struct {
+	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+}
+
 // HTTPConnectionFailedCodexErrorInfo is generated from the HttpConnectionFailedCodexErrorInfo schema definition.
 type HTTPConnectionFailedCodexErrorInfo struct {
-	HTTPConnectionFailed jsontext.Value `json:"httpConnectionFailed"`
+	HTTPConnectionFailed HTTPConnectionFailed `json:"httpConnectionFailed"`
 }
 
 func (ResponseStreamConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
 
+// ResponseStreamConnectionFailed is generated from the ResponseStreamConnectionFailed schema definition.
+type ResponseStreamConnectionFailed struct {
+	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+}
+
 // ResponseStreamConnectionFailedCodexErrorInfo failed to connect to the response SSE stream.
 type ResponseStreamConnectionFailedCodexErrorInfo struct {
-	ResponseStreamConnectionFailed jsontext.Value `json:"responseStreamConnectionFailed"`
+	ResponseStreamConnectionFailed ResponseStreamConnectionFailed `json:"responseStreamConnectionFailed"`
 }
 
 func (ResponseStreamDisconnectedCodexErrorInfo) isCodexErrorInfo() {}
 
+// ResponseStreamDisconnected is generated from the ResponseStreamDisconnected schema definition.
+type ResponseStreamDisconnected struct {
+	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+}
+
 // ResponseStreamDisconnectedCodexErrorInfo represents a response SSE stream disconnected in the middle of a turn before completion.
 type ResponseStreamDisconnectedCodexErrorInfo struct {
-	ResponseStreamDisconnected jsontext.Value `json:"responseStreamDisconnected"`
+	ResponseStreamDisconnected ResponseStreamDisconnected `json:"responseStreamDisconnected"`
 }
 
 func (ResponseTooManyFailedAttemptsCodexErrorInfo) isCodexErrorInfo() {}
 
+// ResponseTooManyFailedAttempts is generated from the ResponseTooManyFailedAttempts schema definition.
+type ResponseTooManyFailedAttempts struct {
+	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+}
+
 // ResponseTooManyFailedAttemptsCodexErrorInfo reached the retry limit for responses.
 type ResponseTooManyFailedAttemptsCodexErrorInfo struct {
-	ResponseTooManyFailedAttempts jsontext.Value `json:"responseTooManyFailedAttempts"`
+	ResponseTooManyFailedAttempts ResponseTooManyFailedAttempts `json:"responseTooManyFailedAttempts"`
 }
 
 func (ActiveTurnNotSteerableCodexErrorInfo) isCodexErrorInfo() {}
 
+// ActiveTurnNotSteerable is generated from the ActiveTurnNotSteerable schema definition.
+type ActiveTurnNotSteerable struct {
+	TurnKind NonSteerableTurnKind `json:"turnKind"`
+}
+
 // ActiveTurnNotSteerableCodexErrorInfo returned when `turn/start` or `turn/steer` is submitted while the current active turn cannot accept same-turn steering, for example `/review` or manual `/compact`.
 type ActiveTurnNotSteerableCodexErrorInfo struct {
-	ActiveTurnNotSteerable jsontext.Value `json:"activeTurnNotSteerable"`
+	ActiveTurnNotSteerable ActiveTurnNotSteerable `json:"activeTurnNotSteerable"`
 }
 
 func decodeGeneratedCodexErrorInfo(raw jsontext.Value) (CodexErrorInfo, error) {
@@ -8692,9 +8717,18 @@ const (
 
 func (ThreadSpawnSubAgentSource) isSubAgentSource() {}
 
+// ThreadSpawn is generated from the ThreadSpawn schema definition.
+type ThreadSpawn struct {
+	AgentNickname  *string    `json:"agent_nickname,omitzero"`
+	AgentPath      *AgentPath `json:"agent_path,omitzero"`
+	AgentRole      *string    `json:"agent_role,omitzero"`
+	Depth          int32      `json:"depth"`
+	ParentThreadID ThreadID   `json:"parent_thread_id"`
+}
+
 // ThreadSpawnSubAgentSource is generated from the ThreadSpawnSubAgentSource schema definition.
 type ThreadSpawnSubAgentSource struct {
-	ThreadSpawn jsontext.Value `json:"thread_spawn"`
+	ThreadSpawn ThreadSpawn `json:"thread_spawn"`
 }
 
 func (OtherSubAgentSource) isSubAgentSource() {}
