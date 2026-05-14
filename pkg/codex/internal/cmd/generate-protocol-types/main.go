@@ -196,7 +196,7 @@ func schemaSourceLabel(source string) string {
 }
 
 func validPackageName(name string) bool {
-	if name == "" || isGoPackageKeyword(name) {
+	if name == "" || isGoKeyword(name) {
 		return false
 	}
 	for i, r := range name {
@@ -211,15 +211,6 @@ func validPackageName(name string) bool {
 		}
 	}
 	return true
-}
-
-func isGoPackageKeyword(name string) bool {
-	switch name {
-	case "break", "default", "func", "interface", "select", "case", "defer", "go", "map", "struct", "chan", "else", "goto", "package", "switch", "const", "fallthrough", "if", "range", "type", "continue", "for", "import", "return", "var":
-		return true
-	default:
-		return false
-	}
 }
 
 func fatalf(format string, args ...any) {
@@ -241,7 +232,10 @@ func newGenerator(definitions map[string]*jsonschema.Schema) *generator {
 
 func (g *generator) generate(schemaPath, packageName string) ([]byte, error) {
 	g.packageName = packageName
-	g.typeNames = packageTypeNameOverrides(packageName)
+	g.typeNames = map[string]string{
+		"Config": "ConfigPayload",
+		"Thread": "ThreadPayload",
+	}
 	g.rawUnions = map[string]struct{}{}
 	g.rawDecodes = map[string]struct{}{}
 	var out bytes.Buffer
@@ -1384,18 +1378,6 @@ func (g *generator) unionRefName(def *jsonschema.Schema) (string, bool) {
 	return "", false
 }
 
-func (g *generator) emitsRawUnionWrapper(def *jsonschema.Schema) bool {
-	return g.emitsInterfaceUnion(def)
-}
-
-func (g *generator) emitsInterfaceUnion(def *jsonschema.Schema) bool {
-	info, ok := g.interfaceUnionForSchema("", def)
-	if !ok {
-		return false
-	}
-	return len(info.rawVariants) > 1 || len(info.variants) > 1
-}
-
 func (g *generator) emitsInterfaceUnionName(unionName string, def *jsonschema.Schema) bool {
 	info, ok := g.interfaceUnionForSchema(unionName, def)
 	if !ok {
@@ -2048,47 +2030,6 @@ func (g *generator) typeForSchema(def *jsonschema.Schema, optional bool) string 
 	}
 }
 
-func (g *generator) isObjectUnion(def *jsonschema.Schema) bool {
-	info, ok := g.interfaceUnionForSchema("", def)
-	if !ok || len(info.variants) == 0 {
-		return false
-	}
-	for _, variant := range info.variants {
-		if variant.kind != unionVariantObject {
-			return false
-		}
-	}
-	return true
-}
-
-func (g *generator) unionDiscriminatorProperty(variants []*jsonschema.Schema) (string, bool) {
-	if len(variants) == 0 {
-		return "", false
-	}
-	var expected string
-	for _, variant := range variants {
-		variantSchema := g.resolvedSchema(variant)
-		if !objectLikeSchema(variantSchema) {
-			return "", false
-		}
-		if variantSchema == nil {
-			return "", false
-		}
-		discriminator, ok := unionDiscriminatorProperty(variantSchema)
-		if !ok {
-			return "", false
-		}
-		if expected == "" {
-			expected = discriminator
-			continue
-		}
-		if expected != discriminator {
-			return "", false
-		}
-	}
-	return expected, true
-}
-
 func unionDiscriminatorProperty(def *jsonschema.Schema) (string, bool) {
 	var discovered string
 	for _, name := range def.Required {
@@ -2127,16 +2068,6 @@ func (g *generator) goTypeName(name string) string {
 		return renamed
 	}
 	return exportName(name)
-}
-
-func packageTypeNameOverrides(packageName string) map[string]string {
-	if packageName != "codex" && packageName != "codexappserver" {
-		return nil
-	}
-	return map[string]string{
-		"Config": "ConfigPayload",
-		"Thread": "ThreadPayload",
-	}
 }
 
 func pointerIfOptional(name string, optional bool) string {
@@ -2254,7 +2185,7 @@ func exportName(name string) string {
 	if result == "Type" {
 		return result
 	}
-	if isExportedGoKeywordEquivalent(result) {
+	if isGoKeyword(lowerFirstRune(result)) {
 		return result + "Value"
 	}
 	return result
@@ -2271,26 +2202,67 @@ func unexportName(name string) string {
 	if name == "" {
 		return "value"
 	}
-	runes := []rune(name)
-	runes[0] = unicode.ToLower(runes[0])
-	result := string(runes)
+	result := lowerFirstRune(name)
 	if isGoKeyword(result) {
 		return result + "Value"
 	}
 	return result
 }
 
+func lowerFirstRune(name string) string {
+	runes := []rune(name)
+	if len(runes) == 0 {
+		return name
+	}
+	runes[0] = unicode.ToLower(runes[0])
+	return string(runes)
+}
+
+var goInitialisms = []struct {
+	token     string
+	goName    string
+	normalize bool
+}{
+	// normalize records whether the old normalizeInitialisms replacement list
+	// handled camel/Pascal occurrences. "ip" remains exact-token only for
+	// generated-name compatibility.
+	{"api", "API", true},
+	{"ascii", "ASCII", true},
+	{"cpu", "CPU", true},
+	{"css", "CSS", true},
+	{"dns", "DNS", true},
+	{"eof", "EOF", true},
+	{"gpu", "GPU", true},
+	{"html", "HTML", true},
+	{"https", "HTTPS", true},
+	{"http", "HTTP", true},
+	{"ip", "IP", false},
+	{"json", "JSON", true},
+	{"lsp", "LSP", true},
+	{"mcp", "MCP", true},
+	{"oauth", "OAuth", true},
+	{"rpc", "RPC", true},
+	{"sdp", "SDP", true},
+	{"sdk", "SDK", true},
+	{"sql", "SQL", true},
+	{"ssh", "SSH", true},
+	{"tcp", "TCP", true},
+	{"tls", "TLS", true},
+	{"tty", "TTY", true},
+	{"uid", "UID", true},
+	{"uri", "URI", true},
+	{"url", "URL", true},
+	{"utf8", "UTF8", true},
+	{"uuid", "UUID", true},
+	{"vm", "VM", true},
+	{"xml", "XML", true},
+	{"id", "ID", true},
+	{"ui", "UI", true},
+}
+
 func exportPart(part string) string {
 	lower := strings.ToLower(part)
-	initialisms := map[string]string{
-		"api": "API", "ascii": "ASCII", "cpu": "CPU", "css": "CSS", "dns": "DNS", "eof": "EOF",
-		"gpu": "GPU", "html": "HTML", "http": "HTTP", "https": "HTTPS", "id": "ID", "ip": "IP",
-		"json": "JSON", "lsp": "LSP", "mcp": "MCP", "oauth": "OAuth", "rpc": "RPC", "sdp": "SDP",
-		"sdk": "SDK", "sql": "SQL", "ssh": "SSH", "tcp": "TCP", "tls": "TLS", "tty": "TTY",
-		"ui": "UI", "uid": "UID", "uri": "URI", "url": "URL", "utf8": "UTF8", "uuid": "UUID",
-		"vm": "VM", "xml": "XML",
-	}
-	if value, ok := initialisms[lower]; ok {
+	if value, ok := goInitialism(lower); ok {
 		return value
 	}
 	runes := []rune(part)
@@ -2308,56 +2280,36 @@ func exportPart(part string) string {
 	return string(runes)
 }
 
+func goInitialism(token string) (string, bool) {
+	for _, initialism := range goInitialisms {
+		if token == initialism.token {
+			return initialism.goName, true
+		}
+	}
+	return "", false
+}
+
 func hasUpperAfterFirst(runes []rune) bool {
 	return slices.ContainsFunc(runes[1:], unicode.IsUpper)
 }
 
 func normalizeInitialisms(name string) string {
-	replacements := []struct{ old, new string }{
-		{"Api", "API"},
-		{"Ascii", "ASCII"},
-		{"Cpu", "CPU"},
-		{"Css", "CSS"},
-		{"Dns", "DNS"},
-		{"Eof", "EOF"},
-		{"Gpu", "GPU"},
-		{"Html", "HTML"},
-		{"Https", "HTTPS"},
-		{"Http", "HTTP"},
-		{"Json", "JSON"},
-		{"Lsp", "LSP"},
-		{"Mcp", "MCP"},
-		{"Oauth", "OAuth"},
-		{"Rpc", "RPC"},
-		{"Sdp", "SDP"},
-		{"Sdk", "SDK"},
-		{"Sql", "SQL"},
-		{"Ssh", "SSH"},
-		{"Tcp", "TCP"},
-		{"Tls", "TLS"},
-		{"Tty", "TTY"},
-		{"Uid", "UID"},
-		{"Uri", "URI"},
-		{"Url", "URL"},
-		{"Utf8", "UTF8"},
-		{"Uuid", "UUID"},
-		{"Xml", "XML"},
-		{"Id", "ID"},
-		{"Ui", "UI"},
-	}
-	for _, replacement := range replacements {
-		name = strings.ReplaceAll(name, replacement.old, replacement.new)
+	for _, initialism := range goInitialisms {
+		if !initialism.normalize {
+			continue
+		}
+		name = strings.ReplaceAll(name, exportInitialismToken(initialism.token), initialism.goName)
 	}
 	return name
 }
 
-func isExportedGoKeywordEquivalent(name string) bool {
-	switch name {
-	case "Break", "Default", "Func", "Interface", "Select", "Case", "Defer", "Go", "Map", "Struct", "Chan", "Else", "Goto", "Package", "Switch", "Const", "Fallthrough", "If", "Range", "Type", "Continue", "For", "Import", "Return", "Var":
-		return true
-	default:
-		return false
+func exportInitialismToken(token string) string {
+	runes := []rune(token)
+	if len(runes) == 0 {
+		return token
 	}
+	runes[0] = unicode.ToUpper(runes[0])
+	return string(runes)
 }
 
 func isGoKeyword(name string) bool {

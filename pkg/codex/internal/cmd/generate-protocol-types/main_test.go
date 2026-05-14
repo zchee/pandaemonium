@@ -279,6 +279,18 @@ func TestExportName(t *testing.T) {
 			input: "threadId",
 			want:  "ThreadID",
 		},
+		"success: exact ip initialism": {
+			input: "ip",
+			want:  "IP",
+		},
+		"success: embedded ip preserves compatibility": {
+			input: "clientIp",
+			want:  "ClientIp",
+		},
+		"success: embedded overlapping initialisms are ordered": {
+			input: "httpsProxyUrl",
+			want:  "HTTPSProxyURL",
+		},
 		"success: pascal reference is preserved": {
 			input: "TurnError",
 			want:  "TurnError",
@@ -294,6 +306,10 @@ func TestExportName(t *testing.T) {
 		"success: exported type keyword is valid identifier": {
 			input: "type",
 			want:  "Type",
+		},
+		"success: exported non-type keyword gets suffix": {
+			input: "default",
+			want:  "DefaultValue",
 		},
 	}
 	for name, tt := range tests {
@@ -622,12 +638,6 @@ func TestGenerateUnionDefinitions(t *testing.T) {
 		},
 	}
 	g := newGenerator(definitions)
-	if got := g.isObjectUnion(definitions["InlineUnion"]); !got {
-		t.Fatalf("InlineUnion should be treated as object union")
-	}
-	if got := g.isObjectUnion(definitions["NoDiscriminatorUnion"]); !got {
-		t.Fatalf("NoDiscriminatorUnion should be treated as metadata object union")
-	}
 	gotBytes, err := g.generate("schema.json", "protocol")
 	if err != nil {
 		t.Fatalf("generate() error = %v", err)
