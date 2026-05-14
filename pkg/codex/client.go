@@ -258,6 +258,16 @@ func decodeRequestResult[T any](method string, raw jsontext.Value) (T, error) {
 		return zero, nil
 	}
 	var got T
+	if method == RequestMethodAccountLoginStart {
+		if target, ok := any(&got).(*LoginAccountResponse); ok {
+			decoded, err := decodeGeneratedLoginAccountResponse(raw)
+			if err != nil {
+				return zero, fmt.Errorf("decode %s response: %w", method, err)
+			}
+			*target = decoded
+			return got, nil
+		}
+	}
 	if err := json.Unmarshal(raw, &got); err != nil {
 		return zero, fmt.Errorf("decode %s response: %w", method, err)
 	}

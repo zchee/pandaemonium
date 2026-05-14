@@ -1362,6 +1362,7 @@ func TestHelperProcess(t *testing.T) {
 	reader := bufio.NewReader(os.Stdin)
 	writer := bufio.NewWriter(os.Stdout)
 	defer func() { _ = writer.Flush() }()
+	methodWrapperIndex := 0
 	for {
 		line, err := reader.ReadBytes('\n')
 		if err != nil {
@@ -1430,6 +1431,130 @@ func TestHelperProcess(t *testing.T) {
 			handleNotificationOverflowScenario(writer, method, id)
 			continue
 		}
+		if scenario == "method_wrappers" {
+			handleMethodWrappersScenario(writer, req, method, id, &methodWrapperIndex)
+			continue
+		}
+	}
+}
+
+var methodWrapperMethods = []string{
+	RequestMethodThreadStart,
+	RequestMethodThreadResume,
+	RequestMethodThreadFork,
+	RequestMethodThreadArchive,
+	RequestMethodThreadUnsubscribe,
+	RequestMethodThreadNameSet,
+	RequestMethodThreadMetadataUpdate,
+	RequestMethodThreadUnarchive,
+	RequestMethodThreadCompactStart,
+	RequestMethodThreadShellCommand,
+	RequestMethodThreadApproveGuardianDeniedAction,
+	RequestMethodThreadRollback,
+	RequestMethodThreadList,
+	RequestMethodThreadLoadedList,
+	RequestMethodThreadRead,
+	RequestMethodThreadInjectItems,
+	RequestMethodSkillsList,
+	RequestMethodHooksList,
+	RequestMethodMarketplaceAdd,
+	RequestMethodMarketplaceRemove,
+	RequestMethodMarketplaceUpgrade,
+	RequestMethodPluginList,
+	RequestMethodPluginRead,
+	RequestMethodPluginSkillRead,
+	RequestMethodPluginShareSave,
+	RequestMethodPluginShareUpdateTargets,
+	RequestMethodPluginShareList,
+	RequestMethodPluginShareDelete,
+	RequestMethodAppList,
+	RequestMethodFsReadFile,
+	RequestMethodFsWriteFile,
+	RequestMethodFsCreateDirectory,
+	RequestMethodFsGetMetadata,
+	RequestMethodFsReadDirectory,
+	RequestMethodFsRemove,
+	RequestMethodFsCopy,
+	RequestMethodFsWatch,
+	RequestMethodFsUnwatch,
+	RequestMethodSkillsConfigWrite,
+	RequestMethodPluginInstall,
+	RequestMethodPluginUninstall,
+	RequestMethodTurnStart,
+	RequestMethodTurnSteer,
+	RequestMethodTurnInterrupt,
+	RequestMethodReviewStart,
+	RequestMethodModelList,
+	RequestMethodModelProviderCapabilitiesRead,
+	RequestMethodExperimentalFeatureList,
+	RequestMethodExperimentalFeatureEnablementSet,
+	RequestMethodMCPServerOAuthLogin,
+	RequestMethodConfigMCPServerReload,
+	RequestMethodMCPServerStatusList,
+	RequestMethodMCPServerResourceRead,
+	RequestMethodMCPServerToolCall,
+	RequestMethodWindowsSandboxSetupStart,
+	RequestMethodWindowsSandboxReadiness,
+	RequestMethodAccountLoginStart,
+	RequestMethodAccountLoginCancel,
+	RequestMethodAccountLogout,
+	RequestMethodAccountRateLimitsRead,
+	RequestMethodAccountSendAddCreditsNudgeEmail,
+	RequestMethodFeedbackUpload,
+	RequestMethodCommandExec,
+	RequestMethodCommandExecWrite,
+	RequestMethodCommandExecTerminate,
+	RequestMethodCommandExecResize,
+	RequestMethodConfigRead,
+	RequestMethodExternalAgentConfigDetect,
+	RequestMethodExternalAgentConfigImport,
+	RequestMethodConfigValueWrite,
+	RequestMethodConfigBatchWrite,
+	RequestMethodConfigRequirementsRead,
+	RequestMethodAccountRead,
+	RequestMethodFuzzyFileSearch,
+}
+
+func handleMethodWrappersScenario(writer *bufio.Writer, req map[string]any, method, id string, index *int) {
+	if *index >= len(methodWrapperMethods) {
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32601, "message": "unexpected extra method " + method}})
+		return
+	}
+	want := methodWrapperMethods[*index]
+	(*index)++
+	if method != want {
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32601, "message": "unexpected method " + method + ", want " + want}})
+		return
+	}
+	params, ok := req["params"].(map[string]any)
+	if !ok {
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "missing object params for " + method}})
+		return
+	}
+	if methodWrapperExpectsEmptyParams(method) && len(params) != 0 {
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "unexpected params for " + method}})
+		return
+	}
+	switch method {
+	case RequestMethodAccountLoginStart:
+		writeJSON(writer, Object{"id": id, "result": Object{"type": "apiKey"}})
+	case RequestMethodFuzzyFileSearch:
+		writeJSON(writer, Object{"id": id, "result": Object{"sessionId": "fuzzy-session"}})
+	default:
+		writeJSON(writer, Object{"id": id, "result": nil})
+	}
+}
+
+func methodWrapperExpectsEmptyParams(method string) bool {
+	switch method {
+	case RequestMethodConfigMCPServerReload,
+		RequestMethodWindowsSandboxReadiness,
+		RequestMethodAccountLogout,
+		RequestMethodAccountRateLimitsRead,
+		RequestMethodConfigRequirementsRead:
+		return true
+	default:
+		return false
 	}
 }
 
