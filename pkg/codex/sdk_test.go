@@ -1101,7 +1101,7 @@ func TestStreamThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	defer func() { _ = client.Close() }()
 	model := "gpt-5.4"
 
-	thread := newStreamThread(client, "thr_run")
+	thread := streamThreadForTest(client, "thr_run")
 	if thread.ID() != "thr_run" {
 		t.Fatalf("StreamThread.ID() = %q, want thr_run", thread.ID())
 	}
@@ -1131,7 +1131,7 @@ func TestStreamThreadRunStreamYieldsNotificationsAndReleasesConsumer(t *testing.
 	defer func() { _ = client.Close() }()
 	model := "gpt-5.4"
 
-	thread := newStreamThread(client, "thr_run")
+	thread := streamThreadForTest(client, "thr_run")
 	notifications, err := collectStream(thread.RunStream(t.Context(), "hello", &TurnStartParams{Model: &model}))
 	if err != nil {
 		t.Fatalf("StreamThread.RunStream() error = %v", err)
@@ -1157,7 +1157,7 @@ func TestStreamTurnHandleDelegatesSteerInterruptAndStream(t *testing.T) {
 	}
 	defer func() { _ = client.Close() }()
 
-	thread := newStreamThread(client, "thr_stream")
+	thread := streamThreadForTest(client, "thr_stream")
 	handle, err := thread.Turn(t.Context(), "start", nil)
 	if err != nil {
 		t.Fatalf("StreamThread.Turn() error = %v", err)
@@ -1188,6 +1188,10 @@ func TestStreamTurnHandleDelegatesSteerInterruptAndStream(t *testing.T) {
 	case <-time.After(2 * time.Second):
 		t.Fatal("timed out waiting for stream completion")
 	}
+}
+
+func streamThreadForTest(client *Client, id string) *StreamThread {
+	return &StreamThread{thread: &Thread{client: client, id: id}}
 }
 
 func TestCodexStreamThreadLifecycleMethodsDelegateToThreadAPI(t *testing.T) {

@@ -37,10 +37,6 @@ type StreamTurnHandle struct {
 	handle *TurnHandle
 }
 
-func newStreamThread(client *Client, id string) *StreamThread {
-	return &StreamThread{thread: &Thread{client: client, id: id}}
-}
-
 // StreamThreadStart starts a new Codex thread and returns a streaming handle.
 func (c *Codex) StreamThreadStart(ctx context.Context, params *ThreadStartParams) (*StreamThread, error) {
 	thread, err := c.ThreadStart(ctx, params)
