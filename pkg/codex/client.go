@@ -330,7 +330,7 @@ func (c *Client) Start(ctx context.Context) error {
 		c.transport = &stdioTransport{stdin: stdin, stdout: c.stdout}
 		go c.drainStderr(stderr, c.stderrDone)
 	}
-	go c.readLoop(c.readDone)
+	go c.readLoop(c.transport, c.readDone)
 	return nil
 }
 
@@ -346,13 +346,13 @@ func (c *Client) Close() error {
 	transport := c.transport
 	readDone := c.readDone
 	stderrDone := c.stderrDone
-	c.transport = nil
 	c.cmd = nil
 	c.cmdDone = nil
 	c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
 	c.writeMu.Lock()
+	c.transport = nil
 	c.stdin = nil
 	if transport != nil {
 		_ = transport.Close()
@@ -734,11 +734,11 @@ func (c *Client) writeMessage(payload any) error {
 	return c.transport.WriteJSON(line)
 }
 
-func (c *Client) readMessage() (rpcMessage, error) {
-	if c.transport == nil {
+func (c *Client) readMessage(t transport) (rpcMessage, error) {
+	if t == nil {
 		return rpcMessage{}, &TransportClosedError{Message: "app-server is not running"}
 	}
-	line, err := c.transport.ReadJSON()
+	line, err := t.ReadJSON()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			return rpcMessage{}, &TransportClosedError{Message: "app-server closed stdout. stderr_tail=" + c.stderrTail(40)}
@@ -999,11 +999,11 @@ func (c *Client) handleServerRequest(msg rpcMessage) Object {
 	return Object{"id": msg.ID, "result": result}
 }
 
-func (c *Client) readLoop(done chan<- struct{}) {
+func (c *Client) readLoop(t transport, done chan<- struct{}) {
 	defer close(done)
 	defer c.turnRouter.close(&TransportClosedError{Message: "app-server notification stream closed"})
 	for {
-		msg, err := c.readMessage()
+		msg, err := c.readMessage(t)
 		if err != nil {
 			c.failPending(err)
 			return

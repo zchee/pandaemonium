@@ -88,7 +88,7 @@ func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
 			client.stderrDone = make(chan struct{})
 			close(client.stderrDone)
 			client.readDone = make(chan struct{})
-			go client.readLoop(client.readDone)
+			go client.readLoop(client.transport, client.readDone)
 			t.Cleanup(func() {
 				if err := client.Close(); err != nil {
 					t.Fatalf("Client.Close() error = %v", err)
