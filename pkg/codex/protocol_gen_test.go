@@ -258,14 +258,6 @@ func TestGeneratedNotificationMethodConstants(t *testing.T) {
 			got:  NotificationMethodWindowsSandboxSetupCompleted,
 			want: "windowsSandbox/setupCompleted",
 		},
-		"success: deprecated agent message alias": {
-			got:  NotificationMethodAgentMessageDelta,
-			want: NotificationMethodItemAgentMessageDelta,
-		},
-		"success: deprecated token usage alias": {
-			got:  NotificationMethodThreadTokenUsageUpdatedLegacy,
-			want: NotificationMethodThreadTokenUsageUpdated,
-		},
 	}
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {

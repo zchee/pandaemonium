@@ -288,19 +288,6 @@ func DecodeNotification(notification Notification) (KnownNotification, bool, err
 	return KnownNotification{Method: notification.Method, Value: value, Raw: notification}, true, err
 }
 
-// DecodeKnownNotification decodes the known notification set.
-//
-// Deprecated: use DecodeNotification. Unlike DecodeNotification, this function
-// returns matched=false when params are malformed (legacy behavior).
-func DecodeKnownNotification(notification Notification) (KnownNotification, bool, error) {
-	decode, ok := notificationDecoders[notification.Method]
-	if !ok {
-		return KnownNotification{Raw: notification}, false, nil
-	}
-	value, matched, err := decode(notification)
-	return KnownNotification{Method: notification.Method, Value: value, Raw: notification}, matched, err
-}
-
 // DecodeAccountLoginCompletedNotification decodes the account/login/completed notification.
 func DecodeAccountLoginCompletedNotification(notification Notification) (AccountLoginCompletedNotification, bool, error) {
 	return DecodeNotificationAs[AccountLoginCompletedNotification](notification, NotificationMethodAccountLoginCompleted)
@@ -616,13 +603,6 @@ func DecodeWindowsSandboxSetupCompletedNotification(notification Notification) (
 	return DecodeNotificationAs[WindowsSandboxSetupCompletedNotification](notification, NotificationMethodWindowsSandboxSetupCompleted)
 }
 
-// DecodeAgentMessageDeltaNotification decodes the item/agentMessage/delta notification.
-//
-// Deprecated: use DecodeItemAgentMessageDeltaNotification.
-func DecodeAgentMessageDeltaNotification(notification Notification) (AgentMessageDeltaNotification, bool, error) {
-	return DecodeItemAgentMessageDeltaNotification(notification)
-}
-
 // AccountLoginCompleted decodes the account/login/completed notification.
 func (notification Notification) AccountLoginCompleted() (AccountLoginCompletedNotification, bool, error) {
 	return DecodeAccountLoginCompletedNotification(notification)
@@ -936,11 +916,4 @@ func (notification Notification) WindowsWorldWritableWarning() (WindowsWorldWrit
 // WindowsSandboxSetupCompleted decodes the windowsSandbox/setupCompleted notification.
 func (notification Notification) WindowsSandboxSetupCompleted() (WindowsSandboxSetupCompletedNotification, bool, error) {
 	return DecodeWindowsSandboxSetupCompletedNotification(notification)
-}
-
-// AgentMessageDelta decodes the item/agentMessage/delta notification.
-//
-// Deprecated: use ItemAgentMessageDelta.
-func (notification Notification) AgentMessageDelta() (AgentMessageDeltaNotification, bool, error) {
-	return notification.ItemAgentMessageDelta()
 }
