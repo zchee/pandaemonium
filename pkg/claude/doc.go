@@ -60,6 +60,26 @@
 //
 //	go run -tags capture ./pkg/claude/internal/cmd/capture-fakecli-fixtures
 //
+// # iter.Seq2 early-break idiom
+//
+// The package returns [iter.Seq2][Message, error] from [Query] and
+// [ClaudeSDKClient.ReceiveResponse]. Callers may break out of the range loop
+// at any time without draining the channel; the iterator's cleanup path
+// releases the underlying subprocess and closes any MCP servers:
+//
+//	for msg, err := range claude.Query(ctx, "hello", nil) {
+//	    if err != nil { log.Fatal(err) }
+//	    if _, ok := msg.(claude.ResultMessage); ok {
+//	        break // clean exit — subprocess is reaped
+//	    }
+//	    fmt.Println(msg)
+//	}
+//
+// The iter.Seq2 return type was chosen in Phase 0 over a channel-based
+// approach because it integrates natively with range-over-func (Go 1.23+),
+// avoids goroutine leaks on early break, and keeps the zero-allocation
+// hot-path open for future work.
+//
 // # Real-CLI integration tests
 //
 // Set RUN_REAL_CLAUDE_TESTS=1 to opt in to the integration test lane that
