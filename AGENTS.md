@@ -22,9 +22,9 @@
 Run from the repository root.
 
 - `go build ./...` — compile every package; fails fast on type or vet-adjacent errors.
-- `go test ./...` — run all unit and SDK tests (excludes the opt-in real-server lane).
-- `RUN_REAL_CODEX_TESTS=1 go test ./pkg/codex/...` — run integration tests against a real `codex` binary on `PATH`.
-- `go test -run TestName ./pkg/codex` — focused test execution.
+- `go test -v -race -count=1 -shuffle=on ./...` — run all unit and SDK tests (excludes the opt-in real-server lane).
+- `RUN_REAL_CODEX_TESTS=1 go test -v -race -count=1 -shuffle=on ./pkg/codex/...` — run integration tests against a real `codex` binary on `PATH`.
+- `go test -v -race -count=1 -shuffle=on -run TestName ./pkg/codex` — focused test execution.
 - `go generate ./pkg/codex` — regenerate `protocol_gen.go` from the pinned upstream schema URL declared in `generate.go`.
 - `go run ./pkg/codex/internal/cmd/generate-protocol-types -schema <path-or-url> -out ./pkg/codex/protocol_gen.go -package codexappserver` — direct generator invocation (use a different `-schema` for local experimentation).
 - `go mod tidy && go mod vendor` — refresh module graph and the committed `vendor/` tree after dependency changes.
