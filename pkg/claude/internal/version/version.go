@@ -24,6 +24,5 @@ const (
 
 	// MCPGoSDKVersion is the pinned tag of github.com/modelcontextprotocol/go-sdk.
 	// Bump this constant in the same commit that updates go.mod + vendor/.
-	// Set to "unpinned" until Phase E lands the dep.
-	MCPGoSDKVersion = "unpinned"
+	MCPGoSDKVersion = "v1.6.0"
 )
