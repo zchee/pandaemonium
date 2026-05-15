@@ -66,12 +66,11 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 
 	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
 	client := NewClient(&Config{}, nil)
-	client.transport = &stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)}
+	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
 	client.responses = map[string]chan responseWait{}
-	client.notifications = make(chan Notification, notificationQueueCapacity)
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
-	go client.readLoop(ctx, client.transport, client.readDone)
+	go client.readLoop(ctx, client.loadTransport(), client.readDone)
 	go benchmarkJSONRPCResponder(b, ctx, stdinR, stdoutW, "stdio")
 	b.Cleanup(func() {
 		if err := client.Close(); err != nil {
@@ -89,12 +88,11 @@ func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.Canc
 		b.Fatalf("websocket.Dial() error = %v", err)
 	}
 	client := NewClient(&Config{}, nil)
-	client.transport = &websocketTransport{conn: conn}
+	client.storeTransport(&websocketTransport{conn: conn})
 	client.responses = map[string]chan responseWait{}
-	client.notifications = make(chan Notification, notificationQueueCapacity)
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
-	go client.readLoop(ctx, client.transport, client.readDone)
+	go client.readLoop(ctx, client.loadTransport(), client.readDone)
 	b.Cleanup(func() {
 		if err := client.Close(); err != nil {
 			b.Fatalf("Client.Close() error = %v", err)

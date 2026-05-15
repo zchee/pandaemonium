@@ -61,6 +61,33 @@ func (r *notificationRing) appendAll(notifications []Notification) bool {
 	return true
 }
 
+// pushDisplacing pushes notification into the ring, evicting the oldest entry if
+// the ring is at capacity. Returns true if an existing entry was displaced.
+// The ring must be non-nil with len(values) > 0; callers enforce this.
+func (r *notificationRing) pushDisplacing(notification Notification) bool {
+	if r == nil || len(r.values) == 0 {
+		return false
+	}
+	displaced := false
+	if r.length >= len(r.values) {
+		// Evict oldest (head).
+		r.values[r.head] = Notification{}
+		r.head++
+		if r.head == len(r.values) {
+			r.head = 0
+		}
+		r.length--
+		displaced = true
+	}
+	r.values[r.tail] = notification
+	r.tail++
+	if r.tail == len(r.values) {
+		r.tail = 0
+	}
+	r.length++
+	return displaced
+}
+
 func (r *notificationRing) pop() (Notification, bool) {
 	if r == nil || r.length == 0 {
 		return Notification{}, false

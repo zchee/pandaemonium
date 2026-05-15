@@ -64,18 +64,36 @@ func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
 	return nil
 }
 
-func (t *stdioTransport) ReadJSON(_ context.Context) ([]byte, error) {
+func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	if t.stdout == nil {
 		return nil, &TransportClosedError{Message: "app-server is not running"}
 	}
-	line, err := t.stdout.ReadBytes('\n')
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, io.EOF
-		}
-		return nil, err
+	type result struct {
+		data []byte
+		err  error
 	}
-	return line, nil
+	done := make(chan result, 1)
+	go func() {
+		line, err := t.stdout.ReadBytes('\n')
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				done <- result{err: io.EOF}
+				return
+			}
+			done <- result{err: err}
+			return
+		}
+		done <- result{data: line}
+	}()
+	// The goroutine above is orphaned when ctx is cancelled; it exits naturally
+	// when Close() closes stdoutCloser (the raw stdout pipe), which causes
+	// ReadBytes to return an error.
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	case r := <-done:
+		return r.data, r.err
+	}
 }
 
 type websocketTransport struct {

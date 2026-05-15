@@ -109,9 +109,7 @@ func BenchmarkTurnNotificationQueuePushPop(b *testing.B) {
 	b.ReportAllocs()
 
 	for b.Loop() {
-		if err := queue.push(benchmarkTopLevelTurnNotification); err != nil {
-			b.Fatalf("push() error = %v", err)
-		}
+		queue.push(benchmarkTopLevelTurnNotification)
 		if got, ok := queue.pop(); !ok || got.Method != benchmarkTopLevelTurnNotification.Method {
 			b.Fatalf("pop() = (%q, %t), want (%q, true)", got.Method, ok, benchmarkTopLevelTurnNotification.Method)
 		}

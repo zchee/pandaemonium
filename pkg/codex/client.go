@@ -103,23 +103,23 @@ type Client struct {
 	config          Config
 	approvalHandler ApprovalHandler
 
-	cmd       *exec.Cmd
-	stdin     io.WriteCloser
-	stdout    *bufio.Reader
-	stderr    io.ReadCloser
-	transport transport
-	cmdDone   chan error
+	cmd          *exec.Cmd
+	stdin        io.WriteCloser
+	stdout       *bufio.Reader
+	stdoutCloser io.Closer // raw stdout pipe; Close() closes this to unblock ReadJSON on ctx cancel
+	stderr       io.ReadCloser
+	transport    atomic.Pointer[transport]
+	cmdDone      chan error
 
-	writeMu       sync.Mutex
-	closeMu       sync.Mutex
-	responseMu    sync.Mutex
-	responses     map[string]chan responseWait
-	notifications chan Notification
-	turnRouter    *turnNotificationRouter
-	stderrMu      sync.Mutex
-	stderrLines   []string
-	stderrDone    chan struct{}
-	readDone      chan struct{}
+	writeMu     sync.Mutex
+	closeMu     sync.Mutex
+	responseMu  sync.Mutex
+	responses   map[string]chan responseWait
+	turnRouter  *turnNotificationRouter
+	stderrMu    sync.Mutex
+	stderrLines []string
+	stderrDone  chan struct{}
+	readDone    chan struct{}
 
 	requestSeq atomic.Uint64
 }
@@ -146,7 +146,6 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 		config:          cfg,
 		approvalHandler: approvalHandler,
 		responses:       map[string]chan responseWait{},
-		notifications:   make(chan Notification, notificationQueueCapacity),
 		turnRouter:      newTurnNotificationRouter(),
 		stderrDone:      make(chan struct{}),
 		readDone:        make(chan struct{}),
@@ -166,7 +165,7 @@ func DefaultCodexHome() string {
 func (c *Client) Start(ctx context.Context) error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
-	if c.transport != nil {
+	if c.loadTransport() != nil {
 		return nil
 	}
 	args, err := c.launchArgs()
@@ -183,7 +182,6 @@ func (c *Client) Start(ctx context.Context) error {
 	}
 	c.stderrDone = make(chan struct{})
 	c.readDone = make(chan struct{})
-	c.notifications = make(chan Notification, notificationQueueCapacity)
 	c.turnRouter = newTurnNotificationRouter()
 	c.responses = map[string]chan responseWait{}
 	var stderr io.ReadCloser
@@ -214,7 +212,7 @@ func (c *Client) Start(ctx context.Context) error {
 		}
 		c.cmd = cmd
 		c.cmdDone = cmdDone
-		c.transport = &websocketTransport{conn: conn}
+		c.storeTransport(&websocketTransport{conn: conn})
 	} else {
 		var stdin io.WriteCloser
 		var stdout io.ReadCloser
@@ -238,10 +236,11 @@ func (c *Client) Start(ctx context.Context) error {
 		c.stderr = stderr
 		c.stdin = stdin
 		c.stdout = bufio.NewReader(stdout)
-		c.transport = &stdioTransport{stdin: stdin, stdout: c.stdout}
+		c.stdoutCloser = stdout
+		c.storeTransport(&stdioTransport{stdin: stdin, stdout: c.stdout})
 		go c.drainStderr(stderr, c.stderrDone)
 	}
-	go c.readLoop(ctx, c.transport, c.readDone)
+	go c.readLoop(ctx, c.loadTransport(), c.readDone)
 	return nil
 }
 
@@ -249,12 +248,11 @@ func (c *Client) Start(ctx context.Context) error {
 func (c *Client) Close() error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
-	if c.transport == nil {
+	if c.loadTransport() == nil {
 		return nil
 	}
 	cmd := c.cmd
 	cmdDone := c.cmdDone
-	transport := c.transport
 	readDone := c.readDone
 	stderrDone := c.stderrDone
 	c.cmd = nil
@@ -263,12 +261,18 @@ func (c *Client) Close() error {
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
 	c.writeMu.Lock()
-	c.transport = nil
+	transport := c.loadTransport()
+	c.storeTransport(nil)
 	c.stdin = nil
+	stdoutCloser := c.stdoutCloser
+	c.stdoutCloser = nil
 	if transport != nil {
 		_ = transport.Close()
 	}
 	c.writeMu.Unlock()
+	if stdoutCloser != nil {
+		_ = stdoutCloser.Close()
+	}
 
 	if cmd != nil {
 		if cmd.Process != nil {
@@ -278,23 +282,29 @@ func (c *Client) Close() error {
 		if done == nil {
 			done = waitForCommand(cmd)
 		}
+		killTimer := time.NewTimer(2 * time.Second)
 		select {
 		case <-done:
 			// Close initiated termination, so process exit status is not actionable.
-		case <-time.After(2 * time.Second):
+			killTimer.Stop()
+		case <-killTimer.C:
 			if cmd.Process != nil {
 				_ = cmd.Process.Kill()
 			}
 			<-done
 		}
 	}
+	readTimer := time.NewTimer(500 * time.Millisecond)
 	select {
 	case <-readDone:
-	case <-time.After(500 * time.Millisecond):
+		readTimer.Stop()
+	case <-readTimer.C:
 	}
+	stderrTimer := time.NewTimer(500 * time.Millisecond)
 	select {
 	case <-stderrDone:
-	case <-time.After(500 * time.Millisecond):
+		stderrTimer.Stop()
+	case <-stderrTimer.C:
 	}
 	return nil
 }
@@ -420,7 +430,7 @@ func (c *Client) Notify(ctx context.Context, method string, params any) error {
 // Notification so higher-level consumers can forward or inspect them without
 // losing information.
 func (c *Client) NextNotification(ctx context.Context) (Notification, error) {
-	return c.turnRouter.nextGlobal(ctx, c.notifications)
+	return c.turnRouter.nextGlobal(ctx)
 }
 
 // WaitForTurnCompleted waits for a matching turn/completed notification.
@@ -634,6 +644,22 @@ func (c *Client) nextRequestID() string {
 	return fmt.Sprintf("go-sdk-%d", c.requestSeq.Add(1))
 }
 
+func (c *Client) loadTransport() transport {
+	p := c.transport.Load()
+	if p == nil {
+		return nil
+	}
+	return *p
+}
+
+func (c *Client) storeTransport(t transport) {
+	if t == nil {
+		c.transport.Store(nil)
+		return
+	}
+	c.transport.Store(&t)
+}
+
 func (c *Client) writeMessage(ctx context.Context, payload any) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
@@ -641,10 +667,11 @@ func (c *Client) writeMessage(ctx context.Context, payload any) error {
 	if err != nil {
 		return fmt.Errorf("encode JSON-RPC payload: %w", err)
 	}
-	if c.transport == nil {
+	t := c.loadTransport()
+	if t == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
-	return c.transport.WriteJSON(ctx, line)
+	return t.WriteJSON(ctx, line)
 }
 
 func (c *Client) readMessage(ctx context.Context, t transport) (rpcMessage, error) {

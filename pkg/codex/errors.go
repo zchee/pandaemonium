@@ -51,6 +51,19 @@ type TransportClosedError struct {
 
 func (e *TransportClosedError) Error() string { return e.Message }
 
+// NotificationDroppedError is returned by a turn notification consumer when one
+// or more notifications were silently dropped due to per-turn queue overflow.
+// The error is surfaced exactly once per drop event and the counter resets after
+// delivery. The router is NOT torn down; subsequent calls to next succeed normally.
+type NotificationDroppedError struct {
+	TurnID  string
+	Dropped int
+}
+
+func (e *NotificationDroppedError) Error() string {
+	return fmt.Sprintf("turn %s: %d notification(s) dropped due to queue overflow", e.TurnID, e.Dropped)
+}
+
 // AppServerRPCError is a server-side JSON-RPC error.
 type AppServerRPCError struct {
 	*JSONRPCError

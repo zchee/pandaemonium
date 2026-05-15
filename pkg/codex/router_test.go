@@ -16,8 +16,9 @@ package codex
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"slices"
-	"strings"
 	"testing"
 	"testing/synctest"
 
@@ -346,42 +347,69 @@ func assertActiveTurnConsumers(t *testing.T, client *Client, want ...string) {
 	}
 }
 
-func TestTurnNotificationRouterFailsFastWhenActiveTurnQueueFull(t *testing.T) {
+func TestTurnNotificationRouterDropsOldestWhenActiveTurnQueueFull(t *testing.T) {
 	t.Parallel()
 
 	client := NewClient(nil, nil)
 	if _, err := client.openTurnConsumer("turn-full"); err != nil {
 		t.Fatalf("openTurnConsumer() error = %v", err)
 	}
-	for range notificationQueueCapacity {
+
+	// Fill queue to capacity — all succeed, no error.
+	for i := range notificationQueueCapacity {
 		if err := client.routeNotification(Notification{
 			Method: NotificationMethodItemCompleted,
 			Params: mustJSON(t, Object{
 				"threadId": "thread-full",
 				"turnId":   "turn-full",
-				"item":     Object{"type": "agentMessage", "text": "queued"},
+				"item":     Object{"type": "agentMessage", "text": fmt.Sprintf("item-%d", i)},
 			}),
 		}); err != nil {
-			t.Fatalf("routeNotification() before full error = %v", err)
+			t.Fatalf("routeNotification(%d) error = %v", i, err)
 		}
 	}
 
-	err := client.routeNotification(Notification{
+	// One more — overflow. Must NOT error; drops oldest instead.
+	if err := client.routeNotification(Notification{
 		Method: NotificationMethodItemCompleted,
 		Params: mustJSON(t, Object{
 			"threadId": "thread-full",
 			"turnId":   "turn-full",
 			"item":     Object{"type": "agentMessage", "text": "overflow"},
 		}),
-	})
-	if err == nil || !strings.Contains(err.Error(), "turn notification queue full") {
-		t.Fatalf("routeNotification() overflow error = %v, want turn notification queue full", err)
+	}); err != nil {
+		t.Fatalf("routeNotification() overflow error = %v, want nil (drop-oldest)", err)
 	}
 
+	// Router must NOT be closed — NextNotification on global still works.
 	ctx, cancel := context.WithCancel(t.Context())
 	cancel()
-	if _, err := client.NextNotification(ctx); err == nil || !strings.Contains(err.Error(), "turn notification queue full") {
-		t.Fatalf("NextNotification() after overflow error = %v, want router failure", err)
+	_, err := client.NextNotification(ctx)
+	// Context was cancelled; router is healthy so we get context.Canceled, NOT a router-failure error.
+	if !errors.Is(err, context.Canceled) {
+		t.Fatalf("NextNotification() after overflow error = %v, want context.Canceled (router healthy)", err)
+	}
+
+	// Consumer's next call sees the drop error (exactly once).
+	_, err = client.nextTurnNotification(t.Context(), "turn-full")
+	var dropErr *NotificationDroppedError
+	if !errors.As(err, &dropErr) {
+		t.Fatalf("nextTurnNotification() after overflow error = %v (%T), want *NotificationDroppedError", err, err)
+	}
+	if dropErr.Dropped != 1 {
+		t.Fatalf("NotificationDroppedError.Dropped = %d, want 1", dropErr.Dropped)
+	}
+	if dropErr.TurnID != "turn-full" {
+		t.Fatalf("NotificationDroppedError.TurnID = %q, want turn-full", dropErr.TurnID)
+	}
+
+	// Second call: no more drops pending, returns first surviving notification normally.
+	notification, err := client.nextTurnNotification(t.Context(), "turn-full")
+	if err != nil {
+		t.Fatalf("nextTurnNotification() second call error = %v, want surviving notification", err)
+	}
+	if notification.Method != NotificationMethodItemCompleted {
+		t.Fatalf("surviving notification method = %q, want %s", notification.Method, NotificationMethodItemCompleted)
 	}
 }
 

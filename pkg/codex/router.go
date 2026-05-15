@@ -23,23 +23,25 @@ import (
 const notificationQueueCapacity = 128
 
 type turnNotificationRouter struct {
-	mu      sync.Mutex
-	global  chan Notification
-	queues  map[string]*turnNotificationQueue
-	pending map[string][]Notification
-	closed  bool
-	err     error
+	mu             sync.Mutex
+	global         chan Notification
+	queues         map[string]*turnNotificationQueue
+	pending        map[string][]Notification
+	pendingDropped map[string]uint64 // drop counts for pre-consumer pending
+	closed         bool
+	err            error
 }
 
 func newTurnNotificationRouter() *turnNotificationRouter {
 	return &turnNotificationRouter{
-		global:  make(chan Notification, notificationQueueCapacity),
-		queues:  map[string]*turnNotificationQueue{},
-		pending: map[string][]Notification{},
+		global:         make(chan Notification, notificationQueueCapacity),
+		queues:         map[string]*turnNotificationQueue{},
+		pending:        map[string][]Notification{},
+		pendingDropped: map[string]uint64{},
 	}
 }
 
-func (r *turnNotificationRouter) nextGlobal(ctx context.Context, legacy <-chan Notification) (Notification, error) {
+func (r *turnNotificationRouter) nextGlobal(ctx context.Context) (Notification, error) {
 	r.mu.Lock()
 	if r.closed {
 		err := r.err
@@ -55,11 +57,6 @@ func (r *turnNotificationRouter) nextGlobal(ctx context.Context, legacy <-chan N
 	select {
 	case <-ctx.Done():
 		return Notification{}, ctx.Err()
-	case notification, ok := <-legacy:
-		if !ok {
-			return Notification{}, &TransportClosedError{Message: "app-server notification stream closed"}
-		}
-		return notification, nil
 	case notification, ok := <-global:
 		if !ok {
 			return Notification{}, r.closedErr(&TransportClosedError{Message: "app-server notification stream closed"})
@@ -96,6 +93,7 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 		return nil, fmt.Errorf("turn consumer already active for %s", turnID)
 	}
 	queue := &turnNotificationQueue{
+		turnID:        turnID,
 		notifications: newNotificationRing(notificationQueueCapacity),
 		notify:        make(chan struct{}, 1),
 	}
@@ -104,6 +102,16 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 			return nil, fmt.Errorf("turn notification router: pending queue overflow for %s", turnID)
 		}
 		delete(r.pending, turnID)
+	}
+	// Migrate any pre-consumer drop count so the consumer sees it on first next() call.
+	if dropped := r.pendingDropped[turnID]; dropped > 0 {
+		queue.dropped = dropped
+		delete(r.pendingDropped, turnID)
+		// Signal so the consumer wakes immediately to surface the drop error.
+		select {
+		case queue.notify <- struct{}{}:
+		default:
+		}
 	}
 	r.queues[turnID] = queue
 	return queue, nil
@@ -136,35 +144,49 @@ func (r *turnNotificationRouter) route(notification Notification) error {
 		r.mu.Unlock()
 		return err
 	}
+
+	// ── Global (no turn ID) ────────────────────────────────────────────────
 	if turnID == "" {
+		// Fast path: channel has room.
 		select {
 		case r.global <- notification:
 			r.mu.Unlock()
 			return nil
 		default:
 		}
-		err := fmt.Errorf("notification router: global notification queue full")
-		r.failLocked(err)
-		r.mu.Unlock()
-		return err
-	}
-	if queue := r.queues[turnID]; queue != nil {
-		if err := queue.push(notification); err != nil {
-			r.failLocked(err)
-			r.mu.Unlock()
-			return err
+		// Channel full: evict oldest (best-effort; nextGlobal may have already
+		// consumed one, which only helps us), then push newest.
+		select {
+		case <-r.global:
+		default:
+		}
+		// After the drain above, channel has < capacity entries (no other
+		// route() can interleave — we hold r.mu). Push always succeeds here.
+		select {
+		case r.global <- notification:
+		default: // paranoid guard; should not fire
 		}
 		r.mu.Unlock()
 		return nil
 	}
+
+	// ── Active turn consumer ───────────────────────────────────────────────
+	if queue := r.queues[turnID]; queue != nil {
+		// push is now void; drop-oldest handled inside the queue.
+		queue.push(notification)
+		r.mu.Unlock()
+		return nil
+	}
+
+	// ── Pre-consumer pending ───────────────────────────────────────────────
 	pending := r.pending[turnID]
 	if len(pending) >= notificationQueueCapacity {
-		err := fmt.Errorf("notification router: pending queue full for %s", turnID)
-		r.failLocked(err)
-		r.mu.Unlock()
-		return err
+		// Drop oldest pending entry, track count.
+		r.pending[turnID] = append(pending[1:], notification)
+		r.pendingDropped[turnID]++
+	} else {
+		r.pending[turnID] = append(pending, notification)
 	}
-	r.pending[turnID] = append(pending, notification)
 	r.mu.Unlock()
 	return nil
 }

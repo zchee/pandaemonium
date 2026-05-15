@@ -82,14 +82,13 @@ func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
 			if err != nil {
 				t.Fatalf("dialWebSocket() error = %v", err)
 			}
-			client.transport = &websocketTransport{conn: conn}
+			client.storeTransport(&websocketTransport{conn: conn})
 			client.responses = map[string]chan responseWait{}
-			client.notifications = make(chan Notification, notificationQueueCapacity)
 			client.turnRouter = newTurnNotificationRouter()
 			client.stderrDone = make(chan struct{})
 			close(client.stderrDone)
 			client.readDone = make(chan struct{})
-			go client.readLoop(ctx, client.transport, client.readDone)
+			go client.readLoop(ctx, client.loadTransport(), client.readDone)
 			t.Cleanup(func() {
 				if err := client.Close(); err != nil {
 					t.Fatalf("Client.Close() error = %v", err)
