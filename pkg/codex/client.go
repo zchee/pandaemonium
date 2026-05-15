@@ -567,9 +567,11 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 	}
 	clientBearerSource := websocketHasClientBearerToken(listenCfg.WebSocket)
 
-	if parsed, err := url.Parse(listenURL); err != nil {
+	parsed, err := url.Parse(listenURL)
+	if err != nil {
 		return nil, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
-	} else if parsed.Scheme == "ws" || parsed.Scheme == "wss" {
+	}
+	if parsed.Scheme == "ws" || parsed.Scheme == "wss" {
 		if parsed.Host == "" {
 			return nil, fmt.Errorf("websocket listen URL %q is missing host", listenURL)
 		}
