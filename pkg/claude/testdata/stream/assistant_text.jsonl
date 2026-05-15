@@ -1,0 +1,3 @@
+{"type":"system","subtype":"init","session_id":"sess-001"}
+{"type":"assistant","message":{"id":"msg_001","type":"message","role":"assistant","content":[{"type":"text","text":"Hello! How can I help you today?"}],"model":"claude-opus-4-5","stop_reason":"end_turn","usage":{"input_tokens":10,"output_tokens":12}},"session_id":"sess-001"}
+{"type":"result","subtype":"success","duration_ms":1500,"duration_api_ms":1200,"is_error":false,"num_turns":1,"session_id":"sess-001","total_cost_usd":0.001,"usage":{"input_tokens":10,"output_tokens":12}}
