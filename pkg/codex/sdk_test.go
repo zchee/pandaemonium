@@ -384,26 +384,29 @@ func TestPackageRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) 
 }
 
 func TestClientStreamUntilMethods(t *testing.T) {
-	client := NewClient(nil, nil)
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
 
-	out := make(chan []Notification, 1)
-	go func() {
-		out <- mustCollectNotifications(t, client, "thread/started", "item/completed")
-	}()
+		out := make(chan []Notification, 1)
+		go func() {
+			out <- mustCollectNotifications(t, client, "thread/started", "item/completed")
+		}()
+		synctest.Wait()
 
-	if err := client.routeNotification(Notification{Method: "thread/started", Params: mustJSON(t, Object{"threadId": "thr-1"})}); err != nil {
-		t.Fatalf("routeNotification() error = %v", err)
-	}
-	if err := client.routeNotification(Notification{Method: "item/completed", Params: mustJSON(t, Object{"threadId": "thr-1"})}); err != nil {
-		t.Fatalf("routeNotification() error = %v", err)
-	}
+		if err := client.routeNotification(Notification{Method: "thread/started", Params: mustJSON(t, Object{"threadId": "thr-1"})}); err != nil {
+			t.Fatalf("routeNotification() error = %v", err)
+		}
+		if err := client.routeNotification(Notification{Method: "item/completed", Params: mustJSON(t, Object{"threadId": "thr-1"})}); err != nil {
+			t.Fatalf("routeNotification() error = %v", err)
+		}
 
-	notifications := <-out
-	methods := notificationMethods(notifications)
-	want := []string{"thread/started"}
-	if diff := gocmp.Diff(want, methods); diff != "" {
-		t.Fatalf("notification methods mismatch (-want +got):\n%s", diff)
-	}
+		notifications := <-out
+		methods := notificationMethods(notifications)
+		want := []string{"thread/started"}
+		if diff := gocmp.Diff(want, methods); diff != "" {
+			t.Fatalf("notification methods mismatch (-want +got):\n%s", diff)
+		}
+	})
 }
 
 func mustCollectNotifications(t *testing.T, client *Client, methods ...string) []Notification {
@@ -643,28 +646,30 @@ func TestClientDrainsNotificationOverflowWhileWaitingForResponse(t *testing.T) {
 }
 
 func TestClientDrainsStderrTailOverflow(t *testing.T) {
-	client := NewClient(nil, nil)
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
 
-	var stderr strings.Builder
-	for i := range 401 {
-		fmt.Fprintf(&stderr, "line-%03d\n", i)
-	}
-	done := make(chan struct{})
-	go client.drainStderr(strings.NewReader(stderr.String()), done)
-	<-done
+		var stderr strings.Builder
+		for i := range 401 {
+			fmt.Fprintf(&stderr, "line-%03d\n", i)
+		}
+		done := make(chan struct{})
+		go client.drainStderr(strings.NewReader(stderr.String()), done)
+		<-done
 
-	client.stderrMu.Lock()
-	if got := len(client.stderrLines); got != 400 {
+		client.stderrMu.Lock()
+		if got := len(client.stderrLines); got != 400 {
+			client.stderrMu.Unlock()
+			t.Fatalf("stderr line count = %d, want 400", got)
+		}
 		client.stderrMu.Unlock()
-		t.Fatalf("stderr line count = %d, want 400", got)
-	}
-	client.stderrMu.Unlock()
 
-	got := strings.Split(client.stderrTail(5), "\n")
-	want := []string{"line-396", "line-397", "line-398", "line-399", "line-400"}
-	if diff := gocmp.Diff(want, got); diff != "" {
-		t.Fatalf("stderr tail mismatch (-want +got):\n%s", diff)
-	}
+		got := strings.Split(client.stderrTail(5), "\n")
+		want := []string{"line-396", "line-397", "line-398", "line-399", "line-400"}
+		if diff := gocmp.Diff(want, got); diff != "" {
+			t.Fatalf("stderr tail mismatch (-want +got):\n%s", diff)
+		}
+	})
 }
 
 func collectAgentMessageDeltas(t *testing.T, stream iter.Seq2[AgentMessageDeltaNotification, error]) []string {
@@ -1004,6 +1009,34 @@ func TestTurnStreamReleasesConsumerOnContextCancel(t *testing.T) {
 			t.Fatalf("openTurnConsumer() after stream cancellation error = %v", err)
 		}
 		client.releaseTurnConsumer("turn_after_cancel")
+	})
+}
+
+func TestTurnStreamReleasesConsumerOnContextDeadline(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		client := NewClient(nil, nil)
+		handle := &TurnHandle{client: client, threadID: "thr_stream_deadline", turnID: "turn_stream_deadline"}
+		ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+		defer cancel()
+
+		streamResult := collectStreamAsync(handle.Stream(ctx))
+		synctest.Wait()
+		assertActiveTurnConsumer(t, client, handle.ID())
+
+		time.Sleep(5 * time.Second)
+		synctest.Wait()
+
+		result := <-streamResult
+		if !errors.Is(result.err, context.DeadlineExceeded) {
+			t.Fatalf("stream error = %v, want context.DeadlineExceeded", result.err)
+		}
+		if len(result.notifications) != 0 {
+			t.Fatalf("notifications len = %d, want 0 after deadline", len(result.notifications))
+		}
+		if _, err := client.openTurnConsumer("turn_after_deadline"); err != nil {
+			t.Fatalf("openTurnConsumer() after stream deadline error = %v", err)
+		}
+		client.releaseTurnConsumer("turn_after_deadline")
 	})
 }
 
