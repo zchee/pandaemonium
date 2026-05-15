@@ -66,3 +66,4 @@ bench.txt
 !.codex/prompts/
 !.codex/prompts/**
 omx_wiki/
+pkg/codex/*.md
