@@ -140,7 +140,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := buildLaunchArgs(tt.cliPath, tt.prompt, tt.opts)
+			got := buildLaunchArgs(tt.cliPath, tt.prompt, tt.opts, "")
 			if len(got) == 0 {
 				t.Fatal("buildLaunchArgs() returned empty slice")
 			}
@@ -165,8 +165,178 @@ func TestBuildLaunchArgs(t *testing.T) {
 
 func TestBuildLaunchArgs_CLIPathIsFirst(t *testing.T) {
 	t.Parallel()
-	args := buildLaunchArgs("/path/to/claude", "prompt", nil)
+	args := buildLaunchArgs("/path/to/claude", "prompt", nil, "")
 	if args[0] != "/path/to/claude" {
 		t.Fatalf("args[0] = %q, want /path/to/claude", args[0])
+	}
+}
+
+func TestBuildLaunchArgs_Plugins(t *testing.T) {
+	t.Parallel()
+
+	const fakeCLI = "/usr/local/bin/claude"
+
+	tests := map[string]struct {
+		opts    *Options
+		wantIn  []string
+		wantOut []string
+	}{
+		"success: single plugin emits plugin-dir flag": {
+			opts:   &Options{Plugins: []Plugin{{Name: "myplugin", Path: "/opt/plugins/myplugin"}}},
+			wantIn: []string{"--plugin-dir", "/opt/plugins/myplugin"},
+		},
+		"success: multiple plugins each get their own plugin-dir flag": {
+			opts: &Options{Plugins: []Plugin{
+				{Name: "alpha", Path: "/plugins/alpha"},
+				{Name: "beta", Path: "/plugins/beta"},
+			}},
+			wantIn: []string{"--plugin-dir", "/plugins/alpha", "--plugin-dir", "/plugins/beta"},
+		},
+		"success: plugin with empty path omits plugin-dir": {
+			opts:    &Options{Plugins: []Plugin{{Name: "nopath"}}},
+			wantOut: []string{"--plugin-dir"},
+		},
+		"success: empty Plugins slice omits plugin-dir": {
+			opts:    &Options{Plugins: []Plugin{}},
+			wantOut: []string{"--plugin-dir"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := buildLaunchArgs(fakeCLI, "x", tt.opts, "")
+			joined := strings.Join(got, " ")
+			for _, want := range tt.wantIn {
+				if !strings.Contains(joined, want) {
+					t.Errorf("args %v missing %q", got, want)
+				}
+			}
+			for _, reject := range tt.wantOut {
+				if strings.Contains(joined, reject) {
+					t.Errorf("args %v should not contain %q", got, reject)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildLaunchArgs_SettingSources(t *testing.T) {
+	t.Parallel()
+
+	const fakeCLI = "/usr/local/bin/claude"
+
+	tests := map[string]struct {
+		opts    *Options
+		wantIn  []string
+		wantOut []string
+	}{
+		"success: single path setting source": {
+			opts:   &Options{SettingSources: []SettingSource{{Path: "/etc/claude/settings.json"}}},
+			wantIn: []string{"--setting-sources=/etc/claude/settings.json"},
+		},
+		"success: multiple path sources are comma-joined": {
+			opts: &Options{SettingSources: []SettingSource{
+				{Path: "/etc/claude/a.json"},
+				{Path: "/etc/claude/b.json"},
+			}},
+			wantIn: []string{"--setting-sources=/etc/claude/a.json,/etc/claude/b.json"},
+		},
+		"success: URL source is included": {
+			opts:   &Options{SettingSources: []SettingSource{{URL: "https://example.com/settings.json"}}},
+			wantIn: []string{"--setting-sources=https://example.com/settings.json"},
+		},
+		"success: empty SettingSources omits the flag": {
+			opts:    &Options{SettingSources: []SettingSource{}},
+			wantOut: []string{"--setting-sources"},
+		},
+		"success: setting source with both Path and URL uses Path": {
+			opts: &Options{SettingSources: []SettingSource{
+				{Path: "/local/settings.json", URL: "https://example.com/settings.json"},
+			}},
+			wantIn:  []string{"--setting-sources=/local/settings.json"},
+			wantOut: []string{"https://example.com"},
+		},
+		"success: setting source with empty path and empty URL is skipped": {
+			opts:    &Options{SettingSources: []SettingSource{{}}},
+			wantOut: []string{"--setting-sources"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := buildLaunchArgs(fakeCLI, "x", tt.opts, "")
+			joined := strings.Join(got, " ")
+			for _, want := range tt.wantIn {
+				if !strings.Contains(joined, want) {
+					t.Errorf("args %v missing %q", got, want)
+				}
+			}
+			for _, reject := range tt.wantOut {
+				if strings.Contains(joined, reject) {
+					t.Errorf("args %v should not contain %q", got, reject)
+				}
+			}
+		})
+	}
+}
+
+func TestBuildLaunchArgs_Agents(t *testing.T) {
+	t.Parallel()
+
+	// Agents are sent via the streaming initialize request (not CLI flags).
+	// Verify that no --agent flag (or similar) appears in the launch args
+	// regardless of how many AgentDefinitions are configured.
+	got := buildLaunchArgs("/usr/local/bin/claude", "x", &Options{
+		Agents: []AgentDefinition{
+			{Name: "helper", Description: "A helper agent", SystemPrompt: "You help."},
+			{Name: "coder", Description: "A coding agent", AllowedTools: []string{"Bash"}},
+		},
+	}, "")
+	joined := strings.Join(got, " ")
+	for _, banned := range []string{"--agent", "--agents"} {
+		if strings.Contains(joined, banned) {
+			t.Errorf("args contain %q, but agents must be sent via streaming initialize (not CLI flags): %v", banned, got)
+		}
+	}
+}
+
+func TestBuildLaunchArgs_Resume(t *testing.T) {
+	t.Parallel()
+
+	const fakeCLI = "/usr/local/bin/claude"
+
+	tests := map[string]struct {
+		resumeID string
+		wantIn   []string
+		wantOut  []string
+	}{
+		"success: non-empty resumeSessionID adds resume flag": {
+			resumeID: "sess-abc123",
+			wantIn:   []string{"--resume", "sess-abc123"},
+		},
+		"success: empty resumeSessionID omits resume flag": {
+			resumeID: "",
+			wantOut:  []string{"--resume"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := buildLaunchArgs(fakeCLI, "x", nil, tt.resumeID)
+			joined := strings.Join(got, " ")
+			for _, want := range tt.wantIn {
+				if !strings.Contains(joined, want) {
+					t.Errorf("args %v missing %q", got, want)
+				}
+			}
+			for _, reject := range tt.wantOut {
+				if strings.Contains(joined, reject) {
+					t.Errorf("args %v should not contain %q", got, reject)
+				}
+			}
+		})
 	}
 }

@@ -16,6 +16,7 @@ package claude
 
 import (
 	"strconv"
+	"strings"
 )
 
 // buildLaunchArgs constructs the argument slice for launching the claude CLI
@@ -24,10 +25,17 @@ import (
 // cliPath is the resolved binary path (from discoverCLI).
 // prompt is the initial user prompt; passed via --print.
 // opts configures additional CLI flags; nil opts uses defaults.
+// resumeSessionID, when non-empty, adds --resume <id> so the CLI subprocess
+// resumes from that session (used by [ClaudeSDKClient.Fork]).
+//
+// Note on Agents: AgentDefinition values in opts.Agents are NOT encoded as CLI
+// flags. The claude CLI receives agent definitions via the streaming initialize
+// request (same pattern as the TypeScript and Python SDKs). No --agents flag
+// exists in the claude CLI.
 //
 // Mirrors the structure of pkg/codex/client.go:563 buildAppServerArgs.
 // Round-trip parity is tested in client_launch_args_test.go (AC13).
-func buildLaunchArgs(cliPath, prompt string, opts *Options) []string {
+func buildLaunchArgs(cliPath, prompt string, opts *Options, resumeSessionID string) []string {
 	args := []string{cliPath}
 
 	if opts == nil {
@@ -91,8 +99,40 @@ func buildLaunchArgs(cliPath, prompt string, opts *Options) []string {
 		args = append(args, "--max-budget", strconv.FormatFloat(opts.MaxBudgetUSD, 'f', -1, 64))
 	}
 
+	// Plugins — local plugins use --plugin-dir (one flag per plugin).
+	// Mirrors upstream Python subprocess_cli.py:
+	//   if plugin["type"] == "local": cmd.extend(["--plugin-dir", plugin["path"]])
+	for _, p := range opts.Plugins {
+		if p.Path != "" {
+			args = append(args, "--plugin-dir", p.Path)
+		}
+	}
+
+	// Setting sources — comma-joined list passed as a single --setting-sources= flag.
+	// Mirrors upstream Python subprocess_cli.py:
+	//   cmd.append(f"--setting-sources={','.join(effective_setting_sources)}")
+	if len(opts.SettingSources) > 0 {
+		parts := make([]string, 0, len(opts.SettingSources))
+		for _, ss := range opts.SettingSources {
+			switch {
+			case ss.Path != "":
+				parts = append(parts, ss.Path)
+			case ss.URL != "":
+				parts = append(parts, ss.URL)
+			}
+		}
+		if len(parts) > 0 {
+			args = append(args, "--setting-sources="+strings.Join(parts, ","))
+		}
+	}
+
+	// Resume session — used by Fork to replay a branched session in the new
+	// subprocess. Mirrors upstream Python: cmd.extend(["--resume", options.resume]).
+	if resumeSessionID != "" {
+		args = append(args, "--resume", resumeSessionID)
+	}
+
 	// Prompt — passed as the --print flag so the CLI runs in non-interactive mode.
-	// Phase G extends this with --agent / --plugin / --add-dir flags.
 	if prompt != "" {
 		args = append(args, "--print", prompt)
 	}
