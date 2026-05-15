@@ -111,7 +111,7 @@ func TestClientAppServerArgsCapabilityTokenFileMode(t *testing.T) {
 					AuthMode:            WebSocketAuthCapabilityToken,
 					TokenFile:           tokenFile,
 					ClientBearerToken:   "unused-in-tests",
-					MaxClockSkewSeconds: intPtr(15),
+					MaxClockSkewSeconds: new(15),
 					DialTimeout:         5 * time.Second,
 				},
 			},
@@ -144,7 +144,7 @@ func TestClientAppServerArgsCapabilityTokenSHA256Mode(t *testing.T) {
 					AuthMode:            WebSocketAuthCapabilityToken,
 					TokenSHA256:         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 					ClientBearerToken:   "jwt-from-env",
-					MaxClockSkewSeconds: intPtr(3),
+					MaxClockSkewSeconds: new(3),
 				},
 			},
 		},
@@ -307,7 +307,7 @@ func TestClientAppServerArgsRejectsNegativeClockSkew(t *testing.T) {
 					AuthMode:            WebSocketAuthCapabilityToken,
 					TokenSHA256:         "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
 					ClientBearerToken:   "token",
-					MaxClockSkewSeconds: intPtr(-1),
+					MaxClockSkewSeconds: new(-1),
 				},
 			},
 		},
@@ -351,8 +351,4 @@ func compareStringSlice(got, want []string) string {
 		}
 	}
 	return ""
-}
-
-func intPtr(v int) *int {
-	return &v
 }

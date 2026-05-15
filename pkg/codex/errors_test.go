@@ -65,7 +65,6 @@ func TestErrorsAsTraversal(t *testing.T) {
 
 	wrappers := buildWrappers()
 	for _, tc := range wrappers {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 
@@ -295,7 +294,6 @@ func TestExportedJSONRPCErrorAccessor(t *testing.T) {
 	}
 
 	for _, tc := range cases {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 

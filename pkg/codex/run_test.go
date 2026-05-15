@@ -277,8 +277,7 @@ func TestRunFailedErrorWithoutCodexErrorInfo(t *testing.T) {
 	}
 
 	// No *ServerBusyError should be reachable in the chain.
-	var busy *ServerBusyError
-	if errors.As(err, &busy) {
+	if _, ok := errors.AsType[*ServerBusyError](err); ok {
 		t.Errorf("errors.As(*ServerBusyError) = true, want false when no CodexErrorInfo")
 	}
 }

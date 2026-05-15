@@ -70,10 +70,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 			jitter := float64(delay) * cfg.JitterRatio
 			sleepFor = time.Duration(float64(delay) - jitter + rand.Float64()*2*jitter)
 		}
-		sleepFor = max(0, sleepFor)
-		if sleepFor > cfg.MaxDelay {
-			sleepFor = cfg.MaxDelay
-		}
+		sleepFor = min(max(0, sleepFor), cfg.MaxDelay)
 		if sleepFor > 0 {
 			timer := time.NewTimer(sleepFor)
 			select {

@@ -63,7 +63,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "thread/list", call: func() error { _, err := client.ThreadList(ctx, &ThreadListParams{}); return err }},
 		{name: "thread/loaded/list", call: func() error { _, err := client.ThreadLoadedList(ctx, &ThreadLoadedListParams{}); return err }},
 		{name: "thread/read", call: func() error {
-			_, err := client.ThreadRead(ctx, "thread", &ThreadReadParams{IncludeTurns: ptr(true)})
+			_, err := client.ThreadRead(ctx, "thread", &ThreadReadParams{IncludeTurns: new(true)})
 			return err
 		}},
 		{name: "thread/inject_items", call: func() error {
@@ -139,7 +139,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "turn/interrupt", call: func() error { _, err := client.TurnInterrupt(ctx, "thread", "turn"); return err }},
 		{name: "review/start", call: func() error { _, err := client.ReviewStart(ctx, &ReviewStartParams{ThreadID: "thread"}); return err }},
 		{name: "model/list", call: func() error {
-			_, err := client.ModelList(ctx, &ModelListParams{IncludeHidden: ptr(true)})
+			_, err := client.ModelList(ctx, &ModelListParams{IncludeHidden: new(true)})
 			return err
 		}},
 		{name: "modelProvider/capabilities/read", call: func() error {
@@ -294,6 +294,3 @@ func TestAccountLoginStartConstructors(t *testing.T) {
 		var _ LoginAccountParams = NewLoginAccountParamsHeadless()
 	})
 }
-
-// ptr returns a pointer to v. Used in tests to create *T from a literal value.
-func ptr[T any](v T) *T { return &v }

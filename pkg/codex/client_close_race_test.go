@@ -97,8 +97,7 @@ func TestCloseDuringConcurrentWrite(t *testing.T) {
 		if err == nil {
 			continue
 		}
-		var tcErr *TransportClosedError
-		if errors.As(err, &tcErr) {
+		if _, ok := errors.AsType[*TransportClosedError](err); ok {
 			continue
 		}
 		if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
