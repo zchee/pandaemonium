@@ -1,0 +1,4 @@
+{"type":"assistant","message":{"id":"msg_002","type":"message","role":"assistant","content":[{"type":"tool_use","id":"toolu_001","name":"Bash","input":{"command":"echo hello"}}],"model":"claude-opus-4-5","stop_reason":"tool_use","usage":{"input_tokens":20,"output_tokens":30}},"session_id":"sess-002"}
+{"type":"user","message":{"role":"user","content":[{"type":"tool_result","tool_use_id":"toolu_001","content":[{"type":"text","text":"hello\n"}],"is_error":false}]},"session_id":"sess-002"}
+{"type":"assistant","message":{"id":"msg_003","type":"message","role":"assistant","content":[{"type":"text","text":"The command ran successfully."}],"model":"claude-opus-4-5","stop_reason":"end_turn","usage":{"input_tokens":50,"output_tokens":8}},"session_id":"sess-002"}
+{"type":"result","subtype":"success","duration_ms":3000,"duration_api_ms":2500,"is_error":false,"num_turns":2,"session_id":"sess-002","total_cost_usd":0.003,"usage":{"input_tokens":70,"output_tokens":38}}

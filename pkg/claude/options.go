@@ -14,6 +14,22 @@
 
 package claude
 
+// validate checks that o is a consistent, usable configuration. The zero value
+// is always valid per AC-i1. Callers (NewClient, Query) invoke this before
+// launching a subprocess so errors surface early without transport side effects.
+func (o *Options) validate() error {
+	if o == nil {
+		return nil
+	}
+	if o.MaxTurns < 0 {
+		return &CLIConnectionError{Message: "Options.MaxTurns must be >= 0"}
+	}
+	if o.MaxBudgetUSD < 0 {
+		return &CLIConnectionError{Message: "Options.MaxBudgetUSD must be >= 0"}
+	}
+	return nil
+}
+
 // Options configures a [Query] or [ClaudeSDKClient] session.
 //
 // The zero value is usable: it exercises stdio defaults and performs CLI
