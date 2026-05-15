@@ -16,6 +16,8 @@ package claude
 
 import (
 	"context"
+	"fmt"
+	"path/filepath"
 
 	"github.com/go-json-experiment/json/jsontext"
 )
@@ -61,3 +63,116 @@ type HookRegistration struct {
 //
 // The callback must not block indefinitely; respect ctx.Done().
 type CanUseTool func(ctx context.Context, toolName string, input jsontext.Value) (PermissionDecision, error)
+
+// ── dispatcher ───────────────────────────────────────────────────────────────
+
+// dispatchHooks invokes every [HookRegistration] in regs whose Kind matches
+// event.Kind (and whose ToolGlob, if set, matches event.ToolName). Hooks are
+// called in registration order. The resulting [HookDecision] values are merged:
+// SystemMessage and AdditionalContext fields are concatenated with "\n", and
+// the first [PermissionDeny] short-circuits further hook invocations.
+//
+// An invalid ToolGlob pattern returns a [CLIConnectionError].
+func dispatchHooks(ctx context.Context, regs []HookRegistration, event HookEvent) (HookDecision, error) {
+	var merged HookDecision
+	for _, reg := range regs {
+		if reg.Kind != event.Kind {
+			continue
+		}
+		if reg.ToolGlob != "" {
+			ok, err := filepath.Match(reg.ToolGlob, event.ToolName)
+			if err != nil {
+				return HookDecision{}, &CLIConnectionError{
+					Message: fmt.Sprintf("invalid hook ToolGlob %q: %v", reg.ToolGlob, err),
+				}
+			}
+			if !ok {
+				continue
+			}
+		}
+		if reg.Fn == nil {
+			continue
+		}
+		decision, err := reg.Fn(ctx, event)
+		if err != nil {
+			return HookDecision{}, err
+		}
+		// Merge system messages.
+		if decision.SystemMessage != "" {
+			if merged.SystemMessage != "" {
+				merged.SystemMessage += "\n" + decision.SystemMessage
+			} else {
+				merged.SystemMessage = decision.SystemMessage
+			}
+		}
+		// Merge additional context.
+		if decision.AdditionalContext != "" {
+			if merged.AdditionalContext != "" {
+				merged.AdditionalContext += "\n" + decision.AdditionalContext
+			} else {
+				merged.AdditionalContext = decision.AdditionalContext
+			}
+		}
+		// Propagate permission decision; deny is sticky and stops iteration.
+		if decision.HookSpecificOutput.PermissionDecision != PermissionAsk {
+			merged.HookSpecificOutput.PermissionDecision = decision.HookSpecificOutput.PermissionDecision
+			if decision.HookSpecificOutput.PermissionDecisionReason != "" {
+				merged.HookSpecificOutput.PermissionDecisionReason = decision.HookSpecificOutput.PermissionDecisionReason
+			}
+		}
+		if merged.HookSpecificOutput.PermissionDecision == PermissionDeny {
+			return merged, nil
+		}
+	}
+	return merged, nil
+}
+
+// applyCanUseTool wraps the [CanUseTool] callback as a [HookDecision]. It
+// returns a zero decision when fn is nil or event is not [HookEventPreToolUse].
+func applyCanUseTool(ctx context.Context, fn CanUseTool, event HookEvent) (HookDecision, error) {
+	if fn == nil || event.Kind != HookEventPreToolUse {
+		return HookDecision{}, nil
+	}
+	perm, err := fn(ctx, event.ToolName, event.ToolInput)
+	if err != nil {
+		return HookDecision{}, err
+	}
+	return HookDecision{
+		HookSpecificOutput: HookSpecificOutput{
+			PermissionDecision: perm,
+		},
+	}, nil
+}
+
+// applyPermissions combines [dispatchHooks] and [applyCanUseTool] into a
+// single permission decision for the given event. Hook registrations are
+// evaluated first; if any produces [PermissionDeny] the CanUseTool callback
+// is skipped. Otherwise, the CanUseTool decision is merged: a deny overrides
+// any prior allow.
+//
+// A nil opts is treated as no registrations and no callback (always allow).
+func applyPermissions(ctx context.Context, opts *Options, event HookEvent) (HookDecision, error) {
+	if opts == nil {
+		return HookDecision{}, nil
+	}
+	hookDec, err := dispatchHooks(ctx, opts.Hooks, event)
+	if err != nil {
+		return HookDecision{}, err
+	}
+	if hookDec.HookSpecificOutput.PermissionDecision == PermissionDeny {
+		return hookDec, nil
+	}
+	canUseDec, err := applyCanUseTool(ctx, opts.CanUseTool, event)
+	if err != nil {
+		return HookDecision{}, err
+	}
+	if canUseDec.HookSpecificOutput.PermissionDecision == PermissionDeny {
+		hookDec.HookSpecificOutput.PermissionDecision = PermissionDeny
+		if canUseDec.HookSpecificOutput.PermissionDecisionReason != "" {
+			hookDec.HookSpecificOutput.PermissionDecisionReason = canUseDec.HookSpecificOutput.PermissionDecisionReason
+		}
+	} else if canUseDec.HookSpecificOutput.PermissionDecision != PermissionAsk {
+		hookDec.HookSpecificOutput.PermissionDecision = canUseDec.HookSpecificOutput.PermissionDecision
+	}
+	return hookDec, nil
+}
