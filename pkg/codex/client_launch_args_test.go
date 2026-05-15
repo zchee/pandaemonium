@@ -49,6 +49,53 @@ func TestClientLaunchArgsOverrideTakesPriority(t *testing.T) {
 	}
 }
 
+func TestClientAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
+	tests := map[string]struct {
+		listen ListenConfig
+		want   []string
+	}{
+		"success: nil websocket config emits listen only": {
+			listen: ListenConfig{URL: "ws://127.0.0.1:49815"},
+			want:   []string{os.Args[0], "app-server", "--listen", "ws://127.0.0.1:49815"},
+		},
+		"success: explicit auth none emits listen only": {
+			listen: ListenConfig{
+				URL:       "ws://127.0.0.1:49815",
+				WebSocket: &WebSocketConfig{AuthMode: WebSocketAuthNone},
+			},
+			want: []string{os.Args[0], "app-server", "--listen", "ws://127.0.0.1:49815"},
+		},
+		"success: remote wss does not require insecure ws opt-in": {
+			listen: ListenConfig{URL: "wss://codex.example.test:49815"},
+			want:   []string{os.Args[0], "app-server", "--listen", "wss://codex.example.test:49815"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &Client{config: Config{CodexBin: os.Args[0]}}
+			args, err := client.appServerArgs(tt.listen)
+			if err != nil {
+				t.Fatalf("appServerArgs() error = %v", err)
+			}
+			if diff := compareStringSlice(args, tt.want); diff != "" {
+				t.Fatalf("appServerArgs() mismatch: %s", diff)
+			}
+		})
+	}
+}
+
+func TestClientAppServerArgsRejectsInsecureRemoteWebSocket(t *testing.T) {
+	client := &Client{config: Config{CodexBin: os.Args[0]}}
+	_, err := client.appServerArgs(ListenConfig{URL: "ws://codex.example.test:49815"})
+	if err == nil {
+		t.Fatal("appServerArgs() error = nil, want insecure remote websocket rejection")
+	}
+	if !strings.Contains(err.Error(), "allowed only for loopback hosts") {
+		t.Fatalf("appServerArgs() error = %v, want loopback guard", err)
+	}
+}
+
 func TestClientAppServerArgsCapabilityTokenFileMode(t *testing.T) {
 	tokenFile := filepath.Join(t.TempDir(), "capability.token")
 	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
@@ -203,22 +250,31 @@ func TestClientAppServerArgsSignedBearerRequiresBearerToken(t *testing.T) {
 }
 
 func TestClientAppServerArgsRejectsMalformedTokenSHA256(t *testing.T) {
-	client := &Client{
-		config: Config{
-			CodexBin: os.Args[0],
-			Listen: ListenConfig{
-				URL: "ws://127.0.0.1:49815",
-				WebSocket: &WebSocketConfig{
-					AuthMode:          WebSocketAuthCapabilityToken,
-					TokenSHA256:       "bad",
-					ClientBearerToken: "token",
-				},
-			},
-		},
+	tests := map[string]string{
+		"error: non-hex digest": strings.Repeat("g", 64),
+		"error: short digest":   "0123456789abcdef",
 	}
-	_, err := client.appServerArgs(client.config.Listen)
-	if err == nil {
-		t.Fatal("appServerArgs() error = nil, want malformed token digest error")
+
+	for name, tokenSHA256 := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &Client{
+				config: Config{
+					CodexBin: os.Args[0],
+					Listen: ListenConfig{
+						URL: "ws://127.0.0.1:49815",
+						WebSocket: &WebSocketConfig{
+							AuthMode:          WebSocketAuthCapabilityToken,
+							TokenSHA256:       tokenSHA256,
+							ClientBearerToken: "token",
+						},
+					},
+				},
+			}
+			_, err := client.appServerArgs(client.config.Listen)
+			if err == nil {
+				t.Fatal("appServerArgs() error = nil, want malformed token digest error")
+			}
+		})
 	}
 }
 

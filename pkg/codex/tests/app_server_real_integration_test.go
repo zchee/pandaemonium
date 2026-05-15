@@ -16,6 +16,7 @@ package codex_test
 
 import (
 	"context"
+	"net"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -33,18 +34,7 @@ const realAppServerIntegrationEnv = "RUN_REAL_CODEX_TESTS"
 func TestRealAppServerIntegrationInitializeAndModelListPort(t *testing.T) {
 	sdk, ctx := newRealIntegrationCodex(t, 45*time.Second)
 
-	metadata := sdk.Metadata()
-	if strings.TrimSpace(metadata.UserAgent) == "" {
-		t.Fatalf("Metadata().UserAgent is empty: %#v", metadata)
-	}
-	if metadata.ServerInfo != nil {
-		if strings.TrimSpace(metadata.ServerInfo.Name) == "" {
-			t.Fatalf("Metadata().ServerInfo.Name is empty: %#v", metadata.ServerInfo)
-		}
-		if strings.TrimSpace(metadata.ServerInfo.Version) == "" {
-			t.Fatalf("Metadata().ServerInfo.Version is empty: %#v", metadata.ServerInfo)
-		}
-	}
+	assertRealInitializedMetadata(t, sdk.Metadata())
 
 	models, err := sdk.Models(ctx, true)
 	if err != nil {
@@ -214,6 +204,78 @@ func TestRealAppServerIntegrationExamplesRunPort(t *testing.T) {
 	}
 }
 
+func TestRealAppServerIntegrationWebSocketCapabilityTokenPort(t *testing.T) {
+	codexBin := requireRealCodexBinary(t)
+	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+	t.Cleanup(cancel)
+
+	tokenFile := filepath.Join(t.TempDir(), "capability.token")
+	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", tokenFile, err)
+	}
+	sdk, err := codex.NewCodex(ctx, &codex.Config{
+		CodexBin: codexBin,
+		Cwd:      t.TempDir(),
+		Listen: codex.ListenConfig{
+			URL: "ws://127.0.0.1:" + reserveRealIntegrationLoopbackPort(t),
+			WebSocket: &codex.WebSocketConfig{
+				AuthMode:    codex.WebSocketAuthCapabilityToken,
+				TokenFile:   tokenFile,
+				DialTimeout: 500 * time.Millisecond,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewCodex() real websocket capability-token error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := sdk.Close(); err != nil {
+			t.Fatalf("Codex.Close() real websocket capability-token error = %v", err)
+		}
+	})
+
+	assertRealInitializedMetadata(t, sdk.Metadata())
+}
+
+func TestRealAppServerIntegrationWebSocketSignedBearerTokenPort(t *testing.T) {
+	codexBin := requireRealCodexBinary(t)
+	sharedSecret := strings.TrimSpace(os.Getenv("CODEX_REAL_WS_SHARED_SECRET"))
+	clientBearer := strings.TrimSpace(os.Getenv("CODEX_REAL_WS_BEARER_TOKEN"))
+	if sharedSecret == "" || clientBearer == "" {
+		t.Skip("set CODEX_REAL_WS_SHARED_SECRET and CODEX_REAL_WS_BEARER_TOKEN for signed-bearer-token real websocket coverage")
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+	t.Cleanup(cancel)
+	sharedSecretFile := filepath.Join(t.TempDir(), "shared-secret")
+	if err := os.WriteFile(sharedSecretFile, []byte(sharedSecret+"\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", sharedSecretFile, err)
+	}
+	sdk, err := codex.NewCodex(ctx, &codex.Config{
+		CodexBin: codexBin,
+		Cwd:      t.TempDir(),
+		Listen: codex.ListenConfig{
+			URL: "ws://127.0.0.1:" + reserveRealIntegrationLoopbackPort(t),
+			WebSocket: &codex.WebSocketConfig{
+				AuthMode:          codex.WebSocketAuthSignedBearerToken,
+				SharedSecretFile:  sharedSecretFile,
+				ClientBearerToken: clientBearer,
+				DialTimeout:       500 * time.Millisecond,
+			},
+		},
+	})
+	if err != nil {
+		t.Fatalf("NewCodex() real websocket signed-bearer-token error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := sdk.Close(); err != nil {
+			t.Fatalf("Codex.Close() real websocket signed-bearer-token error = %v", err)
+		}
+	})
+
+	assertRealInitializedMetadata(t, sdk.Metadata())
+}
+
 func newRealIntegrationCodex(t *testing.T, timeout time.Duration) (*codex.Codex, context.Context) {
 	t.Helper()
 
@@ -233,6 +295,21 @@ func newRealIntegrationCodex(t *testing.T, timeout time.Duration) (*codex.Codex,
 	return sdk, ctx
 }
 
+func assertRealInitializedMetadata(t *testing.T, metadata codex.InitializeResponse) {
+	t.Helper()
+	if strings.TrimSpace(metadata.UserAgent) == "" {
+		t.Fatalf("Metadata().UserAgent is empty: %#v", metadata)
+	}
+	if metadata.ServerInfo != nil {
+		if strings.TrimSpace(metadata.ServerInfo.Name) == "" {
+			t.Fatalf("Metadata().ServerInfo.Name is empty: %#v", metadata.ServerInfo)
+		}
+		if strings.TrimSpace(metadata.ServerInfo.Version) == "" {
+			t.Fatalf("Metadata().ServerInfo.Version is empty: %#v", metadata.ServerInfo)
+		}
+	}
+}
+
 func requireRealCodexBinary(t *testing.T) string {
 	t.Helper()
 
@@ -244,6 +321,20 @@ func requireRealCodexBinary(t *testing.T) string {
 		t.Skipf("real Codex app-server integration requires codex binary on PATH: %v", err)
 	}
 	return codexBin
+}
+
+func reserveRealIntegrationLoopbackPort(t *testing.T) string {
+	t.Helper()
+	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	if err != nil {
+		t.Fatalf("net.Listen(127.0.0.1:0) error = %v", err)
+	}
+	defer ln.Close()
+	_, port, err := net.SplitHostPort(ln.Addr().String())
+	if err != nil {
+		t.Fatalf("net.SplitHostPort(%q) error = %v", ln.Addr().String(), err)
+	}
+	return port
 }
 
 func realIntegrationThreadParams() *codex.ThreadStartParams {

@@ -38,21 +38,27 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 )
 
-const sdkVersion = "0.131.0a4-go"
-const defaultListenURL = "stdio://"
+const (
+	sdkVersion       = "0.131.0a4-go"
+	defaultListenURL = "stdio://"
+)
 
 // ApprovalHandler answers app-server requests initiated during JSON-RPC processing.
 type ApprovalHandler func(method string, params jsontext.Value) (Object, error)
 
-// Config controls app-server process startup and client metadata.
+// WebSocketAuthMode selects the app-server WebSocket authentication mode.
 type WebSocketAuthMode string
 
 const (
-	WebSocketAuthNone              WebSocketAuthMode = ""
-	WebSocketAuthCapabilityToken   WebSocketAuthMode = "capability-token"
+	// WebSocketAuthNone disables websocket authentication flags.
+	WebSocketAuthNone WebSocketAuthMode = ""
+	// WebSocketAuthCapabilityToken configures capability-token websocket authentication.
+	WebSocketAuthCapabilityToken WebSocketAuthMode = "capability-token"
+	// WebSocketAuthSignedBearerToken configures signed-bearer-token websocket authentication.
 	WebSocketAuthSignedBearerToken WebSocketAuthMode = "signed-bearer-token"
 )
 
+// ListenConfig controls the app-server listen endpoint and transport auth.
 type ListenConfig struct {
 	// URL is passed directly as the app-server listen endpoint.
 	// An empty value means "stdio://".
@@ -105,6 +111,7 @@ type Client struct {
 	stdout    *bufio.Reader
 	stderr    io.ReadCloser
 	transport transport
+	cmdDone   chan error
 
 	writeMu       sync.Mutex
 	closeMu       sync.Mutex
@@ -142,7 +149,7 @@ func (t *stdioTransport) WriteJSON(data []byte) error {
 	if t.stdin == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
-	data = append(append([]byte(nil), data...), '\n')
+	data = append(slices.Clone(data), '\n')
 	_, err := t.stdin.Write(data)
 	if err != nil {
 		return &TransportClosedError{Message: err.Error()}
@@ -272,7 +279,7 @@ func (c *Client) Start(ctx context.Context) error {
 	listenCfg := c.effectiveListenConfig()
 	listenURL := strings.TrimSpace(listenCfg.URL)
 	if listenURL == "" {
-		listenURL = "stdio://"
+		listenURL = defaultListenURL
 	}
 	isWebSocket := strings.HasPrefix(listenURL, "ws://") || strings.HasPrefix(listenURL, "wss://")
 	if isWebSocket {
@@ -283,14 +290,19 @@ func (c *Client) Start(ctx context.Context) error {
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("start app-server: %w", err)
 		}
-		c.cmd = cmd
+		cmdDone := waitForCommand(cmd)
+		go c.drainStderr(stderr, c.stderrDone)
 		c.stderr = stderr
-		conn, err := dialWebSocketWithWait(ctx, cmd, listenURL, listenCfg.WebSocket)
+		conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket)
 		if err != nil {
-			_ = cmd.Process.Kill()
-			_ = cmd.Wait()
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-cmdDone
 			return fmt.Errorf("dial app-server websocket: %w", err)
 		}
+		c.cmd = cmd
+		c.cmdDone = cmdDone
 		c.transport = &websocketTransport{conn: conn}
 	} else {
 		var stdin io.WriteCloser
@@ -310,13 +322,14 @@ func (c *Client) Start(ctx context.Context) error {
 		if err := cmd.Start(); err != nil {
 			return fmt.Errorf("start app-server: %w", err)
 		}
+		c.cmdDone = waitForCommand(cmd)
 		c.cmd = cmd
 		c.stderr = stderr
 		c.stdin = stdin
 		c.stdout = bufio.NewReader(stdout)
 		c.transport = &stdioTransport{stdin: stdin, stdout: c.stdout}
+		go c.drainStderr(stderr, c.stderrDone)
 	}
-	go c.drainStderr(stderr, c.stderrDone)
 	go c.readLoop(c.readDone)
 	return nil
 }
@@ -329,11 +342,13 @@ func (c *Client) Close() error {
 		return nil
 	}
 	cmd := c.cmd
+	cmdDone := c.cmdDone
 	transport := c.transport
 	readDone := c.readDone
 	stderrDone := c.stderrDone
 	c.transport = nil
 	c.cmd = nil
+	c.cmdDone = nil
 	c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
@@ -348,8 +363,10 @@ func (c *Client) Close() error {
 		if cmd.Process != nil {
 			_ = cmd.Process.Signal(os.Interrupt)
 		}
-		done := make(chan error, 1)
-		go func() { done <- cmd.Wait() }()
+		done := cmdDone
+		if done == nil {
+			done = waitForCommand(cmd)
+		}
 		select {
 		case <-done:
 			// Close initiated termination, so process exit status is not actionable.
@@ -633,19 +650,15 @@ func (c *Client) appServerArgs(listenCfg ListenConfig) ([]string, error) {
 }
 
 func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
-
 	listenURL := strings.TrimSpace(listenCfg.URL)
 	if listenURL == "" {
-		listenURL = "stdio://"
+		listenURL = defaultListenURL
 	}
 	clientBearerSource := websocketHasClientBearerToken(listenCfg.WebSocket)
 
 	if parsed, err := url.Parse(listenURL); err != nil {
 		return nil, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
 	} else if parsed.Scheme == "ws" || parsed.Scheme == "wss" {
-		if listenCfg.WebSocket == nil {
-			return nil, fmt.Errorf("websocket listen %q requires websocket config", listenURL)
-		}
 		if parsed.Host == "" {
 			return nil, fmt.Errorf("websocket listen URL %q is missing host", listenURL)
 		}
@@ -682,13 +695,22 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 	for _, override := range c.config.ConfigOverrides {
 		args = append(args, "--config", override)
 	}
-	if listenURL == "stdio://" {
-		args = append(args, "app-server", "--listen", "stdio://")
+	if listenURL == defaultListenURL {
+		args = append(args, "app-server", "--listen", defaultListenURL)
 		return args, nil
 	}
 	args = append(args, "app-server", "--listen", listenURL)
 	args = append(args, wsLaunchArgs(listenCfg.WebSocket)...)
 	return args, nil
+}
+
+func waitForCommand(cmd *exec.Cmd) chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+		close(done)
+	}()
+	return done
 }
 
 func (c *Client) effectiveListenConfig() ListenConfig {
@@ -751,8 +773,11 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 	if cfg.TokenFile != "" && cfg.TokenSHA256 != "" {
 		return fmt.Errorf("invalid websocket auth: --ws-token-file and --ws-token-sha256 are mutually exclusive")
 	}
-	if strings.TrimSpace(cfg.TokenSHA256) != "" {
-		if _, err := hex.DecodeString(strings.TrimSpace(cfg.TokenSHA256)); err != nil {
+	if tokenSHA256 := strings.TrimSpace(cfg.TokenSHA256); tokenSHA256 != "" {
+		if len(tokenSHA256) != 64 {
+			return fmt.Errorf("ws-token-sha256 must be a 64-character hex digest")
+		}
+		if _, err := hex.DecodeString(tokenSHA256); err != nil {
 			return fmt.Errorf("ws-token-sha256 must be a 64-character hex digest")
 		}
 	}
@@ -791,7 +816,7 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 }
 
 func wsLaunchArgs(cfg *WebSocketConfig) []string {
-	if cfg == nil {
+	if cfg == nil || cfg.AuthMode == WebSocketAuthNone {
 		return nil
 	}
 	args := []string{"--ws-auth", string(cfg.AuthMode)}
@@ -820,7 +845,7 @@ func ensureWebSocketListenAllowed(parsed *url.URL, cfg ListenConfig) error {
 	if parsed == nil {
 		return nil
 	}
-	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+	if parsed.Scheme != "ws" {
 		return nil
 	}
 	if parsed.Hostname() == "" {
@@ -848,20 +873,17 @@ func websocketHasClientBearerToken(cfg *WebSocketConfig) bool {
 	return cfg.AuthMode == WebSocketAuthCapabilityToken && strings.TrimSpace(cfg.TokenFile) != ""
 }
 
-func dialWebSocketWithWait(ctx context.Context, cmd *exec.Cmd, listen string, cfg *WebSocketConfig) (*websocket.Conn, error) {
-	procDone := make(chan error, 1)
-	go func() {
-		if cmd != nil {
-			procDone <- cmd.Wait()
-		}
-	}()
+func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen string, cfg *WebSocketConfig) (*websocket.Conn, error) {
 	attemptLimit := 50
-	for attempt := 0; attempt < attemptLimit; attempt++ {
+	for attempt := range attemptLimit {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case err := <-procDone:
-			return nil, fmt.Errorf("app-server exited before websocket readiness (%w)", err)
+			if err != nil {
+				return nil, fmt.Errorf("app-server exited before websocket readiness (%w)", err)
+			}
+			return nil, errors.New("app-server exited before websocket readiness")
 		default:
 		}
 		dialCtx := ctx
@@ -876,10 +898,7 @@ func dialWebSocketWithWait(ctx context.Context, cmd *exec.Cmd, listen string, cf
 		if err == nil {
 			return conn, nil
 		}
-		backoff := time.Duration(25*(attempt+1)) * time.Millisecond
-		if backoff > 250*time.Millisecond {
-			backoff = 250 * time.Millisecond
-		}
+		backoff := min(time.Duration(25*(attempt+1))*time.Millisecond, 250*time.Millisecond)
 		if attempt >= attemptLimit-1 {
 			return nil, err
 		}
@@ -887,8 +906,11 @@ func dialWebSocketWithWait(ctx context.Context, cmd *exec.Cmd, listen string, cf
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(backoff):
-		case <-procDone:
-			return nil, fmt.Errorf("app-server exited before websocket readiness")
+		case err := <-procDone:
+			if err != nil {
+				return nil, fmt.Errorf("app-server exited before websocket readiness (%w)", err)
+			}
+			return nil, errors.New("app-server exited before websocket readiness")
 		}
 	}
 	return nil, fmt.Errorf("app-server websocket not ready after %d attempts", attemptLimit)
@@ -958,7 +980,7 @@ func websocketBearerToken(cfg *WebSocketConfig) (string, error) {
 	return "", nil
 }
 
-func validateTokenFileHasContent(path string, what string) error {
+func validateTokenFileHasContent(path, what string) error {
 	raw, err := os.ReadFile(path)
 	if err != nil {
 		return fmt.Errorf("read %s: %w", what, err)
