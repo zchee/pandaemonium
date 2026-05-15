@@ -93,7 +93,8 @@ func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {
 	if _, err := thread.SetName(ctx, "ported Python SDK tests"); err != nil {
 		t.Fatalf("Thread.SetName() error = %v", err)
 	}
-	read, err := thread.Read(ctx, true)
+	includeTurns := true
+	read, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
 	if err != nil {
 		t.Fatalf("Thread.Read() error = %v", err)
 	}
@@ -108,7 +109,8 @@ func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ThreadList() error = %v", err)
 	}
-	models, err := sdk.Models(ctx, true)
+	includeHidden := true
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
 	if err != nil {
 		t.Fatalf("Models() error = %v", err)
 	}
@@ -135,7 +137,7 @@ func TestAppServerHarnessStreamAndControlsPort(t *testing.T) {
 		if err != nil {
 			t.Fatalf("TurnHandle.Stream() error = %v", err)
 		}
-		delta, ok, err := event.AgentMessageDelta()
+		delta, ok, err := event.ItemAgentMessageDelta()
 		if err != nil {
 			t.Fatalf("AgentMessageDelta() error = %v", err)
 		}

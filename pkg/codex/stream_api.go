@@ -116,8 +116,8 @@ func (t *StreamThread) RunStream(ctx context.Context, input any, params *TurnSta
 }
 
 // Read reads thread state.
-func (t *StreamThread) Read(ctx context.Context, includeTurns bool) (ThreadReadResponse, error) {
-	return t.thread.Read(ctx, includeTurns)
+func (t *StreamThread) Read(ctx context.Context, params *ThreadReadParams) (ThreadReadResponse, error) {
+	return t.thread.Read(ctx, params)
 }
 
 // SetName sets the thread name.

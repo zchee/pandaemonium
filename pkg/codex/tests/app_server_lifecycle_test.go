@@ -36,7 +36,8 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		if _, err := thread.SetName(ctx, "sdk integration thread"); err != nil {
 			t.Fatalf("Thread.SetName() error = %v", err)
 		}
-		named, err := thread.Read(ctx, true)
+		includeTurns := true
+		named, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
 		if err != nil {
 			t.Fatalf("Thread.Read(includeTurns=true) error = %v", err)
 		}
@@ -103,7 +104,8 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		if _, err := thread.Run(ctx, "second question", nil); err != nil {
 			t.Fatalf("second Thread.Run() error = %v", err)
 		}
-		read, err := thread.Read(ctx, true)
+		includeTurns := true
+		read, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
 		if err != nil {
 			t.Fatalf("Thread.Read(includeTurns=true) error = %v", err)
 		}
@@ -133,7 +135,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		if _, err := thread.SetName(ctx, "async lifecycle"); err != nil {
 			t.Fatalf("Thread.SetName() error = %v", err)
 		}
-		named, err := thread.Read(ctx, false)
+		named, err := thread.Read(ctx, nil)
 		if err != nil {
 			t.Fatalf("Thread.Read(includeTurns=false) error = %v", err)
 		}
@@ -223,7 +225,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ThreadUnarchive() error = %v", err)
 		}
-		read, err := unarchived.Read(ctx, false)
+		read, err := unarchived.Read(ctx, nil)
 		if err != nil {
 			t.Fatalf("Thread.Read() after unarchive error = %v", err)
 		}
@@ -248,7 +250,8 @@ func TestAppServerLifecyclePort(t *testing.T) {
 	t.Run("models_rpc", func(t *testing.T) {
 		sdk, ctx := newLifecycleCodex(t)
 
-		models, err := sdk.Models(ctx, true)
+		includeHidden := true
+		models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
 		if err != nil {
 			t.Fatalf("Models(includeHidden=true) error = %v", err)
 		}

@@ -32,17 +32,22 @@ type AppServerError struct {
 func (e *AppServerError) Error() string { return e.Message }
 
 // JSONRPCError is a JSON-RPC error response from the app-server.
+// The embedded AppServerError.Message field holds the raw server text.
+// Error() formats "JSON-RPC error <code>: <message>" at call time.
 type JSONRPCError struct {
 	AppServerError
-	Code    int64
-	Message string
-	Data    jsontext.Value
-	Kind    string
+	Code int64
+	Data jsontext.Value
+	Kind string
 }
 
 func (e *JSONRPCError) Error() string {
 	return fmt.Sprintf("JSON-RPC error %d: %s", e.Code, e.Message)
 }
+
+// Unwrap exposes the embedded AppServerError so that errors.As traversal
+// can locate *AppServerError in the chain.
+func (e *JSONRPCError) Unwrap() error { return &e.AppServerError }
 
 // TransportClosedError is returned when the app-server stdio transport closes.
 type TransportClosedError struct {
@@ -69,8 +74,9 @@ type AppServerRPCError struct {
 	*JSONRPCError
 }
 
-func (e *AppServerRPCError) jsonRPCError() *JSONRPCError {
-	if e == nil {
+// Unwrap makes *JSONRPCError reachable via errors.As / errors.Unwrap.
+func (e *AppServerRPCError) Unwrap() error {
+	if e == nil || e.JSONRPCError == nil {
 		return nil
 	}
 	return e.JSONRPCError
@@ -81,39 +87,144 @@ type ParseError struct {
 	*AppServerRPCError
 }
 
+// JSONRPCError returns the underlying *JSONRPCError.
+func (e *ParseError) JSONRPCError() *JSONRPCError {
+	if e == nil || e.AppServerRPCError == nil {
+		return nil
+	}
+	return e.AppServerRPCError.JSONRPCError
+}
+
+// Unwrap makes *AppServerRPCError (and its chain) reachable via errors.As.
+func (e *ParseError) Unwrap() error { return e.AppServerRPCError }
+
 // InvalidRequestError indicates invalid JSON-RPC request structure.
 type InvalidRequestError struct {
 	*AppServerRPCError
 }
+
+// JSONRPCError returns the underlying *JSONRPCError.
+func (e *InvalidRequestError) JSONRPCError() *JSONRPCError {
+	if e == nil || e.AppServerRPCError == nil {
+		return nil
+	}
+	return e.AppServerRPCError.JSONRPCError
+}
+
+// Unwrap makes *AppServerRPCError (and its chain) reachable via errors.As.
+func (e *InvalidRequestError) Unwrap() error { return e.AppServerRPCError }
 
 // MethodNotFoundError indicates an unknown JSON-RPC method call.
 type MethodNotFoundError struct {
 	*AppServerRPCError
 }
 
+// JSONRPCError returns the underlying *JSONRPCError.
+func (e *MethodNotFoundError) JSONRPCError() *JSONRPCError {
+	if e == nil || e.AppServerRPCError == nil {
+		return nil
+	}
+	return e.AppServerRPCError.JSONRPCError
+}
+
+// Unwrap makes *AppServerRPCError (and its chain) reachable via errors.As.
+func (e *MethodNotFoundError) Unwrap() error { return e.AppServerRPCError }
+
 // InvalidParamsError indicates malformed or invalid request params.
 type InvalidParamsError struct {
 	*AppServerRPCError
 }
+
+// JSONRPCError returns the underlying *JSONRPCError.
+func (e *InvalidParamsError) JSONRPCError() *JSONRPCError {
+	if e == nil || e.AppServerRPCError == nil {
+		return nil
+	}
+	return e.AppServerRPCError.JSONRPCError
+}
+
+// Unwrap makes *AppServerRPCError (and its chain) reachable via errors.As.
+func (e *InvalidParamsError) Unwrap() error { return e.AppServerRPCError }
 
 // InternalRPCError indicates internal server JSON-RPC failure.
 type InternalRPCError struct {
 	*AppServerRPCError
 }
 
+// JSONRPCError returns the underlying *JSONRPCError.
+func (e *InternalRPCError) JSONRPCError() *JSONRPCError {
+	if e == nil || e.AppServerRPCError == nil {
+		return nil
+	}
+	return e.AppServerRPCError.JSONRPCError
+}
+
+// Unwrap makes *AppServerRPCError (and its chain) reachable via errors.As.
+func (e *InternalRPCError) Unwrap() error { return e.AppServerRPCError }
+
 // ServerBusyError indicates server-overload style retriable app-server errors.
 type ServerBusyError struct {
 	*AppServerRPCError
 }
+
+// JSONRPCError returns the underlying *JSONRPCError.
+func (e *ServerBusyError) JSONRPCError() *JSONRPCError {
+	if e == nil || e.AppServerRPCError == nil {
+		return nil
+	}
+	return e.AppServerRPCError.JSONRPCError
+}
+
+// Unwrap makes *AppServerRPCError (and its chain) reachable via errors.As.
+func (e *ServerBusyError) Unwrap() error { return e.AppServerRPCError }
 
 // RetryLimitExceededError indicates app-server overload retries were exhausted.
 type RetryLimitExceededError struct {
 	*ServerBusyError
 }
 
+// Unwrap makes *ServerBusyError (and its chain) reachable via errors.As.
+func (e *RetryLimitExceededError) Unwrap() error { return e.ServerBusyError }
+
+// TurnFailedError is returned by collectRunResult when a turn ends with
+// Status=failed. Unwrap maps the embedded CodexErrorInfo to the SDK error
+// hierarchy when present, enabling errors.As to reach *ServerBusyError,
+// *RetryLimitExceededError, etc. without inspecting the raw TurnError.
+type TurnFailedError struct {
+	TurnID string
+	Status TurnStatus
+	Err    *TurnError
+}
+
+func (e *TurnFailedError) Error() string {
+	if e.Err != nil && e.Err.Message != "" {
+		return fmt.Sprintf("turn %s failed: %s", e.TurnID, e.Err.Message)
+	}
+	return fmt.Sprintf("turn %s failed: %s", e.TurnID, e.Status)
+}
+
+// Unwrap maps CodexErrorInfo to a typed SDK error so that errors.As can
+// traverse through *TurnFailedError to reach *ServerBusyError,
+// *RetryLimitExceededError, etc. Returns nil when Err is nil or CodexErrorInfo
+// is absent, preserving the invariant that *TurnFailedError is always findable
+// via errors.As even when no further chain is present.
+func (e *TurnFailedError) Unwrap() error {
+	if e.Err == nil || e.Err.CodexErrorInfo == nil {
+		return nil
+	}
+	// Marshal the concrete CodexErrorInfo value (e.g. CodexErrorInfoValue
+	// "serverOverloaded") to JSON so that mapJSONRPCError's isServerOverloaded
+	// check can classify it into the correct typed wrapper.
+	data, err := json.Marshal(*e.Err.CodexErrorInfo)
+	if err != nil {
+		return nil
+	}
+	return mapJSONRPCError(-32000, e.Err.Message, jsontext.Value(data))
+}
+
 // IsServerBusy reports whether err is retryable server overload.
 //
-// Deprecated: Preserve compatibility with existing callers.
+// Deprecated: use IsRetryableError.
 func IsServerBusy(err error) bool {
 	return IsRetryableError(err)
 }
@@ -138,27 +249,30 @@ func IsRetryableError(err error) bool {
 		isServerOverloaded(rpcErr.Data)
 }
 
+// asJSONRPCError walks the error chain (up to 32 levels) and returns the first
+// *JSONRPCError found, or nil if none is present in the chain.
 func asJSONRPCError(err error) *JSONRPCError {
-	if err == nil {
-		return nil
-	}
-	if rpcErr, ok := err.(*JSONRPCError); ok {
-		return rpcErr
-	}
-	if carrier, ok := err.(interface{ jsonRPCError() *JSONRPCError }); ok {
-		return carrier.jsonRPCError()
-	}
-	if unwrapped := errors.Unwrap(err); unwrapped != nil {
-		return asJSONRPCError(unwrapped)
+	for i := 0; i < 32; i++ {
+		if err == nil {
+			return nil
+		}
+		if rpcErr, ok := err.(*JSONRPCError); ok {
+			return rpcErr
+		}
+		// Concrete wrapper types (ParseError, ServerBusyError, etc.) expose an
+		// exported JSONRPCError() accessor; use it as a fast-path shortcut.
+		if carrier, ok := err.(interface{ JSONRPCError() *JSONRPCError }); ok {
+			return carrier.JSONRPCError()
+		}
+		err = errors.Unwrap(err)
 	}
 	return nil
 }
 
 func makeJSONRPCError(code int64, message string, data jsontext.Value, kind string) *JSONRPCError {
 	return &JSONRPCError{
-		AppServerError: AppServerError{Message: fmt.Sprintf("JSON-RPC error %d: %s", code, message)},
+		AppServerError: AppServerError{Message: message},
 		Code:           code,
-		Message:        message,
 		Data:           data,
 		Kind:           kind,
 	}

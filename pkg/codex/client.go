@@ -519,8 +519,8 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 					c.clearTurnPending(expectedTurnID)
 					return
 				}
-			case NotificationMethodAgentMessageDelta:
-				delta, ok, err := notification.AgentMessageDelta()
+			case NotificationMethodItemAgentMessageDelta:
+				delta, ok, err := notification.ItemAgentMessageDelta()
 				if err != nil {
 					yield(AgentMessageDeltaNotification{}, err)
 					return

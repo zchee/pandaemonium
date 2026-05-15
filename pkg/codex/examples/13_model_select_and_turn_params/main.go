@@ -35,7 +35,8 @@ func main() {
 	}
 	defer client.Close()
 
-	models, err := client.Models(ctx, true)
+	includeHidden := true
+	models, err := client.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
 	if err != nil {
 		log.Fatal(err)
 	}

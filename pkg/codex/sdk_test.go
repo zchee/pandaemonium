@@ -742,7 +742,7 @@ func TestClientProtocolQueuesNotificationsAndHandlesServerRequests(t *testing.T)
 		t.Fatalf("notification method = %q, want thread/started", notification.Method)
 	}
 
-	models, err := client.ModelList(t.Context(), true)
+	models, err := client.ModelList(t.Context(), &ModelListParams{IncludeHidden: ptr(true)})
 	if err != nil {
 		t.Fatalf("ModelList() error = %v", err)
 	}
@@ -1239,7 +1239,7 @@ func TestCodexStreamThreadLifecycleMethodsDelegateToThreadAPI(t *testing.T) {
 		t.Fatalf("unarchived.ID() = %q, want thr_stream_unarchive", unarchived.ID())
 	}
 
-	read, err := started.Read(t.Context(), true)
+	read, err := started.Read(t.Context(), &ThreadReadParams{IncludeTurns: ptr(true)})
 	if err != nil {
 		t.Fatalf("StreamThread.Read() error = %v", err)
 	}

@@ -217,28 +217,6 @@ func (r *turnNotificationRouter) close(err error) {
 	}
 }
 
-func (r *turnNotificationRouter) failLocked(err error) {
-	if r.closed {
-		return
-	}
-	r.closed = true
-	r.err = err
-	global := r.global
-	r.global = nil
-	queues := make([]*turnNotificationQueue, 0, len(r.queues))
-	for _, queue := range r.queues {
-		queues = append(queues, queue)
-	}
-	r.queues = map[string]*turnNotificationQueue{}
-	r.pending = map[string][]Notification{}
-	if global != nil {
-		close(global)
-	}
-	for _, queue := range queues {
-		queue.close(err)
-	}
-}
-
 func (r *turnNotificationRouter) closedErr(err error) error {
 	r.mu.Lock()
 	defer r.mu.Unlock()

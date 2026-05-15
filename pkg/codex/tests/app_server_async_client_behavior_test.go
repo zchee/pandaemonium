@@ -42,7 +42,7 @@ func TestAppServerAsyncClientBehaviorPortConcurrentTransportCallsOverlap(t *test
 			defer done.Done()
 			ready.Done()
 			<-start
-			results[i], errs[i] = sdk.Models(ctx, false)
+			results[i], errs[i] = sdk.Models(ctx, nil)
 		}()
 	}
 	ready.Wait()

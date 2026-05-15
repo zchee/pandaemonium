@@ -40,17 +40,17 @@ func TestRealCodexAppServerInitializeAndModelList(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), 30*time.Second)
 	defer cancel()
 
-	codex, err := codex.NewCodex(ctx, &codex.Config{CodexBin: codexBin})
+	sdk, err := codex.NewCodex(ctx, &codex.Config{CodexBin: codexBin})
 	if err != nil {
 		t.Fatalf("NewCodex() with real app-server error = %v", err)
 	}
 	defer func() {
-		if err := codex.Close(); err != nil {
+		if err := sdk.Close(); err != nil {
 			t.Fatalf("Close() real app-server error = %v", err)
 		}
 	}()
 
-	metadata := codex.Metadata()
+	metadata := sdk.Metadata()
 	if strings.TrimSpace(metadata.UserAgent) == "" {
 		t.Fatalf("Metadata().UserAgent is empty: %#v", metadata)
 	}
@@ -64,7 +64,8 @@ func TestRealCodexAppServerInitializeAndModelList(t *testing.T) {
 		t.Fatalf("Metadata().ServerInfo.Version is empty: %#v", metadata.ServerInfo)
 	}
 
-	models, err := codex.Models(ctx, true)
+	includeHidden := true
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
 	if err != nil {
 		t.Fatalf("Models(includeHidden=true) real app-server error = %v", err)
 	}

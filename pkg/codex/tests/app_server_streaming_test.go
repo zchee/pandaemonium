@@ -148,7 +148,8 @@ func TestAppServerStreamingPortLowLevelStreamAllowsParallelModelList(t *testing.
 		t.Fatalf("first StreamText delta = %q, want one", first)
 	}
 
-	models, err := sdk.Models(ctx, true)
+	includeHidden := true
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
 	if err != nil {
 		t.Fatalf("Models() while stream is active error = %v", err)
 	}
@@ -304,7 +305,7 @@ func nextStreamingPortNotificationDelta(t *testing.T, next func() (codex.Notific
 		if !ok {
 			t.Fatal("stream ended before the next agent-message delta")
 		}
-		delta, ok, err := notification.AgentMessageDelta()
+		delta, ok, err := notification.ItemAgentMessageDelta()
 		if err != nil {
 			t.Fatalf("AgentMessageDelta() error = %v", err)
 		}
@@ -350,8 +351,8 @@ func nextStreamingPortDelta(t *testing.T, next func() (codex.AgentMessageDeltaNo
 
 func (s *streamingPortSummary) add(t *testing.T, notification codex.Notification) {
 	t.Helper()
-	if delta, ok, err := notification.AgentMessageDelta(); err != nil {
-		t.Fatalf("AgentMessageDelta() error = %v", err)
+	if delta, ok, err := notification.ItemAgentMessageDelta(); err != nil {
+		t.Fatalf("ItemAgentMessageDelta() error = %v", err)
 	} else if ok {
 		s.Deltas = append(s.Deltas, delta.Delta)
 		return

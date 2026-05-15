@@ -58,4 +58,12 @@
 // Compile-time alias compatibility checks live in public_types_test.go, and
 // compatibility-sensitive aliases should be preserved unless the upstream schema
 // contract explicitly changes.
+//
+// Concurrency contract:
+//
+//   - [Client], [Codex], and [Thread] are safe for concurrent use by multiple
+//     goroutines.
+//   - Each [TurnHandle] may have at most one active stream consumer at a time.
+//     Calling [TurnHandle.Stream] or [TurnHandle.Run] while another goroutine
+//     is already streaming the same turn returns an error immediately.
 package codex

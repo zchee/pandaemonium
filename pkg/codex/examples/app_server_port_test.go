@@ -91,7 +91,8 @@ func TestExamplesPublicAppServerLifecyclePort(t *testing.T) {
 	if got := exampleutil.ServerLabel(client.Metadata()); got != "codex-examples-test 1.2.3" {
 		t.Fatalf("metadata label = %q, want codex-examples-test 1.2.3", got)
 	}
-	models, err := client.Models(t.Context(), true)
+	includeHidden := true
+	models, err := client.Models(t.Context(), &codex.ModelListParams{IncludeHidden: &includeHidden})
 	if err != nil {
 		t.Fatalf("Models() error = %v", err)
 	}
@@ -119,7 +120,8 @@ func TestExamplesPublicAppServerLifecyclePort(t *testing.T) {
 		t.Fatalf("RunResult.Usage = %#v, want total tokens 6", runResult.Usage)
 	}
 
-	reading, err := thread.Read(t.Context(), true)
+	includeTurns := true
+	reading, err := thread.Read(t.Context(), &codex.ThreadReadParams{IncludeTurns: &includeTurns})
 	if err != nil {
 		t.Fatalf("Thread.Read() error = %v", err)
 	}

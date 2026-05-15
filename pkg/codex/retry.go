@@ -42,8 +42,13 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 	}
 	if cfg.JitterRatio == 0 {
 		cfg.JitterRatio = 0.2
+	} else if cfg.JitterRatio < 0 {
+		cfg.JitterRatio = 0 // negative disables jitter
 	}
 	var zero T
+	if cfg.JitterRatio > 1 {
+		return zero, fmt.Errorf("jitter ratio %g out of range [0, 1]", cfg.JitterRatio)
+	}
 	if cfg.MaxAttempts < 1 {
 		return zero, fmt.Errorf("max attempts must be >= 1")
 	}
@@ -53,14 +58,19 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 		if err == nil {
 			return result, nil
 		}
-		if attempt >= cfg.MaxAttempts || !IsRetryableError(err) {
+		if attempt >= cfg.MaxAttempts || !isRetryableOp(err) {
 			return zero, err
+		}
+		// Clamp delay before computing jitter so jitter range is bounded by MaxDelay.
+		if delay > cfg.MaxDelay {
+			delay = cfg.MaxDelay
 		}
 		sleepFor := delay
 		if cfg.JitterRatio > 0 {
 			jitter := float64(delay) * cfg.JitterRatio
 			sleepFor = time.Duration(float64(delay) - jitter + rand.Float64()*2*jitter)
 		}
+		sleepFor = max(0, sleepFor)
 		if sleepFor > cfg.MaxDelay {
 			sleepFor = cfg.MaxDelay
 		}
@@ -78,4 +88,14 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 			delay = cfg.MaxDelay
 		}
 	}
+}
+
+// isRetryableOp reports whether err should be retried. It checks the internal
+// retryable() marker interface first (used by tests), then falls back to the
+// public IsRetryableError which recognises server-side JSONRPCError kinds.
+func isRetryableOp(err error) bool {
+	if _, ok := err.(interface{ retryable() }); ok {
+		return true
+	}
+	return IsRetryableError(err)
 }

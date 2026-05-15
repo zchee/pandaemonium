@@ -38,33 +38,36 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "thread/fork", call: func() error { _, err := client.ThreadFork(ctx, "thread", &ThreadForkParams{}); return err }},
 		{name: "thread/archive", call: func() error { _, err := client.ThreadArchive(ctx, "thread"); return err }},
 		{name: "thread/unsubscribe", call: func() error {
-			_, err := client.ThreadUnsubscribe(ctx, &ThreadUnsubscribeParams{ThreadID: "thread"})
+			_, err := client.ThreadUnsubscribe(ctx, "thread", &ThreadUnsubscribeParams{})
 			return err
 		}},
 		{name: "thread/name/set", call: func() error { _, err := client.ThreadSetName(ctx, "thread", "name"); return err }},
 		{name: "thread/metadata/update", call: func() error {
-			_, err := client.ThreadMetadataUpdate(ctx, &ThreadMetadataUpdateParams{ThreadID: "thread"})
+			_, err := client.ThreadMetadataUpdate(ctx, "thread", &ThreadMetadataUpdateParams{})
 			return err
 		}},
 		{name: "thread/unarchive", call: func() error { _, err := client.ThreadUnarchive(ctx, "thread"); return err }},
 		{name: "thread/compact/start", call: func() error { _, err := client.ThreadCompact(ctx, "thread"); return err }},
 		{name: "thread/shellCommand", call: func() error {
-			_, err := client.ThreadShellCommand(ctx, &ThreadShellCommandParams{ThreadID: "thread", Command: "echo ok"})
+			_, err := client.ThreadShellCommand(ctx, "thread", &ThreadShellCommandParams{Command: "echo ok"})
 			return err
 		}},
 		{name: "thread/approveGuardianDeniedAction", call: func() error {
-			_, err := client.ThreadApproveGuardianDeniedAction(ctx, &ThreadApproveGuardianDeniedActionParams{ThreadID: "thread", Event: jsontext.Value(`{}`)})
+			_, err := client.ThreadApproveGuardianDeniedAction(ctx, "thread", &ThreadApproveGuardianDeniedActionParams{Event: jsontext.Value(`{}`)})
 			return err
 		}},
 		{name: "thread/rollback", call: func() error {
-			_, err := client.ThreadRollback(ctx, &ThreadRollbackParams{ThreadID: "thread", NumTurns: 1})
+			_, err := client.ThreadRollback(ctx, "thread", &ThreadRollbackParams{NumTurns: 1})
 			return err
 		}},
 		{name: "thread/list", call: func() error { _, err := client.ThreadList(ctx, &ThreadListParams{}); return err }},
 		{name: "thread/loaded/list", call: func() error { _, err := client.ThreadLoadedList(ctx, &ThreadLoadedListParams{}); return err }},
-		{name: "thread/read", call: func() error { _, err := client.ThreadRead(ctx, "thread", true); return err }},
+		{name: "thread/read", call: func() error {
+			_, err := client.ThreadRead(ctx, "thread", &ThreadReadParams{IncludeTurns: ptr(true)})
+			return err
+		}},
 		{name: "thread/inject_items", call: func() error {
-			_, err := client.ThreadInjectItems(ctx, &ThreadInjectItemsParams{ThreadID: "thread"})
+			_, err := client.ThreadInjectItems(ctx, "thread", &ThreadInjectItemsParams{})
 			return err
 		}},
 		{name: "skills/list", call: func() error { _, err := client.SkillsList(ctx, &SkillsListParams{}); return err }},
@@ -135,7 +138,10 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "turn/steer", call: func() error { _, err := client.TurnSteer(ctx, "thread", "turn", "hello"); return err }},
 		{name: "turn/interrupt", call: func() error { _, err := client.TurnInterrupt(ctx, "thread", "turn"); return err }},
 		{name: "review/start", call: func() error { _, err := client.ReviewStart(ctx, &ReviewStartParams{ThreadID: "thread"}); return err }},
-		{name: "model/list", call: func() error { _, err := client.ModelList(ctx, true); return err }},
+		{name: "model/list", call: func() error {
+			_, err := client.ModelList(ctx, &ModelListParams{IncludeHidden: ptr(true)})
+			return err
+		}},
 		{name: "modelProvider/capabilities/read", call: func() error {
 			_, err := client.ModelProviderCapabilitiesRead(ctx, &ModelProviderCapabilitiesReadParams{})
 			return err
@@ -168,7 +174,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		}},
 		{name: "windowsSandbox/readiness", call: func() error { _, err := client.WindowsSandboxReadiness(ctx); return err }},
 		{name: "account/login/start", call: func() error {
-			got, err := client.AccountLoginStart(ctx, APIKeyv2LoginAccountParams{Type: "apiKey", APIKey: "key"})
+			got, err := client.AccountLoginStart(ctx, NewLoginAccountParamsAPIKey("key"))
 			if err != nil {
 				return err
 			}
@@ -237,3 +243,57 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		})
 	}
 }
+
+func TestAccountLoginStartConstructors(t *testing.T) {
+	t.Parallel()
+
+	t.Run("api_key", func(t *testing.T) {
+		t.Parallel()
+		got := NewLoginAccountParamsAPIKey("sk-test")
+		typed, ok := got.(APIKeyv2LoginAccountParams)
+		if !ok {
+			t.Fatalf("NewLoginAccountParamsAPIKey() type = %T, want APIKeyv2LoginAccountParams", got)
+		}
+		if typed.APIKey != "sk-test" {
+			t.Fatalf("NewLoginAccountParamsAPIKey().APIKey = %q, want sk-test", typed.APIKey)
+		}
+		if typed.Type != "apiKey" {
+			t.Fatalf("NewLoginAccountParamsAPIKey().Type = %q, want apiKey", typed.Type)
+		}
+	})
+
+	t.Run("chatgpt", func(t *testing.T) {
+		t.Parallel()
+		got := NewLoginAccountParamsChatGPT()
+		typed, ok := got.(ChatGPTv2LoginAccountParams)
+		if !ok {
+			t.Fatalf("NewLoginAccountParamsChatGPT() type = %T, want ChatGPTv2LoginAccountParams", got)
+		}
+		if typed.Type != "chatgpt" {
+			t.Fatalf("NewLoginAccountParamsChatGPT().Type = %q, want chatgpt", typed.Type)
+		}
+	})
+
+	t.Run("headless", func(t *testing.T) {
+		t.Parallel()
+		got := NewLoginAccountParamsHeadless()
+		typed, ok := got.(ChatGPTDeviceCodev2LoginAccountParams)
+		if !ok {
+			t.Fatalf("NewLoginAccountParamsHeadless() type = %T, want ChatGPTDeviceCodev2LoginAccountParams", got)
+		}
+		if typed.Type != "chatgptDeviceCode" {
+			t.Fatalf("NewLoginAccountParamsHeadless().Type = %q, want chatgptDeviceCode", typed.Type)
+		}
+	})
+
+	t.Run("implements_interface", func(t *testing.T) {
+		t.Parallel()
+		// All constructors must satisfy the LoginAccountParams interface.
+		var _ LoginAccountParams = NewLoginAccountParamsAPIKey("")
+		var _ LoginAccountParams = NewLoginAccountParamsChatGPT()
+		var _ LoginAccountParams = NewLoginAccountParamsHeadless()
+	})
+}
+
+// ptr returns a pointer to v. Used in tests to create *T from a literal value.
+func ptr[T any](v T) *T { return &v }

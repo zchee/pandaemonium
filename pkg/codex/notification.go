@@ -22,81 +22,18 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 )
 
-func init() {
-	slices.Sort(notificationMethodList)
-}
-
-const (
-	// Deprecated aliases kept for compatibility.
-	NotificationMethodAgentMessageDelta             = NotificationMethodItemAgentMessageDelta
-	NotificationMethodThreadTokenUsageUpdatedLegacy = NotificationMethodThreadTokenUsageUpdated
-)
-
-var notificationMethodList = []string{
-	NotificationMethodAccountLoginCompleted,
-	NotificationMethodAccountRateLimitsUpdated,
-	NotificationMethodAccountUpdated,
-	NotificationMethodAppListUpdated,
-	NotificationMethodCommandExecOutputDelta,
-	NotificationMethodConfigWarning,
-	NotificationMethodDeprecationNotice,
-	NotificationMethodError,
-	NotificationMethodExternalAgentConfigImportCompleted,
-	NotificationMethodFSChanged,
-	NotificationMethodFuzzyFileSearchSessionCompleted,
-	NotificationMethodFuzzyFileSearchSessionUpdated,
-	NotificationMethodGuardianWarning,
-	NotificationMethodHookCompleted,
-	NotificationMethodHookStarted,
-	NotificationMethodItemAgentMessageDelta,
-	NotificationMethodItemAutoApprovalReviewCompleted,
-	NotificationMethodItemAutoApprovalReviewStarted,
-	NotificationMethodItemCommandExecutionOutputDelta,
-	NotificationMethodItemCommandExecutionTerminalInteraction,
-	NotificationMethodItemCompleted,
-	NotificationMethodItemFileChangeOutputDelta,
-	NotificationMethodItemFileChangePatchUpdated,
-	NotificationMethodItemMCPToolCallProgress,
-	NotificationMethodItemPlanDelta,
-	NotificationMethodItemReasoningSummaryPartAdded,
-	NotificationMethodItemReasoningSummaryTextDelta,
-	NotificationMethodItemReasoningTextDelta,
-	NotificationMethodItemStarted,
-	NotificationMethodMCPServerOAuthLoginCompleted,
-	NotificationMethodMCPServerStartupStatusUpdated,
-	NotificationMethodModelRerouted,
-	NotificationMethodModelVerification,
-	NotificationMethodProcessExited,
-	NotificationMethodProcessOutputDelta,
-	NotificationMethodRemoteControlStatusChanged,
-	NotificationMethodServerRequestResolved,
-	NotificationMethodSkillsChanged,
-	NotificationMethodThreadArchived,
-	NotificationMethodThreadClosed,
-	NotificationMethodThreadCompacted,
-	NotificationMethodThreadGoalCleared,
-	NotificationMethodThreadGoalUpdated,
-	NotificationMethodThreadNameUpdated,
-	NotificationMethodThreadRealtimeClosed,
-	NotificationMethodThreadRealtimeError,
-	NotificationMethodThreadRealtimeItemAdded,
-	NotificationMethodThreadRealtimeOutputAudioDelta,
-	NotificationMethodThreadRealtimeSDP,
-	NotificationMethodThreadRealtimeStarted,
-	NotificationMethodThreadRealtimeTranscriptDelta,
-	NotificationMethodThreadRealtimeTranscriptDone,
-	NotificationMethodThreadStarted,
-	NotificationMethodThreadStatusChanged,
-	NotificationMethodThreadTokenUsageUpdated,
-	NotificationMethodThreadUnarchived,
-	NotificationMethodTurnCompleted,
-	NotificationMethodTurnDiffUpdated,
-	NotificationMethodTurnPlanUpdated,
-	NotificationMethodTurnStarted,
-	NotificationMethodWarning,
-	NotificationMethodWindowsWorldWritableWarning,
-	NotificationMethodWindowsSandboxSetupCompleted,
-}
+// notificationMethodList is the sorted inventory of all known notification
+// methods. It is derived from notificationDecoders at init time so that adding
+// a decoder automatically updates the list without requiring a separate
+// hand-maintained copy.
+var notificationMethodList = func() []string {
+	methods := make([]string, 0, len(notificationDecoders))
+	for method := range notificationDecoders {
+		methods = append(methods, method)
+	}
+	slices.Sort(methods)
+	return methods
+}()
 
 // Notification is a server notification with its method and raw params.
 type Notification struct {
@@ -326,7 +263,7 @@ func DecodeNotificationAs[T any](notification Notification, method string) (T, b
 	}
 	var got T
 	if err := json.Unmarshal(notification.Params, &got); err != nil {
-		return zero, true, fmt.Errorf("decode %s notification: %w", method, err)
+		return zero, false, fmt.Errorf("decode %s notification: %w", method, err)
 	}
 	return got, true, nil
 }
@@ -346,15 +283,22 @@ func DecodeNotification(notification Notification) (KnownNotification, bool, err
 	if !ok {
 		return KnownNotification{Raw: notification}, false, nil
 	}
-	value, matched, err := decode(notification)
-	return KnownNotification{Method: notification.Method, Value: value, Raw: notification}, matched, err
+	value, _, err := decode(notification)
+	// The method is known regardless of whether params decoded cleanly.
+	return KnownNotification{Method: notification.Method, Value: value, Raw: notification}, true, err
 }
 
 // DecodeKnownNotification decodes the known notification set.
 //
-// Deprecated: use DecodeNotification.
+// Deprecated: use DecodeNotification. Unlike DecodeNotification, this function
+// returns matched=false when params are malformed (legacy behavior).
 func DecodeKnownNotification(notification Notification) (KnownNotification, bool, error) {
-	return DecodeNotification(notification)
+	decode, ok := notificationDecoders[notification.Method]
+	if !ok {
+		return KnownNotification{Raw: notification}, false, nil
+	}
+	value, matched, err := decode(notification)
+	return KnownNotification{Method: notification.Method, Value: value, Raw: notification}, matched, err
 }
 
 // DecodeAccountLoginCompletedNotification decodes the account/login/completed notification.

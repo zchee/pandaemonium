@@ -101,8 +101,8 @@ func (c *Codex) ThreadUnarchive(ctx context.Context, threadID string) (*Thread, 
 }
 
 // Models lists available models.
-func (c *Codex) Models(ctx context.Context, includeHidden bool) (ModelListResponse, error) {
-	return c.client.ModelList(ctx, includeHidden)
+func (c *Codex) Models(ctx context.Context, params *ModelListParams) (ModelListResponse, error) {
+	return c.client.ModelList(ctx, params)
 }
 
 // Client exposes the lower-level JSON-RPC client.
@@ -138,8 +138,38 @@ func (t *Thread) Turn(ctx context.Context, input any, params *TurnStartParams) (
 }
 
 // Read reads thread state.
-func (t *Thread) Read(ctx context.Context, includeTurns bool) (ThreadReadResponse, error) {
-	return t.client.ThreadRead(ctx, t.id, includeTurns)
+func (t *Thread) Read(ctx context.Context, params *ThreadReadParams) (ThreadReadResponse, error) {
+	return t.client.ThreadRead(ctx, t.id, params)
+}
+
+// Unsubscribe unsubscribes from thread notifications.
+func (t *Thread) Unsubscribe(ctx context.Context, params *ThreadUnsubscribeParams) (ThreadUnsubscribeResponse, error) {
+	return t.client.ThreadUnsubscribe(ctx, t.id, params)
+}
+
+// MetadataUpdate updates thread metadata.
+func (t *Thread) MetadataUpdate(ctx context.Context, params *ThreadMetadataUpdateParams) (ThreadMetadataUpdateResponse, error) {
+	return t.client.ThreadMetadataUpdate(ctx, t.id, params)
+}
+
+// ShellCommand runs a shell command in the thread context.
+func (t *Thread) ShellCommand(ctx context.Context, params *ThreadShellCommandParams) (ThreadShellCommandResponse, error) {
+	return t.client.ThreadShellCommand(ctx, t.id, params)
+}
+
+// ApproveGuardianDeniedAction approves a guardian-denied action in the thread.
+func (t *Thread) ApproveGuardianDeniedAction(ctx context.Context, params *ThreadApproveGuardianDeniedActionParams) (ThreadApproveGuardianDeniedActionResponse, error) {
+	return t.client.ThreadApproveGuardianDeniedAction(ctx, t.id, params)
+}
+
+// Rollback rolls back the thread by the number of turns specified in params.
+func (t *Thread) Rollback(ctx context.Context, params *ThreadRollbackParams) (ThreadRollbackResponse, error) {
+	return t.client.ThreadRollback(ctx, t.id, params)
+}
+
+// InjectItems injects items into the thread.
+func (t *Thread) InjectItems(ctx context.Context, params *ThreadInjectItemsParams) (ThreadInjectItemsResponse, error) {
+	return t.client.ThreadInjectItems(ctx, t.id, params)
 }
 
 // SetName sets the thread name.
@@ -185,6 +215,7 @@ func (h *TurnHandle) Stream(ctx context.Context) iter.Seq2[Notification, error] 
 			return
 		}
 		defer h.client.releaseTurnConsumer(h.turnID)
+		defer h.client.clearTurnPending(h.turnID)
 		for {
 			notification, err := h.client.nextTurnNotification(ctx, h.turnID)
 			if err != nil {

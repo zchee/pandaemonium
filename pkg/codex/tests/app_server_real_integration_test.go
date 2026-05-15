@@ -36,7 +36,8 @@ func TestRealAppServerIntegrationInitializeAndModelListPort(t *testing.T) {
 
 	assertRealInitializedMetadata(t, sdk.Metadata())
 
-	models, err := sdk.Models(ctx, true)
+	includeHidden := true
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
 	if err != nil {
 		t.Fatalf("Models(includeHidden=true) real app-server error = %v", err)
 	}
@@ -71,7 +72,8 @@ func TestRealAppServerIntegrationThreadTurnAndRunPort(t *testing.T) {
 	}
 	assertRealCompletedTurn(t, result)
 
-	persisted, err := thread.Read(ctx, true)
+	includeTurns := true
+	persisted, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
 	if err != nil {
 		t.Fatalf("Thread.Read(includeTurns=true) real app-server error = %v", err)
 	}

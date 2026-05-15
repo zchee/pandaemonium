@@ -49,7 +49,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	persisted, err := resumed.Read(ctx, true)
+	includeTurns := true
+	persisted, err := resumed.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
 	if err != nil {
 		log.Fatal(err)
 	}

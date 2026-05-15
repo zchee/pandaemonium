@@ -33,7 +33,7 @@ func main() {
 	defer client.Close()
 
 	fmt.Println("server:", exampleutil.ServerLabel(client.Metadata()))
-	models, err := client.Models(ctx, false)
+	models, err := client.Models(ctx, nil)
 	if err != nil {
 		log.Fatal(err)
 	}

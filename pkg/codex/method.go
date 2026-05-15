@@ -27,13 +27,19 @@ func (c *Client) ThreadStart(ctx context.Context, params *ThreadStartParams) (Th
 
 // ThreadResume calls thread/resume.
 func (c *Client) ThreadResume(ctx context.Context, threadID string, params *ThreadResumeParams) (ThreadResumeResponse, error) {
-	payload := mergeParams(params, Object{"threadId": threadID})
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadResumeResponse{}, err
+	}
 	return Request[ThreadResumeResponse](ctx, c, RequestMethodThreadResume, payload)
 }
 
 // ThreadFork calls thread/fork.
 func (c *Client) ThreadFork(ctx context.Context, threadID string, params *ThreadForkParams) (ThreadForkResponse, error) {
-	payload := mergeParams(params, Object{"threadId": threadID})
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadForkResponse{}, err
+	}
 	return Request[ThreadForkResponse](ctx, c, RequestMethodThreadFork, payload)
 }
 
@@ -43,8 +49,12 @@ func (c *Client) ThreadList(ctx context.Context, params *ThreadListParams) (Thre
 }
 
 // ThreadRead calls thread/read.
-func (c *Client) ThreadRead(ctx context.Context, threadID string, includeTurns bool) (ThreadReadResponse, error) {
-	return Request[ThreadReadResponse](ctx, c, RequestMethodThreadRead, ThreadReadParams{ThreadID: threadID, IncludeTurns: &includeTurns})
+func (c *Client) ThreadRead(ctx context.Context, threadID string, params *ThreadReadParams) (ThreadReadResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadReadResponse{}, err
+	}
+	return Request[ThreadReadResponse](ctx, c, RequestMethodThreadRead, payload)
 }
 
 // ThreadArchive calls thread/archive.
@@ -53,13 +63,21 @@ func (c *Client) ThreadArchive(ctx context.Context, threadID string) (ThreadArch
 }
 
 // ThreadUnsubscribe calls thread/unsubscribe.
-func (c *Client) ThreadUnsubscribe(ctx context.Context, params *ThreadUnsubscribeParams) (ThreadUnsubscribeResponse, error) {
-	return Request[ThreadUnsubscribeResponse](ctx, c, RequestMethodThreadUnsubscribe, paramsOrEmpty(params))
+func (c *Client) ThreadUnsubscribe(ctx context.Context, threadID string, params *ThreadUnsubscribeParams) (ThreadUnsubscribeResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadUnsubscribeResponse{}, err
+	}
+	return Request[ThreadUnsubscribeResponse](ctx, c, RequestMethodThreadUnsubscribe, payload)
 }
 
 // ThreadMetadataUpdate calls thread/metadata/update.
-func (c *Client) ThreadMetadataUpdate(ctx context.Context, params *ThreadMetadataUpdateParams) (ThreadMetadataUpdateResponse, error) {
-	return Request[ThreadMetadataUpdateResponse](ctx, c, RequestMethodThreadMetadataUpdate, paramsOrEmpty(params))
+func (c *Client) ThreadMetadataUpdate(ctx context.Context, threadID string, params *ThreadMetadataUpdateParams) (ThreadMetadataUpdateResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadMetadataUpdateResponse{}, err
+	}
+	return Request[ThreadMetadataUpdateResponse](ctx, c, RequestMethodThreadMetadataUpdate, payload)
 }
 
 // ThreadUnarchive calls thread/unarchive.
@@ -78,18 +96,30 @@ func (c *Client) ThreadCompact(ctx context.Context, threadID string) (ThreadComp
 }
 
 // ThreadShellCommand calls thread/shellCommand.
-func (c *Client) ThreadShellCommand(ctx context.Context, params *ThreadShellCommandParams) (ThreadShellCommandResponse, error) {
-	return Request[ThreadShellCommandResponse](ctx, c, RequestMethodThreadShellCommand, paramsOrEmpty(params))
+func (c *Client) ThreadShellCommand(ctx context.Context, threadID string, params *ThreadShellCommandParams) (ThreadShellCommandResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadShellCommandResponse{}, err
+	}
+	return Request[ThreadShellCommandResponse](ctx, c, RequestMethodThreadShellCommand, payload)
 }
 
 // ThreadApproveGuardianDeniedAction calls thread/approveGuardianDeniedAction.
-func (c *Client) ThreadApproveGuardianDeniedAction(ctx context.Context, params *ThreadApproveGuardianDeniedActionParams) (ThreadApproveGuardianDeniedActionResponse, error) {
-	return Request[ThreadApproveGuardianDeniedActionResponse](ctx, c, RequestMethodThreadApproveGuardianDeniedAction, paramsOrEmpty(params))
+func (c *Client) ThreadApproveGuardianDeniedAction(ctx context.Context, threadID string, params *ThreadApproveGuardianDeniedActionParams) (ThreadApproveGuardianDeniedActionResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadApproveGuardianDeniedActionResponse{}, err
+	}
+	return Request[ThreadApproveGuardianDeniedActionResponse](ctx, c, RequestMethodThreadApproveGuardianDeniedAction, payload)
 }
 
 // ThreadRollback calls thread/rollback.
-func (c *Client) ThreadRollback(ctx context.Context, params *ThreadRollbackParams) (ThreadRollbackResponse, error) {
-	return Request[ThreadRollbackResponse](ctx, c, RequestMethodThreadRollback, paramsOrEmpty(params))
+func (c *Client) ThreadRollback(ctx context.Context, threadID string, params *ThreadRollbackParams) (ThreadRollbackResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadRollbackResponse{}, err
+	}
+	return Request[ThreadRollbackResponse](ctx, c, RequestMethodThreadRollback, payload)
 }
 
 // ThreadLoadedList calls thread/loaded/list.
@@ -98,8 +128,12 @@ func (c *Client) ThreadLoadedList(ctx context.Context, params *ThreadLoadedListP
 }
 
 // ThreadInjectItems calls thread/inject_items.
-func (c *Client) ThreadInjectItems(ctx context.Context, params *ThreadInjectItemsParams) (ThreadInjectItemsResponse, error) {
-	return Request[ThreadInjectItemsResponse](ctx, c, RequestMethodThreadInjectItems, paramsOrEmpty(params))
+func (c *Client) ThreadInjectItems(ctx context.Context, threadID string, params *ThreadInjectItemsParams) (ThreadInjectItemsResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadInjectItemsResponse{}, err
+	}
+	return Request[ThreadInjectItemsResponse](ctx, c, RequestMethodThreadInjectItems, payload)
 }
 
 // SkillsList calls skills/list.
@@ -233,7 +267,10 @@ func (c *Client) TurnStart(ctx context.Context, threadID string, input any, para
 	if err != nil {
 		return TurnStartResponse{}, err
 	}
-	payload := mergeParams(params, Object{"threadId": threadID, "input": items})
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID, "input": items})
+	if err != nil {
+		return TurnStartResponse{}, err
+	}
 	return Request[TurnStartResponse](ctx, c, RequestMethodTurnStart, payload)
 }
 
@@ -257,8 +294,8 @@ func (c *Client) ReviewStart(ctx context.Context, params *ReviewStartParams) (Re
 }
 
 // ModelList calls model/list.
-func (c *Client) ModelList(ctx context.Context, includeHidden bool) (ModelListResponse, error) {
-	return Request[ModelListResponse](ctx, c, RequestMethodModelList, ModelListParams{IncludeHidden: &includeHidden})
+func (c *Client) ModelList(ctx context.Context, params *ModelListParams) (ModelListResponse, error) {
+	return Request[ModelListResponse](ctx, c, RequestMethodModelList, paramsOrEmpty(params))
 }
 
 // ModelProviderCapabilitiesRead calls modelProvider/capabilities/read.
@@ -312,8 +349,25 @@ func (c *Client) WindowsSandboxReadiness(ctx context.Context) (WindowsSandboxRea
 }
 
 // AccountLoginStart calls account/login/start.
+// Use NewLoginAccountParamsAPIKey, NewLoginAccountParamsChatGPT, or
+// NewLoginAccountParamsHeadless to construct the params argument.
 func (c *Client) AccountLoginStart(ctx context.Context, params LoginAccountParams) (LoginAccountResponse, error) {
 	return Request[LoginAccountResponse](ctx, c, RequestMethodAccountLoginStart, paramsOrEmpty(params))
+}
+
+// NewLoginAccountParamsAPIKey constructs LoginAccountParams for API key authentication.
+func NewLoginAccountParamsAPIKey(apiKey string) LoginAccountParams {
+	return APIKeyv2LoginAccountParams{Type: "apiKey", APIKey: apiKey}
+}
+
+// NewLoginAccountParamsChatGPT constructs LoginAccountParams for ChatGPT OAuth authentication.
+func NewLoginAccountParamsChatGPT() LoginAccountParams {
+	return ChatGPTv2LoginAccountParams{Type: "chatgpt"}
+}
+
+// NewLoginAccountParamsHeadless constructs LoginAccountParams for headless device-code authentication.
+func NewLoginAccountParamsHeadless() LoginAccountParams {
+	return ChatGPTDeviceCodev2LoginAccountParams{Type: "chatgptDeviceCode"}
 }
 
 // AccountLoginCancel calls account/login/cancel.

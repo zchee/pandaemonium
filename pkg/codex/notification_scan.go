@@ -15,8 +15,6 @@
 package codex
 
 import (
-	"unsafe"
-
 	"github.com/go-json-experiment/json"
 )
 
@@ -289,18 +287,15 @@ func (s *notificationJSONScanner) skipNumber() bool {
 	return s.pos > start
 }
 
+// readSimpleString reads a non-escaped JSON string and returns an allocating
+// copy of the value. The returned string is safe to use beyond the lifetime of
+// the underlying Notification.Params slice.
 func (s *notificationJSONScanner) readSimpleString() (string, bool) {
 	value, escaped, ok := s.readString()
 	if !ok || escaped {
 		return "", false
 	}
-	if len(value) == 0 {
-		return "", true
-	}
-	// SAFETY: value aliases Notification.Params. The returned string is used for
-	// immediate map lookups or as a pending map key while the corresponding
-	// Notification is stored in the same pending queue, keeping Params alive.
-	return unsafe.String(unsafe.SliceData(value), len(value)), true
+	return string(value), true
 }
 
 func (s *notificationJSONScanner) readString() ([]byte, bool, bool) {

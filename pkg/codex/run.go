@@ -66,11 +66,12 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			break
 		}
 	}
+	//lint:ignore SA4031 defensive guard against future loop edits; AC-3.1
+	if completed == nil {
+		return RunResult{}, fmt.Errorf("turn %s ended without TurnCompleted", turnID)
+	}
 	if completed.Turn.Status == TurnStatusFailed {
-		if completed.Turn.Error != nil && completed.Turn.Error.Message != "" {
-			return RunResult{}, fmt.Errorf("%s", completed.Turn.Error.Message)
-		}
-		return RunResult{}, fmt.Errorf("turn failed with status %s", completed.Turn.Status)
+		return RunResult{}, &TurnFailedError{TurnID: turnID, Status: completed.Turn.Status, Err: completed.Turn.Error}
 	}
 
 	return RunResult{
@@ -128,40 +129,31 @@ func (item decodedThreadItem) agentMessage() bool {
 	return item.Text != "" && item.Type == ""
 }
 
-func mergeParams(params any, base Object) Object {
+// mergeParamsBaseWins merges caller-supplied params into base, with base taking
+// precedence over any overlapping key from params. This ensures wrapper-level
+// arguments (e.g. threadId injected by the method wrapper) cannot be silently
+// overridden by caller-supplied params structs.
+//
+// The returned Object is always a fresh map; base is never mutated.
+// An error is returned if params cannot be marshalled or unmarshalled.
+func mergeParamsBaseWins(params any, base Object) (Object, error) {
 	out := Object{}
-	maps.Copy(out, base)
-	if params == nil {
-		return out
-	}
-	encoded, err := json.Marshal(params)
-	if err != nil {
-		return out
-	}
-	var decoded map[string]any
-	if err := json.Unmarshal(encoded, &decoded); err != nil {
-		return out
-	}
-	for key, value := range decoded {
-		if value != nil {
-			if _, ok := base[key]; ok && decodedZeroValue(value) {
-				continue
+	if params != nil {
+		encoded, err := json.Marshal(params)
+		if err != nil {
+			return nil, err
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(encoded, &decoded); err != nil {
+			return nil, err
+		}
+		for key, value := range decoded {
+			if value != nil {
+				out[key] = value
 			}
-			out[key] = value
 		}
 	}
-	return out
-}
-
-func decodedZeroValue(value any) bool {
-	switch value := value.(type) {
-	case string:
-		return value == ""
-	case []any:
-		return len(value) == 0
-	case map[string]any:
-		return len(value) == 0
-	default:
-		return false
-	}
+	// base overrides: copy after decoded params so base always wins.
+	maps.Copy(out, base)
+	return out, nil
 }

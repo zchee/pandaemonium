@@ -292,8 +292,8 @@ func (s *helperState) handleStreamControls(req helperRequest) error {
 		case "start steerable turn", "start interrupt turn":
 			// The follow-up steer/interrupt request owns completion for these turns.
 		default:
-			s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": "thread-stream", "turnId": turnID, "itemId": "delta-" + turnID, "delta": "he"})
-			s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": "thread-stream", "turnId": turnID, "itemId": "delta-" + turnID, "delta": "llo"})
+			s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": "thread-stream", "turnId": turnID, "itemId": "delta-" + turnID, "delta": "he"})
+			s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": "thread-stream", "turnId": turnID, "itemId": "delta-" + turnID, "delta": "llo"})
 			s.writeNotification(codex.NotificationMethodTurnCompleted, codex.Object{"threadId": "thread-stream", "turn": codex.Object{"id": turnID, "status": "completed", "items": []codex.Object{}}})
 		}
 	case codex.RequestMethodTurnSteer:
@@ -377,7 +377,7 @@ func (s *helperState) writeStreamingPortTurn(threadID, turnID, input string) {
 
 func (s *helperState) writeStreamingPortDeltas(threadID, turnID string, deltas ...string) {
 	for index, delta := range deltas {
-		s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": threadID, "turnId": turnID, "itemId": fmt.Sprintf("delta-%s-%d", turnID, index+1), "delta": delta})
+		s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": threadID, "turnId": turnID, "itemId": fmt.Sprintf("delta-%s-%d", turnID, index+1), "delta": delta})
 	}
 }
 
@@ -439,8 +439,8 @@ func (s *helperState) writeTurnControlsStart(threadID, turnID, input string) {
 	case "Start a steerable turn.":
 		s.writeRunResultAgentMessage(threadID, turnID, "msg-before-steer-"+turnID, "before steer", "final_answer")
 	case "Start a long turn.":
-		s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": threadID, "turnId": turnID, "itemId": "delta-" + turnID, "delta": "still "})
-		s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": threadID, "turnId": turnID, "itemId": "delta-" + turnID, "delta": "running"})
+		s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": threadID, "turnId": turnID, "itemId": "delta-" + turnID, "delta": "still "})
+		s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": threadID, "turnId": turnID, "itemId": "delta-" + turnID, "delta": "running"})
 	case "Continue after the interrupt.":
 		s.writeRunResultAgentMessage(threadID, turnID, "msg-after-interrupt-"+turnID, "after interrupt", "final_answer")
 		s.writeTurnControlsCompleted(threadID, turnID, codex.TurnStatusCompleted)
@@ -934,8 +934,8 @@ func (s *helperState) handleClientRoutingRetry(req helperRequest) error {
 	case codex.RequestMethodTurnStart:
 		turnID := "turn-route"
 		s.writeResult(req.ID, codex.Object{"turn": codex.Object{"id": turnID, "status": "inProgress"}})
-		s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": stringParam(req.Params, "threadId"), "turnId": "other-turn", "itemId": "other", "delta": "ignored"})
-		s.writeNotification(codex.NotificationMethodAgentMessageDelta, codex.Object{"threadId": stringParam(req.Params, "threadId"), "turnId": turnID, "itemId": "target", "delta": "first"})
+		s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": stringParam(req.Params, "threadId"), "turnId": "other-turn", "itemId": "other", "delta": "ignored"})
+		s.writeNotification(codex.NotificationMethodItemAgentMessageDelta, codex.Object{"threadId": stringParam(req.Params, "threadId"), "turnId": turnID, "itemId": "target", "delta": "first"})
 		s.writeNotification(codex.NotificationMethodTurnCompleted, codex.Object{"threadId": stringParam(req.Params, "threadId"), "turn": codex.Object{"id": turnID, "status": "completed", "items": []codex.Object{}}})
 	case "ping":
 		if s.retryCount == 0 {

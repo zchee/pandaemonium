@@ -266,8 +266,8 @@ func TestDecodeKnownProcessNotificationMalformedParamsPreservesRaw(t *testing.T)
 	}
 
 	known, matched, err := DecodeKnownNotification(notification)
-	if !matched {
-		t.Fatalf("DecodeKnownNotification() matched = false, want true")
+	if matched {
+		t.Fatalf("DecodeKnownNotification() matched = true, want false (decode error returns ok=false)")
 	}
 	if err == nil {
 		t.Fatalf("DecodeKnownNotification() err = nil, want malformed params error")
@@ -451,16 +451,16 @@ func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 		Params: jsontext.Value([]byte(`{"missing":"fields"`)),
 	}
 	_, ok, err = DecodeNotificationAs[ErrorNotification](malformedNotification, NotificationMethodError)
-	if !ok {
-		t.Fatalf("DecodeNotificationAs() malformed ok = false, want true")
+	if ok {
+		t.Fatalf("DecodeNotificationAs() malformed ok = true, want false (decode error returns ok=false)")
 	}
 	if err == nil {
 		t.Fatalf("DecodeNotificationAs() malformed err = nil, want error")
 	}
 
 	_, ok, err = DecodeErrorNotification(malformedNotification)
-	if !ok {
-		t.Fatalf("DecodeErrorNotification() malformed ok = false, want true")
+	if ok {
+		t.Fatalf("DecodeErrorNotification() malformed ok = true, want false (decode error returns ok=false)")
 	}
 	if err == nil {
 		t.Fatalf("DecodeErrorNotification() malformed err = nil, want error")
