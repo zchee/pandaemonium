@@ -226,13 +226,48 @@ func (c *ClaudeSDKClient) Interrupt(ctx context.Context) error {
 
 // Fork creates a new [ClaudeSDKClient] whose conversation history is branched
 // from fromMessageID in the current session. The parent client continues
-// unaffected; the forked client has its own transport and session ID.
+// unaffected; the forked client has its own independent transport.
 //
-// Fork requires a non-nil [Options].SessionStore (Phase F). The body is stubbed
-// to errors.ErrUnsupported until Phase G.
+// Fork requires a non-nil [Options].SessionStore. The store's Fork method is
+// called to snapshot the parent session's history up to fromMessageID; the
+// resulting forked session ID is stored on the child client so its subprocess
+// launches with --resume <forkedSessionID>.
+//
+// The parent's transport is never touched (AC-i5): the forked client starts
+// its own subprocess on the first call to [ClaudeSDKClient.Query].
 func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*ClaudeSDKClient, error) {
-	_, _ = ctx, fromMessageID
-	return nil, errors.ErrUnsupported
+	if c.opts == nil || c.opts.SessionStore == nil {
+		return nil, &CLIConnectionError{Message: "Fork requires Options.SessionStore to be set"}
+	}
+
+	c.closeMu.Lock()
+	parentSessionID := c.sessionID
+	c.closeMu.Unlock()
+
+	if parentSessionID == "" {
+		return nil, &CLIConnectionError{Message: "Fork: parent client has no active session ID"}
+	}
+
+	// Snapshot history up to fromMessageID in the store. The forked session
+	// receives a new unique ID and includes only messages up to and including
+	// the one matching fromMessageID (or all messages if fromMessageID is "").
+	forked, err := c.opts.SessionStore.Fork(ctx, parentSessionID, fromMessageID)
+	if err != nil {
+		return nil, fmt.Errorf("Fork: %w", err)
+	}
+
+	// Shallow-copy the options so the forked client is independently
+	// configurable without affecting the parent. Options is frozen at Phase 0;
+	// no fields will be added that would require a deep copy.
+	childOpts := *c.opts
+
+	// The child's sessionID drives --resume in buildLaunchArgs so the CLI
+	// subprocess loads the forked session when it starts.
+	child := &ClaudeSDKClient{
+		opts:      &childOpts,
+		sessionID: forked.ID,
+	}
+	return child, nil
 }
 
 // Close terminates the claude CLI subprocess and releases all resources
@@ -345,7 +380,7 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context, prompt string) e
 	if err != nil {
 		return err
 	}
-	args := buildLaunchArgs(cliPath, prompt, c.opts)
+	args := buildLaunchArgs(cliPath, prompt, c.opts, c.sessionID)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	if c.opts != nil && c.opts.Cwd != "" {
 		cmd.Dir = c.opts.Cwd
