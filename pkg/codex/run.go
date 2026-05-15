@@ -36,11 +36,12 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 	items := []ThreadItem{}
 	var usage *ThreadTokenUsage
 	for {
-		notification, err := client.nextTurnNotification(ctx, turnID)
+		notif, err := client.nextTurnNotification(ctx, turnID)
 		if err != nil {
 			return RunResult{}, err
 		}
-		itemCompleted, ok, err := notification.ItemCompleted()
+
+		itemCompleted, ok, err := notif.ItemCompleted()
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -48,7 +49,8 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			items = append(items, itemCompleted.Item)
 			continue
 		}
-		usageUpdated, ok, err := notification.ThreadTokenUsageUpdated()
+
+		usageUpdated, ok, err := notif.ThreadTokenUsageUpdated()
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -57,7 +59,8 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			usage = &snapshot
 			continue
 		}
-		turnCompleted, ok, err := notification.TurnCompleted()
+
+		turnCompleted, ok, err := notif.TurnCompleted()
 		if err != nil {
 			return RunResult{}, err
 		}
@@ -66,6 +69,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 			break
 		}
 	}
+
 	//lint:ignore SA4031 defensive guard against future loop edits; AC-3.1
 	if completed == nil {
 		return RunResult{}, fmt.Errorf("turn %s ended without TurnCompleted", turnID)
@@ -84,6 +88,7 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 
 func finalAssistantResponse(items []ThreadItem) string {
 	var lastUnknownPhase string
+
 	foundUnknownPhase := false
 	for _, item := range slices.Backward(items) {
 		item, ok := decodeThreadItem(item)
@@ -98,6 +103,7 @@ func finalAssistantResponse(items []ThreadItem) string {
 			foundUnknownPhase = true
 		}
 	}
+
 	return lastUnknownPhase
 }
 
@@ -111,10 +117,12 @@ func decodeThreadItem(raw ThreadItem) (decodedThreadItem, bool) {
 	if raw == nil {
 		return decodedThreadItem{}, false
 	}
+
 	encoded, err := json.Marshal(raw)
 	if err != nil || len(encoded) == 0 {
 		return decodedThreadItem{}, false
 	}
+
 	var item decodedThreadItem
 	if err := json.Unmarshal(encoded, &item); err != nil {
 		return decodedThreadItem{}, false
@@ -143,16 +151,19 @@ func mergeParamsBaseWins(params any, base Object) (Object, error) {
 		if err != nil {
 			return nil, err
 		}
+
 		var decoded map[string]any
 		if err := json.Unmarshal(encoded, &decoded); err != nil {
 			return nil, err
 		}
+
 		for key, value := range decoded {
 			if value != nil {
 				out[key] = value
 			}
 		}
 	}
+
 	// base overrides: copy after decoded params so base always wins.
 	maps.Copy(out, base)
 	return out, nil

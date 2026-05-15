@@ -381,14 +381,6 @@ func TestNotificationConvenienceHelpersCoverKnownMethods(t *testing.T) {
 	}
 }
 
-func TestKnownNotificationMethodsMatchesExpectedInventory(t *testing.T) {
-	t.Parallel()
-
-	if diff := gocmp.Diff(notificationMethodList, KnownNotificationMethods()); diff != "" {
-		t.Fatalf("KnownNotificationMethods() mismatch (-want +got):\n%s", diff)
-	}
-}
-
 func TestDecodeNotificationMethodMismatchAndMalformedParams(t *testing.T) {
 	t.Parallel()
 

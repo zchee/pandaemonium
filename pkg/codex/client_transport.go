@@ -32,19 +32,22 @@ import (
 	"github.com/coder/websocket"
 )
 
-type transport interface {
+// Transport reperesents a bidirectional JSON message Transport between the client and the app-server.
+type Transport interface {
 	io.Closer
 	WriteJSON(context.Context, []byte) error
 	ReadJSON(context.Context) ([]byte, error)
 }
 
+// stdioTransport represents a bidirectional JSON message transport over the app-server process's standard input and output streams.
 type stdioTransport struct {
 	stdin  io.WriteCloser
 	stdout *bufio.Reader
 }
 
-var _ transport = (*stdioTransport)(nil)
+var _ Transport = (*stdioTransport)(nil)
 
+// Close implements [Transport].
 func (t *stdioTransport) Close() error {
 	if t.stdin != nil {
 		return t.stdin.Close()
@@ -52,10 +55,12 @@ func (t *stdioTransport) Close() error {
 	return nil
 }
 
+// WriteJSON implements [Transport].
 func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
 	if t.stdin == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
+
 	data = append(slices.Clone(data), '\n')
 	_, err := t.stdin.Write(data)
 	if err != nil {
@@ -64,6 +69,7 @@ func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
 	return nil
 }
 
+// ReadJSON implements [Transport].
 func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	if t.stdout == nil {
 		return nil, &TransportClosedError{Message: "app-server is not running"}
@@ -85,8 +91,9 @@ func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 		}
 		done <- result{data: line}
 	}()
+
 	// The goroutine above is orphaned when ctx is cancelled; it exits naturally
-	// when Close() closes stdoutCloser (the raw stdout pipe), which causes
+	// when [stdioTransport.Close] closes stdoutCloser (the raw stdout pipe), which causes
 	// ReadBytes to return an error.
 	select {
 	case <-ctx.Done():
@@ -96,13 +103,15 @@ func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	}
 }
 
+// websocketTransport represents a bidirectional JSON message transport over a websocket connection to the app-server.
 type websocketTransport struct {
 	conn *websocket.Conn
 	mu   sync.Mutex
 }
 
-var _ transport = (*websocketTransport)(nil)
+var _ Transport = (*websocketTransport)(nil)
 
+// Close implements [Transport].
 func (t *websocketTransport) Close() error {
 	if t.conn != nil {
 		return t.conn.Close(websocket.StatusNormalClosure, "")
@@ -110,20 +119,24 @@ func (t *websocketTransport) Close() error {
 	return nil
 }
 
+// WriteJSON implements [Transport].
 func (t *websocketTransport) WriteJSON(ctx context.Context, data []byte) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
+
 	if t.conn == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
 	return t.conn.Write(ctx, websocket.MessageText, data)
 }
 
+// ReadJSON implements [Transport].
 func (t *websocketTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	for {
 		if t.conn == nil {
 			return nil, &TransportClosedError{Message: "app-server is not running"}
 		}
+
 		typ, payload, err := t.conn.Read(ctx)
 		if err != nil {
 			if status := websocket.CloseStatus(err); status != websocket.StatusNormalClosure {
@@ -131,6 +144,7 @@ func (t *websocketTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 			}
 			return nil, io.EOF
 		}
+
 		switch typ {
 		case websocket.MessageText:
 			return append(payload, '\n'), nil

@@ -32,11 +32,11 @@ func (r *notificationRing) len() int {
 	return r.length
 }
 
-func (r *notificationRing) push(notification Notification) bool {
+func (r *notificationRing) push(notif Notification) bool {
 	if r == nil || len(r.values) == 0 || r.length >= len(r.values) {
 		return false
 	}
-	r.values[r.tail] = notification
+	r.values[r.tail] = notif
 	r.tail++
 	if r.tail == len(r.values) {
 		r.tail = 0
@@ -45,26 +45,26 @@ func (r *notificationRing) push(notification Notification) bool {
 	return true
 }
 
-func (r *notificationRing) appendAll(notifications []Notification) bool {
-	if r == nil || len(notifications) > len(r.values)-r.length {
+func (r *notificationRing) appendAll(notif []Notification) bool {
+	if r == nil || len(notif) > len(r.values)-r.length {
 		return false
 	}
-	if len(notifications) == 0 {
+	if len(notif) == 0 {
 		return true
 	}
-	copied := copy(r.values[r.tail:], notifications)
-	if copied < len(notifications) {
-		copy(r.values, notifications[copied:])
+	copied := copy(r.values[r.tail:], notif)
+	if copied < len(notif) {
+		copy(r.values, notif[copied:])
 	}
-	r.tail = (r.tail + len(notifications)) % len(r.values)
-	r.length += len(notifications)
+	r.tail = (r.tail + len(notif)) % len(r.values)
+	r.length += len(notif)
 	return true
 }
 
 // pushDisplacing pushes notification into the ring, evicting the oldest entry if
 // the ring is at capacity. Returns true if an existing entry was displaced.
 // The ring must be non-nil with len(values) > 0; callers enforce this.
-func (r *notificationRing) pushDisplacing(notification Notification) bool {
+func (r *notificationRing) pushDisplacing(notif Notification) bool {
 	if r == nil || len(r.values) == 0 {
 		return false
 	}
@@ -79,7 +79,7 @@ func (r *notificationRing) pushDisplacing(notification Notification) bool {
 		r.length--
 		displaced = true
 	}
-	r.values[r.tail] = notification
+	r.values[r.tail] = notif
 	r.tail++
 	if r.tail == len(r.values) {
 		r.tail = 0

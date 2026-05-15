@@ -103,8 +103,8 @@ func BenchmarkNotificationRingAppendPop128(b *testing.B) {
 
 func BenchmarkTurnNotificationQueuePushPop(b *testing.B) {
 	queue := &turnNotificationQueue{
-		notifications: newNotificationRing(notificationQueueCapacity),
-		notify:        make(chan struct{}, 1),
+		notifies: newNotificationRing(notificationQueueCapacity),
+		notify:   make(chan struct{}, 1),
 	}
 	b.ReportAllocs()
 

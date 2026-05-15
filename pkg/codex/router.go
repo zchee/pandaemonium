@@ -57,11 +57,11 @@ func (r *turnNotificationRouter) nextGlobal(ctx context.Context) (Notification, 
 	select {
 	case <-ctx.Done():
 		return Notification{}, ctx.Err()
-	case notification, ok := <-global:
+	case notif, ok := <-global:
 		if !ok {
 			return Notification{}, r.closedErr(&TransportClosedError{Message: "app-server notification stream closed"})
 		}
-		return notification, nil
+		return notif, nil
 	}
 }
 
@@ -93,12 +93,12 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 		return nil, fmt.Errorf("turn consumer already active for %s", turnID)
 	}
 	queue := &turnNotificationQueue{
-		turnID:        turnID,
-		notifications: newNotificationRing(notificationQueueCapacity),
-		notify:        make(chan struct{}, 1),
+		turnID:   turnID,
+		notifies: newNotificationRing(notificationQueueCapacity),
+		notify:   make(chan struct{}, 1),
 	}
 	if pending := r.pending[turnID]; len(pending) > 0 {
-		if !queue.notifications.appendAll(pending) {
+		if !queue.notifies.appendAll(pending) {
 			return nil, fmt.Errorf("turn notification router: pending queue overflow for %s", turnID)
 		}
 		delete(r.pending, turnID)
@@ -135,8 +135,8 @@ func (r *turnNotificationRouter) clearPending(turnID string) {
 	r.mu.Unlock()
 }
 
-func (r *turnNotificationRouter) route(notification Notification) error {
-	turnID := notificationTurnID(notification)
+func (r *turnNotificationRouter) route(notif Notification) error {
+	turnID := notificationTurnID(notif)
 
 	r.mu.Lock()
 	if r.closed {
@@ -149,7 +149,7 @@ func (r *turnNotificationRouter) route(notification Notification) error {
 	if turnID == "" {
 		// Fast path: channel has room.
 		select {
-		case r.global <- notification:
+		case r.global <- notif:
 			r.mu.Unlock()
 			return nil
 		default:
@@ -163,7 +163,7 @@ func (r *turnNotificationRouter) route(notification Notification) error {
 		// After the drain above, channel has < capacity entries (no other
 		// route() can interleave — we hold r.mu). Push always succeeds here.
 		select {
-		case r.global <- notification:
+		case r.global <- notif:
 		default: // paranoid guard; should not fire
 		}
 		r.mu.Unlock()
@@ -173,7 +173,7 @@ func (r *turnNotificationRouter) route(notification Notification) error {
 	// ── Active turn consumer ───────────────────────────────────────────────
 	if queue := r.queues[turnID]; queue != nil {
 		// push is now void; drop-oldest handled inside the queue.
-		queue.push(notification)
+		queue.push(notif)
 		r.mu.Unlock()
 		return nil
 	}
@@ -182,10 +182,10 @@ func (r *turnNotificationRouter) route(notification Notification) error {
 	pending := r.pending[turnID]
 	if len(pending) >= notificationQueueCapacity {
 		// Drop oldest pending entry, track count.
-		r.pending[turnID] = append(pending[1:], notification)
+		r.pending[turnID] = append(pending[1:], notif)
 		r.pendingDropped[turnID]++
 	} else {
-		r.pending[turnID] = append(pending, notification)
+		r.pending[turnID] = append(pending, notif)
 	}
 	r.mu.Unlock()
 	return nil

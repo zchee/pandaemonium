@@ -45,6 +45,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 	} else if cfg.JitterRatio < 0 {
 		cfg.JitterRatio = 0 // negative disables jitter
 	}
+
 	var zero T
 	if cfg.JitterRatio > 1 {
 		return zero, fmt.Errorf("jitter ratio %g out of range [0, 1]", cfg.JitterRatio)
@@ -52,6 +53,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 	if cfg.MaxAttempts < 1 {
 		return zero, fmt.Errorf("max attempts must be >= 1")
 	}
+
 	delay := cfg.InitialDelay
 	for attempt := 1; ; attempt++ {
 		result, err := op()
@@ -61,6 +63,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 		if attempt >= cfg.MaxAttempts || !isRetryableOp(err) {
 			return zero, err
 		}
+
 		// Clamp delay before computing jitter so jitter range is bounded by MaxDelay.
 		if delay > cfg.MaxDelay {
 			delay = cfg.MaxDelay
@@ -80,6 +83,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 			case <-timer.C:
 			}
 		}
+
 		delay *= 2
 		if delay > cfg.MaxDelay {
 			delay = cfg.MaxDelay

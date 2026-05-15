@@ -22,15 +22,15 @@ import (
 	"time"
 )
 
-func TestClientAppServerArgsUsesStdioByDefault(t *testing.T) {
+func TestClientBuildAppServerArgsUsesStdioByDefault(t *testing.T) {
 	client := &Client{config: Config{CodexBin: os.Args[0]}}
-	args, err := client.appServerArgs(ListenConfig{})
+	args, err := client.buildAppServerArgs(ListenConfig{})
 	if err != nil {
-		t.Fatalf("appServerArgs() error = %v", err)
+		t.Fatalf("buildAppServerArgs() error = %v", err)
 	}
 	got := strings.Join(args, " ")
 	if want := os.Args[0] + " app-server --listen stdio://"; !strings.Contains(got, want) {
-		t.Fatalf("appServerArgs() = %q, want contain %q", got, want)
+		t.Fatalf("buildAppServerArgs() = %q, want contain %q", got, want)
 	}
 }
 
@@ -49,7 +49,7 @@ func TestClientLaunchArgsOverrideTakesPriority(t *testing.T) {
 	}
 }
 
-func TestClientAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
+func TestClientBuildAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
 	tests := map[string]struct {
 		listen ListenConfig
 		want   []string
@@ -74,29 +74,29 @@ func TestClientAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			client := &Client{config: Config{CodexBin: os.Args[0]}}
-			args, err := client.appServerArgs(tt.listen)
+			args, err := client.buildAppServerArgs(tt.listen)
 			if err != nil {
-				t.Fatalf("appServerArgs() error = %v", err)
+				t.Fatalf("buildAppServerArgs() error = %v", err)
 			}
 			if diff := compareStringSlice(args, tt.want); diff != "" {
-				t.Fatalf("appServerArgs() mismatch: %s", diff)
+				t.Fatalf("buildAppServerArgs() mismatch: %s", diff)
 			}
 		})
 	}
 }
 
-func TestClientAppServerArgsRejectsInsecureRemoteWebSocket(t *testing.T) {
+func TestClientBuildAppServerArgsRejectsInsecureRemoteWebSocket(t *testing.T) {
 	client := &Client{config: Config{CodexBin: os.Args[0]}}
-	_, err := client.appServerArgs(ListenConfig{URL: "ws://codex.example.test:49815"})
+	_, err := client.buildAppServerArgs(ListenConfig{URL: "ws://codex.example.test:49815"})
 	if err == nil {
-		t.Fatal("appServerArgs() error = nil, want insecure remote websocket rejection")
+		t.Fatal("buildAppServerArgs() error = nil, want insecure remote websocket rejection")
 	}
 	if !strings.Contains(err.Error(), "allowed only for loopback hosts") {
-		t.Fatalf("appServerArgs() error = %v, want loopback guard", err)
+		t.Fatalf("buildAppServerArgs() error = %v, want loopback guard", err)
 	}
 }
 
-func TestClientAppServerArgsCapabilityTokenFileMode(t *testing.T) {
+func TestClientBuildAppServerArgsCapabilityTokenFileMode(t *testing.T) {
 	tokenFile := filepath.Join(t.TempDir(), "capability.token")
 	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
 		t.Fatalf("os.WriteFile(%s) error = %v", tokenFile, err)
@@ -117,9 +117,9 @@ func TestClientAppServerArgsCapabilityTokenFileMode(t *testing.T) {
 			},
 		},
 	}
-	args, err := client.appServerArgs(client.config.Listen)
+	args, err := client.buildAppServerArgs(client.config.Listen)
 	if err != nil {
-		t.Fatalf("appServerArgs() error = %v", err)
+		t.Fatalf("buildAppServerArgs() error = %v", err)
 	}
 	want := []string{
 		os.Args[0], "app-server", "--listen", "ws://127.0.0.1:49815",
@@ -130,11 +130,11 @@ func TestClientAppServerArgsCapabilityTokenFileMode(t *testing.T) {
 		t.Fatal("got empty args")
 	}
 	if diff := compareStringSlice(args, want); diff != "" {
-		t.Fatalf("appServerArgs() mismatch: %s", diff)
+		t.Fatalf("buildAppServerArgs() mismatch: %s", diff)
 	}
 }
 
-func TestClientAppServerArgsCapabilityTokenSHA256Mode(t *testing.T) {
+func TestClientBuildAppServerArgsCapabilityTokenSHA256Mode(t *testing.T) {
 	client := &Client{
 		config: Config{
 			CodexBin: os.Args[0],
@@ -149,9 +149,9 @@ func TestClientAppServerArgsCapabilityTokenSHA256Mode(t *testing.T) {
 			},
 		},
 	}
-	args, err := client.appServerArgs(client.config.Listen)
+	args, err := client.buildAppServerArgs(client.config.Listen)
 	if err != nil {
-		t.Fatalf("appServerArgs() error = %v", err)
+		t.Fatalf("buildAppServerArgs() error = %v", err)
 	}
 	for _, want := range []string{
 		"--ws-auth", "capability-token",
@@ -159,12 +159,12 @@ func TestClientAppServerArgsCapabilityTokenSHA256Mode(t *testing.T) {
 		"--ws-max-clock-skew-seconds", "3",
 	} {
 		if !strings.Contains(strings.Join(args, " "), want) {
-			t.Fatalf("appServerArgs() = %q, want to contain %q", strings.Join(args, " "), want)
+			t.Fatalf("buildAppServerArgs() = %q, want to contain %q", strings.Join(args, " "), want)
 		}
 	}
 }
 
-func TestClientAppServerArgsCapabilityTokenRejectsMutualExclusion(t *testing.T) {
+func TestClientBuildAppServerArgsCapabilityTokenRejectsMutualExclusion(t *testing.T) {
 	client := &Client{
 		config: Config{
 			CodexBin: os.Args[0],
@@ -179,12 +179,12 @@ func TestClientAppServerArgsCapabilityTokenRejectsMutualExclusion(t *testing.T) 
 			},
 		},
 	}
-	if _, err := client.appServerArgs(client.config.Listen); err == nil {
-		t.Fatal("appServerArgs() error = nil, want auth-field conflict error")
+	if _, err := client.buildAppServerArgs(client.config.Listen); err == nil {
+		t.Fatal("buildAppServerArgs() error = nil, want auth-field conflict error")
 	}
 }
 
-func TestClientAppServerArgsSignedBearerTokenMode(t *testing.T) {
+func TestClientBuildAppServerArgsSignedBearerTokenMode(t *testing.T) {
 	secretFile := filepath.Join(t.TempDir(), "secret")
 	if err := os.WriteFile(secretFile, []byte("signed-secret\n"), 0o600); err != nil {
 		t.Fatalf("os.WriteFile(%s) error = %v", secretFile, err)
@@ -209,9 +209,9 @@ func TestClientAppServerArgsSignedBearerTokenMode(t *testing.T) {
 			},
 		},
 	}
-	args, err := client.appServerArgs(client.config.Listen)
+	args, err := client.buildAppServerArgs(client.config.Listen)
 	if err != nil {
-		t.Fatalf("appServerArgs() error = %v", err)
+		t.Fatalf("buildAppServerArgs() error = %v", err)
 	}
 	for _, want := range []string{
 		"--ws-auth", "signed-bearer-token",
@@ -220,12 +220,12 @@ func TestClientAppServerArgsSignedBearerTokenMode(t *testing.T) {
 		"--ws-audience", "audience",
 	} {
 		if !strings.Contains(strings.Join(args, " "), want) {
-			t.Fatalf("appServerArgs() = %q, want contain %q", strings.Join(args, " "), want)
+			t.Fatalf("buildAppServerArgs() = %q, want contain %q", strings.Join(args, " "), want)
 		}
 	}
 }
 
-func TestClientAppServerArgsSignedBearerRequiresBearerToken(t *testing.T) {
+func TestClientBuildAppServerArgsSignedBearerRequiresBearerToken(t *testing.T) {
 	secretFile := filepath.Join(t.TempDir(), "secret")
 	if err := os.WriteFile(secretFile, []byte("signed-secret\n"), 0o600); err != nil {
 		t.Fatalf("os.WriteFile(%s) error = %v", secretFile, err)
@@ -243,13 +243,13 @@ func TestClientAppServerArgsSignedBearerRequiresBearerToken(t *testing.T) {
 			},
 		},
 	}
-	_, err := client.appServerArgs(client.config.Listen)
+	_, err := client.buildAppServerArgs(client.config.Listen)
 	if err == nil {
-		t.Fatal("appServerArgs() error = nil, want missing bearer source error")
+		t.Fatal("buildAppServerArgs() error = nil, want missing bearer source error")
 	}
 }
 
-func TestClientAppServerArgsRejectsMalformedTokenSHA256(t *testing.T) {
+func TestClientBuildAppServerArgsRejectsMalformedTokenSHA256(t *testing.T) {
 	tests := map[string]string{
 		"error: non-hex digest": strings.Repeat("g", 64),
 		"error: short digest":   "0123456789abcdef",
@@ -270,15 +270,15 @@ func TestClientAppServerArgsRejectsMalformedTokenSHA256(t *testing.T) {
 					},
 				},
 			}
-			_, err := client.appServerArgs(client.config.Listen)
+			_, err := client.buildAppServerArgs(client.config.Listen)
 			if err == nil {
-				t.Fatal("appServerArgs() error = nil, want malformed token digest error")
+				t.Fatal("buildAppServerArgs() error = nil, want malformed token digest error")
 			}
 		})
 	}
 }
 
-func TestClientAppServerArgsRejectsAuthNoneWithAuthFields(t *testing.T) {
+func TestClientBuildAppServerArgsRejectsAuthNoneWithAuthFields(t *testing.T) {
 	client := &Client{
 		config: Config{
 			CodexBin: os.Args[0],
@@ -291,13 +291,13 @@ func TestClientAppServerArgsRejectsAuthNoneWithAuthFields(t *testing.T) {
 			},
 		},
 	}
-	_, err := client.appServerArgs(client.config.Listen)
+	_, err := client.buildAppServerArgs(client.config.Listen)
 	if err == nil {
-		t.Fatal("appServerArgs() error = nil, want auth-none rejection")
+		t.Fatal("buildAppServerArgs() error = nil, want auth-none rejection")
 	}
 }
 
-func TestClientAppServerArgsRejectsNegativeClockSkew(t *testing.T) {
+func TestClientBuildAppServerArgsRejectsNegativeClockSkew(t *testing.T) {
 	client := &Client{
 		config: Config{
 			CodexBin: os.Args[0],
@@ -312,13 +312,13 @@ func TestClientAppServerArgsRejectsNegativeClockSkew(t *testing.T) {
 			},
 		},
 	}
-	_, err := client.appServerArgs(client.config.Listen)
+	_, err := client.buildAppServerArgs(client.config.Listen)
 	if err == nil {
-		t.Fatal("appServerArgs() error = nil, want negative clock-skew error")
+		t.Fatal("buildAppServerArgs() error = nil, want negative clock-skew error")
 	}
 }
 
-func TestClientAppServerArgsSkipsBearerMaterialInErrors(t *testing.T) {
+func TestClientBuildAppServerArgsSkipsBearerMaterialInErrors(t *testing.T) {
 	client := &Client{
 		config: Config{
 			CodexBin: os.Args[0],
@@ -332,9 +332,9 @@ func TestClientAppServerArgsSkipsBearerMaterialInErrors(t *testing.T) {
 			},
 		},
 	}
-	_, err := client.appServerArgs(client.config.Listen)
+	_, err := client.buildAppServerArgs(client.config.Listen)
 	if err == nil {
-		t.Fatal("appServerArgs() error = nil, want malformed digest error")
+		t.Fatal("buildAppServerArgs() error = nil, want malformed digest error")
 	}
 	if strings.Contains(err.Error(), "jwt-token-should-not-leak") {
 		t.Fatal("error leaks client bearer token")

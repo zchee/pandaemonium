@@ -20,24 +20,24 @@ import (
 )
 
 type turnNotificationQueue struct {
-	mu            sync.Mutex
-	notifications notificationRing
-	notify        chan struct{}
-	err           error
-	turnID        string // stored so next() can form NotificationDroppedError
-	dropped       uint64 // count of evicted notifications since last drain
+	mu       sync.Mutex
+	notifies notificationRing
+	notify   chan struct{}
+	err      error
+	turnID   string // stored so next() can form NotificationDroppedError
+	dropped  uint64 // count of evicted notifications since last drain
 }
 
 // push enqueues notification. On queue overflow the oldest entry is evicted and
 // the drop counter incremented. Never errors on overflow; only a closed queue
 // (q.err != nil) suppresses the push silently.
-func (q *turnNotificationQueue) push(notification Notification) {
+func (q *turnNotificationQueue) push(notif Notification) {
 	q.mu.Lock()
 	if q.err != nil {
 		q.mu.Unlock()
 		return // closed queue; discard silently
 	}
-	if q.notifications.pushDisplacing(notification) {
+	if q.notifies.pushDisplacing(notif) {
 		q.dropped++
 	}
 	select {
@@ -49,7 +49,7 @@ func (q *turnNotificationQueue) push(notification Notification) {
 
 func (q *turnNotificationQueue) pop() (Notification, bool) {
 	q.mu.Lock()
-	notification, ok := q.notifications.pop()
+	notification, ok := q.notifies.pop()
 	q.mu.Unlock()
 	return notification, ok
 }
@@ -65,7 +65,7 @@ func (q *turnNotificationQueue) next(ctx context.Context) (Notification, error) 
 			q.mu.Unlock()
 			return Notification{}, &NotificationDroppedError{TurnID: q.turnID, Dropped: int(dropped)}
 		}
-		if notification, ok := q.notifications.pop(); ok {
+		if notification, ok := q.notifies.pop(); ok {
 			q.mu.Unlock()
 			return notification, nil
 		}

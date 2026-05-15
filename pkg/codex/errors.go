@@ -330,6 +330,7 @@ func containsOverloadMarker(value any) bool {
 	switch typed := value.(type) {
 	case string:
 		return strings.EqualFold(typed, "server_overloaded") || strings.EqualFold(typed, "serverOverloaded")
+
 	case map[string]any:
 		for key, child := range typed {
 			if strings.EqualFold(key, "codex_error_info") || strings.EqualFold(key, "codexErrorInfo") || strings.EqualFold(key, "errorInfo") {
@@ -341,12 +342,15 @@ func containsOverloadMarker(value any) bool {
 				return true
 			}
 		}
+
 	case []any:
 		if slices.ContainsFunc(typed, containsOverloadMarker) {
 			return true
 		}
+
 	case jsontext.Value:
 		return isServerOverloaded(typed)
 	}
+
 	return false
 }

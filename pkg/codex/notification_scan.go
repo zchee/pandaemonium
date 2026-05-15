@@ -18,11 +18,11 @@ import (
 	"github.com/go-json-experiment/json"
 )
 
-func notificationTurnID(notification Notification) string {
-	if turnID, ok := scanNotificationTurnID(notification.Params); ok {
+func notificationTurnID(notif Notification) string {
+	if turnID, ok := scanNotificationTurnID(notif.Params); ok {
 		return turnID
 	}
-	return decodeNotificationTurnID(notification)
+	return decodeNotificationTurnID(notif)
 }
 
 type scannedTurn struct {
@@ -400,7 +400,7 @@ func isHexDigit(c byte) bool {
 	return c >= '0' && c <= '9' || c >= 'a' && c <= 'f' || c >= 'A' && c <= 'F'
 }
 
-func decodeNotificationTurnID(notification Notification) string {
+func decodeNotificationTurnID(notif Notification) string {
 	var envelope struct {
 		TurnID  string `json:"turnId"`
 		TurnID2 string `json:"turn_id"`
@@ -410,7 +410,7 @@ func decodeNotificationTurnID(notification Notification) string {
 			TurnID2 string `json:"turn_id"`
 		} `json:"turn"`
 	}
-	if err := json.Unmarshal(notification.Params, &envelope); err != nil {
+	if err := json.Unmarshal(notif.Params, &envelope); err != nil {
 		return ""
 	}
 	if envelope.TurnID != "" {

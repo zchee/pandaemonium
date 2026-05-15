@@ -60,6 +60,7 @@ type ListenConfig struct {
 	// URL is passed directly as the app-server listen endpoint.
 	// An empty value means "stdio://".
 	URL string
+
 	// WebSocket enables websocket launch and auth configuration when URL is a ws
 	// or wss endpoint.
 	WebSocket *WebSocketConfig
@@ -81,6 +82,10 @@ type WebSocketConfig struct {
 	ClientBearerToken     string
 	ClientBearerTokenFile string
 	DialTimeout           time.Duration
+}
+
+func (cfg WebSocketConfig) Is() bool {
+	return cfg.TokenFile != "" || cfg.TokenSHA256 != "" || cfg.SharedSecretFile != "" || cfg.Issuer != "" || cfg.Audience != "" || cfg.ClientBearerToken != "" || cfg.ClientBearerTokenFile != "" || cfg.MaxClockSkewSeconds != nil
 }
 
 // Config controls app-server process startup and client metadata.
@@ -108,7 +113,7 @@ type Client struct {
 	stdout       *bufio.Reader
 	stdoutCloser io.Closer // raw stdout pipe; Close() closes this to unblock ReadJSON on ctx cancel
 	stderr       io.ReadCloser
-	transport    atomic.Pointer[transport]
+	transport    atomic.Pointer[Transport]
 	cmdDone      chan error
 
 	writeMu     sync.Mutex
@@ -165,9 +170,11 @@ func DefaultCodexHome() string {
 func (c *Client) Start(ctx context.Context) error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
+
 	if c.loadTransport() != nil {
 		return nil
 	}
+
 	args, err := c.launchArgs()
 	if err != nil {
 		return err
@@ -184,6 +191,7 @@ func (c *Client) Start(ctx context.Context) error {
 	c.readDone = make(chan struct{})
 	c.turnRouter = newTurnNotificationRouter()
 	c.responses = map[string]chan responseWait{}
+
 	var stderr io.ReadCloser
 	listenCfg := c.effectiveListenConfig()
 	listenURL := strings.TrimSpace(listenCfg.URL)
@@ -191,7 +199,8 @@ func (c *Client) Start(ctx context.Context) error {
 		listenURL = defaultListenURL
 	}
 	isWebSocket := strings.HasPrefix(listenURL, "ws://") || strings.HasPrefix(listenURL, "wss://")
-	if isWebSocket {
+	switch {
+	case isWebSocket:
 		stderr, err = cmd.StderrPipe()
 		if err != nil {
 			return fmt.Errorf("create app-server stderr: %w", err)
@@ -213,7 +222,8 @@ func (c *Client) Start(ctx context.Context) error {
 		c.cmd = cmd
 		c.cmdDone = cmdDone
 		c.storeTransport(&websocketTransport{conn: conn})
-	} else {
+
+	default:
 		var stdin io.WriteCloser
 		var stdout io.ReadCloser
 		stdin, err = cmd.StdinPipe()
@@ -240,6 +250,7 @@ func (c *Client) Start(ctx context.Context) error {
 		c.storeTransport(&stdioTransport{stdin: stdin, stdout: c.stdout})
 		go c.drainStderr(stderr, c.stderrDone)
 	}
+
 	go c.readLoop(ctx, c.loadTransport(), c.readDone)
 	return nil
 }
@@ -248,9 +259,11 @@ func (c *Client) Start(ctx context.Context) error {
 func (c *Client) Close() error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
+
 	if c.loadTransport() == nil {
 		return nil
 	}
+
 	cmd := c.cmd
 	cmdDone := c.cmdDone
 	readDone := c.readDone
@@ -270,6 +283,7 @@ func (c *Client) Close() error {
 		_ = transport.Close()
 	}
 	c.writeMu.Unlock()
+
 	if stdoutCloser != nil {
 		_ = stdoutCloser.Close()
 	}
@@ -294,18 +308,21 @@ func (c *Client) Close() error {
 			<-done
 		}
 	}
+
 	readTimer := time.NewTimer(500 * time.Millisecond)
 	select {
 	case <-readDone:
 		readTimer.Stop()
 	case <-readTimer.C:
 	}
+
 	stderrTimer := time.NewTimer(500 * time.Millisecond)
 	select {
 	case <-stderrDone:
 		stderrTimer.Stop()
 	case <-stderrTimer.C:
 	}
+
 	return nil
 }
 
@@ -327,9 +344,11 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 	if err != nil {
 		return InitializeResponse{}, err
 	}
+
 	if err := c.Notify(ctx, "initialized", nil); err != nil {
 		return InitializeResponse{}, err
 	}
+
 	return validateInitialize(resp)
 }
 
@@ -339,6 +358,7 @@ func Request[T any](ctx context.Context, c *Client, method string, params any) (
 	if c == nil {
 		return zero, fmt.Errorf("codex client is nil")
 	}
+
 	raw, err := c.RequestRaw(ctx, method, params)
 	if err != nil {
 		return zero, err
@@ -351,6 +371,7 @@ func decodeRequestResult[T any](method string, raw jsontext.Value) (T, error) {
 	if len(raw) == 0 || string(raw) == "null" {
 		return zero, nil
 	}
+
 	var got T
 	if method == RequestMethodAccountLoginStart {
 		if target, ok := any(&got).(*LoginAccountResponse); ok {
@@ -362,6 +383,7 @@ func decodeRequestResult[T any](method string, raw jsontext.Value) (T, error) {
 			return got, nil
 		}
 	}
+
 	if err := json.Unmarshal(raw, &got); err != nil {
 		return zero, fmt.Errorf("decode %s response: %w", method, err)
 	}
@@ -373,6 +395,7 @@ func (c *Client) RequestRaw(ctx context.Context, method string, params any) (jso
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
+
 	id := c.nextRequestID()
 	response := make(chan responseWait, 1)
 	c.registerResponse(id, response)
@@ -380,6 +403,7 @@ func (c *Client) RequestRaw(ctx context.Context, method string, params any) (jso
 		c.unregisterResponse(id)
 		return nil, err
 	}
+
 	select {
 	case <-ctx.Done():
 		c.unregisterResponse(id)
@@ -408,6 +432,7 @@ func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method st
 	if c == nil {
 		return zero, fmt.Errorf("codex client is nil")
 	}
+
 	raw, err := c.RequestWithRetryOnOverload(ctx, method, params, cfg)
 	if err != nil {
 		return zero, err
@@ -420,6 +445,7 @@ func (c *Client) Notify(ctx context.Context, method string, params any) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
+
 	return c.writeMessage(ctx, Object{"method": method, "params": params})
 }
 
@@ -439,11 +465,13 @@ func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (TurnC
 		return TurnCompletedNotification{}, err
 	}
 	defer c.releaseTurnConsumer(turnID)
+
 	for {
 		notification, err := c.nextTurnNotification(ctx, turnID)
 		if err != nil {
 			return TurnCompletedNotification{}, err
 		}
+
 		completed, ok, err := notification.TurnCompleted()
 		if err != nil {
 			return TurnCompletedNotification{}, err
@@ -451,6 +479,7 @@ func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (TurnC
 		if !ok || completed.Turn.ID != turnID {
 			continue
 		}
+
 		c.clearTurnPending(turnID)
 		return completed, nil
 	}
@@ -470,10 +499,12 @@ func (c *Client) StreamUntilMethods(ctx context.Context, methods ...string) ([]N
 	if len(methods) == 0 {
 		return nil, fmt.Errorf("stream until methods: no methods specified")
 	}
+
 	methodSet := make(map[string]struct{}, len(methods))
 	for _, method := range methods {
 		methodSet[method] = struct{}{}
 	}
+
 	var notifications []Notification
 	for {
 		notification, err := c.NextNotification(ctx)
@@ -495,6 +526,7 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 			yield(AgentMessageDeltaNotification{}, err)
 		}
 	}
+
 	expectedTurnID := started.Turn.ID
 	return func(yield func(AgentMessageDeltaNotification, error) bool) {
 		if err := c.acquireTurnConsumer(expectedTurnID); err != nil {
@@ -502,12 +534,14 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 			return
 		}
 		defer c.releaseTurnConsumer(expectedTurnID)
+
 		for {
 			notification, err := c.nextTurnNotification(ctx, expectedTurnID)
 			if err != nil {
 				yield(AgentMessageDeltaNotification{}, err)
 				return
 			}
+
 			switch notification.Method {
 			case NotificationMethodTurnCompleted:
 				completed, ok, err := notification.TurnCompleted()
@@ -519,6 +553,7 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 					c.clearTurnPending(expectedTurnID)
 					return
 				}
+
 			case NotificationMethodItemAgentMessageDelta:
 				delta, ok, err := notification.ItemAgentMessageDelta()
 				if err != nil {
@@ -563,11 +598,7 @@ func (c *Client) launchArgs() ([]string, error) {
 	if len(c.config.LaunchArgsOverride) > 0 {
 		return slices.Clone(c.config.LaunchArgsOverride), nil
 	}
-	return c.appServerArgs(c.effectiveListenConfig())
-}
-
-func (c *Client) appServerArgs(listenCfg ListenConfig) ([]string, error) {
-	return c.buildAppServerArgs(listenCfg)
+	return c.buildAppServerArgs(c.effectiveListenConfig())
 }
 
 func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
@@ -614,6 +645,7 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 	if _, err := os.Stat(codexBin); err != nil {
 		return nil, fmt.Errorf("codex binary not found at %s: %w", codexBin, err)
 	}
+
 	args := []string{codexBin}
 	for _, override := range c.config.ConfigOverrides {
 		args = append(args, "--config", override)
@@ -644,7 +676,7 @@ func (c *Client) nextRequestID() string {
 	return fmt.Sprintf("go-sdk-%d", c.requestSeq.Add(1))
 }
 
-func (c *Client) loadTransport() transport {
+func (c *Client) loadTransport() Transport {
 	p := c.transport.Load()
 	if p == nil {
 		return nil
@@ -652,7 +684,7 @@ func (c *Client) loadTransport() transport {
 	return *p
 }
 
-func (c *Client) storeTransport(t transport) {
+func (c *Client) storeTransport(t Transport) {
 	if t == nil {
 		c.transport.Store(nil)
 		return
@@ -663,10 +695,12 @@ func (c *Client) storeTransport(t transport) {
 func (c *Client) writeMessage(ctx context.Context, payload any) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
+
 	line, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode JSON-RPC payload: %w", err)
 	}
+
 	t := c.loadTransport()
 	if t == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
@@ -674,10 +708,11 @@ func (c *Client) writeMessage(ctx context.Context, payload any) error {
 	return t.WriteJSON(ctx, line)
 }
 
-func (c *Client) readMessage(ctx context.Context, t transport) (rpcMessage, error) {
+func (c *Client) readMessage(ctx context.Context, t Transport) (rpcMessage, error) {
 	if t == nil {
 		return rpcMessage{}, &TransportClosedError{Message: "app-server is not running"}
 	}
+
 	line, err := t.ReadJSON(ctx)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -685,6 +720,7 @@ func (c *Client) readMessage(ctx context.Context, t transport) (rpcMessage, erro
 		}
 		return rpcMessage{}, err
 	}
+
 	var msg rpcMessage
 	if err := json.Unmarshal(line, &msg); err != nil {
 		return rpcMessage{}, &AppServerError{Message: fmt.Sprintf("invalid JSON-RPC line %q: %v", string(line), err)}
@@ -700,15 +736,17 @@ func (c *Client) handleServerRequest(msg rpcMessage) Object {
 	return Object{"id": msg.ID, "result": result}
 }
 
-func (c *Client) readLoop(ctx context.Context, t transport, done chan<- struct{}) {
+func (c *Client) readLoop(ctx context.Context, t Transport, done chan<- struct{}) {
 	defer close(done)
 	defer c.turnRouter.close(&TransportClosedError{Message: "app-server notification stream closed"})
+
 	for {
 		msg, err := c.readMessage(ctx, t)
 		if err != nil {
 			c.failPending(err)
 			return
 		}
+
 		if msg.Method != "" && msg.ID != "" {
 			response := c.handleServerRequest(msg)
 			if err := c.writeMessage(ctx, response); err != nil {
@@ -717,6 +755,7 @@ func (c *Client) readLoop(ctx context.Context, t transport, done chan<- struct{}
 			}
 			continue
 		}
+
 		if msg.Method != "" {
 			notification := Notification{Method: msg.Method, Params: cloneRaw(msg.Params)}
 			if err := c.routeNotification(notification); err != nil {
@@ -731,14 +770,14 @@ func (c *Client) readLoop(ctx context.Context, t transport, done chan<- struct{}
 
 func (c *Client) registerResponse(id string, response chan responseWait) {
 	c.responseMu.Lock()
-	defer c.responseMu.Unlock()
 	c.responses[id] = response
+	c.responseMu.Unlock()
 }
 
 func (c *Client) unregisterResponse(id string) {
 	c.responseMu.Lock()
-	defer c.responseMu.Unlock()
 	delete(c.responses, id)
+	c.responseMu.Unlock()
 }
 
 func (c *Client) deliverResponse(msg rpcMessage) {
@@ -763,6 +802,7 @@ func (c *Client) failPending(err error) {
 
 func (c *Client) drainStderr(stderr io.Reader, done chan<- struct{}) {
 	defer close(done)
+
 	scanner := bufio.NewScanner(stderr)
 	for scanner.Scan() {
 		line := scanner.Text()
@@ -774,6 +814,7 @@ func (c *Client) drainStderr(stderr io.Reader, done chan<- struct{}) {
 		}
 		c.stderrMu.Unlock()
 	}
+
 	if err := scanner.Err(); err != nil {
 		c.stderrMu.Lock()
 		c.stderrLines = append(c.stderrLines, "stderr read error: "+err.Error())
@@ -788,6 +829,7 @@ func (c *Client) drainStderr(stderr io.Reader, done chan<- struct{}) {
 func (c *Client) stderrTail(limit int) string {
 	c.stderrMu.Lock()
 	defer c.stderrMu.Unlock()
+
 	if limit > len(c.stderrLines) {
 		limit = len(c.stderrLines)
 	}

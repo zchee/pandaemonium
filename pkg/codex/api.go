@@ -27,18 +27,22 @@ type Codex struct {
 	metadata InitializeResponse
 }
 
-// NewCodex starts and initializes a Codex app-server client.
+// NewCodex starts and initializes a [Codex] app-server client.
 func NewCodex(ctx context.Context, config *Config) (*Codex, error) {
 	client := NewClient(config, nil)
 	if err := client.Start(ctx); err != nil {
 		return nil, err
 	}
+
 	metadata, err := client.Initialize(ctx)
 	if err != nil {
 		_ = client.Close()
 		return nil, err
 	}
-	return &Codex{client: client, metadata: metadata}, nil
+	return &Codex{
+		client:   client,
+		metadata: metadata,
+	}, nil
 }
 
 // Metadata returns initialize metadata validated during construction.
@@ -60,7 +64,10 @@ func (c *Codex) ThreadStart(ctx context.Context, params *ThreadStartParams) (*Th
 	if err != nil {
 		return nil, err
 	}
-	return &Thread{client: c.client, id: started.Thread.ID}, nil
+	return &Thread{
+		client: c.client,
+		id:     started.Thread.ID,
+	}, nil
 }
 
 // ThreadList lists threads.
@@ -74,7 +81,10 @@ func (c *Codex) ThreadResume(ctx context.Context, threadID string, params *Threa
 	if err != nil {
 		return nil, err
 	}
-	return &Thread{client: c.client, id: resumed.Thread.ID}, nil
+	return &Thread{
+		client: c.client,
+		id:     resumed.Thread.ID,
+	}, nil
 }
 
 // ThreadFork forks an existing thread.
@@ -83,7 +93,10 @@ func (c *Codex) ThreadFork(ctx context.Context, threadID string, params *ThreadF
 	if err != nil {
 		return nil, err
 	}
-	return &Thread{client: c.client, id: forked.Thread.ID}, nil
+	return &Thread{
+		client: c.client,
+		id:     forked.Thread.ID,
+	}, nil
 }
 
 // ThreadArchive archives a thread.
@@ -97,7 +110,10 @@ func (c *Codex) ThreadUnarchive(ctx context.Context, threadID string) (*Thread, 
 	if err != nil {
 		return nil, err
 	}
-	return &Thread{client: c.client, id: unarchived.Thread.ID}, nil
+	return &Thread{
+		client: c.client,
+		id:     unarchived.Thread.ID,
+	}, nil
 }
 
 // Models lists available models.
@@ -134,7 +150,11 @@ func (t *Thread) Turn(ctx context.Context, input any, params *TurnStartParams) (
 	if err != nil {
 		return nil, err
 	}
-	return &TurnHandle{client: t.client, threadID: t.id, turnID: started.Turn.ID}, nil
+	return &TurnHandle{
+		client:   t.client,
+		threadID: t.id,
+		turnID:   started.Turn.ID,
+	}, nil
 }
 
 // Read reads thread state.
@@ -214,8 +234,10 @@ func (h *TurnHandle) Stream(ctx context.Context) iter.Seq2[Notification, error] 
 			yield(Notification{}, err)
 			return
 		}
+
 		defer h.client.releaseTurnConsumer(h.turnID)
 		defer h.client.clearTurnPending(h.turnID)
+
 		for {
 			notification, err := h.client.nextTurnNotification(ctx, h.turnID)
 			if err != nil {
@@ -244,6 +266,7 @@ func (h *TurnHandle) Run(ctx context.Context) (RunResult, error) {
 		return RunResult{}, err
 	}
 	defer h.client.releaseTurnConsumer(h.turnID)
+
 	result, err := collectRunResult(ctx, h.client, h.turnID)
 	if err == nil {
 		h.client.clearTurnPending(h.turnID)
@@ -254,6 +277,7 @@ func (h *TurnHandle) Run(ctx context.Context) (RunResult, error) {
 func validateInitialize(payload InitializeResponse) (InitializeResponse, error) {
 	userAgent := strings.TrimSpace(payload.UserAgent)
 	server := payload.ServerInfo
+
 	var serverName, serverVersion string
 	if server != nil {
 		serverName = strings.TrimSpace(server.Name)
@@ -271,7 +295,11 @@ func validateInitialize(payload InitializeResponse) (InitializeResponse, error) 
 	if userAgent == "" || serverName == "" || serverVersion == "" {
 		return InitializeResponse{}, fmt.Errorf("initialize response missing required metadata (user_agent=%q, server_name=%q, server_version=%q)", userAgent, serverName, serverVersion)
 	}
-	payload.ServerInfo = &ServerInfo{Name: serverName, Version: serverVersion}
+
+	payload.ServerInfo = &ServerInfo{
+		Name:    serverName,
+		Version: serverVersion,
+	}
 	return payload, nil
 }
 
@@ -280,12 +308,15 @@ func splitUserAgent(userAgent string) (string, string) {
 	if raw == "" {
 		return "", ""
 	}
+
 	if name, version, ok := strings.Cut(raw, "/"); ok {
 		return strings.TrimSpace(name), strings.TrimSpace(version)
 	}
+
 	parts := strings.Fields(raw)
 	if len(parts) >= 2 {
 		return parts[0], parts[1]
 	}
+
 	return raw, ""
 }
