@@ -16,20 +16,19 @@ package claude
 
 import (
 	"context"
-	"errors"
 )
 
 // NewClient creates a new [ClaudeSDKClient] for interactive, multi-turn use.
 //
-// NewClient performs CLI discovery (Options.CLIPath → exec.LookPath("claude")
-// → well-known install directories) but does not launch the subprocess until
-// the first [ClaudeSDKClient.Query] call. The only side effect at construction
-// time is binary lookup (AC-i1).
+// NewClient validates opts but does not launch the subprocess. The subprocess
+// is started on the first [ClaudeSDKClient.Query] call. The only side effects
+// at construction time are option validation (AC-i1).
 //
 // opts may be nil; a nil Options is equivalent to a zero-value Options.
-//
-// The body is stubbed to errors.ErrUnsupported until Phase C.
 func NewClient(ctx context.Context, opts *Options) (*ClaudeSDKClient, error) {
-	_, _ = ctx, opts
-	return nil, errors.ErrUnsupported
+	_ = ctx // no subprocess launched at construction time
+	if err := opts.validate(); err != nil {
+		return nil, err
+	}
+	return &ClaudeSDKClient{opts: opts}, nil
 }

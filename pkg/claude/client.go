@@ -93,35 +93,135 @@ type ClaudeSDKClient struct {
 	stderrDone chan struct{}
 }
 
-// Query sends prompt to the claude CLI and returns when the CLI has accepted
-// it. Call [ClaudeSDKClient.ReceiveResponse] to iterate the resulting messages.
+// Query sends prompt to the claude CLI and returns when the prompt has been
+// delivered. Call [ClaudeSDKClient.ReceiveResponse] to iterate the resulting
+// messages.
+//
+// On the first call the subprocess is launched in interactive stdin mode
+// (without --print); subsequent calls write the next prompt to its stdin for
+// multi-turn conversation. The subprocess remains alive between calls.
 //
 // This is the interactive counterpart to the package-level [Query] function.
-// The body is stubbed to errors.ErrUnsupported until Phase C.
 func (c *ClaudeSDKClient) Query(ctx context.Context, prompt string) error {
-	_, _ = ctx, prompt
-	return errors.ErrUnsupported
+	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
+
+	if c.transport == nil {
+		// First call: start the subprocess in interactive stdin mode.
+		// Empty prompt omits --print so the CLI reads input from stdin.
+		if err := c.launchSubprocess(ctx, ""); err != nil {
+			return err
+		}
+	}
+	// Write the prompt to stdin. writeMessage acquires writeMu internally.
+	// Calling writeMessage while holding closeMu is safe: both Close and
+	// writeMessage acquire closeMu→writeMu in the same order.
+	return c.writeMessage(ctx, []byte(prompt))
 }
 
 // ReceiveResponse returns an iterator over the [Message] values streamed by the
 // claude CLI in response to the last [ClaudeSDKClient.Query] call. The iterator
 // stops after delivering the terminal [ResultMessage] or when ctx is cancelled.
 //
-// The body is stubbed until Phase C.
+// rawMessages and readDone are captured once under closeMu so they are
+// consistent with the transport state at the time ReceiveResponse is called.
 func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message, error] {
-	_ = ctx
+	c.closeMu.Lock()
+	rawMessages := c.rawMessages
+	readDone := c.readDone
+	c.closeMu.Unlock()
+
 	return func(yield func(Message, error) bool) {
-		yield(nil, errors.ErrUnsupported)
+		if rawMessages == nil {
+			yield(nil, &CLIConnectionError{Message: "no active query; call Query first"})
+			return
+		}
+
+		for {
+			select {
+			case <-ctx.Done():
+				yield(nil, ctx.Err())
+				return
+
+			case line := <-rawMessages:
+				if line == nil {
+					// nil sentinel: readLoop hit EOF or error before ResultMessage.
+					c.readErrMu.Lock()
+					err := c.readErr
+					c.readErrMu.Unlock()
+					if err != nil && !errors.Is(err, io.EOF) {
+						yield(nil, err)
+					}
+					return
+				}
+				msg, parseErr := parseMessage(append(line, '\n'))
+				if parseErr != nil {
+					if !yield(nil, parseErr) {
+						return
+					}
+					continue
+				}
+				if msg == nil {
+					continue // blank line
+				}
+				if !yield(msg, nil) {
+					return
+				}
+				if _, ok := msg.(ResultMessage); ok {
+					return
+				}
+
+			case <-readDone:
+				// readLoop exited — drain any lines already buffered in the channel.
+			drain:
+				for {
+					select {
+					case line := <-rawMessages:
+						if line == nil {
+							break drain
+						}
+						msg, parseErr := parseMessage(append(line, '\n'))
+						if parseErr != nil {
+							yield(nil, parseErr)
+							return
+						}
+						if msg == nil {
+							continue
+						}
+						if !yield(msg, nil) {
+							return
+						}
+						if _, ok := msg.(ResultMessage); ok {
+							return
+						}
+					default:
+						break drain
+					}
+				}
+				c.readErrMu.Lock()
+				err := c.readErr
+				c.readErrMu.Unlock()
+				if err != nil && !errors.Is(err, io.EOF) {
+					yield(nil, err)
+				}
+				return
+			}
+		}
 	}
 }
 
-// Interrupt sends an interrupt signal to the claude CLI subprocess, requesting
-// that it cancel the current operation.
-//
-// The body is stubbed to errors.ErrUnsupported until Phase C.
+// Interrupt sends SIGINT to the claude CLI subprocess, requesting that it
+// cancel the current operation. Returns CLIConnectionError if no subprocess
+// is running.
 func (c *ClaudeSDKClient) Interrupt(ctx context.Context) error {
 	_ = ctx
-	return errors.ErrUnsupported
+	c.closeMu.Lock()
+	cmd := c.cmd
+	c.closeMu.Unlock()
+	if cmd == nil || cmd.Process == nil {
+		return &CLIConnectionError{Message: "no active subprocess to interrupt"}
+	}
+	return cmd.Process.Signal(os.Interrupt)
 }
 
 // Fork creates a new [ClaudeSDKClient] whose conversation history is branched

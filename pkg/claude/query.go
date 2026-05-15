@@ -16,7 +16,6 @@ package claude
 
 import (
 	"context"
-	"errors"
 	"iter"
 )
 
@@ -26,9 +25,8 @@ import (
 //
 // The iterator creates and owns a private [ClaudeSDKClient]. The client is
 // closed automatically when the iterator is exhausted or when the caller breaks
-// early from the range loop. This is safe because defer cli.Close() is placed
-// INSIDE the yield closure, not after the for-range; early break therefore
-// always triggers cleanup (AC-i6).
+// early from the range loop. defer cli.Close() is placed INSIDE the yield
+// closure so that early break always triggers cleanup (AC-i6).
 //
 // Example — consume all messages:
 //
@@ -38,23 +36,26 @@ import (
 //	}
 //
 // opts may be nil; a nil Options is equivalent to a zero-value Options.
-//
-// The body is stubbed until Phase C. Callers may range over the returned
-// iterator; the first and only value will be (nil, errors.ErrUnsupported).
 func Query(ctx context.Context, prompt string, opts *Options) iter.Seq2[Message, error] {
-	_, _ = prompt, opts
 	return func(yield func(Message, error) bool) {
-		// Phase C replaces this stub with the real implementation:
-		//
-		//   cli, err := NewClient(ctx, opts)
-		//   if err != nil { yield(nil, err); return }
-		//   defer cli.Close()  // MUST be inside the yield closure for early-break safety
-		//   if err := cli.Query(ctx, prompt); err != nil { yield(nil, err); return }
-		//   for msg, err := range cli.ReceiveResponse(ctx) {
-		//       if !yield(msg, err) { return }
-		//       if _, isResult := any(msg).(ResultMessage); isResult { return }
-		//   }
-		_ = ctx
-		yield(nil, errors.ErrUnsupported)
+		cli, err := NewClient(ctx, opts)
+		if err != nil {
+			yield(nil, err)
+			return
+		}
+		defer cli.Close() // MUST be inside the yield closure for early-break safety (AC-i6)
+
+		if err := cli.Query(ctx, prompt); err != nil {
+			yield(nil, err)
+			return
+		}
+		for msg, err := range cli.ReceiveResponse(ctx) {
+			if !yield(msg, err) {
+				return
+			}
+			if _, isResult := msg.(ResultMessage); isResult {
+				return
+			}
+		}
 	}
 }
