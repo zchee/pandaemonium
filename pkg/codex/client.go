@@ -17,10 +17,13 @@ package codex
 import (
 	"bufio"
 	"context"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"io"
 	"iter"
+	"net/http"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -30,19 +33,59 @@ import (
 	"sync/atomic"
 	"time"
 
+	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 )
 
 const sdkVersion = "0.131.0a4-go"
+const defaultListenURL = "stdio://"
 
 // ApprovalHandler answers app-server requests initiated during JSON-RPC processing.
 type ApprovalHandler func(method string, params jsontext.Value) (Object, error)
 
 // Config controls app-server process startup and client metadata.
+type WebSocketAuthMode string
+
+const (
+	WebSocketAuthNone              WebSocketAuthMode = ""
+	WebSocketAuthCapabilityToken   WebSocketAuthMode = "capability-token"
+	WebSocketAuthSignedBearerToken WebSocketAuthMode = "signed-bearer-token"
+)
+
+type ListenConfig struct {
+	// URL is passed directly as the app-server listen endpoint.
+	// An empty value means "stdio://".
+	URL string
+	// WebSocket enables websocket launch and auth configuration when URL is a ws
+	// or wss endpoint.
+	WebSocket *WebSocketConfig
+
+	// AllowInsecureRemoteWebSocket disables the explicit localhost-only guard for
+	// ws:// urls.
+	AllowInsecureRemoteWebSocket bool
+}
+
+// WebSocketConfig carries websocket authentication and bearer configuration.
+type WebSocketConfig struct {
+	AuthMode              WebSocketAuthMode
+	TokenFile             string
+	TokenSHA256           string
+	SharedSecretFile      string
+	Issuer                string
+	Audience              string
+	MaxClockSkewSeconds   *int
+	ClientBearerToken     string
+	ClientBearerTokenFile string
+	DialTimeout           time.Duration
+}
+
+// Config controls app-server process startup and client metadata.
+// Defaults preserve stdio behavior unless Listen.URL is set explicitly.
 type Config struct {
 	CodexBin           string
 	LaunchArgsOverride []string
+	Listen             ListenConfig
 	ConfigOverrides    []string
 	Cwd                string
 	Env                map[string]string
@@ -57,24 +100,110 @@ type Client struct {
 	config          Config
 	approvalHandler ApprovalHandler
 
-	cmd    *exec.Cmd
-	stdin  io.WriteCloser
-	stdout *bufio.Reader
-	stderr io.ReadCloser
+	cmd       *exec.Cmd
+	stdin     io.WriteCloser
+	stdout    *bufio.Reader
+	stderr    io.ReadCloser
+	transport transport
 
-	writeMu    sync.Mutex
-	closeMu    sync.Mutex
-	responseMu sync.Mutex
-	stderrMu   sync.Mutex
-
+	writeMu       sync.Mutex
+	closeMu       sync.Mutex
+	responseMu    sync.Mutex
 	responses     map[string]chan responseWait
 	notifications chan Notification
 	turnRouter    *turnNotificationRouter
+	stderrMu      sync.Mutex
 	stderrLines   []string
 	stderrDone    chan struct{}
 	readDone      chan struct{}
 
 	requestSeq atomic.Uint64
+}
+
+type transport interface {
+	io.Closer
+	WriteJSON([]byte) error
+	ReadJSON() ([]byte, error)
+}
+
+type stdioTransport struct {
+	stdin  io.WriteCloser
+	stdout *bufio.Reader
+}
+
+func (t *stdioTransport) Close() error {
+	if t.stdin != nil {
+		return t.stdin.Close()
+	}
+	return nil
+}
+
+func (t *stdioTransport) WriteJSON(data []byte) error {
+	if t.stdin == nil {
+		return &TransportClosedError{Message: "app-server is not running"}
+	}
+	data = append(append([]byte(nil), data...), '\n')
+	_, err := t.stdin.Write(data)
+	if err != nil {
+		return &TransportClosedError{Message: err.Error()}
+	}
+	return nil
+}
+
+func (t *stdioTransport) ReadJSON() ([]byte, error) {
+	if t.stdout == nil {
+		return nil, &TransportClosedError{Message: "app-server is not running"}
+	}
+	line, err := t.stdout.ReadBytes('\n')
+	if err != nil {
+		if errors.Is(err, io.EOF) {
+			return nil, io.EOF
+		}
+		return nil, err
+	}
+	return line, nil
+}
+
+type websocketTransport struct {
+	conn *websocket.Conn
+	mu   sync.Mutex
+}
+
+func (t *websocketTransport) Close() error {
+	if t.conn != nil {
+		return t.conn.Close(websocket.StatusNormalClosure, "")
+	}
+	return nil
+}
+
+func (t *websocketTransport) WriteJSON(data []byte) error {
+	t.mu.Lock()
+	defer t.mu.Unlock()
+	if t.conn == nil {
+		return &TransportClosedError{Message: "app-server is not running"}
+	}
+	return t.conn.Write(context.Background(), websocket.MessageText, data)
+}
+
+func (t *websocketTransport) ReadJSON() ([]byte, error) {
+	for {
+		if t.conn == nil {
+			return nil, &TransportClosedError{Message: "app-server is not running"}
+		}
+		typ, payload, err := t.conn.Read(context.Background())
+		if err != nil {
+			if status := websocket.CloseStatus(err); status != websocket.StatusNormalClosure {
+				return nil, &TransportClosedError{Message: err.Error()}
+			}
+			return nil, io.EOF
+		}
+		switch typ {
+		case websocket.MessageText:
+			return append(payload, '\n'), nil
+		case websocket.MessageBinary:
+			return nil, &AppServerError{Message: "unexpected binary websocket message"}
+		}
+	}
 }
 
 // NewClient creates a client. Call Start or use higher-level NewCodex to initialize it.
@@ -119,7 +248,7 @@ func DefaultCodexHome() string {
 func (c *Client) Start(ctx context.Context) error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
-	if c.cmd != nil {
+	if c.transport != nil {
 		return nil
 	}
 	args, err := c.launchArgs()
@@ -134,30 +263,59 @@ func (c *Client) Start(ctx context.Context) error {
 	for key, value := range c.config.Env {
 		cmd.Env = append(cmd.Env, key+"="+value)
 	}
-	stdin, err := cmd.StdinPipe()
-	if err != nil {
-		return fmt.Errorf("create app-server stdin: %w", err)
-	}
-	stdout, err := cmd.StdoutPipe()
-	if err != nil {
-		return fmt.Errorf("create app-server stdout: %w", err)
-	}
-	stderr, err := cmd.StderrPipe()
-	if err != nil {
-		return fmt.Errorf("create app-server stderr: %w", err)
-	}
-	if err := cmd.Start(); err != nil {
-		return fmt.Errorf("start app-server: %w", err)
-	}
-	c.cmd = cmd
-	c.stdin = stdin
-	c.stdout = bufio.NewReader(stdout)
-	c.stderr = stderr
 	c.stderrDone = make(chan struct{})
 	c.readDone = make(chan struct{})
 	c.notifications = make(chan Notification, notificationQueueCapacity)
 	c.turnRouter = newTurnNotificationRouter()
 	c.responses = map[string]chan responseWait{}
+	var stderr io.ReadCloser
+	listenCfg := c.effectiveListenConfig()
+	listenURL := strings.TrimSpace(listenCfg.URL)
+	if listenURL == "" {
+		listenURL = "stdio://"
+	}
+	isWebSocket := strings.HasPrefix(listenURL, "ws://") || strings.HasPrefix(listenURL, "wss://")
+	if isWebSocket {
+		stderr, err = cmd.StderrPipe()
+		if err != nil {
+			return fmt.Errorf("create app-server stderr: %w", err)
+		}
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("start app-server: %w", err)
+		}
+		c.cmd = cmd
+		c.stderr = stderr
+		conn, err := dialWebSocketWithWait(ctx, cmd, listenURL, listenCfg.WebSocket)
+		if err != nil {
+			_ = cmd.Process.Kill()
+			_ = cmd.Wait()
+			return fmt.Errorf("dial app-server websocket: %w", err)
+		}
+		c.transport = &websocketTransport{conn: conn}
+	} else {
+		var stdin io.WriteCloser
+		var stdout io.ReadCloser
+		stdin, err = cmd.StdinPipe()
+		if err != nil {
+			return fmt.Errorf("create app-server stdin: %w", err)
+		}
+		stdout, err = cmd.StdoutPipe()
+		if err != nil {
+			return fmt.Errorf("create app-server stdout: %w", err)
+		}
+		stderr, err = cmd.StderrPipe()
+		if err != nil {
+			return fmt.Errorf("create app-server stderr: %w", err)
+		}
+		if err := cmd.Start(); err != nil {
+			return fmt.Errorf("start app-server: %w", err)
+		}
+		c.cmd = cmd
+		c.stderr = stderr
+		c.stdin = stdin
+		c.stdout = bufio.NewReader(stdout)
+		c.transport = &stdioTransport{stdin: stdin, stdout: c.stdout}
+	}
 	go c.drainStderr(stderr, c.stderrDone)
 	go c.readLoop(c.readDone)
 	return nil
@@ -167,38 +325,40 @@ func (c *Client) Start(ctx context.Context) error {
 func (c *Client) Close() error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
-	if c.cmd == nil {
+	if c.transport == nil {
 		return nil
 	}
 	cmd := c.cmd
+	transport := c.transport
 	readDone := c.readDone
 	stderrDone := c.stderrDone
+	c.transport = nil
 	c.cmd = nil
 	c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
-
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
 	c.writeMu.Lock()
-	stdin := c.stdin
 	c.stdin = nil
-	if stdin != nil {
-		_ = stdin.Close()
+	if transport != nil {
+		_ = transport.Close()
 	}
 	c.writeMu.Unlock()
 
-	if cmd.Process != nil {
-		_ = cmd.Process.Signal(os.Interrupt)
-	}
-	done := make(chan error, 1)
-	go func() { done <- cmd.Wait() }()
-	select {
-	case <-done:
-		// Close initiated termination, so process exit status is not actionable.
-	case <-time.After(2 * time.Second):
+	if cmd != nil {
 		if cmd.Process != nil {
-			_ = cmd.Process.Kill()
+			_ = cmd.Process.Signal(os.Interrupt)
 		}
-		<-done
+		done := make(chan error, 1)
+		go func() { done <- cmd.Wait() }()
+		select {
+		case <-done:
+			// Close initiated termination, so process exit status is not actionable.
+		case <-time.After(2 * time.Second):
+			if cmd.Process != nil {
+				_ = cmd.Process.Kill()
+			}
+			<-done
+		}
 	}
 	select {
 	case <-readDone:
@@ -208,8 +368,6 @@ func (c *Client) Close() error {
 	case <-stderrDone:
 	case <-time.After(500 * time.Millisecond):
 	}
-	c.stdout = nil
-	c.stderr = nil
 	return nil
 }
 
@@ -467,6 +625,41 @@ func (c *Client) launchArgs() ([]string, error) {
 	if len(c.config.LaunchArgsOverride) > 0 {
 		return slices.Clone(c.config.LaunchArgsOverride), nil
 	}
+	return c.appServerArgs(c.effectiveListenConfig())
+}
+
+func (c *Client) appServerArgs(listenCfg ListenConfig) ([]string, error) {
+	return c.buildAppServerArgs(listenCfg)
+}
+
+func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
+
+	listenURL := strings.TrimSpace(listenCfg.URL)
+	if listenURL == "" {
+		listenURL = "stdio://"
+	}
+	clientBearerSource := websocketHasClientBearerToken(listenCfg.WebSocket)
+
+	if parsed, err := url.Parse(listenURL); err != nil {
+		return nil, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
+	} else if parsed.Scheme == "ws" || parsed.Scheme == "wss" {
+		if listenCfg.WebSocket == nil {
+			return nil, fmt.Errorf("websocket listen %q requires websocket config", listenURL)
+		}
+		if parsed.Host == "" {
+			return nil, fmt.Errorf("websocket listen URL %q is missing host", listenURL)
+		}
+		if parsed.Port() == "0" {
+			return nil, fmt.Errorf("websocket listen URL %q uses unsupported :0 port", listenURL)
+		}
+		if err := ensureWebSocketListenAllowed(parsed, listenCfg); err != nil {
+			return nil, err
+		}
+		if err := validateWebSocketConfig(listenCfg.WebSocket, clientBearerSource); err != nil {
+			return nil, err
+		}
+	}
+
 	codexBin := c.config.CodexBin
 	if codexBin == "" {
 		path, err := exec.LookPath("codex")
@@ -489,8 +682,17 @@ func (c *Client) launchArgs() ([]string, error) {
 	for _, override := range c.config.ConfigOverrides {
 		args = append(args, "--config", override)
 	}
-	args = append(args, "app-server", "--listen", "stdio://")
+	if listenURL == "stdio://" {
+		args = append(args, "app-server", "--listen", "stdio://")
+		return args, nil
+	}
+	args = append(args, "app-server", "--listen", listenURL)
+	args = append(args, wsLaunchArgs(listenCfg.WebSocket)...)
 	return args, nil
+}
+
+func (c *Client) effectiveListenConfig() ListenConfig {
+	return c.config.Listen
 }
 
 func (c *Client) nextRequestID() string {
@@ -500,25 +702,21 @@ func (c *Client) nextRequestID() string {
 func (c *Client) writeMessage(payload any) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
-	if c.stdin == nil {
-		return &TransportClosedError{Message: "app-server is not running"}
-	}
 	line, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode JSON-RPC payload: %w", err)
 	}
-	line = append(line, '\n')
-	if _, err := c.stdin.Write(line); err != nil {
-		return &TransportClosedError{Message: err.Error()}
+	if c.transport == nil {
+		return &TransportClosedError{Message: "app-server is not running"}
 	}
-	return nil
+	return c.transport.WriteJSON(line)
 }
 
 func (c *Client) readMessage() (rpcMessage, error) {
-	if c.stdout == nil {
+	if c.transport == nil {
 		return rpcMessage{}, &TransportClosedError{Message: "app-server is not running"}
 	}
-	line, err := c.stdout.ReadBytes('\n')
+	line, err := c.transport.ReadJSON()
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			return rpcMessage{}, &TransportClosedError{Message: "app-server closed stdout. stderr_tail=" + c.stderrTail(40)}
@@ -530,6 +728,245 @@ func (c *Client) readMessage() (rpcMessage, error) {
 		return rpcMessage{}, &AppServerError{Message: fmt.Sprintf("invalid JSON-RPC line %q: %v", string(line), err)}
 	}
 	return msg, nil
+}
+
+func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
+	if cfg == nil {
+		return nil
+	}
+	switch cfg.AuthMode {
+	case WebSocketAuthNone, WebSocketAuthCapabilityToken, WebSocketAuthSignedBearerToken:
+	default:
+		return fmt.Errorf("invalid websocket auth mode %q", cfg.AuthMode)
+	}
+	if cfg.AuthMode == WebSocketAuthNone {
+		if cfg.TokenFile != "" || cfg.TokenSHA256 != "" || cfg.SharedSecretFile != "" || cfg.Issuer != "" || cfg.Audience != "" || cfg.ClientBearerToken != "" || cfg.ClientBearerTokenFile != "" || cfg.MaxClockSkewSeconds != nil {
+			return fmt.Errorf("ws-auth none cannot include websocket auth fields")
+		}
+		return nil
+	}
+	if cfg.MaxClockSkewSeconds != nil && *cfg.MaxClockSkewSeconds < 0 {
+		return fmt.Errorf("ws-max-clock-skew-seconds must be non-negative")
+	}
+	if cfg.TokenFile != "" && cfg.TokenSHA256 != "" {
+		return fmt.Errorf("invalid websocket auth: --ws-token-file and --ws-token-sha256 are mutually exclusive")
+	}
+	if strings.TrimSpace(cfg.TokenSHA256) != "" {
+		if _, err := hex.DecodeString(strings.TrimSpace(cfg.TokenSHA256)); err != nil {
+			return fmt.Errorf("ws-token-sha256 must be a 64-character hex digest")
+		}
+	}
+	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenSHA256 != "" && !tokenSource {
+		return fmt.Errorf("capability-token auth with --ws-token-sha256 requires a client bearer token source")
+	}
+	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenFile == "" && cfg.TokenSHA256 == "" {
+		return fmt.Errorf("capability-token auth requires either ws token file or ws-token-sha256")
+	}
+	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenFile != "" {
+		if err := validateTokenFileHasContent(cfg.TokenFile, "websocket token file"); err != nil {
+			return err
+		}
+	}
+	if cfg.AuthMode == WebSocketAuthSignedBearerToken && cfg.SharedSecretFile == "" {
+		return fmt.Errorf("signed-bearer-token auth requires --ws-shared-secret-file")
+	}
+	if cfg.AuthMode == WebSocketAuthSignedBearerToken && !tokenSource {
+		return fmt.Errorf("signed-bearer-token auth requires a client bearer token source")
+	}
+	if cfg.AuthMode == WebSocketAuthSignedBearerToken && cfg.SharedSecretFile != "" {
+		if err := validateTokenFileHasContent(cfg.SharedSecretFile, "websocket shared secret file"); err != nil {
+			return err
+		}
+	}
+	if cfg.AuthMode == WebSocketAuthSignedBearerToken && cfg.Issuer == "" {
+		// issuer is optional in app-server CLI; keep behavior permissive.
+	}
+	if cfg.Issuer != "" && strings.TrimSpace(cfg.Issuer) == "" {
+		return fmt.Errorf("ws-issuer cannot be empty if set")
+	}
+	if cfg.Audience != "" && strings.TrimSpace(cfg.Audience) == "" {
+		return fmt.Errorf("ws-audience cannot be empty if set")
+	}
+	return nil
+}
+
+func wsLaunchArgs(cfg *WebSocketConfig) []string {
+	if cfg == nil {
+		return nil
+	}
+	args := []string{"--ws-auth", string(cfg.AuthMode)}
+	if cfg.TokenFile != "" {
+		args = append(args, "--ws-token-file", cfg.TokenFile)
+	}
+	if cfg.TokenSHA256 != "" {
+		args = append(args, "--ws-token-sha256", cfg.TokenSHA256)
+	}
+	if cfg.SharedSecretFile != "" {
+		args = append(args, "--ws-shared-secret-file", cfg.SharedSecretFile)
+	}
+	if cfg.Issuer != "" {
+		args = append(args, "--ws-issuer", cfg.Issuer)
+	}
+	if cfg.Audience != "" {
+		args = append(args, "--ws-audience", cfg.Audience)
+	}
+	if cfg.MaxClockSkewSeconds != nil {
+		args = append(args, "--ws-max-clock-skew-seconds", fmt.Sprintf("%d", *cfg.MaxClockSkewSeconds))
+	}
+	return args
+}
+
+func ensureWebSocketListenAllowed(parsed *url.URL, cfg ListenConfig) error {
+	if parsed == nil {
+		return nil
+	}
+	if parsed.Scheme != "ws" && parsed.Scheme != "wss" {
+		return nil
+	}
+	if parsed.Hostname() == "" {
+		return nil
+	}
+	if cfg.AllowInsecureRemoteWebSocket {
+		return nil
+	}
+	if host := parsed.Hostname(); host != "localhost" && host != "127.0.0.1" && host != "::1" {
+		return fmt.Errorf("insecure websocket listen %q is allowed only for loopback hosts unless explicit opt-in", parsed.String())
+	}
+	return nil
+}
+
+func websocketHasClientBearerToken(cfg *WebSocketConfig) bool {
+	if cfg == nil {
+		return false
+	}
+	if strings.TrimSpace(cfg.ClientBearerToken) != "" {
+		return true
+	}
+	if strings.TrimSpace(cfg.ClientBearerTokenFile) != "" {
+		return true
+	}
+	return cfg.AuthMode == WebSocketAuthCapabilityToken && strings.TrimSpace(cfg.TokenFile) != ""
+}
+
+func dialWebSocketWithWait(ctx context.Context, cmd *exec.Cmd, listen string, cfg *WebSocketConfig) (*websocket.Conn, error) {
+	procDone := make(chan error, 1)
+	go func() {
+		if cmd != nil {
+			procDone <- cmd.Wait()
+		}
+	}()
+	attemptLimit := 50
+	for attempt := 0; attempt < attemptLimit; attempt++ {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case err := <-procDone:
+			return nil, fmt.Errorf("app-server exited before websocket readiness (%w)", err)
+		default:
+		}
+		dialCtx := ctx
+		var cancel context.CancelFunc
+		if cfg != nil && cfg.DialTimeout > 0 {
+			dialCtx, cancel = context.WithTimeout(ctx, cfg.DialTimeout)
+		}
+		conn, err := dialWebSocket(dialCtx, listen, cfg)
+		if cancel != nil {
+			cancel()
+		}
+		if err == nil {
+			return conn, nil
+		}
+		backoff := time.Duration(25*(attempt+1)) * time.Millisecond
+		if backoff > 250*time.Millisecond {
+			backoff = 250 * time.Millisecond
+		}
+		if attempt >= attemptLimit-1 {
+			return nil, err
+		}
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-time.After(backoff):
+		case <-procDone:
+			return nil, fmt.Errorf("app-server exited before websocket readiness")
+		}
+	}
+	return nil, fmt.Errorf("app-server websocket not ready after %d attempts", attemptLimit)
+}
+
+func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig) (*websocket.Conn, error) {
+	u, err := url.Parse(listen)
+	if err != nil {
+		return nil, err
+	}
+	token, err := websocketBearerToken(cfg)
+	if err != nil {
+		return nil, err
+	}
+	opts := &websocket.DialOptions{}
+	if token != "" {
+		opts.HTTPHeader = http.Header{
+			"Authorization": {fmt.Sprintf("Bearer %s", token)},
+		}
+	}
+	conn, resp, err := websocket.Dial(ctx, u.String(), opts)
+	if err != nil {
+		return nil, err
+	}
+	if resp == nil {
+		return conn, nil
+	}
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
+		return nil, fmt.Errorf("websocket dial failed: %s", resp.Status)
+	}
+	return conn, nil
+}
+
+func websocketBearerToken(cfg *WebSocketConfig) (string, error) {
+	if cfg == nil {
+		return "", nil
+	}
+	if cfg.ClientBearerToken != "" {
+		return strings.TrimSpace(cfg.ClientBearerToken), nil
+	}
+	if cfg.ClientBearerTokenFile != "" {
+		raw, err := os.ReadFile(cfg.ClientBearerTokenFile)
+		if err != nil {
+			return "", fmt.Errorf("cannot read websocket client bearer token file: %w", err)
+		}
+		token := strings.TrimSpace(string(raw))
+		if token == "" {
+			return "", fmt.Errorf("websocket client bearer token is empty")
+		}
+		return token, nil
+	}
+	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenFile != "" {
+		raw, err := os.ReadFile(cfg.TokenFile)
+		if err != nil {
+			return "", fmt.Errorf("cannot read websocket token file: %w", err)
+		}
+		token := strings.TrimSpace(string(raw))
+		if token == "" {
+			return "", fmt.Errorf("websocket capability token is empty")
+		}
+		return token, nil
+	}
+	if cfg.AuthMode == WebSocketAuthSignedBearerToken {
+		return "", fmt.Errorf("websocket signed-bearer-token mode requires a client bearer source")
+	}
+	return "", nil
+}
+
+func validateTokenFileHasContent(path string, what string) error {
+	raw, err := os.ReadFile(path)
+	if err != nil {
+		return fmt.Errorf("read %s: %w", what, err)
+	}
+	if strings.TrimSpace(string(raw)) == "" {
+		return fmt.Errorf("%s is empty", what)
+	}
+	return nil
 }
 
 func (c *Client) handleServerRequest(msg rpcMessage) Object {

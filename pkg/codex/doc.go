@@ -15,7 +15,8 @@
 // Package codex provides a Go SDK for the Codex app-server JSON-RPC v2 protocol.
 //
 // The package mirrors the practical surface of the upstream Python SDK: it can
-// launch `codex app-server --listen stdio://`, initialize the protocol, manage
+// launch `codex app-server --listen stdio://` by default or connect to
+// authenticated `ws://...` launch modes, initialize the protocol, manage
 // threads and turns, stream notifications, aggregate a turn run, map JSON-RPC
 // errors, and retry transient overload failures. Stable high-value protocol
 // fields are typed while raw JSON extension fields preserve compatibility with

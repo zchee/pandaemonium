@@ -33,6 +33,9 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 
 	var (
 		_ *codex.Config
+		_ codex.ListenConfig
+		_ codex.WebSocketConfig
+		_ codex.WebSocketAuthMode
 		_ *codex.Codex
 		_ *codex.Client
 		_ *codex.Thread
@@ -73,6 +76,9 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 
 	rootExports := map[string]reflect.Type{
 		"Config":                    reflect.TypeFor[codex.Config](),
+		"ListenConfig":              reflect.TypeFor[codex.ListenConfig](),
+		"WebSocketConfig":           reflect.TypeFor[codex.WebSocketConfig](),
+		"WebSocketAuthMode":         reflect.TypeFor[codex.WebSocketAuthMode](),
 		"Codex":                     reflect.TypeFor[codex.Codex](),
 		"Client":                    reflect.TypeFor[codex.Client](),
 		"ApprovalMode":              reflect.TypeFor[codex.ApprovalMode](),
