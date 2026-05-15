@@ -49,12 +49,11 @@ func main() {
 		MaxTurns: 1,
 	}
 
-	var gotProcessErr *claude.ProcessError
 	for _, err := range claude.Query(ctx, "Hello", opts) {
 		if err == nil {
 			continue
 		}
-		if errors.As(err, &gotProcessErr) {
+		if gotProcessErr, ok := errors.AsType[*claude.ProcessError](err); ok {
 			fmt.Printf("CLI exited with code %d\n", gotProcessErr.ExitCode)
 			if gotProcessErr.StderrTail != "" {
 				fmt.Println("--- stderr tail ---")

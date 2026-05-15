@@ -214,8 +214,7 @@ func parseToolResultBlock(v jsontext.Value, line []byte) (ToolResultBlock, error
 // parseOffset extracts the byte offset from a go-json-experiment error for use
 // in [CLIJSONDecodeError.Offset]. Returns 0 if the error carries no offset.
 func parseOffset(err error) int64 {
-	var se *json.SemanticError
-	if errors.As(err, &se) {
+	if se, ok := errors.AsType[*json.SemanticError](err); ok {
 		return se.ByteOffset
 	}
 	return 0
