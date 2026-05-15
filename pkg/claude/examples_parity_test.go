@@ -26,6 +26,7 @@ import (
 	"context"
 	stdjson "encoding/json"
 	"fmt"
+	"slices"
 	"strings"
 	"testing"
 
@@ -452,24 +453,15 @@ func TestExampleParity_IncludePartialMessages_LaunchArgs(t *testing.T) {
 	opts := &Options{IncludePartialMessages: true}
 	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
 
-	found := false
-	for _, a := range args {
-		if a == "--include-partial-messages" {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(args, "--include-partial-messages")
 	if !found {
 		t.Errorf("buildLaunchArgs args = %v; want --include-partial-messages", args)
 	}
 
 	// Without the flag, --include-partial-messages must be absent.
 	argsOff := buildLaunchArgs("/usr/local/bin/claude", "", &Options{}, "")
-	for _, a := range argsOff {
-		if a == "--include-partial-messages" {
-			t.Errorf("buildLaunchArgs: --include-partial-messages present when IncludePartialMessages=false")
-			break
-		}
+	if slices.Contains(argsOff, "--include-partial-messages") {
+		t.Errorf("buildLaunchArgs: --include-partial-messages present when IncludePartialMessages=false")
 	}
 }
 
@@ -516,13 +508,7 @@ func TestExampleParity_SettingSources_LaunchArgs(t *testing.T) {
 	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
 
 	want := "--setting-sources=/etc/claude/settings.json,/home/user/.claude/settings.json"
-	found := false
-	for _, a := range args {
-		if a == want {
-			found = true
-			break
-		}
-	}
+	found := slices.Contains(args, want)
 	if !found {
 		t.Errorf("buildLaunchArgs args = %v; want %q", args, want)
 	}
