@@ -16,7 +16,13 @@ package claude
 
 import (
 	"context"
+	"crypto/rand"
+	stdjson "encoding/json"
 	"errors"
+	"fmt"
+	"io"
+	"sort"
+	"sync"
 
 	"github.com/go-json-experiment/json/jsontext"
 )
@@ -56,14 +62,16 @@ type SessionStore interface {
 	// Append adds messages to an existing session's history.
 	Append(ctx context.Context, sessionID string, messages []Message) error
 
-	// List returns the IDs of all stored sessions.
+	// List returns the IDs of all stored sessions, sorted lexicographically.
 	List(ctx context.Context) ([]string, error)
 
 	// Delete removes the session with the given ID.
 	Delete(ctx context.Context, sessionID string) error
 
 	// Fork creates a new session branching from fromMessageID in the source
-	// session. The forked session receives a new ID.
+	// session. The forked session receives a new ID and includes only the
+	// messages up to and including the one whose raw "id" field matches
+	// fromMessageID. If fromMessageID is empty, all messages are copied.
 	Fork(ctx context.Context, sessionID, fromMessageID string) (*Session, error)
 
 	// Summary returns a human-readable summary of the session.
@@ -74,9 +82,14 @@ type SessionStore interface {
 // session does not exist.
 var ErrSessionNotFound = errors.New("session not found")
 
-// inMemorySessionStore is the built-in, non-persistent SessionStore.
-// Implementation is filled in Phase F.
-type inMemorySessionStore struct{}
+// ── in-memory implementation ─────────────────────────────────────────────────
+
+// inMemorySessionStore is the built-in, non-persistent [SessionStore].
+// It holds all sessions in process memory; data is lost when the process exits.
+type inMemorySessionStore struct {
+	mu       sync.RWMutex
+	sessions map[string]*Session
+}
 
 // NewInMemorySessionStore returns a new in-memory [SessionStore].
 //
@@ -86,33 +99,166 @@ type inMemorySessionStore struct{}
 // The conformance harness at pkg/claude/testing/sessionstoreconformance
 // validates that this implementation satisfies the full SessionStore contract.
 func NewInMemorySessionStore() SessionStore {
-	return &inMemorySessionStore{}
+	return &inMemorySessionStore{
+		sessions: make(map[string]*Session),
+	}
 }
 
-func (*inMemorySessionStore) Load(_ context.Context, _ string) (*Session, error) {
-	return nil, errors.ErrUnsupported
+// Load retrieves the session with the given ID.
+func (s *inMemorySessionStore) Load(_ context.Context, id string) (*Session, error) {
+	s.mu.RLock()
+	sess, ok := s.sessions[id]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("session %q: %w", id, ErrSessionNotFound)
+	}
+	return shallowCopySession(sess), nil
 }
 
-func (*inMemorySessionStore) Save(_ context.Context, _ *Session) error {
-	return errors.ErrUnsupported
+// Save persists a session, creating or replacing as needed.
+func (s *inMemorySessionStore) Save(_ context.Context, sess *Session) error {
+	if sess == nil {
+		return &CLIConnectionError{Message: "Save: session must not be nil"}
+	}
+	if sess.ID == "" {
+		return &CLIConnectionError{Message: "Save: session ID must not be empty"}
+	}
+	cp := shallowCopySession(sess)
+	s.mu.Lock()
+	s.sessions[cp.ID] = cp
+	s.mu.Unlock()
+	return nil
 }
 
-func (*inMemorySessionStore) Append(_ context.Context, _ string, _ []Message) error {
-	return errors.ErrUnsupported
+// Append adds messages to an existing session's history.
+func (s *inMemorySessionStore) Append(_ context.Context, id string, messages []Message) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	sess, ok := s.sessions[id]
+	if !ok {
+		return fmt.Errorf("session %q: %w", id, ErrSessionNotFound)
+	}
+	sess.Messages = append(sess.Messages, messages...)
+	return nil
 }
 
-func (*inMemorySessionStore) List(_ context.Context) ([]string, error) {
-	return nil, errors.ErrUnsupported
+// List returns the IDs of all stored sessions, sorted lexicographically.
+func (s *inMemorySessionStore) List(_ context.Context) ([]string, error) {
+	s.mu.RLock()
+	defer s.mu.RUnlock()
+	ids := make([]string, 0, len(s.sessions))
+	for id := range s.sessions {
+		ids = append(ids, id)
+	}
+	sort.Strings(ids)
+	return ids, nil
 }
 
-func (*inMemorySessionStore) Delete(_ context.Context, _ string) error {
-	return errors.ErrUnsupported
+// Delete removes the session with the given ID.
+func (s *inMemorySessionStore) Delete(_ context.Context, id string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	if _, ok := s.sessions[id]; !ok {
+		return fmt.Errorf("session %q: %w", id, ErrSessionNotFound)
+	}
+	delete(s.sessions, id)
+	return nil
 }
 
-func (*inMemorySessionStore) Fork(_ context.Context, _, _ string) (*Session, error) {
-	return nil, errors.ErrUnsupported
+// Fork creates a new session branching from fromMessageID in the source session.
+func (s *inMemorySessionStore) Fork(_ context.Context, sessionID, fromMessageID string) (*Session, error) {
+	s.mu.RLock()
+	src, ok := s.sessions[sessionID]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, fmt.Errorf("session %q: %w", sessionID, ErrSessionNotFound)
+	}
+
+	// Determine how many messages to include in the fork.
+	cutoff := len(src.Messages)
+	if fromMessageID != "" {
+		cutoff = 0 // default to empty if ID is not found
+		for i, msg := range src.Messages {
+			if extractMessageID(msg) == fromMessageID {
+				cutoff = i + 1
+				break
+			}
+		}
+	}
+
+	newID, err := newSessionID()
+	if err != nil {
+		return nil, fmt.Errorf("fork: generate session ID: %w", err)
+	}
+
+	forked := &Session{
+		ID:       newID,
+		ParentID: sessionID,
+		Messages: append([]Message(nil), src.Messages[:cutoff]...),
+	}
+
+	s.mu.Lock()
+	s.sessions[newID] = forked
+	s.mu.Unlock()
+
+	return shallowCopySession(forked), nil
 }
 
-func (*inMemorySessionStore) Summary(_ context.Context, _ string) (string, error) {
-	return "", errors.ErrUnsupported
+// Summary returns a human-readable summary of the session.
+func (s *inMemorySessionStore) Summary(_ context.Context, id string) (string, error) {
+	s.mu.RLock()
+	sess, ok := s.sessions[id]
+	s.mu.RUnlock()
+	if !ok {
+		return "", fmt.Errorf("session %q: %w", id, ErrSessionNotFound)
+	}
+	if sess.ParentID != "" {
+		return fmt.Sprintf("session %s: %d messages (forked from %s)",
+			sess.ID, len(sess.Messages), sess.ParentID), nil
+	}
+	return fmt.Sprintf("session %s: %d messages", sess.ID, len(sess.Messages)), nil
+}
+
+// ── helpers ──────────────────────────────────────────────────────────────────
+
+// newSessionID generates a cryptographically random 16-hex-character session ID.
+func newSessionID() (string, error) {
+	var buf [8]byte
+	if _, err := io.ReadFull(rand.Reader, buf[:]); err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%x", buf), nil
+}
+
+// shallowCopySession returns a shallow copy of sess with an independent
+// Messages slice. The Message values themselves are not deep-copied because
+// they are immutable struct values.
+func shallowCopySession(sess *Session) *Session {
+	cp := *sess
+	if sess.Messages != nil {
+		cp.Messages = append([]Message(nil), sess.Messages...)
+	}
+	return &cp
+}
+
+// extractMessageID extracts the top-level "id" string field from a message's
+// Raw inline JSON, returning "" if absent or unparseable.
+func extractMessageID(msg Message) string {
+	raw := msg.jsonRaw()
+	if len(raw) == 0 {
+		return ""
+	}
+	var fields map[string]stdjson.RawMessage
+	if err := stdjson.Unmarshal(raw, &fields); err != nil {
+		return ""
+	}
+	idRaw, ok := fields["id"]
+	if !ok {
+		return ""
+	}
+	var id string
+	if err := stdjson.Unmarshal(idRaw, &id); err != nil {
+		return ""
+	}
+	return id
 }
