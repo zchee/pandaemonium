@@ -33,11 +33,11 @@ import (
 func BenchmarkClientTransportRoundTripStdIO(b *testing.B) {
 	client, cancel := benchmarkStdIOClient(b)
 	defer cancel()
-	benchmarkInitializeClient(b, client)
+	benchmarkInitializeClient(b, b.Context(), client)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := client.RequestRaw(context.Background(), "helper/echo", Object{"hello": "world"}); err != nil {
+		if _, err := client.RequestRaw(b.Context(), "helper/echo", Object{"hello": "world"}); err != nil {
 			b.Fatalf("RequestRaw() error = %v", err)
 		}
 	}
@@ -49,11 +49,11 @@ func BenchmarkClientTransportRoundTripWebSocket(b *testing.B) {
 
 	client, cancel := benchmarkWebSocketClient(b, wsURL)
 	defer cancel()
-	benchmarkInitializeClient(b, client)
+	benchmarkInitializeClient(b, b.Context(), client)
 	b.ReportAllocs()
 	b.ResetTimer()
 	for b.Loop() {
-		if _, err := client.RequestRaw(context.Background(), "helper/echo", Object{"hello": "world"}); err != nil {
+		if _, err := client.RequestRaw(b.Context(), "helper/echo", Object{"hello": "world"}); err != nil {
 			b.Fatalf("RequestRaw() error = %v", err)
 		}
 	}
@@ -64,14 +64,14 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 	stdinR, stdinW := io.Pipe()
 	stdoutR, stdoutW := io.Pipe()
 
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
 	client := NewClient(&Config{}, nil)
 	client.transport = &stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)}
 	client.responses = map[string]chan responseWait{}
 	client.notifications = make(chan Notification, notificationQueueCapacity)
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
-	go client.readLoop(b.Context(), client.transport, client.readDone)
+	go client.readLoop(ctx, client.transport, client.readDone)
 	go benchmarkJSONRPCResponder(b, ctx, stdinR, stdoutW, "stdio")
 	b.Cleanup(func() {
 		if err := client.Close(); err != nil {
@@ -83,7 +83,7 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 
 func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.CancelFunc) {
 	b.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
 	conn, _, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		b.Fatalf("websocket.Dial() error = %v", err)
@@ -94,7 +94,7 @@ func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.Canc
 	client.notifications = make(chan Notification, notificationQueueCapacity)
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
-	go client.readLoop(b.Context(), client.transport, client.readDone)
+	go client.readLoop(ctx, client.transport, client.readDone)
 	b.Cleanup(func() {
 		if err := client.Close(); err != nil {
 			b.Fatalf("Client.Close() error = %v", err)
@@ -103,9 +103,9 @@ func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.Canc
 	return client, cancel
 }
 
-func benchmarkInitializeClient(b *testing.B, client *Client) {
+func benchmarkInitializeClient(b *testing.B, ctx context.Context, client *Client) {
 	b.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	if _, err := client.Initialize(ctx); err != nil {
 		b.Fatalf("Client.Initialize() error = %v", err)
@@ -129,7 +129,7 @@ func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 					if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 						return
 					}
-					if !errors.Is(err, io.EOF) {
+					if !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
 						b.Logf("websocket server read error: %v", err)
 					}
 					return
