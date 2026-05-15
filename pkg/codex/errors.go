@@ -222,13 +222,6 @@ func (e *TurnFailedError) Unwrap() error {
 	return mapJSONRPCError(-32000, e.Err.Message, jsontext.Value(data))
 }
 
-// IsServerBusy reports whether err is retryable server overload.
-//
-// Deprecated: use IsRetryableError.
-func IsServerBusy(err error) bool {
-	return IsRetryableError(err)
-}
-
 // IsRetryLimitExceeded reports whether err indicates an exhausted retry budget.
 func IsRetryLimitExceeded(err error) bool {
 	if _, ok := errors.AsType[*RetryLimitExceededError](err); ok {
@@ -252,7 +245,7 @@ func IsRetryableError(err error) bool {
 // asJSONRPCError walks the error chain (up to 32 levels) and returns the first
 // *JSONRPCError found, or nil if none is present in the chain.
 func asJSONRPCError(err error) *JSONRPCError {
-	for i := 0; i < 32; i++ {
+	for range 32 {
 		if err == nil {
 			return nil
 		}

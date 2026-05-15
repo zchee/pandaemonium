@@ -209,9 +209,6 @@ func TestJSONRPCErrorMapping(t *testing.T) {
 			if got := IsRetryableError(err); got != tt.retryable {
 				t.Fatalf("IsRetryableError() = %v, want %v", got, tt.retryable)
 			}
-			if got, want := IsServerBusy(err), tt.retryable; got != want {
-				t.Fatalf("IsServerBusy() = %v, want %v", got, want)
-			}
 			gotType := fmt.Sprintf("%T", err)
 			if gotType != tt.errorType {
 				t.Fatalf("error type = %s, want %s", gotType, tt.errorType)
@@ -247,13 +244,6 @@ func TestIsRetryableError(t *testing.T) {
 				t.Fatalf("IsRetryableError(%T) = %v, want %v", tt.err, got, tt.want)
 			}
 		})
-	}
-}
-
-func TestIsServerBusyAlias(t *testing.T) {
-	err := mapJSONRPCError(-32000, "too many failed attempts", jsontext.Value(`{}`))
-	if got, want := IsServerBusy(err), true; got != want {
-		t.Fatalf("IsServerBusy() = %v, want %v", got, want)
 	}
 }
 
