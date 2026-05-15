@@ -241,7 +241,7 @@ func (c *Client) Start(ctx context.Context) error {
 		c.transport = &stdioTransport{stdin: stdin, stdout: c.stdout}
 		go c.drainStderr(stderr, c.stderrDone)
 	}
-	go c.readLoop(c.transport, c.readDone)
+	go c.readLoop(ctx, c.transport, c.readDone)
 	return nil
 }
 
@@ -366,7 +366,7 @@ func (c *Client) RequestRaw(ctx context.Context, method string, params any) (jso
 	id := c.nextRequestID()
 	response := make(chan responseWait, 1)
 	c.registerResponse(id, response)
-	if err := c.writeMessage(Object{"id": id, "method": method, "params": paramsOrEmpty(params)}); err != nil {
+	if err := c.writeMessage(ctx, Object{"id": id, "method": method, "params": paramsOrEmpty(params)}); err != nil {
 		c.unregisterResponse(id)
 		return nil, err
 	}
@@ -410,7 +410,7 @@ func (c *Client) Notify(ctx context.Context, method string, params any) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return c.writeMessage(Object{"method": method, "params": params})
+	return c.writeMessage(ctx, Object{"method": method, "params": params})
 }
 
 // NextNotification returns the next server notification exactly as received.
@@ -632,7 +632,7 @@ func (c *Client) nextRequestID() string {
 	return fmt.Sprintf("go-sdk-%d", c.requestSeq.Add(1))
 }
 
-func (c *Client) writeMessage(payload any) error {
+func (c *Client) writeMessage(ctx context.Context, payload any) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	line, err := json.Marshal(payload)
@@ -642,14 +642,14 @@ func (c *Client) writeMessage(payload any) error {
 	if c.transport == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
-	return c.transport.WriteJSON(line)
+	return c.transport.WriteJSON(ctx, line)
 }
 
-func (c *Client) readMessage(t transport) (rpcMessage, error) {
+func (c *Client) readMessage(ctx context.Context, t transport) (rpcMessage, error) {
 	if t == nil {
 		return rpcMessage{}, &TransportClosedError{Message: "app-server is not running"}
 	}
-	line, err := t.ReadJSON()
+	line, err := t.ReadJSON(ctx)
 	if err != nil {
 		if errors.Is(err, io.EOF) {
 			return rpcMessage{}, &TransportClosedError{Message: "app-server closed stdout. stderr_tail=" + c.stderrTail(40)}
@@ -671,18 +671,18 @@ func (c *Client) handleServerRequest(msg rpcMessage) Object {
 	return Object{"id": msg.ID, "result": result}
 }
 
-func (c *Client) readLoop(t transport, done chan<- struct{}) {
+func (c *Client) readLoop(ctx context.Context, t transport, done chan<- struct{}) {
 	defer close(done)
 	defer c.turnRouter.close(&TransportClosedError{Message: "app-server notification stream closed"})
 	for {
-		msg, err := c.readMessage(t)
+		msg, err := c.readMessage(ctx, t)
 		if err != nil {
 			c.failPending(err)
 			return
 		}
 		if msg.Method != "" && msg.ID != "" {
 			response := c.handleServerRequest(msg)
-			if err := c.writeMessage(response); err != nil {
+			if err := c.writeMessage(ctx, response); err != nil {
 				c.failPending(err)
 				return
 			}

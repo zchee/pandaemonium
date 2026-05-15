@@ -34,14 +34,16 @@ import (
 
 type transport interface {
 	io.Closer
-	WriteJSON([]byte) error
-	ReadJSON() ([]byte, error)
+	WriteJSON(context.Context, []byte) error
+	ReadJSON(context.Context) ([]byte, error)
 }
 
 type stdioTransport struct {
 	stdin  io.WriteCloser
 	stdout *bufio.Reader
 }
+
+var _ transport = (*stdioTransport)(nil)
 
 func (t *stdioTransport) Close() error {
 	if t.stdin != nil {
@@ -50,7 +52,7 @@ func (t *stdioTransport) Close() error {
 	return nil
 }
 
-func (t *stdioTransport) WriteJSON(data []byte) error {
+func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
 	if t.stdin == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
@@ -62,7 +64,7 @@ func (t *stdioTransport) WriteJSON(data []byte) error {
 	return nil
 }
 
-func (t *stdioTransport) ReadJSON() ([]byte, error) {
+func (t *stdioTransport) ReadJSON(_ context.Context) ([]byte, error) {
 	if t.stdout == nil {
 		return nil, &TransportClosedError{Message: "app-server is not running"}
 	}
@@ -81,6 +83,8 @@ type websocketTransport struct {
 	mu   sync.Mutex
 }
 
+var _ transport = (*websocketTransport)(nil)
+
 func (t *websocketTransport) Close() error {
 	if t.conn != nil {
 		return t.conn.Close(websocket.StatusNormalClosure, "")
@@ -88,21 +92,21 @@ func (t *websocketTransport) Close() error {
 	return nil
 }
 
-func (t *websocketTransport) WriteJSON(data []byte) error {
+func (t *websocketTransport) WriteJSON(ctx context.Context, data []byte) error {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	if t.conn == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
-	return t.conn.Write(context.Background(), websocket.MessageText, data)
+	return t.conn.Write(ctx, websocket.MessageText, data)
 }
 
-func (t *websocketTransport) ReadJSON() ([]byte, error) {
+func (t *websocketTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	for {
 		if t.conn == nil {
 			return nil, &TransportClosedError{Message: "app-server is not running"}
 		}
-		typ, payload, err := t.conn.Read(context.Background())
+		typ, payload, err := t.conn.Read(ctx)
 		if err != nil {
 			if status := websocket.CloseStatus(err); status != websocket.StatusNormalClosure {
 				return nil, &TransportClosedError{Message: err.Error()}

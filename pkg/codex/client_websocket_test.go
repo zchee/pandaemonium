@@ -17,6 +17,7 @@ package codex
 import (
 	"context"
 	"errors"
+	"io"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -88,7 +89,7 @@ func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
 			client.stderrDone = make(chan struct{})
 			close(client.stderrDone)
 			client.readDone = make(chan struct{})
-			go client.readLoop(client.transport, client.readDone)
+			go client.readLoop(ctx, client.transport, client.readDone)
 			t.Cleanup(func() {
 				if err := client.Close(); err != nil {
 					t.Fatalf("Client.Close() error = %v", err)
@@ -151,7 +152,7 @@ func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
 	for {
 		typ, payload, err := conn.Read(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+			if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 				return
 			}
 			t.Errorf("websocket Read() error = %v", err)

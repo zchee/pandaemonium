@@ -71,7 +71,7 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 	client.notifications = make(chan Notification, notificationQueueCapacity)
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
-	go client.readLoop(client.transport, client.readDone)
+	go client.readLoop(b.Context(), client.transport, client.readDone)
 	go benchmarkJSONRPCResponder(b, ctx, stdinR, stdoutW, "stdio")
 	b.Cleanup(func() {
 		if err := client.Close(); err != nil {
@@ -94,7 +94,7 @@ func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.Canc
 	client.notifications = make(chan Notification, notificationQueueCapacity)
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
-	go client.readLoop(client.transport, client.readDone)
+	go client.readLoop(b.Context(), client.transport, client.readDone)
 	b.Cleanup(func() {
 		if err := client.Close(); err != nil {
 			b.Fatalf("Client.Close() error = %v", err)
