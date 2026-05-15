@@ -15,11 +15,22 @@
 package claude
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"fmt"
+	"io"
 	"iter"
+	"os"
+	"os/exec"
+	"strings"
 	"sync"
+	"time"
 )
+
+// rawMessageQueueSize is the capacity of the rawMessages channel. Sized to
+// accommodate a typical burst of stream-JSON lines without blocking readLoop.
+const rawMessageQueueSize = 256
 
 // ClaudeSDKClient is a bidirectional interactive client for the claude CLI
 // subprocess. It supports multi-turn conversation, hook dispatch, in-process
@@ -32,7 +43,7 @@ import (
 // The transport field is a plain field (not atomic.Pointer), following the
 // snapshot-as-arg + writeMu-symmetry pattern from pkg/codex commit 8c16376:
 //
-//   - Start acquires closeMu, assigns c.transport = t, then launches
+//   - start acquires closeMu, assigns c.transport = t, then launches
 //     go c.readLoop(ctx, c.transport, c.readDone) so the read goroutine
 //     captures the transport as a goroutine argument and never touches
 //     c.transport again. (pkg/codex/client.go:244)
@@ -56,10 +67,29 @@ type ClaudeSDKClient struct {
 	writeMu sync.Mutex
 	closeMu sync.Mutex
 
-	// readDone is closed by the readLoop goroutine when it exits.
+	// cmd is the live subprocess. Nil before start and after Close.
+	cmd *exec.Cmd
+
+	// cmdDone receives the subprocess exit error once cmd.Wait returns.
+	cmdDone chan error
+
+	// rawMessages receives raw stream-JSON lines from readLoop.
+	// Consumed by Phase C's ReceiveResponse.
+	rawMessages chan []byte
+
+	// readErr is set by readLoop before it closes readDone.
+	readErr   error
+	readErrMu sync.Mutex
+
+	// readDone is closed by readLoop when it exits.
 	readDone chan struct{}
 
-	// stderrDone is closed by the drainStderr goroutine when it exits.
+	// stderrLines is the bounded stderr ring buffer. Protected by stderrMu.
+	// Capacity mirrors pkg/codex/client.go:737 (400-line ring).
+	stderrMu    sync.Mutex
+	stderrLines []string
+
+	// stderrDone is closed by drainStderr when it exits.
 	stderrDone chan struct{}
 }
 
@@ -108,8 +138,248 @@ func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*Clau
 // Close terminates the claude CLI subprocess and releases all resources
 // associated with this client, including any registered in-process MCP servers.
 //
-// Close is idempotent; subsequent calls return nil. The body is stubbed until
-// Phase C.
+// Close is idempotent; subsequent calls return nil.
+//
+// The transport is cleared inside the writeMu critical section, mirroring
+// pkg/codex/client.go:265-271 (write-symmetric clear from commit 8c16376).
 func (c *ClaudeSDKClient) Close() error {
-	return errors.ErrUnsupported
+	c.closeMu.Lock()
+	if c.transport == nil {
+		c.closeMu.Unlock()
+		return nil
+	}
+
+	// Snapshot local references under closeMu before releasing it.
+	cmd := c.cmd
+	cmdDone := c.cmdDone
+	tr := c.transport
+	readDone := c.readDone
+	stderrDone := c.stderrDone
+	c.cmd = nil
+	c.cmdDone = nil
+
+	// Clear c.transport inside writeMu — write-symmetric clear (pkg/codex/client.go:265-271).
+	// writeMessage also reads c.transport under writeMu, so this is the only
+	// critical section where transport transitions from non-nil to nil.
+	c.writeMu.Lock()
+	c.transport = nil
+	if tr != nil {
+		_ = tr.Close()
+	}
+	c.writeMu.Unlock()
+	c.closeMu.Unlock()
+
+	// Signal and wait for the subprocess.
+	if cmd != nil && cmd.Process != nil {
+		_ = cmd.Process.Signal(os.Interrupt)
+		done := cmdDone
+		if done == nil {
+			done = waitForCmd(cmd)
+		}
+		select {
+		case <-done:
+		case <-time.After(2 * time.Second):
+			_ = cmd.Process.Kill()
+			<-done
+		}
+	}
+
+	// Wait for readLoop and drainStderr to exit — mirrors pkg/codex/client.go:293,297.
+	// Budget 500ms each, matching the codex drain timeout.
+	if readDone != nil {
+		select {
+		case <-readDone:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	if stderrDone != nil {
+		select {
+		case <-stderrDone:
+		case <-time.After(500 * time.Millisecond):
+		}
+	}
+	return nil
+}
+
+// ── unexported infrastructure ────────────────────────────────────────────────
+
+// start wires up the readLoop and drainStderr goroutines for an active transport.
+//
+// It MUST be called with c.closeMu held so that the transport snapshot
+// captured by readLoop is consistent with c.transport — mirrors
+// pkg/codex/client.go:244 (snapshot-as-arg discipline).
+//
+// cmd and cmdDone may be nil for test transports that do not back a real
+// subprocess (e.g. FakeCLI). stderrR may be nil; if so, stderrDone is
+// closed immediately.
+func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd, cmdDone chan error, stderrR io.Reader) {
+	c.transport = t
+	c.cmd = cmd
+	c.cmdDone = cmdDone
+	c.rawMessages = make(chan []byte, rawMessageQueueSize)
+	c.readDone = make(chan struct{})
+	c.stderrDone = make(chan struct{})
+
+	if stderrR != nil {
+		go c.drainStderr(stderrR, c.stderrDone)
+	} else {
+		// No subprocess stderr — signal done immediately.
+		close(c.stderrDone)
+	}
+
+	// Launch readLoop with a snapshot of c.transport captured under closeMu.
+	// The goroutine receives the transport as an argument and never reads
+	// c.transport directly — this is the snapshot-as-arg discipline that
+	// prevents the Close/readMessage data race fixed in pkg/codex commit 8c16376.
+	go c.readLoop(ctx, c.transport, c.readDone) // snapshot under closeMu
+}
+
+// launchSubprocess resolves the CLI binary, builds launch args, starts the
+// subprocess, and calls start under closeMu. Returns with closeMu still held
+// so the caller can check c.transport atomically.
+//
+// Called by Phase C's Query implementation. Not used in Phase A tests (which
+// inject a FakeCLI transport via start directly).
+func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context, prompt string) error {
+	cliPath, err := discoverCLI(c.opts)
+	if err != nil {
+		return err
+	}
+	args := buildLaunchArgs(cliPath, prompt, c.opts)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	if c.opts != nil && c.opts.Cwd != "" {
+		cmd.Dir = c.opts.Cwd
+	}
+	cmd.Env = os.Environ()
+	if c.opts != nil {
+		for k, v := range c.opts.Env {
+			cmd.Env = append(cmd.Env, k+"="+v)
+		}
+	}
+
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return &CLIConnectionError{Message: fmt.Sprintf("create stdin pipe: %v", err)}
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return &CLIConnectionError{Message: fmt.Sprintf("create stdout pipe: %v", err)}
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return &CLIConnectionError{Message: fmt.Sprintf("create stderr pipe: %v", err)}
+	}
+
+	if err := cmd.Start(); err != nil {
+		return &CLIConnectionError{Message: fmt.Sprintf("start claude CLI %q: %v", cliPath, err)}
+	}
+
+	cmdDone := waitForCmd(cmd)
+	t := &stdioTransport{
+		stdin:  stdin,
+		stdout: bufio.NewReader(stdout),
+	}
+	c.start(ctx, t, cmd, cmdDone, stderr)
+	return nil
+}
+
+// writeMessage encodes data and writes it to the transport under writeMu.
+//
+// Returns CLIConnectionError if the transport is nil (i.e. after Close).
+// This is the symmetric half of the Close pattern: both writeMessage and
+// Close access c.transport under writeMu, so they cannot interleave.
+// (pkg/codex/client.go:637-648)
+func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
+	c.writeMu.Lock()
+	defer c.writeMu.Unlock()
+	if c.transport == nil {
+		return &CLIConnectionError{Message: "CLI is not running"}
+	}
+	return c.transport.WriteJSON(ctx, data)
+}
+
+// readLoop reads stream-JSON lines from t (a snapshot of c.transport captured
+// at start time) and pushes them to c.rawMessages.
+//
+// The goroutine argument t MUST be the snapshot captured under closeMu — it
+// never reads c.transport directly. This is the core of the race-safety
+// discipline from pkg/codex commit 8c16376 (pkg/codex/client.go:244).
+func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, done chan<- struct{}) {
+	defer close(done)
+	for {
+		line, err := t.ReadJSON(ctx)
+		if err != nil {
+			// Propagate the error so Phase C's ReceiveResponse can surface it.
+			c.readErrMu.Lock()
+			c.readErr = err
+			c.readErrMu.Unlock()
+			// Drain the rawMessages channel to unblock any pending ReceiveResponse.
+			// A nil sentinel signals EOF/error to the consumer.
+			select {
+			case c.rawMessages <- nil:
+			default:
+			}
+			return
+		}
+		select {
+		case c.rawMessages <- line:
+		case <-ctx.Done():
+			c.readErrMu.Lock()
+			c.readErr = ctx.Err()
+			c.readErrMu.Unlock()
+			return
+		}
+	}
+}
+
+// drainStderr reads lines from r into a bounded ring buffer so that
+// ProcessError.StderrTail is populated on subprocess crash.
+//
+// Mirrors pkg/codex/client.go:737. The ring capacity is 400 lines;
+// stderrTail(40) returns the last 40 for ProcessError, matching the codex
+// pattern at pkg/codex/client.go:657.
+func (c *ClaudeSDKClient) drainStderr(r io.Reader, done chan<- struct{}) {
+	defer close(done)
+	scanner := bufio.NewScanner(r)
+	for scanner.Scan() {
+		line := scanner.Text()
+		c.stderrMu.Lock()
+		c.stderrLines = append(c.stderrLines, line)
+		if len(c.stderrLines) > 400 {
+			copy(c.stderrLines, c.stderrLines[len(c.stderrLines)-400:])
+			c.stderrLines = c.stderrLines[:400]
+		}
+		c.stderrMu.Unlock()
+	}
+	if err := scanner.Err(); err != nil {
+		c.stderrMu.Lock()
+		c.stderrLines = append(c.stderrLines, "stderr read error: "+err.Error())
+		if len(c.stderrLines) > 400 {
+			copy(c.stderrLines, c.stderrLines[len(c.stderrLines)-400:])
+			c.stderrLines = c.stderrLines[:400]
+		}
+		c.stderrMu.Unlock()
+	}
+}
+
+// stderrTail returns the last limit lines from the stderr ring buffer as a
+// single string. Mirrors pkg/codex/client.go:761.
+func (c *ClaudeSDKClient) stderrTail(limit int) string {
+	c.stderrMu.Lock()
+	defer c.stderrMu.Unlock()
+	if limit > len(c.stderrLines) {
+		limit = len(c.stderrLines)
+	}
+	return strings.Join(c.stderrLines[len(c.stderrLines)-limit:], "\n")
+}
+
+// waitForCmd starts a goroutine that calls cmd.Wait and returns a channel that
+// receives the exit error once the process exits.
+func waitForCmd(cmd *exec.Cmd) chan error {
+	done := make(chan error, 1)
+	go func() {
+		done <- cmd.Wait()
+		close(done)
+	}()
+	return done
 }
