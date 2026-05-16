@@ -146,48 +146,42 @@ func runParserSmoketest() {
 	defer os.RemoveAll(tmp)
 
 	stem := "Benchmark" + *flagBench
-	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_BurntSushi$", "base", "bench")
+	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_BurntSushi$", "burntsushi", "bench")
 	if err != nil {
-		die(exitArg, "burntsushi parser smoketest: %v", err)
+		die(exitArg, "burntsushi bench: %v", err)
 	}
-	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_Pandaemonium$", "candidate", "bench")
+	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_Pandaemonium$", "pandaemonium", "bench")
 	if err != nil {
-		die(exitArg, "pandaemonium parser smoketest: %v", err)
+		die(exitArg, "pandaemonium bench: %v", err)
 	}
+
 	if err := renameInPlace(baseFile, stem+"_BurntSushi", stem); err != nil {
-		die(exitArg, "rename burntsushi benchmark: %v", err)
+		die(exitArg, "rename burntsushi: %v", err)
 	}
 	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
-		die(exitArg, "rename pandaemonium benchmark: %v", err)
+		die(exitArg, "rename pandaemonium: %v", err)
 	}
 
 	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
 	if err != nil {
 		die(exitArg, "benchstat: %v", err)
 	}
-	if err := writeBenchmarkOutput(os.Stdout, []byte(textOut)); err != nil {
-		die(exitArg, "parser smoketest output: %v", err)
-	}
+	fmt.Print(textOut)
+
 	res, err := parseGate(csvOut, *flagBench, *flagRatio, *flagAlpha)
 	if err != nil {
 		die(exitArg, "parse benchstat CSV: %v", err)
 	}
+
+	fmt.Println()
 	if res.pass {
-		fmt.Printf("toml-perf-gate: PASS parser point=%.3fx lower95=%.3fx threshold=%.3fx %s\n",
+		fmt.Printf("toml-perf-gate: PASS parser-smoketest point=%.3fx lower95=%.3fx threshold=%.3fx %s\n",
 			res.pointRatio, res.lowerRatio, *flagRatio, res.pStr)
 		os.Exit(exitOK)
 	}
-	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL parser point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n",
+	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL parser-smoketest point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n",
 		res.pointRatio, res.lowerRatio, *flagRatio, res.pStr, res.failReason)
 	os.Exit(exitFail)
-}
-
-func writeBenchmarkOutput(w io.Writer, out []byte) error {
-	if _, err := w.Write(out); err != nil {
-		return err
-	}
-	_, err := fmt.Fprintln(w)
-	return err
 }
 
 // runScanGate is the core Phase 1 path: build temp files, run the two
