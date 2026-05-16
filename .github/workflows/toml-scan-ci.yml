@@ -1,0 +1,320 @@
+# pkg/toml/internal/scan SIMD scan-kernel CI matrix.
+#
+# Implements Architect mandatory fix #4 (plan §Cross-cutting > CI matrix,
+# 2026-05-16-port-toml-rs-to-pkg-toml.md line 879+) and the Q6 ruling
+# (plan line 1205) that pins the arm64 runner to ubuntu-24.04-arm.
+#
+# Build-tag layout this workflow stresses (T4):
+#   scan_amd64.go : !force_swar && goexperiment.simd && amd64   (SSE2/AVX2)
+#   scan_arm64.go : !force_swar && arm64                          (NEON)
+#   scan_swar.go  : force_swar || (!arm64 && (!amd64 || !goexperiment.simd))
+#
+# Toolchain selection per matrix dimension (correction acknowledged from
+# team-lead 2026-05-16: /opt/local/go.simd snapshot has a stdlib bug at
+# internal/runtime/maps/memhash_aes_simd.go passing `(*[4]uint32)` to
+# archsimd.LoadUint32x4 which expects `[]uint32`. The bug blocks ALL
+# amd64 builds from the snapshot regardless of GOEXPERIMENT, so we use
+# golang.org/dl/gotip for the goexperiment.simd jobs and the latest
+# stable Go for the no-simd jobs):
+#
+#   linux/amd64 + goexperiment.simd  -> gotip       (continue-on-error
+#                                                     until snapshot
+#                                                     stdlib fix lands)
+#   linux/amd64 (no goexperiment)    -> stable Go   (SWAR fallback path)
+#   linux/arm64 + goexperiment.simd  -> gotip       (NEON path; SDK
+#                                                     drift on amd64 is
+#                                                     orthogonal)
+#   linux/arm64 (no goexperiment)    -> stable Go
+#   wasip1/wasm   build-only          -> stable Go   (SWAR-only target;
+#                                                     no test runtime
+#                                                     configured per Q9
+#                                                     default)
+#   force_swar verification          -> stable Go   (SWAR backend is
+#                                                     pure Go, no
+#                                                     toolchain features)
+#
+# Darwin runners are intentionally omitted: per plan "optional, only if
+# free runners available; skip if cost-prohibitive" and macOS runners
+# are 10x more expensive than ubuntu on GitHub-hosted billing.
+#
+# Path filter: this workflow only runs when pkg/toml/** or this YAML
+# itself changes — the existing test.yaml covers the broader module.
+
+name: toml-scan
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pkg/toml/**'
+      - '.github/workflows/toml-scan-ci.yml'
+  pull_request:
+    paths:
+      - 'pkg/toml/**'
+      - '.github/workflows/toml-scan-ci.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+# GOEXPERIMENT cocktail mandated by .envrc and plan line 904.
+# When the snapshot stdlib bug is fixed upstream, the amd64-with-simd
+# job can flip continue-on-error to false.
+env:
+  GOEXPERIMENT_SIMD: "loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup"
+
+jobs:
+  # linux/amd64 with goexperiment.simd — exercises scan_amd64.go
+  # (SSE2 + AVX2). Gotip is required because the /opt/local/go.simd
+  # snapshot has a stdlib bug (see header). continue-on-error stays
+  # true until the snapshot fix propagates to gotip; flip to false
+  # once `go test ./pkg/toml/internal/scan/` passes here cleanly.
+  amd64-simd:
+    name: linux/amd64 + goexperiment.simd
+    runs-on: ubuntu-24.04
+    continue-on-error: true
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: Install gotip
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+
+      - name: gotip version + module identity
+        run: |
+          gotip version
+          gotip version -m "$(gotip env GOROOT)/bin/go" || true
+
+      - name: Build scan package (gotip + GOEXPERIMENT)
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+        run: gotip build ./pkg/toml/internal/scan/
+
+      - name: Vet scan package (gotip + GOEXPERIMENT)
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+        run: gotip vet ./pkg/toml/internal/scan/
+
+      - name: Test scan package (gotip + GOEXPERIMENT)
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+        run: gotip test -race -count=1 ./pkg/toml/internal/scan/
+
+      - name: gofmt -s -d
+        run: |
+          diff=$(gofmt -s -d ./pkg/toml/internal/scan/)
+          test -z "$diff" || { echo "$diff"; exit 1; }
+
+      - name: gofumpt -l
+        run: |
+          gotip install mvdan.cc/gofumpt@latest
+          out=$(gofumpt -l ./pkg/toml/internal/scan/)
+          test -z "$out" || { echo "$out"; exit 1; }
+
+  # linux/amd64 without goexperiment.simd — exercises the SWAR
+  # fallback on amd64. Stable Go is sufficient; no goexperiment.simd
+  # means scan_amd64.go is excluded and scan_swar.go provides the
+  # dispatch vars. This is a hard gate.
+  amd64-swar:
+    name: linux/amd64 (no goexperiment.simd)
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: go version
+        run: go version
+
+      - name: Build scan package
+        run: go build ./pkg/toml/internal/scan/
+
+      - name: Vet scan package
+        run: go vet ./pkg/toml/internal/scan/
+
+      - name: Test scan package
+        run: go test -race -count=1 ./pkg/toml/internal/scan/
+
+      - name: gofmt -s -d
+        run: |
+          diff=$(gofmt -s -d ./pkg/toml/internal/scan/)
+          test -z "$diff" || { echo "$diff"; exit 1; }
+
+      - name: gofumpt -l
+        run: |
+          go install mvdan.cc/gofumpt@latest
+          out=$(gofumpt -l ./pkg/toml/internal/scan/)
+          test -z "$out" || { echo "$out"; exit 1; }
+
+  # linux/arm64 with goexperiment.simd — exercises scan_arm64.go
+  # (NEON). Uses ubuntu-24.04-arm per Q6 user ruling 2026-05-16.
+  # NEON is ABI-guaranteed on arm64 so this job is always a hard
+  # gate (no continue-on-error needed — the snapshot stdlib bug is
+  # an amd64-only issue per team-lead's correction).
+  arm64-simd:
+    name: linux/arm64 + goexperiment.simd
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: Install gotip
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+
+      - name: gotip version
+        run: gotip version
+
+      - name: Build scan package (gotip + GOEXPERIMENT)
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+        run: gotip build ./pkg/toml/internal/scan/
+
+      - name: Vet scan package (gotip + GOEXPERIMENT)
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+        run: gotip vet ./pkg/toml/internal/scan/
+
+      - name: Test scan package (gotip + GOEXPERIMENT)
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+        run: gotip test -race -count=1 ./pkg/toml/internal/scan/
+
+      - name: gofmt -s -d
+        run: |
+          diff=$(gofmt -s -d ./pkg/toml/internal/scan/)
+          test -z "$diff" || { echo "$diff"; exit 1; }
+
+      - name: gofumpt -l
+        run: |
+          gotip install mvdan.cc/gofumpt@latest
+          out=$(gofumpt -l ./pkg/toml/internal/scan/)
+          test -z "$out" || { echo "$out"; exit 1; }
+
+  # linux/arm64 without goexperiment.simd — verifies the build still
+  # works on arm64 when GOEXPERIMENT is empty. scan_arm64.go has tag
+  # `!force_swar && arm64` (no goexperiment.simd dependency) so this
+  # exercises NEON via stable Go too. Useful as a regression detector
+  # if the NEON path ever grows a goexperiment.simd dependency.
+  arm64-stable:
+    name: linux/arm64 (no goexperiment.simd)
+    runs-on: ubuntu-24.04-arm
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: go version
+        run: go version
+
+      - name: Build scan package
+        run: go build ./pkg/toml/internal/scan/
+
+      - name: Vet scan package
+        run: go vet ./pkg/toml/internal/scan/
+
+      - name: Test scan package
+        run: go test -race -count=1 ./pkg/toml/internal/scan/
+
+  # wasip1/wasm build-only — verifies scan_swar.go compiles for a
+  # non-amd64, non-arm64 GOARCH. Per Q9 default the SWAR-only CI
+  # target is wasip1. No test step: wasip1 needs a runtime
+  # (wasmtime, wasmer) which is not provisioned on the runner.
+  wasip1-build:
+    name: wasip1/wasm build-only
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: Build scan package for wasip1/wasm
+        env:
+          GOOS: wasip1
+          GOARCH: wasm
+        run: go build ./pkg/toml/internal/scan/
+
+  # force_swar verification — AC-SIMD-7 enforcement. Compiles the
+  # SWAR backend on amd64 hardware via `-tags=force_swar`, which
+  # excludes scan_amd64.go via its `!force_swar` build-tag clause
+  # and pulls in scan_swar.go via its `force_swar ||` clause. The
+  # dispatch_swar_test.go forcing test runs in this configuration.
+  force-swar:
+    name: -tags=force_swar verification
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version: "stable"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: Build scan package (force_swar)
+        run: go build -tags=force_swar ./pkg/toml/internal/scan/
+
+      - name: Vet scan package (force_swar)
+        run: go vet -tags=force_swar ./pkg/toml/internal/scan/
+
+      - name: Test scan package (force_swar)
+        run: go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan/

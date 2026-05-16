@@ -1,0 +1,253 @@
+# pkg/toml/internal/scan AC-SIMD-5 per-scan perf gate.
+#
+# Implements the per-scan AC-SIMD-5 perf gate declared in the plan
+# (.omc/plans/2026-05-16-port-toml-rs-to-pkg-toml.md AC-SIMD-5 baseline
+# table at line 132+) and uses Q6's ubuntu-24.04-arm runner for the
+# arm64 cell (user ruling 2026-05-16, plan line 1205+).
+#
+# Per-scan baselines this workflow exercises (from the AC-SIMD-5 table):
+#
+#   Scan                | Baseline (declared)
+#   --------------------|------------------------------------
+#   LocateNewline       | bytes.IndexByte(s, '\n')          (stdlib)
+#   ScanLiteralString   | bytes.IndexByte(s, '\'')          (stdlib)
+#   ScanBareKey         | naive Go loop                     (oracle)
+#   ScanBasicString     | naive Go loop                     (oracle)
+#   SkipWhitespace      | naive Go loop                     (oracle)
+#   ValidateUTF8        | utf8.Valid(s) (wrapped int)       (stdlib)
+#
+# Each (arch × scan) cell runs an independent hack/toml-perf-gate
+# invocation so a single regression names its scan precisely in the
+# CI summary.
+#
+# Toolchain selection (matches toml-scan-ci.yml's rationale):
+#
+#   linux/amd64 + goexperiment.simd -> gotip + continue-on-error: true
+#     (the /opt/local/go.simd snapshot has a stdlib bug at
+#     internal/runtime/maps/memhash_aes_simd.go — see toml-scan-ci.yml
+#     header for full context. The continue-on-error flag flips off
+#     once gotip ships the upstream stdlib fix.)
+#   linux/arm64 perf                -> gotip (no continue-on-error;
+#     NEON works under gotip cleanly)
+#
+# The arm64 perf gate is HARD-FAIL per Q6 ruling.
+# The amd64 perf gate STARTS as continue-on-error until the toolchain
+# bug is resolved; flip to a hard gate by setting continue-on-error to
+# false in the amd64-perf job.
+#
+# Trigger policy: this workflow does NOT run on every PR — perf runs
+# are slow and noisy. It runs on:
+#   - workflow_dispatch (manual trigger from the Actions tab)
+#   - pull_request labeled `perf-gate` (label the PR to opt in)
+#   - push to main (so the main-branch baseline always gets a recent run)
+
+name: toml-perf-gate
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pkg/toml/internal/scan/**'
+      - 'hack/toml-perf-gate/**'
+      - '.github/workflows/toml-perf-gate.yml'
+  pull_request:
+    types: [labeled, synchronize]
+    paths:
+      - 'pkg/toml/internal/scan/**'
+      - 'hack/toml-perf-gate/**'
+      - '.github/workflows/toml-perf-gate.yml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+env:
+  GOEXPERIMENT_SIMD: "loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup"
+
+jobs:
+  # Skip non-perf-gate-labeled PRs to avoid burning CI on every push.
+  # workflow_dispatch and push-to-main always proceed.
+  guard:
+    name: trigger guard
+    runs-on: ubuntu-24.04
+    outputs:
+      should_run: ${{ steps.decide.outputs.should_run }}
+    steps:
+      - id: decide
+        env:
+          EVENT: ${{ github.event_name }}
+          LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
+        run: |
+          if [ "$EVENT" = "push" ] || [ "$EVENT" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          elif echo "$LABELS" | grep -q '"perf-gate"'; then
+            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "PR not labeled 'perf-gate'; skipping perf run."
+          fi
+
+  amd64-perf:
+    name: linux/amd64 perf (${{ matrix.scan }})
+    needs: guard
+    if: needs.guard.outputs.should_run == 'true'
+    runs-on: ubuntu-24.04
+    continue-on-error: true  # flip to false once gotip lands the snapshot stdlib fix
+
+    permissions:
+      contents: read
+      pull-requests: write  # for posting bench summary as PR comment
+
+    strategy:
+      fail-fast: false
+      matrix:
+        scan:
+          - LocateNewline
+          - ScanLiteralString
+          - ScanBareKey
+          - ScanBasicString
+          - SkipWhitespace
+          - ValidateUTF8
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: Install gotip
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+
+      - name: Install benchstat
+        run: gotip install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: gotip version
+        run: gotip version
+
+      - name: Run perf-gate (${{ matrix.scan }})
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+          GOMAXPROCS: "1"
+          GODEBUG: ""
+        run: |
+          gotip run ./hack/toml-perf-gate \
+            --kind=scan \
+            --scan="${{ matrix.scan }}" \
+            --ratio=1.0 \
+            --count=10 \
+            --benchtime=5s \
+            --cpu=1 \
+            2>&1 | tee "perf-gate-amd64-${{ matrix.scan }}.txt"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload perf artifact (${{ matrix.scan }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate-amd64-${{ matrix.scan }}
+          path: perf-gate-amd64-${{ matrix.scan }}.txt
+          retention-days: 30
+
+      - name: Post PR comment (on PR only)
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## toml-perf-gate amd64 / ${{ matrix.scan }}"
+            echo
+            echo '```'
+            cat perf-gate-amd64-${{ matrix.scan }}.txt
+            echo '```'
+          } > comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md
+
+  arm64-perf:
+    name: linux/arm64 perf (${{ matrix.scan }})
+    needs: guard
+    if: needs.guard.outputs.should_run == 'true'
+    runs-on: ubuntu-24.04-arm   # Q6 user ruling: arm64 gate is HARD
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        scan:
+          - LocateNewline
+          - ScanLiteralString
+          - ScanBareKey
+          - ScanBasicString
+          - SkipWhitespace
+          - ValidateUTF8
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
+        with:
+          go-version-file: "go.mod"
+          check-latest: true
+          cache-dependency-path: |
+            go.sum
+
+      - name: Install gotip
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download
+
+      - name: Install benchstat
+        run: gotip install golang.org/x/perf/cmd/benchstat@latest
+
+      - name: gotip version
+        run: gotip version
+
+      - name: Run perf-gate (${{ matrix.scan }})
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+          GOMAXPROCS: "1"
+          GODEBUG: ""
+        run: |
+          gotip run ./hack/toml-perf-gate \
+            --kind=scan \
+            --scan="${{ matrix.scan }}" \
+            --ratio=1.0 \
+            --count=10 \
+            --benchtime=5s \
+            --cpu=1 \
+            2>&1 | tee "perf-gate-arm64-${{ matrix.scan }}.txt"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload perf artifact (${{ matrix.scan }})
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: perf-gate-arm64-${{ matrix.scan }}
+          path: perf-gate-arm64-${{ matrix.scan }}.txt
+          retention-days: 30
+
+      - name: Post PR comment (on PR only)
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## toml-perf-gate arm64 / ${{ matrix.scan }}"
+            echo
+            echo '```'
+            cat perf-gate-arm64-${{ matrix.scan }}.txt
+            echo '```'
+          } > comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md
