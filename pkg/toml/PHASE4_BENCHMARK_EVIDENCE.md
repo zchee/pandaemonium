@@ -204,6 +204,20 @@ The final gate confirms the narrowed exception: the BurntSushi requirement now
 passes with margin, while the Pelletier requirement remains a true architecture
 threshold miss rather than a statistical-noise failure.
 
+Step 8 final-integration rerun:
+
+```text
+=== command: GOTOOLCHAIN=local /opt/local/go.simd/bin/go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3 ===
+toml-perf-gate: PASS facade/burntsushi point=4.331x lower95=4.331x threshold=1.500x p=0.000 n=10
+toml-perf-gate: FAIL facade/pelletier point=0.890x lower95=0.890x threshold=1.300x p=0.000 n=10 reason=lower95=0.8903x < threshold=1.3000x (point=0.8903x)
+facade_perf_gate_exit=1
+```
+
+The Step 8 rerun keeps the same disposition: the BurntSushi facade gate
+passes, and the Pelletier gate remains a documented architecture
+exception until a future streaming-bind design removes the intermediate
+value materialization and table-map binding work.
+
 ## Edit perf-gate evidence
 
 The edit-path gate compares Pandaemonium's format-preserving Document edit path
