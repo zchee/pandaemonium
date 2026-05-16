@@ -60,6 +60,27 @@ Run from the repository root.
 - Do not hand-edit `protocol_gen.go`. If the generator output is wrong, fix it in `internal/cmd/generate-protocol-types/main.go` and re-run `go generate`.
 - Vendor the resulting dependency graph (`go mod vendor`) so reproducible builds keep working offline.
 
+## internal/memchr
+
+- Pure-Go port of the byte-search subset of [BurntSushi/memchr](https://github.com/BurntSushi/memchr): `Memchr/Memchr2/Memchr3` + `Memrchr/Memrchr2/Memrchr3` canonical, plus `IndexByte/IndexByte2/IndexByte3 / LastIndexByte/LastIndexByte2/LastIndexByte3` `bytes`-style wrappers. **Non-Goals (do not add):** `memmem`, the supporting `arch::all` algorithms (Rabin-Karp, Two-Way, Shift-Or, packed-pair), iterators, and the `Memchr*` stateful types.
+- **Build-tag matrix** (every HEAD must build green on every tuple, exactly one file binds each `*Impl`):
+  - `amd64` + `goexperiment.simd` + `!force_swar`: `memchr_amd64.go` (runtime AVX2-vs-SSE2 pick via `archsimd.X86.AVX2()`; `boundImpl` = `"avx2"` or `"sse2"`).
+  - `amd64` + `!goexperiment.simd` + `!force_swar`: `memchr_amd64_nosimd.go` (anchor) + `dispatch_swar_default.go` (binds SWAR; `boundImpl="swar"`).
+  - `arm64` + `!force_swar`: `memchr_arm64.go` + hand-written `*_arm64.s` (NEON syndrome trick; `boundImpl="neon"`).
+  - any GOARCH + `force_swar`, or other GOARCH (386/ppc64le/riscv64/…): `dispatch_swar_default.go` binds SWAR.
+- **`-tags=force_swar`** is the project-internal override for exercising the SWAR fallback on amd64/arm64 hardware (regression test, profile comparison). It is a TEST-ONLY tag — do not ship gated production paths behind it.
+- **GODEBUG=cpu.avx2=off** (R-NEW-4): users disabling AVX2 via this knob will be silently downgraded to SSE2 by `archsimd.X86.AVX2()`. `internal/memchr/dispatch_test.go::TestBackendBinding` (AC-HARNESS-7) fails in CI if this slips into a default config. To intentionally force SWAR on AVX2 hardware, build with `-tags=force_swar`.
+- **Corpus regen** (`internal/memchr/testdata/golden_corpus.json`): the JSON corpus is extracted from upstream `BurntSushi/memchr` via the Rust shim at `hack/extract-memchr-corpus/`. To regenerate after bumping the upstream pin in `hack/extract-memchr-corpus/Cargo.toml`:
+  ```
+  (cd hack/extract-memchr-corpus && cargo run --release) > internal/memchr/testdata/golden_corpus.json
+  ```
+  The shim pins `memchr = "=2.7.4"` exact-equality; `Cargo.lock` is committed for reproducibility.
+- **Perf gate** (`hack/memchr-perf-gate/`): CI hard gate behind AC-HARNESS-6. Runs `go test -bench=. -count=10` for `BenchmarkMemchr*` vs `BenchmarkIndexByteStd`, pipes both through `benchstat -delta-test=utest -alpha=0.05`. **amd64**: a statistically-significant slowdown at any gated size (`n >= 64`) exits 1. **arm64**: prints `UNTESTED — no arm64 CI runner provisioned; exiting 0` and exits 0 (Follow-up: provision a Linux/arm64 runner, then flip the branch).
+- **Tools** (`tool` directives in `go.mod`):
+  - `golang.org/x/perf/cmd/benchstat` — invoke as `go tool benchstat …`; consumed by `hack/memchr-perf-gate`.
+  - `github.com/klauspost/asmfmt/cmd/asmfmt` — invoke as `go tool asmfmt -w internal/memchr/*.s` before committing changes to the six NEON `.s` files. The NEON sources are formatted with asmfmt; `go vet`'s asm-vet stays clean across asmfmt-style indentation.
+- **Verifying the `!goexperiment.simd` build tuple** from the `/opt/local/go.simd` toolchain (which has `simd` in its experiment defaults): either explicit form works — `GOEXPERIMENT=nosimd go build ./internal/memchr/` or `GOEXPERIMENT="$(echo $GOEXPERIMENT | tr ',' '\n' | grep -v '^simd$' | paste -sd,)" go build ./internal/memchr/`. The `nosimd` form is shorter; the strip form is portable to other toolchains.
+
 ## Agent-Specific Instructions
 
 - Respect the routing contract in `doc.go` / `review_notes.md`: `Client.NextNotification` is raw passthrough; `TurnHandle.Stream` / `Run` own the per-turn consumer; only one active consumer per `Client` at a time.
