@@ -57,6 +57,32 @@ func TestDecoderTokenStream_BasicKeyValue(t *testing.T) {
 	}
 }
 
+func TestHasBytePrefixForTripleQuotedStrings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		in    string
+		quote byte
+		want  bool
+	}{
+		{name: "basic string", in: "\"\"\"multi", quote: '"', want: true},
+		{name: "literal string", in: "'''multi", quote: '\'', want: true},
+		{name: "wrong quote", in: "\"\"\"multi", quote: '\'', want: false},
+		{name: "too short", in: "''", quote: '\'', want: false},
+		{name: "single quoted string", in: "'value'", quote: '\'', want: false},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := hasBytePrefix([]byte(tc.in), tc.quote, tc.quote, tc.quote); got != tc.want {
+				t.Fatalf("hasBytePrefix(%q, %q, %q, %q) = %v, want %v", tc.in, tc.quote, tc.quote, tc.quote, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDecoderTokenStream_CommentAndHeaderAtLineStart(t *testing.T) {
 	dec := NewDecoderBytes([]byte("# file\n[app]\n# row\nvalue = 1\n"))
 
@@ -476,4 +502,26 @@ func mustRepoPath(t testing.TB, rel string) string {
 	}
 	repoRoot := filepath.Clean(filepath.Join(filepath.Dir(file), "..", ".."))
 	return filepath.Join(repoRoot, filepath.FromSlash(rel))
+}
+
+func TestHasBytePrefix(t *testing.T) {
+	t.Parallel()
+	for _, tc := range []struct {
+		name string
+		raw  []byte
+		want []byte
+		ok   bool
+	}{
+		{name: "triple double", raw: []byte("\"\"\"value"), want: []byte{'"', '"', '"'}, ok: true},
+		{name: "triple literal", raw: []byte("'''value"), want: []byte{'\'', '\'', '\''}, ok: true},
+		{name: "too short", raw: []byte("\"\""), want: []byte{'"', '"', '"'}, ok: false},
+		{name: "mismatch", raw: []byte("\"'\""), want: []byte{'"', '"', '"'}, ok: false},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got := hasBytePrefix(tc.raw, tc.want...); got != tc.ok {
+				t.Fatalf("hasBytePrefix(%q, %q...) = %v, want %v", tc.raw, tc.want, got, tc.ok)
+			}
+		})
+	}
 }
