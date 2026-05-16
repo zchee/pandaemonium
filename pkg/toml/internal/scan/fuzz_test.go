@@ -15,6 +15,7 @@
 package scan
 
 import (
+	"slices"
 	"strings"
 	"testing"
 )
@@ -58,21 +59,21 @@ func addBoundarySeeds(f *testing.F, classByte, terminator byte) {
 	// Empty input.
 	f.Add([]byte(""))
 	// Single byte of every possible value (256 seeds).
-	for v := 0; v < 256; v++ {
+	for v := range 256 {
 		f.Add([]byte{byte(v)})
 	}
 	// Pure-classByte runs at every boundary-relevant length.
 	lengths := []int{7, 8, 9, 15, 16, 17, 31, 32, 33, 64, 128, 1024}
 	for _, n := range lengths {
 		all := []byte(strings.Repeat(string(classByte), n))
-		f.Add(append([]byte(nil), all...))
+		f.Add(slices.Clone(all))
 		// A single terminator planted at each boundary position.
 		positions := []int{0, 1, 7, 8, 9, 15, 16, 17, 31, n / 2, n - 1}
 		for _, pos := range positions {
 			if pos < 0 || pos >= n {
 				continue
 			}
-			b := append([]byte(nil), all...)
+			b := slices.Clone(all)
 			b[pos] = terminator
 			f.Add(b)
 		}

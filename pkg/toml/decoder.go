@@ -475,10 +475,7 @@ func (d *Decoder) scanTableHeader() (Token, error) {
 	tokenEnd := i + 1
 	head := d.buf[start:tokenEnd]
 	d.advanceBytes(head)
-	keyLen := tokenEnd - start - 2
-	if keyLen < 0 {
-		keyLen = 0
-	}
+	keyLen := max(tokenEnd-start-2, 0)
 	if keyLen > d.limits.MaxKeyLength {
 		err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start + 1, i}}
 		d.setErr(err)
@@ -502,10 +499,7 @@ func (d *Decoder) scanArrayTableHeader() (Token, error) {
 	tokenEnd := i + 2
 	head := d.buf[start:tokenEnd]
 	d.advanceBytes(head)
-	keyLen := tokenEnd - start - 4
-	if keyLen < 0 {
-		keyLen = 0
-	}
+	keyLen := max(tokenEnd-start-4, 0)
 	if keyLen > d.limits.MaxKeyLength {
 		err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start + 2, i}}
 		d.setErr(err)

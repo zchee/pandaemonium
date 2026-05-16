@@ -65,8 +65,8 @@ type arm64GoldenCase struct {
 
 // arm64ScanNameFromVariant turns "NEON_ScanBareKey" into "ScanBareKey".
 func arm64ScanNameFromVariant(v string) string {
-	if idx := strings.IndexByte(v, '_'); idx >= 0 {
-		return v[idx+1:]
+	if _, after, ok := strings.Cut(v, "_"); ok {
+		return after
 	}
 	return v
 }
@@ -322,7 +322,7 @@ func TestARM64Variants_Property(t *testing.T) {
 			t.Parallel()
 			r := newPropertyRand(seed, v.name)
 			buf := make([]byte, propertyMaxLen)
-			for n := 0; n < arm64PropertyCases; n++ {
+			for n := range arm64PropertyCases {
 				l := r.IntN(propertyMaxLen + 1)
 				for i := 0; i < l; {
 					w := r.Uint64()

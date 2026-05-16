@@ -137,7 +137,7 @@ func TestProperty_DecoderConstructorParity(t *testing.T) {
 	seed := loadPropertySeed(t)
 	r := newPropertyRand(seed, "DecoderConstructorParity")
 	buf := make([]byte, propertyMaxLen)
-	for n := 0; n < propertyCases; n++ {
+	for range propertyCases {
 		l := r.IntN(propertyMaxLen + 1)
 		for i := 0; i < l; {
 			w := r.Uint64()

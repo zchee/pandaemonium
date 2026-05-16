@@ -264,10 +264,10 @@ func asJSONRPCError(err error) *JSONRPCError {
 
 func makeJSONRPCError(code int64, message string, data jsontext.Value, kind string) *JSONRPCError {
 	return &JSONRPCError{
-		AppServerError: AppServerError{Message: message},
-		Code:           code,
-		Data:           data,
-		Kind:           kind,
+		Message: message,
+		Code:    code,
+		Data:    data,
+		Kind:    kind,
 	}
 }
 

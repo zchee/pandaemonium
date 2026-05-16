@@ -260,8 +260,8 @@ func BenchmarkLocateNewline_SIMD(b *testing.B) {
 	buf := makeLocateNewlineBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = LocateNewline(buf) // warmup (Bench protocol mandate)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = LocateNewline(buf)
 	}
 }
@@ -270,8 +270,8 @@ func BenchmarkScanLiteralString_SIMD(b *testing.B) {
 	buf := makeScanLiteralStringBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = ScanLiteralString(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = ScanLiteralString(buf)
 	}
 }
@@ -280,8 +280,8 @@ func BenchmarkScanBareKey_SIMD(b *testing.B) {
 	buf := makeScanBareKeyBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = ScanBareKey(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = ScanBareKey(buf)
 	}
 }
@@ -290,8 +290,8 @@ func BenchmarkScanBasicString_SIMD(b *testing.B) {
 	buf := makeScanBasicStringBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = ScanBasicString(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = ScanBasicString(buf)
 	}
 }
@@ -300,8 +300,8 @@ func BenchmarkSkipWhitespace_SIMD(b *testing.B) {
 	buf := makeSkipWhitespaceBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = SkipWhitespace(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = SkipWhitespace(buf)
 	}
 }
@@ -310,8 +310,8 @@ func BenchmarkValidateUTF8_SIMD(b *testing.B) {
 	buf := makeValidateUTF8Buf()
 	b.SetBytes(int64(len(buf)))
 	_ = ValidateUTF8(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = ValidateUTF8(buf)
 	}
 }
@@ -325,8 +325,8 @@ func BenchmarkLocateNewline_Baseline(b *testing.B) {
 	buf := makeLocateNewlineBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = bytes.IndexByte(buf, '\n')
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = bytes.IndexByte(buf, '\n')
 	}
 }
@@ -335,8 +335,8 @@ func BenchmarkScanLiteralString_Baseline(b *testing.B) {
 	buf := makeScanLiteralStringBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = bytes.IndexByte(buf, '\'')
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = bytes.IndexByte(buf, '\'')
 	}
 }
@@ -345,8 +345,8 @@ func BenchmarkScanBareKey_Baseline(b *testing.B) {
 	buf := makeScanBareKeyBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = naiveScanBareKey(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = naiveScanBareKey(buf)
 	}
 }
@@ -355,8 +355,8 @@ func BenchmarkScanBasicString_Baseline(b *testing.B) {
 	buf := makeScanBasicStringBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = naiveScanBasicString(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = naiveScanBasicString(buf)
 	}
 }
@@ -365,8 +365,8 @@ func BenchmarkSkipWhitespace_Baseline(b *testing.B) {
 	buf := makeSkipWhitespaceBuf()
 	b.SetBytes(int64(len(buf)))
 	_ = naiveSkipWhitespace(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = naiveSkipWhitespace(buf)
 	}
 }
@@ -375,8 +375,8 @@ func BenchmarkValidateUTF8_Baseline(b *testing.B) {
 	buf := makeValidateUTF8Buf()
 	b.SetBytes(int64(len(buf)))
 	_ = validateUTF8StdlibBaseline(buf)
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
+
+	for b.Loop() {
 		_ = validateUTF8StdlibBaseline(buf)
 	}
 }

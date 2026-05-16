@@ -94,7 +94,7 @@ func runProperty(t *testing.T, label string, got, want func([]byte) int) {
 	seed := loadPropertySeed(t)
 	r := newPropertyRand(seed, label)
 	buf := make([]byte, propertyMaxLen)
-	for n := 0; n < propertyCases; n++ {
+	for n := range propertyCases {
 		l := r.IntN(propertyMaxLen + 1)
 		// Fill buf[:l] with random bytes. We fill the buffer 8 bytes at
 		// a time via rand.Uint64 to keep PRNG overhead down.

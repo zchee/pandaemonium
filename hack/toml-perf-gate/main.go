@@ -515,9 +515,9 @@ func parseP(s string) float64 {
 		return -1
 	}
 	// Format: "p=0.001 n=10". Split on whitespace, take the p=… part.
-	for _, tok := range strings.Fields(s) {
-		if strings.HasPrefix(tok, "p=") {
-			v, err := strconv.ParseFloat(strings.TrimPrefix(tok, "p="), 64)
+	for tok := range strings.FieldsSeq(s) {
+		if after, ok := strings.CutPrefix(tok, "p="); ok {
+			v, err := strconv.ParseFloat(after, 64)
 			if err != nil {
 				return -1
 			}

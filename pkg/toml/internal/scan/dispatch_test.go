@@ -222,7 +222,6 @@ func swapDispatch(t *testing.T, target *func([]byte) int, replacement func([]byt
 func runDispatchSmoke(t *testing.T) {
 	t.Helper()
 	for _, c := range dispatchSmokeCases {
-		c := c
 		t.Run(c.name, func(t *testing.T) {
 			if want := c.want["ScanBareKey"]; ScanBareKey(c.input) != want {
 				t.Errorf("ScanBareKey(%q) = %d, want %d", c.input, ScanBareKey(c.input), want)
