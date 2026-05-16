@@ -14,7 +14,7 @@ reviewer's name in the commit body.
 
 ## Toolchain
 
-```
+```text
 Toolchain          : Go 1.27-devel from /opt/local/go.simd
 Snapshot version    : go1.27-devel_47f175b024 Thu May 14 19:14:48 2026 +0900
 Build flags         : X:loopvar,newinliner,jsonv2,sizespecializedmalloc,simd,runtimesecret,mapsplitgroup
@@ -50,7 +50,7 @@ with a stdlib that builds cleanly.
 
 ## SIMD intrinsics — `simd/archsimd`
 
-```
+```text
 Source         : /opt/local/go.simd/src/simd/archsimd (toolchain-bundled)
 Pinned via     : toolchain snapshot above
 Blast radius   : pkg/toml/internal/scan/scan_amd64.go (intrinsics path)
@@ -65,7 +65,7 @@ CI gate        : `grep -l 'simd/archsimd' pkg/toml | wc -l` must equal `1`
 
 ## `go-json-experiment/json` (jsonv2)
 
-```
+```text
 Source         : github.com/go-json-experiment/json
 Pseudo-version : v0.0.0-20260505212615-e40f80bf6836  (per go.mod)
 Pinned         : 2026-05-16 (date of this snapshot)
@@ -79,7 +79,7 @@ Drift policy   : we mirror jsonv2's interface SHAPE (method signatures),
 
 ## toml-rs (source of the port)
 
-```
+```text
 Source        : https://github.com/toml-rs/toml
 Tag / commit  : v0.25.11 / 45456abc190bcf7b81dfc96914b726d7b3053e41
 Pinned        : 2026-05-17 (Step 2)
@@ -104,7 +104,7 @@ are committed and verified.
 
 Q8 is resolved in this step:
 
-```
+```text
 Source         : https://raw.githubusercontent.com/rust-lang/cargo/0.86.0/Cargo.lock
 Upstream ref   : 0.86.0
 SHA-256        : 9ea94b60b3ee80c73f52186946bb280dc41c7287bbb678988618a6839533dbe9
@@ -128,7 +128,7 @@ from a deterministic seeded PRNG and do NOT depend on this corpus.
 
 ## toml-test compliance suite
 
-```
+```text
 DEFERRED to Phase 4 (Q2 ruling 2026-05-16):
   Source         : https://github.com/toml-lang/toml-test
   Commit         : <to be pinned at Phase 4 kickoff>
@@ -143,12 +143,63 @@ toml-test groups pass).
 
 ## Phase 2.5 trajectory
 
+Status: **executed 2026-05-17**. Phase 2.5 is a planning-only perf
+trajectory checkpoint between the parser/tokenizer work and the
+datetime/facade phases; it does not add a new AC-* gate and does not
+justify new parser behavior. Its purpose is to document whether the
+parser plus scanner trajectory is plausible before Phase 4 invests in
+reflection-cache and facade machinery.
+
+Required smoketest harness:
+
+```text
+Package        : pkg/toml/internal/smoketest
+Build tag      : bench
+Benchmark      : BenchmarkSmoketestUnmarshal
+Corpus         : pkg/toml/testdata/corpus/cargo.lock
+Corpus SHA-256 : 9ea94b60b3ee80c73f52186946bb280dc41c7287bbb678988618a6839533dbe9
+Baseline       : BurntSushi/toml on the same corpus and representative struct
+Protocol       : GOMAXPROCS=1, empty GODEBUG, -count=10, -cpu=1, -benchtime=5s
+Command        : go test -tags=bench -bench=BenchmarkSmoketestUnmarshal \
+                 -benchmem -count=10 -cpu=1 -benchtime=5s \
+                 ./pkg/toml/internal/smoketest/
+Deletion rule  : rm -rf pkg/toml/internal/smoketest/ before Phase 4 facade work
 ```
-Phase 2.5 (perf smoketest) has not yet executed.
-Outcome will be appended here once `pkg/toml/internal/smoketest/`
-ships its smoketest_thru / burntsushi_thru ratio per the plan's
-Phase 2.5 decision rule.
+
+Decision rule for `smoketest_thru / burntsushi_thru`:
+
+- `>= 0.5x`: trajectory is plausible; proceed to Phase 3.
+- `>= 0.2x && < 0.5x`: borderline; Phase 3 may proceed, but the
+  trajectory needs an architect confidence check before facade work.
+- `< 0.2x`: gap is too wide; stop before Phase 3/4 and escalate to
+  planner for profile-backed remediation or AC-FAC-6 renegotiation.
+
+Outcome record (filled by the Phase 2.5 run):
+
+```text
+Executed       : 2026-05-17
+Toolchain      : go1.27-devel_b1972f9085 darwin/arm64 from /opt/local/go.simd
+Command        : GOTOOLCHAIN=local PATH=/opt/local/go.simd/bin:$PATH \
+                 /opt/local/go.simd/bin/go run ./hack/toml-perf-gate \
+                 --kind=parser --ratio=0.5 --count=10 --benchtime=5s --cpu=1
+Smoketest thru : 94.24 MiB/s (Pandaemonium)
+BurntSushi thru: 33.39 MiB/s
+Ratio          : 2.822x (lower95=2.822x, p=0.000 n=10)
+Verdict        : proceed
+Raw evidence   : pkg/toml/internal/smoketest/PHASE25_BENCHMARK_EVIDENCE.md
+Notes          : Worker-4 fixed the profile-backed parser-token hot path
+                 that allocated the remaining input in scanString; the
+                 local token benchmark moved from 332875089 B/op and
+                 5802 allocs/op to 700 B/op and 20 allocs/op before this
+                 Phase 2.5 BurntSushi comparison was recorded.
 ```
+
+Current evidence status: `pkg/toml/internal/smoketest/` is present under a
+temporary `bench` build tag and must be removed before Phase 4 facade
+work per `pkg/toml/internal/smoketest/DELETE_AT_PHASE_4.md`. The
+parser's informational `BenchmarkDecoderTokens_CargoLock` remains
+useful for parser-token profiling, but the Phase 2.5 source of record
+is the `BenchmarkSmoketestUnmarshal` BurntSushi comparison above.
 
 ## AC-SIMD-5 documented exceptions
 
@@ -171,7 +222,7 @@ those two scans, mirroring `internal/bytealg/indexbyte_*.s`'s 32-byte
 stride + VORR+VADDP-D2 fast-term-check + magic-constant syndrome on
 match. The rework cleared the gate cleanly:
 
-```
+```text
 LocateNewline (arm64 NEON):
   Pre-rework gate (T5)         : FAIL 0.893× (vs bytes.IndexByte)
   Post-rework gate (T6 / T8)   : PASS 1.340× (+34% over baseline; p=0.000 n=10)
