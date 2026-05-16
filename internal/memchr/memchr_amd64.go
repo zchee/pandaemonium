@@ -33,10 +33,8 @@ import (
 // boundImpl records the actual chosen backend ("avx2" or "sse2") so the
 // AC-HARNESS-7 binding test can reject silent downgrades on CI.
 //
-// At Step 4's commit the transitional file dispatch_default_init.go was
-// narrowed from `(amd64 && goexperiment.simd && !force_swar) || (arm64 &&
-// !force_swar)` to `arm64 && !force_swar`, eliminating the amd64-with-SIMD
-// slot that this file now owns. See plan §"Step 5" L183-187.
+// This file owns the (amd64, goexperiment.simd, !force_swar) tuple. The
+// rest of the dispatcher's tuple-coverage map is in dispatch.go.
 func init() {
 	if simd.X86.AVX2() {
 		memchrImpl = avx2Memchr

@@ -16,9 +16,9 @@
 
 package memchr
 
-// init is the PERMANENT binder for the SWAR fallback. It owns these three
-// (arch, goexperiment.simd, force_swar) tuples (plan §"Tuple-coverage audit"
-// L154-162):
+// init is the PERMANENT binder for the SWAR fallback. It owns these
+// (arch, goexperiment.simd, force_swar) tuples (plan §"Tuple-coverage
+// audit" L154-162):
 //
 //   - (other-GOARCH, *, *)             — !amd64 && !arm64
 //   - (amd64,  ON,  force_swar=ON)     — force_swar
@@ -27,9 +27,8 @@ package memchr
 //   - (arm64,  *,   force_swar=ON)     — force_swar
 //
 // The amd64-with-SIMD and arm64-no-force_swar slots are owned by
-// dispatch_default_init.go (transitional, Steps 2-5) and then by
-// memchr_amd64.go / memchr_arm64.go (Steps 4-6). The tags are mutually
-// exclusive at every commit.
+// memchr_amd64.go (SSE2/AVX2) and memchr_arm64.go (NEON), respectively.
+// All tags are mutually exclusive.
 func init() {
 	memchrImpl = swarMemchr
 	memchr2Impl = swarMemchr2

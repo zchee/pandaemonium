@@ -39,10 +39,9 @@
 //	arm64     ANY                ON          SWAR        (dispatch_swar_default.go)
 //	other     ANY                ANY         SWAR        (dispatch_swar_default.go)
 //
-// Until Steps 4-6 land the per-arch SIMD/NEON backends, the transitional
-// file dispatch_default_init.go binds the amd64-with-SIMD and arm64 slots
-// to SWAR so the commit train stays green at every HEAD. Step 4 narrows
-// that file to arm64-only; Step 6 deletes it.
+// All per-arch backends are in place: memchr_amd64.go binds the
+// amd64-with-SIMD slot (runtime AVX2-or-SSE2), memchr_arm64.go binds the
+// arm64 slot (NEON), dispatch_swar_default.go binds everything else.
 //
 // # CPU detection on amd64
 //

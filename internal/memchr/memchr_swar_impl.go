@@ -12,16 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file deliberately carries NO build tag: the swar* identifiers must be
-// linkable on every GOARCH/tag combination because dispatch_default_init.go
-// (the transitional Step-2 binder for amd64-with-SIMD and arm64) binds the
-// dispatcher's *Impl vars to them. Plan AC-X86-4 originally specified a
-// narrower tag ("(!amd64 && !arm64) || force_swar || (amd64 && !goexperiment.simd)")
-// that excluded those slots; broadening here avoids duplicating the six SWAR
-// bodies across two files just to satisfy two non-overlapping tag sets. On
-// SIMD/NEON slots the SWAR functions are unreferenced once Steps 4-6 land
-// real per-arch bindings, and the Go linker dead-strips unreferenced
-// package-private code. Step 6 may re-narrow the tag if desired.
+// This file deliberately carries NO build tag. Plan AC-X86-4 originally
+// specified a narrower tag ("(!amd64 && !arm64) || force_swar || (amd64 &&
+// !goexperiment.simd)") that excluded the amd64-with-SIMD and arm64 slots;
+// broadening here avoids duplicating the six SWAR bodies into a second file
+// just to satisfy two non-overlapping tag sets. On SIMD/NEON slots the
+// swar* identifiers are unreferenced (memchr_amd64.go / memchr_arm64.go
+// bind the *Impl vars), and the Go linker dead-strips unreferenced
+// package-private code so there is no runtime or binary-size cost.
 //
 // The classic "has-zero-byte" trick (Mycroft 1987; popularized by Hacker's
 // Delight §6-1 and Stanford bit-twiddling-hacks):

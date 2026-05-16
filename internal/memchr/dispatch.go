@@ -17,13 +17,11 @@ package memchr
 // memchrImpl..memrchr3Impl are the dispatched backends. Exactly one file in
 // this package binds each var in its init():
 //
-//   - dispatch_swar_default.go    (permanent)  — SWAR fallback for
-//     other-GOARCH, force_swar, and amd64-no-SIMD slots.
-//   - dispatch_default_init.go    (transitional, deleted in Step 6) — SWAR
-//     for amd64-with-SIMD and arm64 until Steps 4-6 land real backends.
-//   - memchr_amd64.go             (Step 4+5)  — SSE2 or AVX2 chosen at
-//     init() time from archsimd.X86.AVX2().
-//   - memchr_arm64.go             (Step 6)    — NEON.
+//   - dispatch_swar_default.go — SWAR fallback for other-GOARCH, force_swar,
+//     and amd64-no-SIMD slots.
+//   - memchr_amd64.go          — SSE2 or AVX2 chosen at init() time from
+//     archsimd.X86.AVX2().
+//   - memchr_arm64.go          — NEON.
 //
 // The commit-train invariant is: for every (arch, goexperiment.simd,
 // force_swar) tuple at every HEAD, exactly one file binds each *Impl var.
