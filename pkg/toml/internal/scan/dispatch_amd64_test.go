@@ -37,7 +37,8 @@ import (
 // and re-runs the shared smoke fixture through the exported API.
 // This is the SSE2 row of the AC-SIMD-7 audit matrix on amd64.
 func TestDispatch_AMD64_SSE2(t *testing.T) {
-	pinAllDispatch(t,
+	pinAllDispatch(
+		t,
 		scanBareKeySSE2,
 		scanBasicStringSSE2,
 		scanLiteralStringSSE2,
@@ -56,7 +57,8 @@ func TestDispatch_AMD64_AVX2(t *testing.T) {
 	if !archsimd.X86.AVX2() {
 		t.Skip("host lacks AVX2 — TestDispatch_AMD64_AVX2 requires it")
 	}
-	pinAllDispatch(t,
+	pinAllDispatch(
+		t,
 		scanBareKeyAVX2,
 		scanBasicStringAVX2,
 		scanLiteralStringAVX2,

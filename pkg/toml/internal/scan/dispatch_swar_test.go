@@ -31,7 +31,8 @@ import "testing"
 // re-runs the shared smoke fixture through the exported API. This is
 // the SWAR row of the AC-SIMD-7 audit matrix.
 func TestDispatch_SWAR(t *testing.T) {
-	pinAllDispatch(t,
+	pinAllDispatch(
+		t,
 		scanBareKeySWAR,
 		scanBasicStringSWAR,
 		scanLiteralStringSWAR,
