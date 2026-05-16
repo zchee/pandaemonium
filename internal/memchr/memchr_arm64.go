@@ -71,10 +71,6 @@ func memrchr3NEON(n1, n2, n3 byte, haystack []byte) int
 // boundImpl = "neon". Because arm64 ABI guarantees ASIMD (NEON) on every
 // AArch64 box that runs Go, no runtime feature detect is needed — pure
 // build-tag dispatch suffices (plan §"Decision Drivers" item 2).
-//
-// At Step 6's commit the transitional file dispatch_default_init.go is
-// DELETED entirely; the arm64 binding now lives here. See plan §"Step 6"
-// L189-194.
 func init() {
 	memchrImpl = memchrNEON
 	memchr2Impl = memchr2NEON
