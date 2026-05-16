@@ -102,7 +102,6 @@ func TestDecoderTokenGolden_FixtureCorpus(t *testing.T) {
 		t.Fatal("expected at least one token fixture in testdata/tokens")
 	}
 	for _, entry := range entries {
-		entry := entry
 		name := strings.TrimSuffix(entry.Name(), ".toml")
 		t.Run(entry.Name(), func(t *testing.T) {
 			input := mustReadRepoFile(t, filepath.Join(base, entry.Name()))
@@ -139,7 +138,6 @@ func TestDecoderTokenGolden_ReaderAndBytesParityForFixtureCorpus(t *testing.T) {
 		t.Fatal("expected at least one token fixture in testdata/tokens")
 	}
 	for _, entry := range entries {
-		entry := entry
 		path := filepath.Join(base, entry.Name())
 		t.Run(entry.Name(), func(t *testing.T) {
 			input := mustReadRepoFile(t, path)
@@ -219,7 +217,6 @@ func TestDecoderValueKindAndValidation(t *testing.T) {
 	}
 
 	for _, tc := range valid {
-		tc := tc
 		t.Run(tc.name, func(t *testing.T) {
 			t.Parallel()
 			dec := NewDecoderBytes([]byte(tc.in))
@@ -244,11 +241,10 @@ func TestDecoderValueKindAndValidation(t *testing.T) {
 		"a = 18446744073709551616",
 	}
 	for _, in := range invalid {
-		in := in
 		t.Run("invalid: "+in, func(t *testing.T) {
 			t.Parallel()
 			dec := NewDecoderBytes([]byte(in))
-			for i := 0; i < 2; i++ {
+			for i := range 2 {
 				if _, err := dec.ReadToken(); err != nil {
 					// key token should not fail for these cases.
 					if i == 0 {

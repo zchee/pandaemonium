@@ -74,9 +74,8 @@ func BenchmarkDecoderTokens_CargoLock(b *testing.B) {
 	if err := readAllTokensFromCorpus(body); err != nil {
 		b.Fatalf("warm-up decode failed: %v", err)
 	}
-	b.ResetTimer()
 
-	for i := 0; i < b.N; i++ {
+	for b.Loop() {
 		if err := readAllTokensFromCorpus(body); err != nil {
 			b.Fatalf("decode failed: %v", err)
 		}
