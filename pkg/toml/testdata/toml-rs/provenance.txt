@@ -1,0 +1,10 @@
+# toml-rs test corpus snapshot
+source_url = "https://github.com/toml-rs/toml"
+upstream_ref = "v0.25.11"
+upstream_commit = "45456abc190bcf7b81dfc96914b726d7b3053e41"
+upstream_short = "45456ab"
+snapshot_date = "2026-04-07 17:15:52 -0500"
+imported_path = "crates/toml/tests/fixtures"
+corpus_file_count = 68
+corpus_total_bytes = 2075
+corpus_tree_sha256 = "01daf47230b2211724854b7cb731a4c9c0d60ced84fa310920ae35e9800b389c"
