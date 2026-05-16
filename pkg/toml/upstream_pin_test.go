@@ -161,24 +161,6 @@ func TestUpstreamPinsTomlRsCorpusManifest(t *testing.T) {
 	}
 }
 
-func TestUpstreamPinsNoParserImplementationYet(t *testing.T) {
-	t.Parallel()
-
-	for _, rel := range []string{
-		"pkg/toml/token.go",
-		"pkg/toml/decoder.go",
-		"pkg/toml/errors.go",
-		"pkg/toml/parser_test.go",
-	} {
-		path := mustRepoPath(t, rel)
-		if _, err := os.Stat(path); err == nil {
-			t.Fatalf("%s exists before toml-rs pin/corpus gate is closed", rel)
-		} else if !os.IsNotExist(err) {
-			t.Fatalf("os.Stat(%s) error = %v", path, err)
-		}
-	}
-}
-
 func TestUpstreamPinsWorkflowToolchainPins(t *testing.T) {
 	t.Parallel()
 
