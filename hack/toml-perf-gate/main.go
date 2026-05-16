@@ -38,6 +38,7 @@
 //	  [--count=10] [--benchtime=5s] [--cpu=1] [--package=./pkg/toml/internal/scan/]
 //	  [--benchstat=benchstat]
 //	go run ./hack/toml-perf-gate --kind=parser --ratio=0.5
+//	go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3
 //
 //	# Phase 4/5 stubs (no-ops in Phase 1):
 //	go run ./hack/toml-perf-gate --kind=facade ...
@@ -88,17 +89,20 @@ var validScans = map[string]bool{
 // Flags. Most have Bench-protocol defaults; --kind and --scan have no
 // defaults to force the caller to be explicit.
 var (
-	flagKind      = flag.String("kind", "", "perf-gate kind: scan|facade|edit|parser (required)")
-	flagScan      = flag.String("scan", "", "scan name (for --kind=scan; required): one of "+sortedScanNames())
-	flagRatio     = flag.Float64("ratio", 1.0, "minimum SIMD/baseline throughput ratio that the lower 95% CI must exceed")
-	flagCount     = flag.Int("count", 10, "go test -count value (Bench protocol locks at 10 for CI)")
-	flagBenchtime = flag.String("benchtime", "5s", "go test -benchtime value (Bench protocol locks at 5s for CI)")
-	flagCPU       = flag.Int("cpu", 1, "go test -cpu value (Bench protocol locks at 1)")
-	flagPackage   = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the scan benchmarks")
-	flagParserPkg = flag.String("parser-package", "./pkg/toml/internal/smoketest/", "package import path containing the Phase 2.5 parser smoketest benchmarks")
-	flagBenchstat = flag.String("benchstat", "benchstat", "path to benchstat binary")
-	flagAlpha     = flag.Float64("alpha", 0.05, "benchstat -alpha (U-test significance threshold)")
-	flagBench     = flag.String("bench", "SmoketestUnmarshal", "benchmark stem for --kind=parser")
+	flagKind            = flag.String("kind", "", "perf-gate kind: scan|facade|edit|parser (required)")
+	flagScan            = flag.String("scan", "", "scan name (for --kind=scan; required): one of "+sortedScanNames())
+	flagRatio           = flag.Float64("ratio", 1.0, "minimum SIMD/baseline throughput ratio that the lower 95% CI must exceed")
+	flagCount           = flag.Int("count", 10, "go test -count value (Bench protocol locks at 10 for CI)")
+	flagBenchtime       = flag.String("benchtime", "5s", "go test -benchtime value (Bench protocol locks at 5s for CI)")
+	flagCPU             = flag.Int("cpu", 1, "go test -cpu value (Bench protocol locks at 1)")
+	flagPackage         = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the scan benchmarks")
+	flagParserPkg       = flag.String("parser-package", "./pkg/toml/", "package import path containing parser/facade benchmarks")
+	flagFacadePkg       = flag.String("facade-package", "./pkg/toml/", "package import path containing Phase 4 facade benchmarks")
+	flagRatioBurntSushi = flag.Float64("ratio-burntsushi", 1.5, "minimum Pandaemonium/BurntSushi throughput ratio for --kind=facade")
+	flagRatioPelletier  = flag.Float64("ratio-pelletier", 1.3, "minimum Pandaemonium/pelletier throughput ratio for --kind=facade")
+	flagBenchstat       = flag.String("benchstat", "benchstat", "path to benchstat binary")
+	flagAlpha           = flag.Float64("alpha", 0.05, "benchstat -alpha (U-test significance threshold)")
+	flagBench           = flag.String("bench", "SmoketestUnmarshal", "benchmark stem for --kind=parser")
 )
 
 func main() {
@@ -106,10 +110,11 @@ func main() {
 	switch *flagKind {
 	case "scan":
 		runScanGate()
-	case "facade", "edit":
-		// Phase 4/5 will implement these; Phase 1 ships a stub so the
-		// CLI surface is stable from the start.
-		fmt.Printf("toml-perf-gate: --kind=%s not implemented in Phase 1 (Phase 4/5 will land it); exiting 0\n", *flagKind)
+	case "facade":
+		runFacadeGate()
+	case "edit":
+		// Phase 5 will implement this; keep the CLI surface stable.
+		fmt.Printf("toml-perf-gate: --kind=%s not implemented until Phase 5; exiting 0\n", *flagKind)
 		os.Exit(exitOK)
 	case "parser":
 		runParserSmoketest()
@@ -121,6 +126,68 @@ func main() {
 		fmt.Fprintf(os.Stderr, "toml-perf-gate: unknown --kind=%q (valid: scan, facade, edit, parser)\n", *flagKind)
 		os.Exit(exitArg)
 	}
+}
+
+// runFacadeGate compares the Phase 4 high-level Unmarshal facade against the
+// two bench-only competitor implementations on the pinned Cargo.lock corpus.
+func runFacadeGate() {
+	if *flagRatioBurntSushi <= 0 || *flagRatioPelletier <= 0 {
+		die(exitArg, "facade ratios must be > 0; got burntsushi=%g pelletier=%g", *flagRatioBurntSushi, *flagRatioPelletier)
+	}
+	if *flagAlpha <= 0 || *flagAlpha >= 1 {
+		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+	}
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		die(exitArg, "%v", err)
+	}
+	tmp, err := os.MkdirTemp("", "toml-facade-gate-*")
+	if err != nil {
+		die(exitArg, "mktemp: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	if !runFacadePair(repoRoot, tmp, "BurntSushi", *flagRatioBurntSushi) {
+		os.Exit(exitFail)
+	}
+	if !runFacadePair(repoRoot, tmp, "Pelletier", *flagRatioPelletier) {
+		os.Exit(exitFail)
+	}
+	os.Exit(exitOK)
+}
+
+func runFacadePair(repoRoot, tmp, competitor string, ratio float64) bool {
+	stem := "BenchmarkUnmarshal"
+	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagFacadePkg, "^"+stem+"_"+competitor+"$", strings.ToLower(competitor)+"-base", "bench")
+	if err != nil {
+		die(exitArg, "%s facade benchmark: %v", competitor, err)
+	}
+	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagFacadePkg, "^"+stem+"_Pandaemonium$", strings.ToLower(competitor)+"-candidate", "bench")
+	if err != nil {
+		die(exitArg, "pandaemonium facade benchmark: %v", err)
+	}
+	if err := renameInPlace(baseFile, stem+"_"+competitor, stem); err != nil {
+		die(exitArg, "rename %s benchmark: %v", competitor, err)
+	}
+	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
+		die(exitArg, "rename pandaemonium benchmark: %v", err)
+	}
+	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
+	if err != nil {
+		die(exitArg, "benchstat %s: %v", competitor, err)
+	}
+	fmt.Printf("\n# facade: Pandaemonium vs %s\n", competitor)
+	fmt.Print(textOut)
+	res, err := parseGate(csvOut, "Unmarshal", ratio, *flagAlpha)
+	if err != nil {
+		die(exitArg, "parse benchstat CSV for %s: %v", competitor, err)
+	}
+	if res.pass {
+		fmt.Printf("toml-perf-gate: PASS facade/%s point=%.3fx lower95=%.3fx threshold=%.3fx %s\n", strings.ToLower(competitor), res.pointRatio, res.lowerRatio, ratio, res.pStr)
+		return true
+	}
+	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL facade/%s point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n", strings.ToLower(competitor), res.pointRatio, res.lowerRatio, ratio, res.pStr, res.failReason)
+	return false
 }
 
 // runParserSmoketest runs the throwaway Phase 2.5 parser+scan
