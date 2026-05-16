@@ -37,6 +37,7 @@
 //	go run ./hack/toml-perf-gate --kind=scan --scan=ScanBareKey [--ratio=1.0]
 //	  [--count=10] [--benchtime=5s] [--cpu=1] [--package=./pkg/toml/internal/scan/]
 //	  [--benchstat=benchstat]
+//	go run ./hack/toml-perf-gate --kind=parser --ratio=0.5
 //
 //	# Phase 4/5 stubs (no-ops in Phase 1):
 //	go run ./hack/toml-perf-gate --kind=facade ...
@@ -87,15 +88,17 @@ var validScans = map[string]bool{
 // Flags. Most have Bench-protocol defaults; --kind and --scan have no
 // defaults to force the caller to be explicit.
 var (
-	flagKind      = flag.String("kind", "", "perf-gate kind: scan|facade|edit (required)")
+	flagKind      = flag.String("kind", "", "perf-gate kind: scan|facade|edit|parser (required)")
 	flagScan      = flag.String("scan", "", "scan name (for --kind=scan; required): one of "+sortedScanNames())
 	flagRatio     = flag.Float64("ratio", 1.0, "minimum SIMD/baseline throughput ratio that the lower 95% CI must exceed")
 	flagCount     = flag.Int("count", 10, "go test -count value (Bench protocol locks at 10 for CI)")
 	flagBenchtime = flag.String("benchtime", "5s", "go test -benchtime value (Bench protocol locks at 5s for CI)")
 	flagCPU       = flag.Int("cpu", 1, "go test -cpu value (Bench protocol locks at 1)")
-	flagPackage   = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the benchmarks")
+	flagPackage   = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the scan benchmarks")
+	flagParserPkg = flag.String("parser-package", "./pkg/toml/internal/smoketest/", "package import path containing the Phase 2.5 parser smoketest benchmarks")
 	flagBenchstat = flag.String("benchstat", "benchstat", "path to benchstat binary")
 	flagAlpha     = flag.Float64("alpha", 0.05, "benchstat -alpha (U-test significance threshold)")
+	flagBench     = flag.String("bench", "SmoketestUnmarshal", "benchmark stem for --kind=parser")
 )
 
 func main() {
@@ -108,14 +111,83 @@ func main() {
 		// CLI surface is stable from the start.
 		fmt.Printf("toml-perf-gate: --kind=%s not implemented in Phase 1 (Phase 4/5 will land it); exiting 0\n", *flagKind)
 		os.Exit(exitOK)
+	case "parser":
+		runParserSmoketest()
 	case "":
-		fmt.Fprintln(os.Stderr, "toml-perf-gate: --kind is required (one of: scan, facade, edit)")
+		fmt.Fprintln(os.Stderr, "toml-perf-gate: --kind is required (one of: scan, facade, edit, parser)")
 		flag.Usage()
 		os.Exit(exitArg)
 	default:
-		fmt.Fprintf(os.Stderr, "toml-perf-gate: unknown --kind=%q (valid: scan, facade, edit)\n", *flagKind)
+		fmt.Fprintf(os.Stderr, "toml-perf-gate: unknown --kind=%q (valid: scan, facade, edit, parser)\n", *flagKind)
 		os.Exit(exitArg)
 	}
+}
+
+// runParserSmoketest runs the throwaway Phase 2.5 parser+scan
+// trajectory benchmark against BurntSushi on the pinned Cargo.lock
+// corpus. The gate threshold is intentionally weaker than AC-FAC-6:
+// Phase 2.5 passes when the no-cache shim is at least 0.5x BurntSushi.
+func runParserSmoketest() {
+	if *flagRatio <= 0 {
+		die(exitArg, "--ratio must be > 0; got %g", *flagRatio)
+	}
+	if *flagAlpha <= 0 || *flagAlpha >= 1 {
+		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+	}
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		die(exitArg, "%v", err)
+	}
+
+	tmp, err := os.MkdirTemp("", "toml-parser-smoketest-*")
+	if err != nil {
+		die(exitArg, "mktemp: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	stem := "Benchmark" + *flagBench
+	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_BurntSushi$", "base", "bench")
+	if err != nil {
+		die(exitArg, "burntsushi parser smoketest: %v", err)
+	}
+	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_Pandaemonium$", "candidate", "bench")
+	if err != nil {
+		die(exitArg, "pandaemonium parser smoketest: %v", err)
+	}
+	if err := renameInPlace(baseFile, stem+"_BurntSushi", stem); err != nil {
+		die(exitArg, "rename burntsushi benchmark: %v", err)
+	}
+	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
+		die(exitArg, "rename pandaemonium benchmark: %v", err)
+	}
+
+	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
+	if err != nil {
+		die(exitArg, "benchstat: %v", err)
+	}
+	if err := writeBenchmarkOutput(os.Stdout, []byte(textOut)); err != nil {
+		die(exitArg, "parser smoketest output: %v", err)
+	}
+	res, err := parseGate(csvOut, *flagBench, *flagRatio, *flagAlpha)
+	if err != nil {
+		die(exitArg, "parse benchstat CSV: %v", err)
+	}
+	if res.pass {
+		fmt.Printf("toml-perf-gate: PASS parser point=%.3fx lower95=%.3fx threshold=%.3fx %s\n",
+			res.pointRatio, res.lowerRatio, *flagRatio, res.pStr)
+		os.Exit(exitOK)
+	}
+	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL parser point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n",
+		res.pointRatio, res.lowerRatio, *flagRatio, res.pStr, res.failReason)
+	os.Exit(exitFail)
+}
+
+func writeBenchmarkOutput(w io.Writer, out []byte) error {
+	if _, err := w.Write(out); err != nil {
+		return err
+	}
+	_, err := fmt.Fprintln(w)
+	return err
 }
 
 // runScanGate is the core Phase 1 path: build temp files, run the two
@@ -196,17 +268,25 @@ func runScanGate() {
 // -benchtime=T -run=^$ <package>` and writes the output to
 // <dir>/<label>.txt. It returns the path of the written file.
 func runBench(repoRoot, dir, pattern, label string) (string, error) {
-	args := []string{
-		"test",
-		"-bench=" + pattern,
-		"-benchmem",
-		"-count=" + strconv.Itoa(*flagCount),
-		"-cpu=" + strconv.Itoa(*flagCPU),
-		"-benchtime=" + *flagBenchtime,
-		"-run=^$",
-		"-timeout=1800s",
-		*flagPackage,
+	return runBenchInPackage(repoRoot, dir, *flagPackage, pattern, label, "")
+}
+
+func runBenchInPackage(repoRoot, dir, pkg, pattern, label, tags string) (string, error) {
+	out, err := runBenchmarkOnly(repoRoot, pkg, pattern, tags)
+	if err != nil {
+		return "", err
 	}
+	path := filepath.Join(dir, label+".txt")
+	if err := os.WriteFile(path, out, 0o644); err != nil {
+		return "", err
+	}
+	return path, nil
+}
+
+// runBenchmarkOnly runs a single go test benchmark pattern with the
+// Bench protocol flags and returns the combined benchmark output.
+func runBenchmarkOnly(repoRoot, pkg, pattern, tags string) ([]byte, error) {
+	args := benchmarkArgs(pkg, pattern, tags)
 	cmd := exec.Command("go", args...)
 	cmd.Dir = repoRoot
 	// Bench protocol: GOMAXPROCS=1, empty GODEBUG. Inherit everything
@@ -217,13 +297,27 @@ func runBench(repoRoot, dir, pattern, label string) (string, error) {
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
 	if err != nil {
-		return "", fmt.Errorf("go %s: %w\nstderr:\n%s", strings.Join(args, " "), err, stderr.String())
+		return nil, fmt.Errorf("go %s: %w\nstderr:\n%s", strings.Join(args, " "), err, stderr.String())
 	}
-	path := filepath.Join(dir, label+".txt")
-	if err := os.WriteFile(path, out, 0o644); err != nil {
-		return "", err
+	return out, nil
+}
+
+func benchmarkArgs(pkg, pattern, tags string) []string {
+	args := []string{
+		"test",
+		"-bench=" + pattern,
+		"-benchmem",
+		"-count=" + strconv.Itoa(*flagCount),
+		"-cpu=" + strconv.Itoa(*flagCPU),
+		"-benchtime=" + *flagBenchtime,
+		"-run=^$",
+		"-timeout=1800s",
 	}
-	return path, nil
+	if tags != "" {
+		args = append(args, "-tags="+tags)
+	}
+	args = append(args, pkg)
+	return args
 }
 
 // renameInPlace replaces every occurrence of `from` with `to` in the
