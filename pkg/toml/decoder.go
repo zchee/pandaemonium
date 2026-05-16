@@ -16,7 +16,9 @@ package toml
 
 import (
 	"io"
+	"strconv"
 	"strings"
+	"time"
 
 	"github.com/zchee/pandaemonium/pkg/toml/internal/scan"
 )
@@ -374,26 +376,36 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		return Token{}, d.syntaxError("expected value", start)
 	}
 	norm := strings.ToLower(string(chunk))
-	kind := TokenKindValueInteger
 	clean := strings.ReplaceAll(norm, "_", "")
+	var kind TokenKind
 	switch {
 	case strings.ContainsAny(clean, "= "):
 		return Token{}, d.syntaxError("unexpected = in value", start)
 	case norm == "true" || norm == "false":
 		kind = TokenKindValueBool
+		if clean == "" || clean == "+" || clean == "-" {
+			return Token{}, d.syntaxError("malformed value", start)
+		}
 	case looksLikeDatetime(chunk):
 		kind = TokenKindValueDatetime
-	case looksLikeFloat([]byte(clean)):
-		if !isFloatLiteral(clean) {
+	case isSpecialFloat(norm):
+		kind = TokenKindValueFloat
+	case isIntCandidate(norm):
+		if _, err := strconv.ParseInt(clean, 10, 64); err != nil {
+			return Token{}, d.syntaxError("malformed value", start)
+		}
+		kind = TokenKindValueInteger
+	case isFloatCandidate(norm):
+		if _, err := strconv.ParseFloat(clean, 64); err != nil {
 			return Token{}, d.syntaxError("malformed float", start)
 		}
 		kind = TokenKindValueFloat
-	case isIntLiteral(clean):
-		kind = TokenKindValueInteger
-	case strings.IndexFunc(clean, func(r rune) bool { return (r < '0' || r > '9') && r != '+' && r != '-' && r != '.' }) != -1:
+	case strings.IndexFunc(norm, func(r rune) bool {
+		return (r < '0' || r > '9') && r != '+' && r != '-' && r != '.' && r != 'e' && r != 'E' && r != '_' && r != ':'
+	}) != -1:
 		return Token{}, d.syntaxError("malformed value", start)
 	default:
-		kind = TokenKindValueInteger
+		return Token{}, d.syntaxError("malformed value", start)
 	}
 	d.advanceBytes(chunk)
 	d.expectingValue = false
@@ -764,23 +776,26 @@ func (d *Decoder) skipBOM() {
 	}
 }
 
-func looksLikeFloat(raw []byte) bool {
-	if len(raw) == 0 {
-		return false
-	}
-	s := string(raw)
-	if strings.Count(s, ".") > 1 {
-		return false
-	}
-	if strings.Count(s, "e") > 1 || strings.Count(s, "E") > 1 {
-		return false
-	}
-	return strings.ContainsAny(s, ".eE")
-}
-
 func looksLikeDatetime(raw []byte) bool {
 	s := string(raw)
-	return len(s) >= 10 && s[4] == '-' && s[7] == '-' && strings.Contains(s, "T")
+	if s == "" {
+		return false
+	}
+	layouts := []string{
+		time.RFC3339,
+		time.RFC3339Nano,
+		"2006-01-02T15:04:05",
+		"2006-01-02T15:04:05.999999999",
+		"2006-01-02",
+		"15:04:05",
+		"15:04:05.999999999",
+	}
+	for _, layout := range layouts {
+		if _, err := time.Parse(layout, s); err == nil {
+			return true
+		}
+	}
+	return false
 }
 
 func scanUntilDelimiter(raw []byte) int {
@@ -793,7 +808,7 @@ func scanUntilDelimiter(raw []byte) int {
 	return len(raw)
 }
 
-func isIntLiteral(raw string) bool {
+func isIntCandidate(raw string) bool {
 	if raw == "" {
 		return false
 	}
@@ -803,27 +818,82 @@ func isIntLiteral(raw string) bool {
 		return false
 	}
 	for _, r := range n {
-		if r < '0' || r > '9' {
-			return false
-		}
-	}
-	return true
-}
-
-func isFloatLiteral(raw string) bool {
-	if raw == "" {
-		return false
-	}
-	n := strings.TrimPrefix(raw, "+")
-	n = strings.TrimPrefix(n, "-")
-	if n == "" {
-		return false
-	}
-	for _, r := range n {
-		if (r >= '0' && r <= '9') || r == '.' || r == 'e' || r == 'E' || r == '+' || r == '-' {
+		if (r >= '0' && r <= '9') || r == '_' {
 			continue
 		}
 		return false
+	}
+	return hasValidNumberUnderscores(n)
+}
+
+func isSpecialFloat(raw string) bool {
+	switch raw {
+	case "inf", "+inf", "-inf", "nan", "+nan", "-nan":
+		return true
+	default:
+		return false
+	}
+}
+
+func isFloatCandidate(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	n := strings.TrimPrefix(raw, "+")
+	n = strings.TrimPrefix(n, "-")
+	if n == "" {
+		return false
+	}
+	hasExp := false
+	hasDecimalPoint := false
+	for i := 0; i < len(n); i++ {
+		switch n[i] {
+		case '.':
+			if strings.HasPrefix(n, ".") || strings.HasSuffix(n, ".") || hasDecimalPoint {
+				return false
+			}
+			hasDecimalPoint = true
+		case 'e', 'E':
+			if hasExp {
+				return false
+			}
+			hasExp = true
+		case '+', '-':
+			// Sign is valid only as the first character or immediately after 'e'/'E'.
+			if i != 0 && n[i-1] != 'e' && n[i-1] != 'E' {
+				return false
+			}
+		case '_':
+			// underscore validity checked below.
+		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
+		default:
+			return false
+		}
+	}
+	if !hasDecimalPoint && !hasExp {
+		return false
+	}
+	return hasValidNumberUnderscores(n)
+}
+
+func hasValidNumberUnderscores(raw string) bool {
+	if raw == "" {
+		return false
+	}
+	if strings.HasPrefix(raw, "_") || strings.HasSuffix(raw, "_") || strings.Contains(raw, "__") {
+		return false
+	}
+	for i := 0; i < len(raw); i++ {
+		if raw[i] != '_' {
+			continue
+		}
+		prev, next := raw[i-1], raw[i+1]
+		if prev < '0' || prev > '9' {
+			return false
+		}
+		if next < '0' || next > '9' {
+			return false
+		}
 	}
 	return true
 }
