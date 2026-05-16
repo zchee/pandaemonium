@@ -12,15 +12,16 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (!amd64 && !arm64) || force_swar || (amd64 && !goexperiment.simd)
-
-// Package memchr provides byte-search primitives ported from
-// https://github.com/BurntSushi/memchr. This file holds the pure-Go SWAR
-// (SIMD Within A Register) implementations. The broad build tag makes the
-// six swar* identifiers linkable on every GOARCH outside the amd64-with-SIMD
-// and arm64 hot paths, including the amd64-no-SIMD slot, so that Step 4's
-// dispatch_swar_default.go can bind memchrImpl..memrchr3Impl to them without
-// duplicating the SWAR bodies across two files.
+// This file deliberately carries NO build tag: the swar* identifiers must be
+// linkable on every GOARCH/tag combination because dispatch_default_init.go
+// (the transitional Step-2 binder for amd64-with-SIMD and arm64) binds the
+// dispatcher's *Impl vars to them. Plan AC-X86-4 originally specified a
+// narrower tag ("(!amd64 && !arm64) || force_swar || (amd64 && !goexperiment.simd)")
+// that excluded those slots; broadening here avoids duplicating the six SWAR
+// bodies across two files just to satisfy two non-overlapping tag sets. On
+// SIMD/NEON slots the SWAR functions are unreferenced once Steps 4-6 land
+// real per-arch bindings, and the Go linker dead-strips unreferenced
+// package-private code. Step 6 may re-narrow the tag if desired.
 //
 // The classic "has-zero-byte" trick (Mycroft 1987; popularized by Hacker's
 // Delight §6-1 and Stanford bit-twiddling-hacks):
@@ -45,9 +46,10 @@
 // alternative variant using binary.LittleEndian.Uint64 (which performs a
 // bounds check per call and, on alignment-strict platforms, may decompose
 // into byte loads) is exercised by BenchmarkSWARWordLoad in
-// bench_swar_test.go; the unsafe.Pointer form ships as the production code
-// because the bench shows it 1.5–3× faster on darwin/arm64-with-force_swar
-// at sizes 64..65536. See the Step 1 commit message for the full numbers.
+// bench_swar_test.go; the unsafe.Pointer form ships as production because
+// the bench shows it ~1.4–1.5× faster on darwin/arm64-with-force_swar at
+// sizes 64..65536. See the Step 1 commit message for the full numbers.
+
 package memchr
 
 import "unsafe"
