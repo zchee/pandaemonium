@@ -130,6 +130,90 @@ func TestDecoderSyntaxErrorLineColumn(t *testing.T) {
 	}
 }
 
+func TestDecoderValueKindAndValidation(t *testing.T) {
+	t.Parallel()
+
+	valid := []struct {
+		name string
+		in   string
+		kind TokenKind
+	}{
+		{name: "boolean", in: "a = true", kind: TokenKindValueBool},
+		{name: "integer", in: "a = +12_34", kind: TokenKindValueInteger},
+		{name: "float", in: "a = 12.34e+1", kind: TokenKindValueFloat},
+		{name: "datetime-z", in: "a = 1987-07-05T17:45:00Z", kind: TokenKindValueDatetime},
+		{name: "date", in: "a = 1979-05-27", kind: TokenKindValueDatetime},
+		{name: "time", in: "a = 07:32:00", kind: TokenKindValueDatetime},
+	}
+
+	for _, tc := range valid {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			dec := NewDecoderBytes([]byte(tc.in))
+			if _, err := dec.ReadToken(); err != nil {
+				t.Fatalf("ReadToken key = %v", err)
+			}
+			tok, err := dec.ReadToken()
+			if err != nil {
+				t.Fatalf("ReadToken value = %v", err)
+			}
+			if tok.Kind != tc.kind {
+				t.Fatalf("ReadToken kind = %q, want %q", tok.Kind, tc.kind)
+			}
+		})
+	}
+
+	invalid := []string{
+		"a = 2025-1-1",             // invalid date format
+		"a = 2025-01-01T24:00:00Z", // invalid hour
+		"a = 1e+",
+		"a = 1_",
+		"a = 18446744073709551616",
+	}
+	for _, in := range invalid {
+		in := in
+		t.Run("invalid: "+in, func(t *testing.T) {
+			t.Parallel()
+			dec := NewDecoderBytes([]byte(in))
+			for i := 0; i < 2; i++ {
+				if _, err := dec.ReadToken(); err != nil {
+					// key token should not fail for these cases.
+					if i == 0 {
+						t.Fatalf("first token key parse = %v", err)
+					}
+					break
+				}
+				if i == 1 {
+					t.Fatalf("expected syntax error for %q", in)
+				}
+			}
+		})
+	}
+}
+
+func TestDecoderErrorStateIsSticky(t *testing.T) {
+	dec := NewDecoderBytes([]byte("broken = [\n"))
+	tok, err := dec.ReadToken()
+	if err != nil || tok.Kind != TokenKindKey {
+		t.Fatalf("ReadToken key = %v, %v", tok, err)
+	}
+	if tok, err := dec.ReadToken(); err != nil || tok.Kind != TokenKindArrayStart {
+		t.Fatalf("ReadToken array-start parse = %v, %v", tok, err)
+	}
+	_, err1 := dec.ReadToken()
+	if err1 == nil {
+		t.Fatalf("expected parse error after incomplete array")
+	}
+	_, err2 := dec.ReadToken()
+	if err2 == nil {
+		t.Fatalf("expected sticky error on repeated ReadToken calls")
+	}
+	if !errors.Is(err1, err2) {
+		t.Fatalf("sticky error mismatch: first=%v second=%v", err1, err2)
+	}
+}
+
 func TestDecoderReaderAndBytesConstructorsMatch(t *testing.T) {
 	input := []byte("title = \"Toml\"\na = 1\n")
 	wantKinds, err := readAllTokens(NewDecoderBytes(input))
