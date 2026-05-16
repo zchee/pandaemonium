@@ -67,3 +67,6 @@ bench.txt
 !.codex/prompts/**
 omx_wiki/
 pkg/codex/*.md
+
+# stray build artifact from manual  of the perf-gate
+/memchr-perf-gate
