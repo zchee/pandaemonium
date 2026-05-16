@@ -31,7 +31,8 @@ import "testing"
 // and re-runs the shared smoke fixture through the exported API. This
 // is the NEON row of the AC-SIMD-7 audit matrix on arm64.
 func TestDispatch_ARM64_NEON(t *testing.T) {
-	pinAllDispatch(t,
+	pinAllDispatch(
+		t,
 		scanBareKeyNEON,
 		scanBasicStringNEON,
 		scanLiteralStringNEON,
