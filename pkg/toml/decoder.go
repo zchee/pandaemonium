@@ -618,7 +618,7 @@ func (d *Decoder) scanQuoted(quote byte, off int) (int, error) {
 
 func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 	rest := d.buf[off:]
-	if strings.HasPrefix(string(rest), "\"\"\"") {
+	if hasBytePrefix(rest, '"', '"', '"') {
 		end := off + 3
 		for end+2 < len(d.buf) {
 			if d.buf[end] == '"' && d.buf[end+1] == '"' && d.buf[end+2] == '"' {
@@ -628,7 +628,7 @@ func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 		}
 		return 0, TokenKindInvalid, d.syntaxError("unterminated multiline string", off)
 	}
-	if strings.HasPrefix(string(rest), "'''") {
+	if hasBytePrefix(rest, '\'', '\'', '\'') {
 		end := off + 3
 		for end+2 < len(d.buf) {
 			if d.buf[end] == '\'' && d.buf[end+1] == '\'' && d.buf[end+2] == '\'' {
@@ -663,6 +663,18 @@ func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 		return i + idx + 1, TokenKindValueString, nil
 	}
 	return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
+}
+
+func hasBytePrefix(raw []byte, want ...byte) bool {
+	if len(raw) < len(want) {
+		return false
+	}
+	for i, b := range want {
+		if raw[i] != b {
+			return false
+		}
+	}
+	return true
 }
 
 func hasNewlineBefore(raw []byte, end int) bool {
