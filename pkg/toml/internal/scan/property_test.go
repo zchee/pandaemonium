@@ -49,7 +49,11 @@ func loadPropertySeed(tb testing.TB) uint64 {
 	if err != nil {
 		tb.Fatalf("open %s: %v", propertySeedPath, err)
 	}
-	defer f.Close()
+	defer func() {
+		if err := f.Close(); err != nil {
+			tb.Fatalf("close %s: %v", propertySeedPath, err)
+		}
+	}()
 	sc := bufio.NewScanner(f)
 	for sc.Scan() {
 		line := strings.TrimSpace(sc.Text())
