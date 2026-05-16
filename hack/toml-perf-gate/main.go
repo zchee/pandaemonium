@@ -38,7 +38,7 @@
 //	  [--count=10] [--benchtime=5s] [--cpu=1] [--package=./pkg/toml/internal/scan/]
 //	  [--benchstat=benchstat]
 //	go run ./hack/toml-perf-gate --kind=parser --ratio=0.5
-//	go run ./hack/toml-perf-gate --kind=edit --ratio-pelletier=1.5
+//	go run ./hack/toml-perf-gate --kind=edit --ratio-edit=0.25
 //	go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3
 //
 //	# Phase 4/5 gates:
