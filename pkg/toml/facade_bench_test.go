@@ -26,9 +26,9 @@ import (
 )
 
 type benchPackage struct {
-	Name    string
-	Version string
-	Source  string
+	Name     string
+	Version  string
+	Source   string
 	Checksum string
 }
 

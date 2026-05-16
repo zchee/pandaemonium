@@ -85,11 +85,28 @@ func build(t reflect.Type) (*TypeInfo, error) {
 			name = sf.Name
 		}
 		field := Field{Name: name, Index: append([]int(nil), sf.Index...), OmitZero: omit, Type: sf.Type}
-		if _, exists := info.ByName[name]; exists {
-			continue
+		if _, exists := info.ByName[name]; !exists {
+			info.ByName[name] = field
+		}
+		lower := strings.ToLower(name)
+		if lower != name {
+			if _, exists := info.ByName[lower]; !exists {
+				info.ByName[lower] = field
+			}
 		}
 		info.Fields = append(info.Fields, field)
-		info.ByName[name] = field
+	}
+	for _, field := range info.Fields {
+		lower := strings.ToLower(field.Name)
+		if _, exists := info.ByName[lower]; !exists {
+			info.ByName[lower] = field
+		}
+	}
+	for _, field := range info.Fields {
+		lower := strings.ToLower(field.Name)
+		if _, exists := info.ByName[lower]; !exists {
+			info.ByName[lower] = field
+		}
 	}
 	return info, nil
 }
