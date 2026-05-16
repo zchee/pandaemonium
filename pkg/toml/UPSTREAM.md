@@ -324,6 +324,11 @@ go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pellet
 go run ./hack/toml-perf-gate --kind=edit --ratio-edit=0.25
 ```
 
+The facade gate is two-part: BurntSushi must pass, while the Pelletier
+ratio is currently a documented Phase 4 exception in
+`pkg/toml/PHASE4_BENCHMARK_EVIDENCE.md`. Do not treat that exception as
+an edit-path failure.
+
 `--ratio-edit` is the Phase 5 Document edit threshold. Do not use the
 older `--ratio-pelletier` spelling for edit gates; that flag belongs to
 the Phase 4 facade comparison.
