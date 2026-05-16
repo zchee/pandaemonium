@@ -26,18 +26,12 @@ GOTOOLCHAIN         : auto
 
 ### `go.mod` `go` directive
 
-The repository-wide `go.mod` currently declares `go 1.26`. Pre-Phase-1
-step 1 of the plan called for bumping that directive to `1.27` to
-align the declared identity with the runtime identity recorded above.
-Phase 1 / T6 (this task) is intentionally NOT authorized to edit
-`go.mod` per its task-spec DO-NOT list. Tracking as a Pre-Phase-1
-follow-up:
+Q7 is resolved in this step:
 
-```
-TODO (Pre-Phase-1 step 1, deferred):
-  bump go.mod `go` directive 1.26 → 1.27 in a dedicated commit;
-  record the bump-commit SHA in this UPSTREAM.md once it lands.
-```
+- `go.mod` was bumped from `go 1.26` to `go 1.27` to align module
+  identity with the runtime identity recorded above.
+
+Q7 commit SHA: pending; task-3 tracker records the Step 1 closure.
 
 ### Snapshot stdlib quirk (informational)
 
@@ -103,14 +97,14 @@ those phases consume toml-rs `tests/data/` for the golden corpus.
 
 ## Cargo.lock corpus (`pkg/toml/testdata/corpus/cargo.lock`)
 
+Q8 is resolved in this step:
+
 ```
-TODO (Pre-Phase-1 step 3, deferred):
-  Source         : <upstream URL, e.g.
-                    https://github.com/rust-lang/cargo/raw/<sha>/Cargo.lock>
-  Upstream ref   : <commit SHA>
-  SHA-256        : <to be recorded at procurement>
-  Byte count     : <to be recorded; constraint 100 KB ≤ size ≤ 110 KB>
-  Pinned         : <date>
+Source         : https://raw.githubusercontent.com/rust-lang/cargo/0.86.0/Cargo.lock
+Upstream ref   : 0.86.0
+SHA-256        : 9ea94b60b3ee80c73f52186946bb280dc41c7287bbb678988618a6839533dbe9
+Byte count     : 103263
+Pinned         : 2026-05-17 (Q8)
 ```
 
 Phase 1 does NOT consume the Cargo.lock corpus. Phase 4 (AC-FAC-6
@@ -118,6 +112,12 @@ gate) is the first consumer, and Phase 5 (AC-EDIT-6 gate) is the
 second. T5's perf benchmarks
 (`pkg/toml/internal/scan/bench_test.go`) build their 64 KiB buffers
 from a deterministic seeded PRNG and do NOT depend on this corpus.
+
+## Q9/Q10 confirmations
+
+- Q9 confirmed: SWAR-only non-amd64/non-arm64 verification target is
+  `wasip1/wasm` (`toml-scan-ci` and `toml-perf-gate`).
+- Q10 confirmed: `MaxKeyLength` parser hard cap is `65536` bytes (`64 KiB`).
 
 ## toml-test compliance suite
 
