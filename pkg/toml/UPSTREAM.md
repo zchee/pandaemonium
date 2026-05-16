@@ -80,21 +80,25 @@ Drift policy   : we mirror jsonv2's interface SHAPE (method signatures),
 ## toml-rs (source of the port)
 
 ```
-TODO (Pre-Phase-1 step 4, deferred):
-  Source        : https://github.com/toml-rs/toml
-  Tag / commit  : <to be pinned; record date + 1-line note on which
-                  version is being ported>
-  Pinned        : <date>
-  Re-import procedure: see hack/import-toml-rs/README.md (also TBD)
+Source        : https://github.com/toml-rs/toml
+Tag / commit  : v0.25.11 / 45456abc190bcf7b81dfc96914b726d7b3053e41
+Pinned        : 2026-05-17 (Step 2)
+Snapshot date : 2026-04-07 17:15:52 -0500
+Corpus source : crates/toml/tests/fixtures
+Corpus path   : pkg/toml/testdata/toml-rs/corpus
+Corpus files  : 68
+Corpus bytes  : 2075
+Corpus SHA-256: 01daf47230b2211724854b7cb731a4c9c0d60ced84fa310920ae35e9800b389c
+Re-import     : ./hack/import-toml-rs/import.sh v0.25.11
+Provenance    : pkg/toml/testdata/toml-rs/provenance.txt
+Manifest      : pkg/toml/testdata/toml-rs/manifest.txt
 ```
 
-This pin was scheduled for Pre-Phase-1 step 4 (Architect risk-gap G4)
-but never landed before Phase 1 kickoff. Phase 1's scan-kernel work
-does NOT depend on toml-rs source — the SWAR + SIMD kernels are
-implemented from first principles against TOML's lexical spec — so
-the deferral is harmless for Phase 1 but must be resolved before any
-parser-level (Phase 2) or facade-level (Phase 4) work begins, since
-those phases consume toml-rs `tests/data/` for the golden corpus.
+This pin now lands as part of Step 2 so parser-level (Phase 2) and
+facade-level (Phase 4) imports can consume a frozen toml-rs fixture
+snapshot from `pkg/toml/testdata/toml-rs/corpus`. Parser implementation
+must remain blocked until this pin, import procedure, and corpus snapshot
+are committed and verified.
 
 ## Cargo.lock corpus (`pkg/toml/testdata/corpus/cargo.lock`)
 
