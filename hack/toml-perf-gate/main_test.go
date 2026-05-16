@@ -357,10 +357,10 @@ func TestBenchmarkArgs_ParserHarness(t *testing.T) {
 		*flagCount, *flagCPU, *flagBenchtime = oldCount, oldCPU, oldBenchtime
 	}()
 
-	got := benchmarkArgs("./pkg/toml/internal/smoketest/", "^BenchmarkSmoketestUnmarshal_BurntSushi$", "bench")
+	got := benchmarkArgs("./pkg/toml/", "^BenchmarkUnmarshal_BurntSushi$", "bench")
 	want := []string{
 		"test",
-		"-bench=^BenchmarkSmoketestUnmarshal_BurntSushi$",
+		"-bench=^BenchmarkUnmarshal_BurntSushi$",
 		"-benchmem",
 		"-count=10",
 		"-cpu=1",
@@ -368,7 +368,7 @@ func TestBenchmarkArgs_ParserHarness(t *testing.T) {
 		"-run=^$",
 		"-timeout=1800s",
 		"-tags=bench",
-		"./pkg/toml/internal/smoketest/",
+		"./pkg/toml/",
 	}
 	if len(got) != len(want) {
 		t.Fatalf("benchmarkArgs len = %d, want %d", len(got), len(want))
