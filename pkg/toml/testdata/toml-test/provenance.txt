@@ -1,0 +1,7 @@
+source_url = "https://github.com/toml-lang/toml-test"
+upstream_ref = "main"
+upstream_commit = "4f76d84def032d092df152eb6efea5a6f78a0cee"
+imported_path = "tests"
+corpus_file_count = "80"
+corpus_total_bytes = "6797"
+corpus_tree_sha256 = "1efccd7dd9048d844313175b0ad65ebd1f1dbfe91cf15236d3eddb76246bb933"

@@ -129,12 +129,16 @@ from a deterministic seeded PRNG and do NOT depend on this corpus.
 ## toml-test compliance suite
 
 ```text
-DEFERRED to Phase 4 (Q2 ruling 2026-05-16):
-  Source         : https://github.com/toml-lang/toml-test
-  Commit         : <to be pinned at Phase 4 kickoff>
-  Pinned         : <date>
-  Controversial cases this port matches: <to be enumerated at Phase 4>
-  Re-import procedure: see hack/import-toml-test/README.md (Phase 4 deliverable)
+Source         : https://github.com/toml-lang/toml-test
+Branch / commit: main / 4f76d84def032d092df152eb6efea5a6f78a0cee
+Pinned         : 2026-05-17 (Phase 4 kickoff)
+Corpus path    : pkg/toml/testdata/toml-test
+Corpus files   : 80
+Corpus bytes   : 6797
+Corpus SHA-256 : 1efccd7dd9048d844313175b0ad65ebd1f1dbfe91cf15236d3eddb76246bb933
+Controversial cases this port matches: bounded Phase 4 facade fixture slice;
+                 parser-level unsupported cases remain syntax-test evidence.
+Re-import      : ./hack/import-toml-test/import.sh 4f76d84def032d092df152eb6efea5a6f78a0cee
 ```
 
 Phase 1 does not import or consume the toml-test compliance suite.
