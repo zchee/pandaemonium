@@ -279,7 +279,7 @@ func readAllTokens(dec *Decoder) ([]Token, error) {
 	}
 }
 
-func mustReadRepoFile(t *testing.T, rel string) []byte {
+func mustReadRepoFile(t testing.TB, rel string) []byte {
 	t.Helper()
 	path := mustRepoPath(t, rel)
 	body, err := os.ReadFile(path)
@@ -289,7 +289,7 @@ func mustReadRepoFile(t *testing.T, rel string) []byte {
 	return body
 }
 
-func mustRepoPath(t *testing.T, rel string) string {
+func mustRepoPath(t testing.TB, rel string) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)
 	if !ok {
