@@ -63,6 +63,9 @@ func TestLookupCachesFieldMetadata(t *testing.T) {
 	if got, ok := info.ByName["Name"]; !ok || got.Name != "Name" || got.OmitZero {
 		t.Fatalf("ByName[Name] = %#v, %v", got, ok)
 	}
+	if got, ok := info.ByName["name"]; !ok || got.Name != "Name" || got.OmitZero {
+		t.Fatalf("ByName[name] = %#v, %v", got, ok)
+	}
 	if got, ok := info.ByName["zero"]; !ok || !got.OmitZero || got.Name != "zero" {
 		t.Fatalf("ByName[zero] = %#v, %v", got, ok)
 	}

@@ -15,19 +15,34 @@
 package toml
 
 import (
+	"bytes"
 	"errors"
 	"io"
 	"strconv"
-	"strings"
+	"sync"
 )
 
 type documentMap map[string]any
 
-func parseDocument(data []byte, opts []Option) (documentMap, error) {
+const documentMapHint = 4
+
+var (
+	trueLiteral  = []byte("true")
+	falseLiteral = []byte("false")
+)
+
+var documentMapPool = sync.Pool{
+	New: func() any {
+		return make(documentMap, documentMapHint)
+	},
+}
+
+func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMap, error) {
 	dec := NewDecoderBytes(data, opts...)
-	root := documentMap{}
+	root := newDocumentMap()
 	current := root
-	var currentPath []string
+	currentFilter := filter
+	inTable := false
 	for {
 		tok, err := dec.ReadToken()
 		if errors.Is(err, io.EOF) {
@@ -40,35 +55,134 @@ func parseDocument(data []byte, opts []Option) (documentMap, error) {
 		case TokenKindComment:
 			continue
 		case TokenKindTableHeader:
-			path, err := parseHeaderKey(tok.Bytes, false)
+			key := trimHeaderKey(tok.Bytes, false)
+			if isSimpleBareKey(key) {
+				if nextFilter, ok := filter.lookup(key); ok {
+					current = ensureTableKey(root, string(key))
+					currentFilter = nextFilter
+				} else {
+					current = nil
+					currentFilter = nil
+				}
+				inTable = true
+				continue
+			}
+			path, err := parseDottedKey(key)
 			if err != nil {
 				return nil, err
 			}
-			currentPath = path
-			current = ensureTable(root, path)
+			if nextFilter, ok := filter.lookupPath(path); ok {
+				current = ensureTable(root, path)
+				currentFilter = nextFilter
+			} else {
+				current = nil
+				currentFilter = nil
+			}
+			inTable = true
 		case TokenKindArrayTableHeader:
-			path, err := parseHeaderKey(tok.Bytes, true)
+			key := trimHeaderKey(tok.Bytes, true)
+			if isSimpleBareKey(key) {
+				if nextFilter, ok := filter.lookup(key); ok {
+					name := string(key)
+					capacityHint := 0
+					if _, exists := root[name]; !exists {
+						capacityHint = bytes.Count(data, tok.Bytes)
+					}
+					current = appendArrayTableKey(root, name, capacityHint)
+					currentFilter = nextFilter
+				} else {
+					current = nil
+					currentFilter = nil
+				}
+				inTable = true
+				continue
+			}
+			path, err := parseDottedKey(key)
 			if err != nil {
 				return nil, err
 			}
-			currentPath = path
-			current = appendArrayTable(root, path)
+			if nextFilter, ok := filter.lookupPath(path); ok {
+				current = appendArrayTable(root, path)
+				currentFilter = nextFilter
+			} else {
+				current = nil
+				currentFilter = nil
+			}
+			inTable = true
 		case TokenKindKey:
-			key, err := parseDottedKey(tok.Bytes)
-			if err != nil {
-				return nil, err
+			if current == nil {
+				if err := skipNextValue(dec); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			if _, ok := currentFilter.lookup(tok.Bytes); !ok {
+				if err := skipNextValue(dec); err != nil {
+					return nil, err
+				}
+				continue
+			}
+			if !isSimpleBareKey(tok.Bytes) {
+				key, err := parseDottedKey(tok.Bytes)
+				if err != nil {
+					return nil, err
+				}
+				value, err := parseNextValue(dec)
+				if err != nil {
+					return nil, err
+				}
+				assign(current, key, value)
+				continue
 			}
 			value, err := parseNextValue(dec)
 			if err != nil {
 				return nil, err
 			}
-			assign(current, key, value)
+			current[string(tok.Bytes)] = value
 		default:
-			if len(currentPath) == 0 {
+			if !inTable {
 				return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: [2]int{0, 1}}
 			}
 		}
 	}
+}
+
+func skipNextValue(dec *Decoder) error {
+	for {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		if tok.Kind == TokenKindComment {
+			continue
+		}
+		return skipValueToken(dec, tok)
+	}
+}
+
+func skipValueToken(dec *Decoder, tok Token) error {
+	depth := 0
+	switch tok.Kind {
+	case TokenKindArrayStart, TokenKindInlineTableStart:
+		depth = 1
+	case TokenKindValueString, TokenKindValueInteger, TokenKindValueFloat, TokenKindValueBool, TokenKindValueDatetime:
+		return nil
+	default:
+		return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected value", Span: [2]int{0, 1}}
+	}
+	for depth > 0 {
+		next, err := dec.ReadToken()
+		if err != nil {
+			return err
+		}
+		switch next.Kind {
+		case TokenKindArrayStart, TokenKindInlineTableStart:
+			depth++
+		case TokenKindArrayEnd, TokenKindInlineTableEnd:
+			depth--
+		}
+	}
+	return nil
 }
 
 func parseNextValue(dec *Decoder) (any, error) {
@@ -89,13 +203,18 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 	case TokenKindValueString:
 		return parseStringValue(tok.Bytes)
 	case TokenKindValueInteger:
-		clean := strings.ReplaceAll(string(tok.Bytes), "_", "")
-		return strconv.ParseInt(clean, 0, 64)
+		return strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
 	case TokenKindValueFloat:
-		clean := strings.ReplaceAll(strings.ToLower(string(tok.Bytes)), "_", "")
-		return strconv.ParseFloat(clean, 64)
+		return strconv.ParseFloat(normalizeNumericText(tok.Bytes, true), 64)
 	case TokenKindValueBool:
-		return strconv.ParseBool(strings.ToLower(string(tok.Bytes)))
+		switch {
+		case bytes.EqualFold(tok.Bytes, trueLiteral):
+			return true, nil
+		case bytes.EqualFold(tok.Bytes, falseLiteral):
+			return false, nil
+		default:
+			return strconv.ParseBool(string(tok.Bytes))
+		}
 	case TokenKindValueDatetime:
 		v, _, err := parseDateTimeValue(tok.Bytes)
 		return v, err
@@ -109,7 +228,7 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 }
 
 func parseArrayValue(dec *Decoder) ([]any, error) {
-	var values []any
+	values := make([]any, 0, documentMapHint)
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
@@ -131,7 +250,7 @@ func parseArrayValue(dec *Decoder) ([]any, error) {
 }
 
 func parseInlineTableValue(dec *Decoder) (documentMap, error) {
-	m := documentMap{}
+	m := newDocumentMap()
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
@@ -159,85 +278,145 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 }
 
 func parseStringValue(raw []byte) (string, error) {
-	s := string(raw)
-	if strings.HasPrefix(s, "'''") && strings.HasSuffix(s, "'''") {
-		return s[3 : len(s)-3], nil
+	if len(raw) >= 6 && raw[0] == '\'' && raw[1] == '\'' && raw[2] == '\'' &&
+		raw[len(raw)-1] == '\'' && raw[len(raw)-2] == '\'' && raw[len(raw)-3] == '\'' {
+		return string(raw[3 : len(raw)-3]), nil
 	}
-	if strings.HasPrefix(s, "\"\"\"") && strings.HasSuffix(s, "\"\"\"") {
-		return s[3 : len(s)-3], nil
+	if len(raw) >= 6 && raw[0] == '"' && raw[1] == '"' && raw[2] == '"' &&
+		raw[len(raw)-1] == '"' && raw[len(raw)-2] == '"' && raw[len(raw)-3] == '"' {
+		return string(raw[3 : len(raw)-3]), nil
 	}
-	if strings.HasPrefix(s, "'") && strings.HasSuffix(s, "'") {
-		return s[1 : len(s)-1], nil
+	if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
+		return string(raw[1 : len(raw)-1]), nil
 	}
-	return strconv.Unquote(s)
+	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' && bytes.IndexByte(raw[1:len(raw)-1], '\\') < 0 {
+		return string(raw[1 : len(raw)-1]), nil
+	}
+	return strconv.Unquote(string(raw))
 }
 
 func parseHeaderKey(raw []byte, array bool) ([]string, error) {
-	s := strings.TrimSpace(string(raw))
+	return parseDottedKey(trimHeaderKey(raw, array))
+}
+
+func trimHeaderKey(raw []byte, array bool) []byte {
+	raw = bytes.TrimSpace(raw)
 	if array {
-		s = strings.TrimPrefix(strings.TrimSuffix(s, "]]"), "[[")
-	} else {
-		s = strings.TrimPrefix(strings.TrimSuffix(s, "]"), "[")
+		if len(raw) >= 4 {
+			return bytes.TrimSpace(raw[2 : len(raw)-2])
+		}
+		return nil
 	}
-	return parseDottedKey([]byte(s))
+	if len(raw) >= 2 {
+		return bytes.TrimSpace(raw[1 : len(raw)-1])
+	}
+	return nil
+}
+
+func isSimpleBareKey(raw []byte) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	for _, c := range raw {
+		switch {
+		case c >= 'A' && c <= 'Z':
+		case c >= 'a' && c <= 'z':
+		case c >= '0' && c <= '9':
+		case c == '_' || c == '-':
+		default:
+			return false
+		}
+	}
+	return true
 }
 
 func parseDottedKey(raw []byte) ([]string, error) {
-	s := strings.TrimSpace(string(raw))
-	var parts []string
-	for len(s) > 0 {
-		s = strings.TrimLeft(s, " \t")
-		if s == "" {
+	origLen := len(raw)
+	raw = bytes.TrimSpace(raw)
+	parts := make([]string, 0, bytes.Count(raw, []byte("."))+1)
+	for len(raw) > 0 {
+		raw = bytes.TrimLeft(raw, " \t")
+		if len(raw) == 0 {
 			break
 		}
 		var part string
-		if s[0] == '\'' || s[0] == '"' {
-			q := s[0]
+		if raw[0] == '\'' || raw[0] == '"' {
+			q := raw[0]
 			end := 1
-			for end < len(s) {
-				if s[end] == '\\' && q == '"' {
+			for end < len(raw) {
+				if raw[end] == '\\' && q == '"' {
 					end += 2
 					continue
 				}
-				if s[end] == q {
+				if raw[end] == q {
 					break
 				}
 				end++
 			}
-			if end >= len(s) {
-				return nil, &SyntaxError{Line: 1, Col: 1, Msg: "unterminated quoted key", Span: [2]int{0, len(raw)}}
+			if end >= len(raw) {
+				return nil, &SyntaxError{Line: 1, Col: 1, Msg: "unterminated quoted key", Span: [2]int{0, origLen}}
 			}
-			v, err := parseStringValue([]byte(s[:end+1]))
+			v, err := parseStringValue(raw[:end+1])
 			if err != nil {
 				return nil, err
 			}
 			part = v
-			s = s[end+1:]
+			raw = raw[end+1:]
 		} else {
-			end := strings.IndexAny(s, ". \t")
+			end := bytes.IndexAny(raw, ". \t")
 			if end < 0 {
-				part, s = s, ""
+				part = string(raw)
+				raw = raw[:0]
 			} else {
-				part, s = s[:end], s[end:]
+				part = string(raw[:end])
+				raw = raw[end:]
 			}
 		}
 		if part == "" {
-			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, len(raw)}}
+			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
 		}
 		parts = append(parts, part)
-		s = strings.TrimLeft(s, " \t")
-		if s == "" {
+		raw = bytes.TrimLeft(raw, " \t")
+		if len(raw) == 0 {
 			break
 		}
-		if s[0] != '.' {
-			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "unexpected token in dotted key", Span: [2]int{0, len(raw)}}
+		if raw[0] != '.' {
+			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "unexpected token in dotted key", Span: [2]int{0, origLen}}
 		}
-		s = s[1:]
+		raw = raw[1:]
 	}
 	if len(parts) == 0 {
-		return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key", Span: [2]int{0, len(raw)}}
+		return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key", Span: [2]int{0, origLen}}
 	}
 	return parts, nil
+}
+
+func normalizeNumericText(raw []byte, lower bool) string {
+	needsCopy := false
+	for _, b := range raw {
+		if b == '_' {
+			needsCopy = true
+			break
+		}
+		if lower && 'A' <= b && b <= 'Z' {
+			needsCopy = true
+			break
+		}
+	}
+	if !needsCopy {
+		return string(raw)
+	}
+	buf := make([]byte, 0, len(raw))
+	for _, b := range raw {
+		if b == '_' {
+			continue
+		}
+		if lower && 'A' <= b && b <= 'Z' {
+			b += 'a' - 'A'
+		}
+		buf = append(buf, b)
+	}
+	return string(buf)
 }
 
 func ensureTable(root documentMap, path []string) documentMap {
@@ -252,12 +431,28 @@ func ensureTable(root documentMap, path []string) documentMap {
 			}
 		}
 		if next == nil {
-			next = documentMap{}
+			next = newDocumentMap()
 			cur[p] = next
 		}
 		cur = next
 	}
 	return cur
+}
+
+func ensureTableKey(root documentMap, name string) documentMap {
+	next, _ := root[name].(documentMap)
+	if next == nil {
+		if arr, ok := root[name].([]any); ok && len(arr) > 0 {
+			if last, ok := arr[len(arr)-1].(documentMap); ok {
+				next = last
+			}
+		}
+	}
+	if next == nil {
+		next = newDocumentMap()
+		root[name] = next
+	}
+	return next
 }
 
 func appendArrayTable(root documentMap, path []string) documentMap {
@@ -266,10 +461,21 @@ func appendArrayTable(root documentMap, path []string) documentMap {
 	}
 	parent := ensureTable(root, path[:len(path)-1])
 	name := path[len(path)-1]
-	table := documentMap{}
+	table := newDocumentMap()
 	arr, _ := parent[name].([]any)
 	arr = append(arr, table)
 	parent[name] = arr
+	return table
+}
+
+func appendArrayTableKey(root documentMap, name string, capacityHint int) documentMap {
+	table := newDocumentMap()
+	arr, _ := root[name].([]any)
+	if arr == nil && capacityHint > 0 {
+		arr = make([]any, 0, capacityHint)
+	}
+	arr = append(arr, table)
+	root[name] = arr
 	return table
 }
 
@@ -278,10 +484,54 @@ func assign(root documentMap, path []string, value any) {
 	for _, p := range path[:len(path)-1] {
 		next, _ := cur[p].(documentMap)
 		if next == nil {
-			next = documentMap{}
+			next = newDocumentMap()
 			cur[p] = next
 		}
 		cur = next
 	}
 	cur[path[len(path)-1]] = value
+}
+
+func newDocumentMap() documentMap {
+	m := documentMapPool.Get().(documentMap)
+	clear(m)
+	return m
+}
+
+func recycleDocument(v any) {
+	switch x := v.(type) {
+	case documentMap:
+		for _, child := range x {
+			recycleDocument(child)
+		}
+		clear(x)
+		documentMapPool.Put(x)
+	case []any:
+		for _, child := range x {
+			recycleDocument(child)
+		}
+	}
+}
+
+func bytesContains(raw []byte, needle byte) bool {
+	for _, c := range raw {
+		if c == needle {
+			return true
+		}
+	}
+	return false
+}
+
+func bytesTrimSpace(raw []byte) []byte {
+	for len(raw) > 0 && (raw[0] == ' ' || raw[0] == '\t' || raw[0] == '\n' || raw[0] == '\r') {
+		raw = raw[1:]
+	}
+	for len(raw) > 0 {
+		c := raw[len(raw)-1]
+		if c != ' ' && c != '\t' && c != '\n' && c != '\r' {
+			break
+		}
+		raw = raw[:len(raw)-1]
+	}
+	return raw
 }

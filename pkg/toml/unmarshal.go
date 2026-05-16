@@ -17,16 +17,18 @@ package toml
 import (
 	"encoding"
 	"errors"
-	"fmt"
 	"reflect"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zchee/pandaemonium/pkg/toml/internal/reflectcache"
 )
 
 var textUnmarshalerType = reflect.TypeFor[encoding.TextUnmarshaler]()
+
+var decodeFilterCache sync.Map // map[reflect.Type]*decodeFilter
 
 // Unmarshal decodes a TOML document into dst.
 func Unmarshal(data []byte, dst any) error {
@@ -41,15 +43,22 @@ func unmarshalWithOptions(data []byte, dst any, opts UnmarshalOptions) error {
 	if u, ok := dst.(UnmarshalerFrom); ok {
 		return u.UnmarshalTOMLFrom(NewDecoderBytes(data, opts.DecoderOptions...))
 	}
-	root, err := parseDocument(data, opts.DecoderOptions)
-	if err != nil {
-		return err
-	}
 	v := reflect.ValueOf(dst)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return &TypeMismatchError{Want: "non-nil pointer", Got: v.Kind().String()}
 	}
-	return bindValue(v.Elem(), root, "", cfg)
+	filter, err := newDecodeFilter(v.Elem().Type())
+	if err != nil {
+		return normalizeReflectcacheError(err)
+	}
+	root, err := parseDocument(data, opts.DecoderOptions, filter)
+	if err != nil {
+		return err
+	}
+	if canRecycleDocumentFor(v.Elem().Type()) {
+		defer recycleDocument(root)
+	}
+	return bindValue(v.Elem(), root, cfg)
 }
 
 type bindConfig struct {
@@ -64,7 +73,125 @@ func bindConfigFromOptions(opts []Option) bindConfig {
 	return bindConfig{localAsUTC: decoder.localAsUTC}
 }
 
-func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
+func canRecycleDocumentFor(t reflect.Type) bool {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if t == reflect.TypeFor[time.Time]() ||
+		t == reflect.TypeFor[LocalDateTime]() ||
+		t == reflect.TypeFor[LocalDate]() ||
+		t == reflect.TypeFor[LocalTime]() {
+		return true
+	}
+	switch t.Kind() {
+	case reflect.Interface, reflect.Map:
+		return false
+	case reflect.Struct:
+		for i := range t.NumField() {
+			sf := t.Field(i)
+			if sf.PkgPath != "" && !sf.Anonymous {
+				continue
+			}
+			if !canRecycleDocumentFor(sf.Type) {
+				return false
+			}
+		}
+		return true
+	case reflect.Slice, reflect.Array:
+		return canRecycleDocumentFor(t.Elem())
+	default:
+		return true
+	}
+}
+
+type decodeFilter struct {
+	children map[string]*decodeFilter
+}
+
+func newDecodeFilter(t reflect.Type) (*decodeFilter, error) {
+	for t.Kind() == reflect.Pointer {
+		t = t.Elem()
+	}
+	if cached, ok := decodeFilterCache.Load(t); ok {
+		return cached.(*decodeFilter), nil
+	}
+	switch t.Kind() {
+	case reflect.Interface, reflect.Map:
+		return nil, nil
+	case reflect.Slice, reflect.Array:
+		return newDecodeFilter(t.Elem())
+	case reflect.Struct:
+		if t == reflect.TypeFor[time.Time]() ||
+			t == reflect.TypeFor[LocalDateTime]() ||
+			t == reflect.TypeFor[LocalDate]() ||
+			t == reflect.TypeFor[LocalTime]() {
+			return nil, nil
+		}
+		info, err := reflectcache.Lookup(t)
+		if err != nil {
+			return nil, err
+		}
+		filter := &decodeFilter{children: make(map[string]*decodeFilter, len(info.Fields)*2)}
+		for _, field := range info.Fields {
+			child, err := newDecodeFilter(field.Type)
+			if err != nil {
+				return nil, err
+			}
+			filter.children[field.Name] = child
+			lower := strings.ToLower(field.Name)
+			if _, exists := filter.children[lower]; !exists {
+				filter.children[lower] = child
+			}
+		}
+		if cached, loaded := decodeFilterCache.LoadOrStore(t, filter); loaded {
+			return cached.(*decodeFilter), nil
+		}
+		return filter, nil
+	default:
+		return nil, nil
+	}
+}
+
+func (f *decodeFilter) lookup(raw []byte) (*decodeFilter, bool) {
+	if f == nil {
+		return nil, true
+	}
+	if len(f.children) == 0 {
+		return nil, false
+	}
+	if isSimpleBareKey(raw) {
+		child, ok := f.children[string(raw)]
+		return child, ok
+	}
+	path, err := parseDottedKey(raw)
+	if err != nil {
+		return nil, true
+	}
+	return f.lookupPath(path)
+}
+
+func (f *decodeFilter) lookupPath(path []string) (*decodeFilter, bool) {
+	if f == nil {
+		return nil, true
+	}
+	cur := f
+	for _, part := range path {
+		next, ok := cur.children[part]
+		if !ok {
+			next, ok = cur.children[strings.ToLower(part)]
+		}
+		if !ok {
+			return nil, false
+		}
+		if next == nil {
+			return nil, true
+		}
+		cur = next
+	}
+	return cur, true
+}
+
+func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	if !dst.CanSet() {
 		return nil
 	}
@@ -75,23 +202,7 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 		if dst.IsNil() {
 			dst.Set(reflect.New(dst.Type().Elem()))
 		}
-		return bindValue(dst.Elem(), src, path, cfg)
-	}
-	if dst.CanAddr() && dst.Addr().Type().Implements(textUnmarshalerType) {
-		text, ok := src.(string)
-		if !ok {
-			if tm, ok := src.(encoding.TextMarshaler); ok {
-				b, err := tm.MarshalText()
-				if err != nil {
-					return err
-				}
-				text = string(b)
-				ok = true
-			}
-		}
-		if ok {
-			return dst.Addr().Interface().(encoding.TextUnmarshaler).UnmarshalText([]byte(text))
-		}
+		return bindValue(dst.Elem(), src, cfg)
 	}
 	if dst.Type() == reflect.TypeFor[time.Time]() {
 		switch v := src.(type) {
@@ -113,6 +224,22 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 			return nil
 		}
 	}
+	if dst.CanAddr() && dst.Addr().Type().Implements(textUnmarshalerType) {
+		text, ok := src.(string)
+		if !ok {
+			if tm, ok := src.(encoding.TextMarshaler); ok {
+				b, err := tm.MarshalText()
+				if err != nil {
+					return err
+				}
+				text = string(b)
+				ok = true
+			}
+		}
+		if ok {
+			return dst.Addr().Interface().(encoding.TextUnmarshaler).UnmarshalText([]byte(text))
+		}
+	}
 	switch dst.Kind() {
 	case reflect.Interface:
 		dst.Set(reflect.ValueOf(src))
@@ -120,7 +247,7 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 	case reflect.Struct:
 		m, ok := asDocumentMap(src)
 		if !ok {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		info, err := reflectcache.Lookup(dst.Type())
 		if err != nil {
@@ -131,15 +258,15 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 			if !ok {
 				continue
 			}
-			if err := bindValue(dst.FieldByIndex(field.Index), raw, joinPath(path, name), cfg); err != nil {
-				return err
+			if err := bindValue(dst.FieldByIndex(field.Index), raw, cfg); err != nil {
+				return bindErrorPath(err, name)
 			}
 		}
 		return nil
 	case reflect.Map:
 		m, ok := asDocumentMap(src)
 		if !ok {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		if dst.Type().Key().Kind() != reflect.String {
 			return &UnsupportedTypeError{Type: dst.Type().String()}
@@ -150,8 +277,8 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 		for k, raw := range m {
 			kv := reflect.ValueOf(k).Convert(dst.Type().Key())
 			ev := reflect.New(dst.Type().Elem()).Elem()
-			if err := bindValue(ev, raw, joinPath(path, k), cfg); err != nil {
-				return err
+			if err := bindValue(ev, raw, cfg); err != nil {
+				return bindErrorPath(err, k)
 			}
 			dst.SetMapIndex(kv, ev)
 		}
@@ -159,12 +286,12 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 	case reflect.Slice:
 		items, ok := src.([]any)
 		if !ok {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		out := reflect.MakeSlice(dst.Type(), len(items), len(items))
 		for i, raw := range items {
-			if err := bindValue(out.Index(i), raw, fmt.Sprintf("%s[%d]", path, i), cfg); err != nil {
-				return err
+			if err := bindValue(out.Index(i), raw, cfg); err != nil {
+				return bindErrorPath(err, indexPath(i))
 			}
 		}
 		dst.Set(out)
@@ -172,46 +299,46 @@ func bindValue(dst reflect.Value, src any, path string, cfg bindConfig) error {
 	case reflect.Array:
 		items, ok := src.([]any)
 		if !ok || len(items) != dst.Len() {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		for i, raw := range items {
-			if err := bindValue(dst.Index(i), raw, fmt.Sprintf("%s[%d]", path, i), cfg); err != nil {
-				return err
+			if err := bindValue(dst.Index(i), raw, cfg); err != nil {
+				return bindErrorPath(err, indexPath(i))
 			}
 		}
 		return nil
 	case reflect.String:
 		s, ok := src.(string)
 		if !ok {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		dst.SetString(s)
 		return nil
 	case reflect.Bool:
 		b, ok := src.(bool)
 		if !ok {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		dst.SetBool(b)
 		return nil
 	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
 		i, ok := int64Value(src)
 		if !ok || dst.OverflowInt(i) {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		dst.SetInt(i)
 		return nil
 	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
 		i, ok := int64Value(src)
 		if !ok || i < 0 || dst.OverflowUint(uint64(i)) {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		dst.SetUint(uint64(i))
 		return nil
 	case reflect.Float32, reflect.Float64:
 		f, ok := float64Value(src)
 		if !ok || dst.OverflowFloat(f) {
-			return mismatch(path, dst.Type(), src)
+			return mismatch(dst.Type(), src)
 		}
 		dst.SetFloat(f)
 		return nil
@@ -253,23 +380,19 @@ func float64Value(v any) (float64, bool) {
 	}
 }
 
-func mismatch(path string, typ reflect.Type, src any) error {
-	return &TypeMismatchError{Path: path, Want: typ.String(), Got: fmt.Sprintf("%T", src)}
+func mismatch(typ reflect.Type, src any) error {
+	return &TypeMismatchError{Want: typ.String(), Got: typeName(src)}
 }
 
-func joinPath(prefix, name string) string {
-	if prefix == "" {
-		return name
+func typeName(src any) string {
+	if src == nil {
+		return "<nil>"
 	}
-	return prefix + "." + name
+	return reflect.TypeOf(src).String()
 }
 
 func lookupStructField(info *reflectcache.TypeInfo, name string) (reflectcache.Field, bool) {
 	if field, ok := info.ByName[name]; ok {
-		return field, true
-	}
-	lower := strings.ToLower(name)
-	if field, ok := info.ByName[lower]; ok {
 		return field, true
 	}
 	for _, field := range info.Fields {
@@ -278,6 +401,39 @@ func lookupStructField(info *reflectcache.TypeInfo, name string) (reflectcache.F
 		}
 	}
 	return reflectcache.Field{}, false
+}
+
+func bindErrorPath(err error, prefix string) error {
+	if err == nil || prefix == "" {
+		return err
+	}
+	var tm *TypeMismatchError
+	if errors.As(err, &tm) {
+		tm.Path = joinPathComponent(prefix, tm.Path)
+	}
+	return err
+}
+
+func joinPathComponent(prefix, suffix string) string {
+	if suffix == "" {
+		return prefix
+	}
+	if prefix == "" {
+		return suffix
+	}
+	if suffix[0] == '[' {
+		return prefix + suffix
+	}
+	return prefix + "." + suffix
+}
+
+func indexPath(i int) string {
+	var buf [32]byte
+	b := buf[:0]
+	b = append(b, '[')
+	b = strconv.AppendInt(b, int64(i), 10)
+	b = append(b, ']')
+	return string(b)
 }
 
 func normalizeReflectcacheError(err error) error {

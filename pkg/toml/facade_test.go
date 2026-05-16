@@ -163,6 +163,33 @@ func TestFacadeCustomHooks(t *testing.T) {
 	}
 }
 
+func TestFacadeUnmarshalReportsNestedMismatchPath(t *testing.T) {
+	t.Parallel()
+
+	type item struct {
+		Count int
+	}
+	type config struct {
+		Items []item `toml:"items"`
+	}
+
+	input := []byte(`[[items]]
+count = 1
+
+[[items]]
+count = "bad"
+`)
+	var dst config
+	err := Unmarshal(input, &dst)
+	var mismatch *TypeMismatchError
+	if !errors.As(err, &mismatch) {
+		t.Fatalf("Unmarshal() error = %T(%v), want TypeMismatchError", err, err)
+	}
+	if mismatch.Path != "items[1].count" {
+		t.Fatalf("TypeMismatchError.Path = %q, want %q", mismatch.Path, "items[1].count")
+	}
+}
+
 type customFacade struct{ decoded bool }
 
 func (customFacade) MarshalTOMLTo(enc *Encoder) error {
