@@ -195,9 +195,10 @@ GOOS=wasip1 GOARCH=wasm go build …/scan/                           → clean
      an entry. Tracked in `UPSTREAM.md` already; no surprise.
 
 2. **Pre-Phase-1 deferrals (not Phase 1 scope)**: `go.mod` `go`
-   directive bump (1.26 → 1.27), toml-rs source pin, Cargo.lock corpus
-   procurement (Q8). All three are documented as TODO in
-   `UPSTREAM.md`; they block Phase 2/4/5 entry, not Phase 1 closeout.
+   directive bump (1.26 → 1.27), toml-rs source pin. `go.mod` and Cargo.lock
+   (Q8) entries are now recorded and tracked in `UPSTREAM.md`; open-questions
+   Q7 and Q8 are closed there, and only the toml-rs source pin remains
+   pending in pre-Phase-1 planning.
 
 3. **continue-on-error on amd64+simd CI jobs**: documented in
    `UPSTREAM.md` and the YAML headers. Flip-condition is the

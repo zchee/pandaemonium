@@ -31,7 +31,8 @@ Q7 is resolved in this step:
 - `go.mod` was bumped from `go 1.26` to `go 1.27` to align module
   identity with the runtime identity recorded above.
 
-Q7 commit SHA: pending; task-3 tracker records the Step 1 closure.
+Q7 commit SHA: pending; task-3 tracker records the Step 1 closure and will be
+  filled when this pre-phase change is merged.
 
 ### Snapshot stdlib quirk (informational)
 
@@ -116,7 +117,9 @@ from a deterministic seeded PRNG and do NOT depend on this corpus.
 ## Q9/Q10 confirmations
 
 - Q9 confirmed: SWAR-only non-amd64/non-arm64 verification target is
-  `wasip1/wasm` (`toml-scan-ci` and `toml-perf-gate`).
+  `wasip1/wasm` in `toml-scan-ci` (build-only check). The current
+  `toml-perf-gate` matrix is intentionally amd64/arm64-focused and does
+  not currently include a wasip1 perf cell.
 - Q10 confirmed: `MaxKeyLength` parser hard cap is `65536` bytes (`64 KiB`).
 
 ## toml-test compliance suite
