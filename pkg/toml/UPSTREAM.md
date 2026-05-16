@@ -165,33 +165,24 @@ Command        : go test -tags=bench -bench=BenchmarkSmoketestUnmarshal \
                  ./pkg/toml/internal/smoketest/
 Deletion rule  : rm -rf pkg/toml/internal/smoketest/ before Phase 4 facade work
 ```
-
-Decision rule for `smoketest_thru / burntsushi_thru`:
-
-- `>= 0.5x`: trajectory is plausible; proceed to Phase 3.
-- `>= 0.2x && < 0.5x`: borderline; Phase 3 may proceed, but the
-  trajectory needs an architect confidence check before facade work.
-- `< 0.2x`: gap is too wide; stop before Phase 3/4 and escalate to
-  planner for profile-backed remediation or AC-FAC-6 renegotiation.
-
-Outcome record (filled by the Phase 2.5 run):
-
-```text
-Executed       : 2026-05-17
-Toolchain      : go1.27-devel_b1972f9085 darwin/arm64 from /opt/local/go.simd
-Command        : GOTOOLCHAIN=local PATH=/opt/local/go.simd/bin:$PATH \
-                 /opt/local/go.simd/bin/go run ./hack/toml-perf-gate \
-                 --kind=parser --ratio=0.5 --count=10 --benchtime=5s --cpu=1
-Smoketest thru : 94.24 MiB/s (Pandaemonium)
-BurntSushi thru: 33.39 MiB/s
-Ratio          : 2.822x (lower95=2.822x, p=0.000 n=10)
-Verdict        : proceed
-Raw evidence   : pkg/toml/internal/smoketest/PHASE25_BENCHMARK_EVIDENCE.md
-Notes          : Worker-4 fixed the profile-backed parser-token hot path
-                 that allocated the remaining input in scanString; the
-                 local token benchmark moved from 332875089 B/op and
-                 5802 allocs/op to 700 B/op and 20 allocs/op before this
-                 Phase 2.5 BurntSushi comparison was recorded.
+Outcome        : PASS — proceed to Phase 3.
+Decision rule  : smoketest_thru / burntsushi_thru >= 0.5x.
+Final ratio    : 2.788x point, 2.788x lower95, p=0.000 n=10.
+Command        : CGO_ENABLED=0 GOTOOLCHAIN=local /opt/local/go.simd/bin/go run ./hack/toml-perf-gate --kind=parser --ratio=0.5 --count=10 --benchtime=5s --benchstat=/Users/zchee/go/bin/benchstat
+Toolchain      : go version go1.27-devel_b1972f9085 Sun May 17 03:53:30 2026 +0900 X:loopvar,newinliner,jsonv2,sizespecializedmalloc,simd,runtimesecret,mapsplitgroup darwin/arm64
+Corpus SHA-256 : 9ea94b60b3ee80c73f52186946bb280dc41c7287bbb678988618a6839533dbe9
+Corpus bytes   : 103263
+Benchmark      : pkg/toml/internal/smoketest BenchmarkSmoketestUnmarshal.
+BurntSushi     : 2.940 ms/op, 33.49 MiB/s, 1508.0 KiB/op, 25.37k allocs/op.
+Smoketest      : 1.055 ms/op, 93.38 MiB/s, 388.5 KiB/op, 12.18k allocs/op.
+Profile note   : initial pilot failed at 0.153x because Decoder.scanString
+                 converted the remaining corpus to string for every quoted
+                 value prefix check, allocating ~333 MB/op. The Phase 2.5
+                 remediation replaced that conversion with byte-prefix checks;
+                 parser tokenization improved to ~303-310 us/op and ~700 B/op
+                 on BenchmarkDecoderTokens_CargoLock.
+Temporary      : pkg/toml/internal/smoketest/ is build-tagged bench-only and
+                 carries DELETE_AT_PHASE_4.md for removal at Phase 4 step 0.
 ```
 
 Current evidence status: `pkg/toml/internal/smoketest/` is present under a
