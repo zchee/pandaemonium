@@ -12,27 +12,21 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build (amd64 && goexperiment.simd && !force_swar) || (arm64 && !force_swar)
+//go:build arm64 && !force_swar
 
 package memchr
 
-// init is the TRANSITIONAL binder for the amd64-with-SIMD and arm64 build
-// slots. It exists only between Steps 2 and 6 of the plan and keeps the
-// commit train building green while real SSE2/AVX2 (Step 4-5) and NEON
-// (Step 6) backends are still in flight. Both currently bind to SWAR.
+// init is the TRANSITIONAL binder for the arm64 build slot only — Step 4
+// narrowed the tag from `(amd64 && goexperiment.simd && !force_swar) ||
+// (arm64 && !force_swar)` to `arm64 && !force_swar` because
+// memchr_amd64.go now owns the amd64-with-SIMD slot. The arm64 binding
+// continues to fall through to SWAR until Step 6 lands the real NEON
+// backend in memchr_arm64.go, at which point this file is deleted.
 //
-// The two-disjunct tag is mutually exclusive with dispatch_swar_default.go's
-// tag (plan §"Tuple-coverage audit" L154-162):
-//
-//   - The !force_swar clauses on both disjuncts keep this file out of every
-//     force_swar slot, which is owned by dispatch_swar_default.go.
-//   - The goexperiment.simd clause on the amd64 disjunct keeps it out of the
-//     amd64-no-SIMD slot, which is also owned by dispatch_swar_default.go.
-//
-// Step 4 will narrow this file's tag from
-// `(amd64 && goexperiment.simd && !force_swar) || (arm64 && !force_swar)`
-// to `arm64 && !force_swar` (amd64-with-SIMD then owned by memchr_amd64.go).
-// Step 6 deletes the file entirely (arm64 then owned by memchr_arm64.go).
+// The remaining disjunct stays mutually exclusive with
+// dispatch_swar_default.go's tag (plan §"Tuple-coverage audit" L154-162):
+// the `!force_swar` clause keeps this file out of the (arm64, force_swar)
+// slot, which is owned by dispatch_swar_default.go's `force_swar` clause.
 func init() {
 	memchrImpl = swarMemchr
 	memchr2Impl = swarMemchr2
