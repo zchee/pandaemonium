@@ -91,8 +91,9 @@ for s in LocateNewline ScanLiteralString ScanBareKey \
 done
 ```
 
-CI also exposes `--kind=facade` and `--kind=edit` stubs but those
-are no-ops in Phase 1 (Phase 4 / Phase 5 will implement them).
+CI also exposes `--kind=facade` and `--kind=edit` gates. Those are
+owned by the Phase 4 facade and Phase 5 Document lanes; scan closeout
+only runs `--kind=scan`.
 
 ## Cross-cutting gates (plan §Cross-cutting verification, line 1101+)
 

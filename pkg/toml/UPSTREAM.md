@@ -246,3 +246,99 @@ will be updated with the documented-exception entry and the
 dispatcher in `scan_amd64.go` flipped to bind `bytes.IndexByte` for
 that scan. The arm64 path is settled; the amd64 path is the only
 remaining open item.
+
+## Final integration runbook
+
+Step 8 verification keeps the public surface flat and leaves
+benchmark-only dependencies out of production builds.
+
+### Package shape
+
+The approved package list is:
+
+```text
+github.com/zchee/pandaemonium/pkg/toml
+github.com/zchee/pandaemonium/pkg/toml/internal/reflectcache
+github.com/zchee/pandaemonium/pkg/toml/internal/scan
+```
+
+Re-check it with:
+
+```bash
+go list ./pkg/toml/... | sort -u
+```
+
+### Build tags and dependency graph
+
+- `force_swar` selects the pure-Go scan backend and is mandatory in the
+  scan fallback verification lane:
+  `go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan/`.
+- `bench` enables benchmark-only comparator tests for BurntSushi and
+  pelletier. Those libraries are present in `go.mod` for reproducible
+  benchmark wiring, but must not appear in the production dependency
+  graph.
+- Use `go list -deps ./pkg/toml` for the production graph.
+- Use `go list -deps -test -tags=bench ./pkg/toml` for the benchmark
+  test graph; the competitors live in `_test.go` files, so omitting
+  `-test` intentionally does not show them.
+
+### Fuzz corpus discipline
+
+The pinned toml-rs and toml-test corpora are immutable review
+artifacts. Refresh them only through:
+
+```bash
+./hack/import-toml-rs/import.sh v0.25.11
+./hack/import-toml-test/import.sh 4f76d84def032d092df152eb6efea5a6f78a0cee
+```
+
+Do not hand-edit imported corpus files. Fuzz discoveries should become
+small, named regression seeds or test fixtures, with provenance recorded
+next to the affected corpus or in the phase closeout note.
+
+### Fuzz execution commands
+
+The decoder package currently exposes three fuzz targets:
+
+- `FuzzDecoder`
+- `FuzzDecoderConstructorParity`
+- `FuzzTokenStream`
+
+Run them one at a time with anchored regular expressions. `go test`
+uses the fuzz flag as a regexp, so `-fuzz=FuzzDecoder` would also
+match `FuzzDecoderConstructorParity`.
+
+```bash
+go test -run=^$ -fuzz='^FuzzDecoder$' -fuzztime=60s ./pkg/toml/
+go test -run=^$ -fuzz='^FuzzDecoderConstructorParity$' -fuzztime=60s ./pkg/toml/
+go test -run=^$ -fuzz='^FuzzTokenStream$' -fuzztime=60s ./pkg/toml/
+```
+
+### Perf gates
+
+Run scan gates per `pkg/toml/internal/scan/VERIFICATION.md`. The
+facade and edit gates use the implemented CLI flag names:
+
+```bash
+go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3
+go run ./hack/toml-perf-gate --kind=edit --ratio-edit=0.25
+```
+
+`--ratio-edit` is the Phase 5 Document edit threshold. Do not use the
+older `--ratio-pelletier` spelling for edit gates; that flag belongs to
+the Phase 4 facade comparison.
+
+### Vendor and CI expectations
+
+This checkout does not carry a `vendor/` directory. If a future lane
+adds vendor mode, regenerate it with `go mod vendor` in the same commit
+as the dependency change and verify `vendor/modules.txt` is in sync.
+
+CI expectations:
+
+- `.github/workflows/test.yaml` covers normal repository tests.
+- `.github/workflows/toml-scan-ci.yml` covers cross-arch scanner build,
+  vet, race, and `force_swar` verification.
+- `.github/workflows/toml-perf-gate.yml` runs scan perf gates on
+  opt-in perf triggers (`workflow_dispatch`, push to main, or PR label
+  `perf-gate`) and uploads raw gate output as artifacts.

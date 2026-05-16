@@ -12,6 +12,26 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package toml will provide a flat TOML API backed by the shared streaming
-// parser planned in the repository OMX artifacts.
+// Package toml provides a flat TOML API backed by a shared streaming parser.
+//
+// The low-level API starts with Decoder and Token for callers that need to
+// inspect TOML input without building Go values. The high-level facade exposes
+// Marshal and Unmarshal for struct, map, scalar, array, and datetime values.
+// ParseDocument returns a format-preserving Document for edit-in-place
+// workflows where comments, whitespace, and untouched source spans must remain
+// byte-identical.
+//
+// Benchmark-only comparisons against external TOML libraries live behind the
+// bench build tag in tests and perf-gate tooling. Production builds of this
+// package must not import those competitors; verify with:
+//
+//	go list -deps ./pkg/toml
+//
+// Use the bench test graph when checking that the benchmark comparators are
+// wired:
+//
+//	go list -deps -test -tags=bench ./pkg/toml
+//
+// The force_swar build tag selects the pure-Go scan backend for verification
+// of the internal scanner fallback path.
 package toml
