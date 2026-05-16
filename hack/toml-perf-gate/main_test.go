@@ -15,6 +15,7 @@
 package main
 
 import (
+	"bytes"
 	"math"
 	"testing"
 )
@@ -237,6 +238,20 @@ func TestParseGate(t *testing.T) {
 	}
 }
 
+func TestWriteBenchmarkOutputWritesRawText(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	if err := writeBenchmarkOutput(&buf, []byte("BenchmarkParser-1 1 2 ns/op\nPASS\n")); err != nil {
+		t.Fatalf("writeBenchmarkOutput: %v", err)
+	}
+
+	want := "BenchmarkParser-1 1 2 ns/op\nPASS\n\n"
+	if got := buf.String(); got != want {
+		t.Fatalf("benchmark output = %q, want %q", got, want)
+	}
+}
+
 func TestParseCI(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
@@ -332,6 +347,36 @@ LocateNewline-16,1.20e-06,2.4e-08,6.00e-07,1.5e-08,-50.00%,p=0.001 n=10
 `
 	if _, err := parseGate(noBps, "LocateNewline", 1.0, 0.05); err == nil {
 		t.Error("parseGate without B/s table: want error, got nil")
+	}
+}
+
+func TestBenchmarkArgs_ParserHarness(t *testing.T) {
+	oldCount, oldCPU, oldBenchtime := *flagCount, *flagCPU, *flagBenchtime
+	*flagCount, *flagCPU, *flagBenchtime = 10, 1, "5s"
+	defer func() {
+		*flagCount, *flagCPU, *flagBenchtime = oldCount, oldCPU, oldBenchtime
+	}()
+
+	got := benchmarkArgs("./pkg/toml/internal/smoketest/", "^BenchmarkSmoketestUnmarshal_BurntSushi$", "bench")
+	want := []string{
+		"test",
+		"-bench=^BenchmarkSmoketestUnmarshal_BurntSushi$",
+		"-benchmem",
+		"-count=10",
+		"-cpu=1",
+		"-benchtime=5s",
+		"-run=^$",
+		"-timeout=1800s",
+		"-tags=bench",
+		"./pkg/toml/internal/smoketest/",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("benchmarkArgs len = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("benchmarkArgs[%d] = %q, want %q", i, got[i], want[i])
+		}
 	}
 }
 
