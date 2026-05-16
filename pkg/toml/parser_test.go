@@ -26,6 +26,8 @@ import (
 	"sort"
 	"strings"
 	"testing"
+
+	gocmp "github.com/google/go-cmp/cmp"
 )
 
 func TestDecoderTokenStream_BasicKeyValue(t *testing.T) {
@@ -286,6 +288,126 @@ func TestDecoderValueKindAndValidation(t *testing.T) {
 	}
 }
 
+func TestDecoderDateTimeValueFormsRoundTrip(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		value string
+	}{
+		"success: offset datetime utc": {
+			value: "1979-05-27T07:32:00Z",
+		},
+		"success: offset datetime plus fourteen boundary": {
+			value: "1979-05-27T07:32:00+14:00",
+		},
+		"success: offset datetime minus twelve boundary": {
+			value: "1979-05-27T07:32:00-12:00",
+		},
+		"success: local datetime": {
+			value: "1979-05-27T07:32:00",
+		},
+		"success: local date": {
+			value: "1979-05-27",
+		},
+		"success: local time": {
+			value: "07:32:00",
+		},
+		"success: fractional precision zero digits absent": {
+			value: "1979-05-27T07:32:00Z",
+		},
+		"success: fractional precision one digit": {
+			value: "1979-05-27T07:32:00.1Z",
+		},
+		"success: fractional precision two digits": {
+			value: "1979-05-27T07:32:00.12Z",
+		},
+		"success: fractional precision three digits": {
+			value: "1979-05-27T07:32:00.123Z",
+		},
+		"success: fractional precision four digits": {
+			value: "1979-05-27T07:32:00.1234Z",
+		},
+		"success: fractional precision five digits": {
+			value: "1979-05-27T07:32:00.12345Z",
+		},
+		"success: fractional precision six digits": {
+			value: "1979-05-27T07:32:00.123456Z",
+		},
+		"success: fractional precision seven digits": {
+			value: "1979-05-27T07:32:00.1234567Z",
+		},
+		"success: fractional precision eight digits": {
+			value: "1979-05-27T07:32:00.12345678Z",
+		},
+		"success: fractional precision nine digits": {
+			value: "1979-05-27T07:32:00.123456789Z",
+		},
+		"success: local time fractional precision nine digits": {
+			value: "07:32:00.123456789",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := readSingleValueToken(t, "when = "+tc.value)
+			want := Token{Kind: TokenKindValueDatetime, Bytes: []byte(tc.value), Line: 1, Col: 8}
+			if diff := gocmp.Diff(want, got); diff != "" {
+				t.Fatalf("datetime value token mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestDecoderDateTimeInvalidForms(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		value string
+	}{
+		"error: local date uses one digit month": {
+			value: "1979-5-27",
+		},
+		"error: local date uses one digit day": {
+			value: "1979-05-7",
+		},
+		"error: local date has impossible day": {
+			value: "1979-02-29",
+		},
+		"error: local time has invalid hour": {
+			value: "24:00:00",
+		},
+		"error: local time has invalid minute": {
+			value: "23:60:00",
+		},
+		"error: local time has invalid second": {
+			value: "23:59:60",
+		},
+		"error: offset datetime has trailing fractional decimal": {
+			value: "1979-05-27T07:32:00.Z",
+		},
+		"error: offset datetime omits offset minute": {
+			value: "1979-05-27T07:32:00+14",
+		},
+		"error: offset datetime omits offset colon": {
+			value: "1979-05-27T07:32:00+1400",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			dec := NewDecoderBytes([]byte("when = " + tc.value))
+			if tok, err := dec.ReadToken(); err != nil || tok.Kind != TokenKindKey {
+				t.Fatalf("ReadToken key = %v, %v; want key before datetime validation", tok, err)
+			}
+			if tok, err := dec.ReadToken(); err == nil {
+				t.Fatalf("ReadToken value = %v, nil; want syntax error for %q", tok, tc.value)
+			}
+		})
+	}
+}
+
 func TestDecoderErrorStateIsSticky(t *testing.T) {
 	dec := NewDecoderBytes([]byte("broken = [\n"))
 	tok, err := dec.ReadToken()
@@ -482,6 +604,19 @@ func readAllTokens(dec *Decoder) ([]Token, error) {
 		}
 		tokens = append(tokens, tok)
 	}
+}
+
+func readSingleValueToken(t testing.TB, input string) Token {
+	t.Helper()
+	dec := NewDecoderBytes([]byte(input))
+	if tok, err := dec.ReadToken(); err != nil || tok.Kind != TokenKindKey {
+		t.Fatalf("ReadToken key = %v, %v; want key before value", tok, err)
+	}
+	tok, err := dec.ReadToken()
+	if err != nil {
+		t.Fatalf("ReadToken value = %v", err)
+	}
+	return tok
 }
 
 func mustReadRepoFile(t testing.TB, rel string) []byte {
