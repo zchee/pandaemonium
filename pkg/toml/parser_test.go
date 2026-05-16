@@ -15,11 +15,15 @@
 package toml
 
 import (
+	"bufio"
+	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"os"
 	"path/filepath"
 	"runtime"
+	"sort"
 	"strings"
 	"testing"
 )
@@ -88,6 +92,74 @@ func TestDecoderCorpus_ValidFiles_Smoke(t *testing.T) {
 		if _, err := readAllTokens(dec); err != nil {
 			t.Fatalf("NewDecoderBytes should parse %s without syntax errors, got %v", rel, err)
 		}
+	}
+}
+
+func TestDecoderTokenGolden_FixtureCorpus(t *testing.T) {
+	base := "pkg/toml/testdata/tokens"
+	entries := mustListTokenFixtures(t, base)
+	if len(entries) == 0 {
+		t.Fatal("expected at least one token fixture in testdata/tokens")
+	}
+	for _, entry := range entries {
+		entry := entry
+		name := strings.TrimSuffix(entry.Name(), ".toml")
+		t.Run(entry.Name(), func(t *testing.T) {
+			input := mustReadRepoFile(t, filepath.Join(base, entry.Name()))
+			got := mustReadAllTokens(t, NewDecoderBytes(input))
+			wantPath := filepath.Join(base, name+".tokens.golden")
+			want := readTokenGolden(t, mustRepoPath(t, wantPath))
+			if len(got) != len(want) {
+				t.Fatalf("token count mismatch: got=%d want=%d", len(got), len(want))
+			}
+			for i := range got {
+				if string(got[i].Bytes) != want[i].Text {
+					t.Fatalf("token[%d] bytes mismatch: got=%q want=%q", i, got[i].Bytes, want[i].Text)
+				}
+				if got[i].Kind != tokenKindFromString(want[i].Kind) {
+					t.Fatalf("token[%d] kind mismatch: got=%q want=%q", i, got[i].Kind, want[i].Kind)
+				}
+			}
+		})
+	}
+}
+
+func TestDecoderTokenGolden_InvalidUTF8Fixture(t *testing.T) {
+	input := mustReadRepoFile(t, "pkg/toml/testdata/tokens/invalid-utf8.toml")
+	dec := NewDecoderBytes(input)
+	if _, err := readAllTokens(dec); err == nil {
+		t.Fatalf("expected invalid-utf8 fixture to fail")
+	}
+}
+
+func TestDecoderTokenGolden_ReaderAndBytesParityForFixtureCorpus(t *testing.T) {
+	base := "pkg/toml/testdata/tokens"
+	entries := mustListTokenFixtures(t, base)
+	if len(entries) == 0 {
+		t.Fatal("expected at least one token fixture in testdata/tokens")
+	}
+	for _, entry := range entries {
+		entry := entry
+		path := filepath.Join(base, entry.Name())
+		t.Run(entry.Name(), func(t *testing.T) {
+			input := mustReadRepoFile(t, path)
+			gotKinds, err := readTokenKinds(NewDecoderBytes(input))
+			if err != nil {
+				t.Fatalf("bytes constructor failed: %v", err)
+			}
+			gotReaderKinds, err := readTokenKinds(NewDecoder(strings.NewReader(string(input))))
+			if err != nil {
+				t.Fatalf("reader constructor failed: %v", err)
+			}
+			if len(gotKinds) != len(gotReaderKinds) {
+				t.Fatalf("token kind count mismatch: bytes=%d reader=%d", len(gotKinds), len(gotReaderKinds))
+			}
+			for i := range gotKinds {
+				if gotKinds[i].Kind != gotReaderKinds[i].Kind {
+					t.Fatalf("token[%d] mismatch: bytes=%q reader=%q", i, gotKinds[i].Kind, gotReaderKinds[i].Kind)
+				}
+			}
+		})
 	}
 }
 
@@ -198,12 +270,13 @@ func TestDecoderErrorStateIsSticky(t *testing.T) {
 	if err != nil || tok.Kind != TokenKindKey {
 		t.Fatalf("ReadToken key = %v, %v", tok, err)
 	}
-	if tok, err := dec.ReadToken(); err != nil || tok.Kind != TokenKindArrayStart {
-		t.Fatalf("ReadToken array-start parse = %v, %v", tok, err)
+	tok, err = dec.ReadToken()
+	if err != nil || tok.Kind != TokenKindArrayStart {
+		t.Fatalf("ReadToken array start = %v, %v", tok, err)
 	}
 	_, err1 := dec.ReadToken()
 	if err1 == nil {
-		t.Fatalf("expected parse error after incomplete array")
+		t.Fatalf("expected parse error from malformed array open")
 	}
 	_, err2 := dec.ReadToken()
 	if err2 == nil {
@@ -262,6 +335,116 @@ func TestDecoderDocumentSizeLimit(t *testing.T) {
 	}
 	if !strings.Contains(err.Error(), "MaxDocumentSize") {
 		t.Fatalf("error=%v, want MaxDocumentSize mention", err)
+	}
+}
+
+func mustListTokenFixtures(t *testing.T, dir string) []os.DirEntry {
+	t.Helper()
+	entries, err := os.ReadDir(mustRepoPath(t, dir))
+	if err != nil {
+		t.Fatalf("os.ReadDir(%q) error = %v", dir, err)
+	}
+	var fixtures []os.DirEntry
+	for _, e := range entries {
+		if e.IsDir() {
+			continue
+		}
+		if filepath.Ext(e.Name()) != ".toml" {
+			continue
+		}
+		if strings.HasSuffix(e.Name(), ".tokens.golden") {
+			continue
+		}
+		if e.Name() == "invalid-utf8.toml" {
+			continue
+		}
+		fixtures = append(fixtures, e)
+	}
+	sort.Slice(fixtures, func(i, j int) bool {
+		return fixtures[i].Name() < fixtures[j].Name()
+	})
+	return fixtures
+}
+
+func readTokenKinds(dec *Decoder) ([]Token, error) {
+	return readAllTokens(dec)
+}
+
+func mustReadAllTokens(t testing.TB, dec *Decoder) []Token {
+	t.Helper()
+	tokens, err := readAllTokens(dec)
+	if err != nil {
+		t.Fatalf("read token stream = %v", err)
+	}
+	return tokens
+}
+
+type tokenGolden struct {
+	Kind string `json:"kind"`
+	Text string `json:"text"`
+}
+
+func readTokenGolden(t testing.TB, path string) []tokenGolden {
+	t.Helper()
+	f, err := os.Open(path)
+	if err != nil {
+		t.Fatalf("os.Open(%s) error = %v", path, err)
+	}
+	defer f.Close()
+
+	sc := bufio.NewScanner(f)
+	got := make([]tokenGolden, 0)
+	lineNo := 0
+	for sc.Scan() {
+		lineNo++
+		line := strings.TrimSpace(sc.Text())
+		if line == "" {
+			continue
+		}
+		var item tokenGolden
+		if err := json.Unmarshal([]byte(line), &item); err != nil {
+			t.Fatalf("invalid golden format %s:%d: %v", path, lineNo, err)
+		}
+		got = append(got, item)
+	}
+	if err := sc.Err(); err != nil {
+		t.Fatalf("scan golden file %s error = %v", path, err)
+	}
+	return got
+}
+
+func tokenKindFromString(name string) TokenKind {
+	switch name {
+	case "Invalid":
+		return TokenKindInvalid
+	case "TableHeader":
+		return TokenKindTableHeader
+	case "ArrayTableHeader":
+		return TokenKindArrayTableHeader
+	case "Key":
+		return TokenKindKey
+	case "ValueString":
+		return TokenKindValueString
+	case "ValueInteger":
+		return TokenKindValueInteger
+	case "ValueFloat":
+		return TokenKindValueFloat
+	case "ValueBool":
+		return TokenKindValueBool
+	case "ValueDatetime":
+		return TokenKindValueDatetime
+	case "ArrayStart":
+		return TokenKindArrayStart
+	case "ArrayEnd":
+		return TokenKindArrayEnd
+	case "InlineTableStart":
+		return TokenKindInlineTableStart
+	case "InlineTableEnd":
+		return TokenKindInlineTableEnd
+	case "Comment":
+		return TokenKindComment
+	default:
+		panic(fmt.Sprintf("unsupported token kind in fixture: %q", name))
 	}
 }
 
