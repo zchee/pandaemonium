@@ -198,7 +198,9 @@ GOOS=wasip1 GOARCH=wasm go build …/scan/                           → clean
    directive bump (1.26 → 1.27), toml-rs source pin. `go.mod` and Cargo.lock
    (Q8) entries are now recorded and tracked in `UPSTREAM.md`; open-questions
    Q7 and Q8 are closed there, and only the toml-rs source pin remains
-   pending in pre-Phase-1 planning.
+   pending in pre-Phase-1 planning. Task-3 review confirms these Q7/Q8
+   closures and notes that no additional Step 1 pre-phase blockers remain
+   for parser-entry readiness.
 
 3. **continue-on-error on amd64+simd CI jobs**: documented in
    `UPSTREAM.md` and the YAML headers. Flip-condition is the
