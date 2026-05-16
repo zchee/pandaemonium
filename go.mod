@@ -10,4 +10,17 @@ require (
 	mvdan.cc/gofumpt v0.10.0
 )
 
-require golang.org/x/tools v0.45.0 // indirect
+tool (
+	github.com/klauspost/asmfmt/cmd/asmfmt
+	golang.org/x/perf/cmd/benchstat
+)
+
+require (
+	github.com/klauspost/asmfmt v1.3.2 // indirect
+	golang.org/x/tools v0.45.0 // indirect
+)
+
+require (
+	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 // indirect
+	golang.org/x/perf v0.0.0-20260512194132-3cf34090a3db // indirect
+)
