@@ -380,6 +380,36 @@ func TestBenchmarkArgs_ParserHarness(t *testing.T) {
 	}
 }
 
+func TestBenchmarkArgs_EditHarness(t *testing.T) {
+	oldCount, oldCPU, oldBenchtime := *flagCount, *flagCPU, *flagBenchtime
+	*flagCount, *flagCPU, *flagBenchtime = 10, 1, "5s"
+	defer func() {
+		*flagCount, *flagCPU, *flagBenchtime = oldCount, oldCPU, oldBenchtime
+	}()
+
+	got := benchmarkArgs("./pkg/toml/", "^BenchmarkDocumentEdit$", "bench")
+	want := []string{
+		"test",
+		"-bench=^BenchmarkDocumentEdit$",
+		"-benchmem",
+		"-count=10",
+		"-cpu=1",
+		"-benchtime=5s",
+		"-run=^$",
+		"-timeout=1800s",
+		"-tags=bench",
+		"./pkg/toml/",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("benchmarkArgs len = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("benchmarkArgs[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
 func contains(s, sub string) bool {
 	for i := 0; i+len(sub) <= len(s); i++ {
 		if s[i:i+len(sub)] == sub {

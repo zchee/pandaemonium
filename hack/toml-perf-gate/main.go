@@ -38,15 +38,16 @@
 //	  [--count=10] [--benchtime=5s] [--cpu=1] [--package=./pkg/toml/internal/scan/]
 //	  [--benchstat=benchstat]
 //	go run ./hack/toml-perf-gate --kind=parser --ratio=0.5
+//	go run ./hack/toml-perf-gate --kind=edit --ratio-pelletier=1.5
 //	go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3
 //
-//	# Phase 4/5 stubs (no-ops in Phase 1):
+//	# Phase 4/5 gates:
 //	go run ./hack/toml-perf-gate --kind=facade ...
 //	go run ./hack/toml-perf-gate --kind=edit   ...
 //
 // Exit codes:
 //
-//	0  all gates pass (or --kind=facade|edit stub)
+//	0  all gates pass
 //	1  one or more gates fail (regression)
 //	2  argument or harness error
 package main
@@ -98,8 +99,10 @@ var (
 	flagPackage         = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the scan benchmarks")
 	flagParserPkg       = flag.String("parser-package", "./pkg/toml/", "package import path containing parser/facade benchmarks")
 	flagFacadePkg       = flag.String("facade-package", "./pkg/toml/", "package import path containing Phase 4 facade benchmarks")
+	flagEditPkg         = flag.String("edit-package", "./pkg/toml/", "package import path containing Phase 5 Document edit benchmarks")
 	flagRatioBurntSushi = flag.Float64("ratio-burntsushi", 1.5, "minimum Pandaemonium/BurntSushi throughput ratio for --kind=facade")
 	flagRatioPelletier  = flag.Float64("ratio-pelletier", 1.3, "minimum Pandaemonium/pelletier throughput ratio for --kind=facade")
+	flagRatioEdit       = flag.Float64("ratio-edit", 0.25, "minimum Pandaemonium/pelletier Document edit throughput ratio for --kind=edit")
 	flagBenchstat       = flag.String("benchstat", "benchstat", "path to benchstat binary")
 	flagAlpha           = flag.Float64("alpha", 0.05, "benchstat -alpha (U-test significance threshold)")
 	flagBench           = flag.String("bench", "SmoketestUnmarshal", "benchmark stem for --kind=parser")
@@ -113,9 +116,7 @@ func main() {
 	case "facade":
 		runFacadeGate()
 	case "edit":
-		// Phase 5 will implement this; keep the CLI surface stable.
-		fmt.Printf("toml-perf-gate: --kind=%s not implemented until Phase 5; exiting 0\n", *flagKind)
-		os.Exit(exitOK)
+		runEditGate()
 	case "parser":
 		runParserSmoketest()
 	case "":
@@ -126,6 +127,59 @@ func main() {
 		fmt.Fprintf(os.Stderr, "toml-perf-gate: unknown --kind=%q (valid: scan, facade, edit, parser)\n", *flagKind)
 		os.Exit(exitArg)
 	}
+}
+
+// runEditGate compares the Phase 5 format-preserving Document edit path
+// against pelletier's full unmarshal/marshal edit path on the pinned
+// Cargo.lock corpus.
+func runEditGate() {
+	if *flagRatioEdit <= 0 {
+		die(exitArg, "--ratio-edit must be > 0; got %g", *flagRatioEdit)
+	}
+	if *flagAlpha <= 0 || *flagAlpha >= 1 {
+		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+	}
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		die(exitArg, "%v", err)
+	}
+	tmp, err := os.MkdirTemp("", "toml-edit-gate-*")
+	if err != nil {
+		die(exitArg, "mktemp: %v", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	stem := "BenchmarkDocumentEdit"
+	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagEditPkg, "^"+stem+"_Pelletier$", "pelletier-base", "bench")
+	if err != nil {
+		die(exitArg, "pelletier edit benchmark: %v", err)
+	}
+	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagEditPkg, "^"+stem+"_Pandaemonium$", "pandaemonium-candidate", "bench")
+	if err != nil {
+		die(exitArg, "pandaemonium edit benchmark: %v", err)
+	}
+	if err := renameInPlace(baseFile, stem+"_Pelletier", stem); err != nil {
+		die(exitArg, "rename pelletier edit benchmark: %v", err)
+	}
+	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
+		die(exitArg, "rename pandaemonium edit benchmark: %v", err)
+	}
+	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
+	if err != nil {
+		die(exitArg, "benchstat edit: %v", err)
+	}
+	fmt.Printf("\n# edit: Pandaemonium Document vs pelletier full edit\n")
+	fmt.Print(textOut)
+	res, err := parseGate(csvOut, "DocumentEdit", *flagRatioEdit, *flagAlpha)
+	if err != nil {
+		die(exitArg, "parse benchstat CSV for edit: %v", err)
+	}
+	if res.pass {
+		fmt.Printf("toml-perf-gate: PASS edit/pelletier point=%.3fx lower95=%.3fx threshold=%.3fx %s\n", res.pointRatio, res.lowerRatio, *flagRatioEdit, res.pStr)
+		os.Exit(exitOK)
+	}
+	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL edit/pelletier point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n", res.pointRatio, res.lowerRatio, *flagRatioEdit, res.pStr, res.failReason)
+	os.Exit(exitFail)
 }
 
 // runFacadeGate compares the Phase 4 high-level Unmarshal facade against the

@@ -203,3 +203,74 @@ facade_perf_gate_exit=1
 The final gate confirms the narrowed exception: the BurntSushi requirement now
 passes with margin, while the Pelletier requirement remains a true architecture
 threshold miss rather than a statistical-noise failure.
+
+## Edit perf-gate evidence
+
+The edit-path gate compares Pandaemonium's format-preserving Document edit path
+against a pelletier full unmarshal/mutate/marshal edit path on the same pinned
+Cargo.lock corpus. The local gate below uses the Phase 5 `--ratio-edit=0.25`
+threshold and exits 0 with a PASS verdict.
+
+```text
+=== command: GOTOOLCHAIN=local /opt/local/go.simd/bin/go run ./hack/toml-perf-gate --kind=edit --ratio-edit=0.25 --benchstat=$HOME/go/bin/benchstat --count=10 --benchtime=1s --cpu=1 ===
+
+# edit: Pandaemonium Document vs pelletier full edit
+goos: darwin
+goarch: arm64
+pkg: github.com/zchee/pandaemonium/pkg/toml
+cpu: Apple M3 Max
+DocumentEdit  sec/op    939.0µ ± 2%  895.3µ ± 1%  -4.65% (p=0.000 n=10)
+DocumentEdit  B/s       104.9Mi ± 2%  110.0Mi ± 1%  +4.88% (p=0.000 n=10)
+DocumentEdit  B/op      936.4Ki ± 0%  851.5Ki ± 0%  -9.06% (p=0.000 n=10)
+DocumentEdit  allocs/op 7.638k ± 0%  14.878k ± 0%  +94.79% (p=0.000 n=10)
+toml-perf-gate: PASS edit/pelletier point=1.049x lower95=1.049x threshold=0.250x p=0.000 n=10
+edit_perf_gate_exit=0
+```
+
+## Document edit benchmark evidence
+
+`BenchmarkDocumentEdit` exercises the format-preserving Document API edit path
+on the pinned Cargo.lock corpus: parse the document, replace the existing
+top-level `version` value, insert a new dotted key after it, and serialize the
+edited bytes. The bench-tag run also includes the explicit Pandaemonium and
+pelletier comparator names consumed by `hack/toml-perf-gate --kind=edit`.
+
+```text
+=== command: GOTOOLCHAIN=local /opt/local/go.simd/bin/go test -tags=bench -run='^$' -bench=BenchmarkDocumentEdit -benchmem -count=10 -cpu=1 -benchtime=5s ./pkg/toml/ ===
+goos: darwin
+goarch: arm64
+pkg: github.com/zchee/pandaemonium/pkg/toml
+cpu: Apple M3 Max
+BenchmarkDocumentEdit               6208  928199 ns/op  111.25 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6510  912845 ns/op  113.12 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6374  916387 ns/op  112.68 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6602  922570 ns/op  111.93 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6540  950600 ns/op  108.63 MB/s  871970 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6584  916351 ns/op  112.69 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6615  924723 ns/op  111.67 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6788  910739 ns/op  113.38 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6742  930108 ns/op  111.02 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit               6501  912744 ns/op  113.13 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6591  922606 ns/op  111.93 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6440  916314 ns/op  112.69 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6624  920644 ns/op  112.16 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6471  932335 ns/op  110.76 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6298  924959 ns/op  111.64 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6531  918356 ns/op  112.44 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6708  921950 ns/op  112.00 MB/s  871970 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6352  920395 ns/op  112.19 MB/s  871970 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6682  953580 ns/op  108.29 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pandaemonium  6630  913190 ns/op  113.08 MB/s  871971 B/op  14878 allocs/op
+BenchmarkDocumentEdit_Pelletier     5976  962973 ns/op  107.23 MB/s  958875 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     5805  991515 ns/op  104.15 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     5956  965732 ns/op  106.93 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6337  969496 ns/op  106.51 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6316  967750 ns/op  106.70 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6259  973500 ns/op  106.07 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6277  976295 ns/op  105.77 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6165  966898 ns/op  106.80 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6224  984169 ns/op  104.92 MB/s  958872 B/op   7638 allocs/op
+BenchmarkDocumentEdit_Pelletier     6080  971115 ns/op  106.33 MB/s  958872 B/op   7638 allocs/op
+PASS
+ok github.com/zchee/pandaemonium/pkg/toml 180.531s
+```

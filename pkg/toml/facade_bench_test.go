@@ -33,10 +33,13 @@ type benchPackage struct {
 }
 
 type benchCargo struct {
+	Version int            `toml:"version"`
 	Package []benchPackage `toml:"package"`
 }
 
 var benchCargoLock = mustReadBenchCorpus()
+
+var benchDocumentEditOutput []byte
 
 func BenchmarkUnmarshal_BurntSushi(b *testing.B) {
 	b.SetBytes(int64(len(benchCargoLock)))
@@ -65,6 +68,49 @@ func BenchmarkUnmarshal_Pandaemonium(b *testing.B) {
 		if err := toml.Unmarshal(benchCargoLock, &dst); err != nil {
 			b.Fatal(err)
 		}
+	}
+}
+
+func BenchmarkDocumentEdit(b *testing.B) {
+	benchmarkDocumentEditPandaemonium(b)
+}
+
+func BenchmarkDocumentEdit_Pandaemonium(b *testing.B) {
+	benchmarkDocumentEditPandaemonium(b)
+}
+
+func BenchmarkDocumentEdit_Pelletier(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchCargoLock)))
+	for b.Loop() {
+		var dst benchCargo
+		if err := pelletier.Unmarshal(benchCargoLock, &dst); err != nil {
+			b.Fatal(err)
+		}
+		dst.Version = 4
+		body, err := pelletier.Marshal(&dst)
+		if err != nil {
+			b.Fatal(err)
+		}
+		benchDocumentEditOutput = body
+	}
+}
+
+func benchmarkDocumentEditPandaemonium(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchCargoLock)))
+	for b.Loop() {
+		doc, err := toml.ParseDocument(benchCargoLock)
+		if err != nil {
+			b.Fatal(err)
+		}
+		if err := doc.Set("version", int64(4)); err != nil {
+			b.Fatal(err)
+		}
+		if err := doc.InsertAfter("version", "pandaemonium.edited", true); err != nil {
+			b.Fatal(err)
+		}
+		benchDocumentEditOutput = doc.Bytes()
 	}
 }
 
