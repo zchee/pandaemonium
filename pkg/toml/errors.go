@@ -72,3 +72,40 @@ type LocalTimeIntoTimeError struct {
 func (e *LocalTimeIntoTimeError) Error() string {
 	return "toml: local datetime cannot decode into time.Time without WithLocalAsUTC"
 }
+
+// TagOptionError reports unsupported toml struct-tag options.
+type TagOptionError struct {
+	Struct string
+	Field  string
+	Option string
+}
+
+// Error implements the error interface.
+func (e *TagOptionError) Error() string {
+	return fmt.Sprintf("toml: unsupported struct tag option %q on %s.%s", e.Option, e.Struct, e.Field)
+}
+
+// UnsupportedTypeError reports values that cannot be represented as TOML.
+type UnsupportedTypeError struct {
+	Type string
+}
+
+// Error implements the error interface.
+func (e *UnsupportedTypeError) Error() string {
+	return "toml: unsupported type " + e.Type
+}
+
+// TypeMismatchError reports a TOML value that cannot bind to the target type.
+type TypeMismatchError struct {
+	Path string
+	Want string
+	Got  string
+}
+
+// Error implements the error interface.
+func (e *TypeMismatchError) Error() string {
+	if e.Path == "" {
+		return fmt.Sprintf("toml: cannot decode %s into %s", e.Got, e.Want)
+	}
+	return fmt.Sprintf("toml: cannot decode %s into %s at %s", e.Got, e.Want, e.Path)
+}
