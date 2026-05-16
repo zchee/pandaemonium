@@ -1,0 +1,6 @@
+# Standard Cargo build directory — emitted by `cargo build` / `cargo run`.
+/target/
+
+# Stray rustc incremental-compilation directory occasionally produced by
+# nightly toolchains in CWD. Not affected by --target-dir.
+/on/

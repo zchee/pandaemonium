@@ -1,0 +1,18 @@
+[package]
+name = "extract-memchr-corpus"
+version = "0.1.0"
+edition = "2021"
+publish = false
+description = "One-shot shim: enumerate fixtures, call upstream BurntSushi/memchr =2.7.4, emit JSON oracle for the Go internal/memchr port."
+
+[dependencies]
+# Exact-equality pin — bumping requires editing both Cargo.toml and
+# Cargo.lock in the same commit as the regenerated golden_corpus.json.
+memchr = "=2.7.4"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+base64 = "0.22"
+
+[profile.release]
+opt-level = 3
+lto = false
