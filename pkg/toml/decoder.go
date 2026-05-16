@@ -18,7 +18,6 @@ import (
 	"io"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/zchee/pandaemonium/pkg/toml/internal/scan"
 )
@@ -65,6 +64,13 @@ func WithLimits(l Limits) Option {
 	}
 }
 
+// WithLocalAsUTC allows local TOML datetime forms to decode into time.Time as UTC.
+func WithLocalAsUTC() Option {
+	return func(d *Decoder) {
+		d.localAsUTC = true
+	}
+}
+
 // Decoder reads bytes as a token stream.
 //
 // `Token.Bytes` aliases source bytes for NewDecoderBytes and aliases an internal
@@ -84,6 +90,7 @@ type Decoder struct {
 	limits      Limits
 	arrayDepth  int
 	inlineDepth int
+	localAsUTC  bool
 }
 
 // NewDecoder creates a Decoder over an io.Reader input.
@@ -366,7 +373,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		return d.scanComment()
 	}
 
-	end := scanUntilDelimiter(d.buf[start:])
+	end := scanBareValueEnd(d.buf[start:])
 	if end == 0 {
 		return Token{}, d.syntaxError("invalid value", start)
 	}
@@ -379,6 +386,8 @@ func (d *Decoder) scanValueToken() (Token, error) {
 	clean := strings.ReplaceAll(norm, "_", "")
 	var kind TokenKind
 	switch {
+	case looksLikeDatetime(chunk):
+		kind = TokenKindValueDatetime
 	case strings.ContainsAny(clean, "= "):
 		return Token{}, d.syntaxError("unexpected = in value", start)
 	case norm == "true" || norm == "false":
@@ -386,8 +395,6 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		if clean == "" || clean == "+" || clean == "-" {
 			return Token{}, d.syntaxError("malformed value", start)
 		}
-	case looksLikeDatetime(chunk):
-		kind = TokenKindValueDatetime
 	case isSpecialFloat(norm):
 		kind = TokenKindValueFloat
 	case isIntCandidate(norm):
@@ -689,7 +696,7 @@ func hasNewlineBefore(raw []byte, end int) bool {
 	return false
 }
 
-func (d *Decoder) enforceNestedDepth(off int, depth int) {
+func (d *Decoder) enforceNestedDepth(off, depth int) {
 	if d.limits.MaxNestedDepth > 0 && depth > d.limits.MaxNestedDepth {
 		err := &LimitError{Limit: "MaxNestedDepth", Value: d.limits.MaxNestedDepth, Span: [2]int{off, off + 1}}
 		d.setErr(err)
@@ -783,25 +790,20 @@ func (d *Decoder) skipBOM() {
 }
 
 func looksLikeDatetime(raw []byte) bool {
-	s := string(raw)
-	if s == "" {
-		return false
+	_, _, err := parseDateTimeValue(raw)
+	return err == nil
+}
+
+func scanBareValueEnd(raw []byte) int {
+	end := scanUntilDelimiter(raw)
+	if end != len("0000-00-00") || end >= len(raw) || raw[end] != ' ' {
+		return end
 	}
-	layouts := []string{
-		time.RFC3339,
-		time.RFC3339Nano,
-		"2006-01-02T15:04:05",
-		"2006-01-02T15:04:05.999999999",
-		"2006-01-02",
-		"15:04:05",
-		"15:04:05.999999999",
+	tailEnd := end + 1 + scanUntilDelimiter(raw[end+1:])
+	if _, _, err := parseDateTimeValue(raw[:tailEnd]); err == nil {
+		return tailEnd
 	}
-	for _, layout := range layouts {
-		if _, err := time.Parse(layout, s); err == nil {
-			return true
-		}
-	}
-	return false
+	return end
 }
 
 func scanUntilDelimiter(raw []byte) int {

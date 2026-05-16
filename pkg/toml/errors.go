@@ -14,7 +14,9 @@
 
 package toml
 
-import "fmt"
+import (
+	"fmt"
+)
 
 // SyntaxError reports parse errors with line/column and byte span context.
 type SyntaxError struct {
@@ -51,4 +53,22 @@ type LimitError struct {
 // Error implements the error interface.
 func (e *LimitError) Error() string {
 	return fmt.Sprintf("toml: %s cap exceeded (limit=%d, span=[%d,%d))", e.Limit, e.Value, e.Span[0], e.Span[1])
+}
+
+// LocalTimeIntoTimeError reports an unsafe conversion from a TOML local datetime
+// form into time.Time without an explicit local-as-UTC option.
+type LocalTimeIntoTimeError struct {
+	// Kind is the token kind that carried the local datetime source.
+	Kind TokenKind
+
+	// Source is the raw TOML datetime source.
+	Source []byte
+
+	// Span is the offending [start, end) byte range in source.
+	Span [2]int
+}
+
+// Error implements the error interface.
+func (e *LocalTimeIntoTimeError) Error() string {
+	return "toml: local datetime cannot decode into time.Time without WithLocalAsUTC"
 }
