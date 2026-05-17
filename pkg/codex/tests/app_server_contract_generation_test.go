@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-const contractGenerationPinnedSchema = "https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.131.0-alpha.9/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json"
+const contractGenerationPinnedSchema = "https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.131.0-alpha.22/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json"
 
 func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 	repoRoot := artifactWorkflowRepoRoot(t)

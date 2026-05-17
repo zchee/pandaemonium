@@ -1492,6 +1492,7 @@ var methodWrapperMethods = []string{
 	RequestMethodPluginShareSave,
 	RequestMethodPluginShareUpdateTargets,
 	RequestMethodPluginShareList,
+	RequestMethodPluginShareCheckout,
 	RequestMethodPluginShareDelete,
 	RequestMethodAppList,
 	RequestMethodFSReadFile,

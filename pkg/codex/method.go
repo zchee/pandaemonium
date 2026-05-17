@@ -191,6 +191,11 @@ func (c *Client) PluginShareList(ctx context.Context, params *PluginShareListPar
 	return Request[PluginShareListResponse](ctx, c, RequestMethodPluginShareList, paramsOrEmpty(params))
 }
 
+// PluginShareCheckout calls plugin/share/checkout.
+func (c *Client) PluginShareCheckout(ctx context.Context, params *PluginShareCheckoutParams) (PluginShareCheckoutResponse, error) {
+	return Request[PluginShareCheckoutResponse](ctx, c, RequestMethodPluginShareCheckout, paramsOrEmpty(params))
+}
+
 // PluginShareDelete calls plugin/share/delete.
 func (c *Client) PluginShareDelete(ctx context.Context, params *PluginShareDeleteParams) (PluginShareDeleteResponse, error) {
 	return Request[PluginShareDeleteResponse](ctx, c, RequestMethodPluginShareDelete, paramsOrEmpty(params))

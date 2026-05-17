@@ -96,6 +96,10 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			return err
 		}},
 		{name: "plugin/share/list", call: func() error { _, err := client.PluginShareList(ctx, &PluginShareListParams{}); return err }},
+		{name: "plugin/share/checkout", call: func() error {
+			_, err := client.PluginShareCheckout(ctx, &PluginShareCheckoutParams{RemotePluginID: "plugin"})
+			return err
+		}},
 		{name: "plugin/share/delete", call: func() error {
 			_, err := client.PluginShareDelete(ctx, &PluginShareDeleteParams{RemotePluginID: "plugin"})
 			return err
