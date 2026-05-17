@@ -70,3 +70,6 @@ pkg/codex/*.md
 
 # stray build artifact from manual  of the perf-gate
 /memchr-perf-gate
+
+# benchmark result
+pkg/toml/benchmark/*.txt

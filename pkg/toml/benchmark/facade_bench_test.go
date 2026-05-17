@@ -12,9 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build bench
-
-package toml_test
+package benchmark_test
 
 import (
 	"os"
@@ -22,7 +20,7 @@ import (
 
 	burntsushi "github.com/BurntSushi/toml"
 	pelletier "github.com/pelletier/go-toml/v2"
-	"github.com/zchee/pandaemonium/pkg/toml"
+	simdtoml "github.com/zchee/pandaemonium/pkg/toml"
 )
 
 type benchPackage struct {
@@ -97,7 +95,7 @@ func BenchmarkUnmarshal_Pandaemonium(b *testing.B) {
 	b.SetBytes(int64(len(benchCargoLock)))
 	for b.Loop() {
 		var dst benchCargo
-		if err := toml.Unmarshal(benchCargoLock, &dst); err != nil {
+		if err := simdtoml.Unmarshal(benchCargoLock, &dst); err != nil {
 			b.Fatal(err)
 		}
 		benchCargoSink = dst
@@ -120,7 +118,7 @@ func BenchmarkMarshal_Pandaemonium(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(benchCargoMarshalPandaemoniumSize))
 	for b.Loop() {
-		body, err := toml.Marshal(&benchCargoValue)
+		body, err := simdtoml.Marshal(&benchCargoValue)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -145,7 +143,7 @@ func BenchmarkScalarUnmarshal_Pandaemonium(b *testing.B) {
 	b.SetBytes(int64(len(benchScalarDocument)))
 	for b.Loop() {
 		var dst benchScalar
-		if err := toml.Unmarshal(benchScalarDocument, &dst); err != nil {
+		if err := simdtoml.Unmarshal(benchScalarDocument, &dst); err != nil {
 			b.Fatal(err)
 		}
 		benchScalarSink = dst
@@ -169,7 +167,7 @@ func BenchmarkArrayTableUnmarshal_Pandaemonium(b *testing.B) {
 	b.SetBytes(int64(len(benchCargoLock)))
 	for b.Loop() {
 		var dst benchCargo
-		if err := toml.Unmarshal(benchCargoLock, &dst); err != nil {
+		if err := simdtoml.Unmarshal(benchCargoLock, &dst); err != nil {
 			b.Fatal(err)
 		}
 		benchCargoSink = dst
@@ -205,7 +203,7 @@ func benchmarkDocumentEditPandaemonium(b *testing.B) {
 	b.ReportAllocs()
 	b.SetBytes(int64(len(benchCargoLock)))
 	for b.Loop() {
-		doc, err := toml.ParseDocument(benchCargoLock)
+		doc, err := simdtoml.ParseDocument(benchCargoLock)
 		if err != nil {
 			b.Fatal(err)
 		}
@@ -220,7 +218,7 @@ func benchmarkDocumentEditPandaemonium(b *testing.B) {
 }
 
 func mustReadBenchCorpus() []byte {
-	body, err := os.ReadFile("testdata/corpus/cargo.lock")
+	body, err := os.ReadFile("../testdata/corpus/cargo.lock")
 	if err != nil {
 		panic(err)
 	}
@@ -244,7 +242,7 @@ func mustMarshalPelletierBenchCargo() []byte {
 }
 
 func mustMarshalPandaemoniumBenchCargo() []byte {
-	body, err := toml.Marshal(&benchCargoValue)
+	body, err := simdtoml.Marshal(&benchCargoValue)
 	if err != nil {
 		panic(err)
 	}
