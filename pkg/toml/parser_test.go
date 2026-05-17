@@ -306,6 +306,9 @@ func TestDecoderDateTimeValueFormsRoundTrip(t *testing.T) {
 		"success: local datetime": {
 			value: "1979-05-27T07:32:00",
 		},
+		"success: local datetime space separator": {
+			value: "1979-05-27 07:32:00",
+		},
 		"success: local date": {
 			value: "1979-05-27",
 		},
@@ -354,6 +357,34 @@ func TestDecoderDateTimeValueFormsRoundTrip(t *testing.T) {
 			want := Token{Kind: TokenKindValueDatetime, Bytes: []byte(tc.value), Line: 1, Col: 8}
 			if diff := gocmp.Diff(want, got); diff != "" {
 				t.Fatalf("datetime value token mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestLooksLikeDateTimeFastRejectsNonDateTimeValues(t *testing.T) {
+	tests := []string{
+		"true",
+		"false",
+		"42",
+		"3.14159",
+		"1.0.0",
+		"nan",
+		"pandaemonium",
+	}
+
+	for _, value := range tests {
+		t.Run(value, func(t *testing.T) {
+			raw := []byte(value)
+			var got bool
+			allocs := testing.AllocsPerRun(1000, func() {
+				got = looksLikeDatetime(raw)
+			})
+			if got {
+				t.Fatalf("looksLikeDatetime(%q) = true, want false", value)
+			}
+			if allocs != 0 {
+				t.Fatalf("looksLikeDatetime(%q) allocations = %v, want 0", value, allocs)
 			}
 		})
 	}
