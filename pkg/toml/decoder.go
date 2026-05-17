@@ -790,8 +790,56 @@ func (d *Decoder) skipBOM() {
 }
 
 func looksLikeDatetime(raw []byte) bool {
+	if !hasDateTimeShape(raw) {
+		return false
+	}
 	_, _, err := parseDateTimeValue(raw)
 	return err == nil
+}
+
+func hasDateTimeShape(raw []byte) bool {
+	switch {
+	case hasDateShape(raw):
+		return true
+	case hasTimeShape(raw):
+		return true
+	default:
+		return false
+	}
+}
+
+func hasDateShape(raw []byte) bool {
+	if len(raw) < len("0000-00-00") {
+		return false
+	}
+	return isDigit(raw[0]) &&
+		isDigit(raw[1]) &&
+		isDigit(raw[2]) &&
+		isDigit(raw[3]) &&
+		raw[4] == '-' &&
+		isDigit(raw[5]) &&
+		isDigit(raw[6]) &&
+		raw[7] == '-' &&
+		isDigit(raw[8]) &&
+		isDigit(raw[9])
+}
+
+func hasTimeShape(raw []byte) bool {
+	if len(raw) < len("00:00:00") {
+		return false
+	}
+	return isDigit(raw[0]) &&
+		isDigit(raw[1]) &&
+		raw[2] == ':' &&
+		isDigit(raw[3]) &&
+		isDigit(raw[4]) &&
+		raw[5] == ':' &&
+		isDigit(raw[6]) &&
+		isDigit(raw[7])
+}
+
+func isDigit(b byte) bool {
+	return b >= '0' && b <= '9'
 }
 
 func scanBareValueEnd(raw []byte) int {

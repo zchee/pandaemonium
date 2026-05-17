@@ -39,35 +39,140 @@ type benchCargo struct {
 
 var benchCargoLock = mustReadBenchCorpus()
 
-var benchDocumentEditOutput []byte
+var benchScalarDocument = []byte(`title = "pandaemonium"
+active = true
+count = 42
+ratio = 3.14159
+description = "scalar-heavy comparison fixture"
+`)
+
+type benchScalar struct {
+	Title       string  `toml:"title"`
+	Active      bool    `toml:"active"`
+	Count       int     `toml:"count"`
+	Ratio       float64 `toml:"ratio"`
+	Description string  `toml:"description"`
+}
+
+var benchCargoValue = mustDecodeBenchCargo()
+
+var (
+	benchCargoMarshalPelletierSize    = len(mustMarshalPelletierBenchCargo())
+	benchCargoMarshalPandaemoniumSize = len(mustMarshalPandaemoniumBenchCargo())
+)
+
+var (
+	benchCargoSink          benchCargo
+	benchScalarSink         benchScalar
+	benchMarshalOutput      []byte
+	benchDocumentEditOutput []byte
+)
 
 func BenchmarkUnmarshal_BurntSushi(b *testing.B) {
+	b.ReportAllocs()
 	b.SetBytes(int64(len(benchCargoLock)))
 	for b.Loop() {
 		var dst benchCargo
 		if err := burntsushi.Unmarshal(benchCargoLock, &dst); err != nil {
 			b.Fatal(err)
 		}
+		benchCargoSink = dst
 	}
 }
 
 func BenchmarkUnmarshal_Pelletier(b *testing.B) {
+	b.ReportAllocs()
 	b.SetBytes(int64(len(benchCargoLock)))
 	for b.Loop() {
 		var dst benchCargo
 		if err := pelletier.Unmarshal(benchCargoLock, &dst); err != nil {
 			b.Fatal(err)
 		}
+		benchCargoSink = dst
 	}
 }
 
 func BenchmarkUnmarshal_Pandaemonium(b *testing.B) {
+	b.ReportAllocs()
 	b.SetBytes(int64(len(benchCargoLock)))
 	for b.Loop() {
 		var dst benchCargo
 		if err := toml.Unmarshal(benchCargoLock, &dst); err != nil {
 			b.Fatal(err)
 		}
+		benchCargoSink = dst
+	}
+}
+
+func BenchmarkMarshal_Pelletier(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(benchCargoMarshalPelletierSize))
+	for b.Loop() {
+		body, err := pelletier.Marshal(&benchCargoValue)
+		if err != nil {
+			b.Fatal(err)
+		}
+		benchMarshalOutput = body
+	}
+}
+
+func BenchmarkMarshal_Pandaemonium(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(benchCargoMarshalPandaemoniumSize))
+	for b.Loop() {
+		body, err := toml.Marshal(&benchCargoValue)
+		if err != nil {
+			b.Fatal(err)
+		}
+		benchMarshalOutput = body
+	}
+}
+
+func BenchmarkScalarUnmarshal_Pelletier(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchScalarDocument)))
+	for b.Loop() {
+		var dst benchScalar
+		if err := pelletier.Unmarshal(benchScalarDocument, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchScalarSink = dst
+	}
+}
+
+func BenchmarkScalarUnmarshal_Pandaemonium(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchScalarDocument)))
+	for b.Loop() {
+		var dst benchScalar
+		if err := toml.Unmarshal(benchScalarDocument, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchScalarSink = dst
+	}
+}
+
+func BenchmarkArrayTableUnmarshal_Pelletier(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchCargoLock)))
+	for b.Loop() {
+		var dst benchCargo
+		if err := pelletier.Unmarshal(benchCargoLock, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchCargoSink = dst
+	}
+}
+
+func BenchmarkArrayTableUnmarshal_Pandaemonium(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchCargoLock)))
+	for b.Loop() {
+		var dst benchCargo
+		if err := toml.Unmarshal(benchCargoLock, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchCargoSink = dst
 	}
 }
 
@@ -116,6 +221,30 @@ func benchmarkDocumentEditPandaemonium(b *testing.B) {
 
 func mustReadBenchCorpus() []byte {
 	body, err := os.ReadFile("testdata/corpus/cargo.lock")
+	if err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func mustDecodeBenchCargo() benchCargo {
+	var cargo benchCargo
+	if err := pelletier.Unmarshal(benchCargoLock, &cargo); err != nil {
+		panic(err)
+	}
+	return cargo
+}
+
+func mustMarshalPelletierBenchCargo() []byte {
+	body, err := pelletier.Marshal(&benchCargoValue)
+	if err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func mustMarshalPandaemoniumBenchCargo() []byte {
+	body, err := toml.Marshal(&benchCargoValue)
 	if err != nil {
 		panic(err)
 	}
