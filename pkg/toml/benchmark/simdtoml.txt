@@ -1,0 +1,1 @@
+FAIL	github.com/zchee/pandaemonium/toml-simd/pkg/toml/benchmark [build failed]

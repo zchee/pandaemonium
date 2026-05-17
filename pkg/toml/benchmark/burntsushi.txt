@@ -1,0 +1,102 @@
+goos: darwin
+goarch: arm64
+pkg: github.com/zchee/pandaemonium/toml-simd/pkg/toml/benchmark
+cpu: Apple M3 Max
+BenchmarkMarshal
+BenchmarkMarshal/Document
+BenchmarkMarshal/Document/struct
+BenchmarkMarshal/Document/struct-16  	  805102	       722.7 ns/op	  16.60 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  847273	       706.0 ns/op	  17.00 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  846884	       725.0 ns/op	  16.55 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  792079	       704.1 ns/op	  17.04 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  879577	       715.9 ns/op	  16.76 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  875384	       698.3 ns/op	  17.18 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  874815	       704.5 ns/op	  17.03 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/struct-16  	  833829	       707.9 ns/op	  16.95 MB/s	    4491 B/op	      17 allocs/op
+BenchmarkMarshal/Document/map
+BenchmarkMarshal/Document/map-16     	  801696	       728.5 ns/op	  16.47 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  800564	       741.3 ns/op	  16.19 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  794451	       762.5 ns/op	  15.74 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  746856	       752.2 ns/op	  15.95 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  798708	       753.5 ns/op	  15.93 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  752739	       825.1 ns/op	  14.54 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  795891	       786.6 ns/op	  15.26 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/Document/map-16     	  786141	       777.2 ns/op	  15.44 MB/s	    4531 B/op	      18 allocs/op
+BenchmarkMarshal/File
+BenchmarkMarshal/File/struct
+BenchmarkMarshal/File/struct-16      	   14510	     41149 ns/op	  52.88 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14373	     42060 ns/op	  51.74 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14696	     41249 ns/op	  52.75 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14500	     41190 ns/op	  52.83 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14144	     42074 ns/op	  51.72 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14493	     41249 ns/op	  52.75 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14404	     41755 ns/op	  52.11 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/struct-16      	   14703	     41289 ns/op	  52.70 MB/s	   31504 B/op	    1138 allocs/op
+BenchmarkMarshal/File/map
+BenchmarkMarshal/File/map-16         	   14316	     41804 ns/op	  50.71 MB/s	   35196 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   14323	     41706 ns/op	  50.83 MB/s	   35196 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   14323	     41715 ns/op	  50.82 MB/s	   35196 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   13644	     44042 ns/op	  48.14 MB/s	   35197 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   13977	     43177 ns/op	  49.10 MB/s	   35197 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   14272	     41841 ns/op	  50.67 MB/s	   35196 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   13905	     42689 ns/op	  49.66 MB/s	   35197 B/op	    1182 allocs/op
+BenchmarkMarshal/File/map-16         	   13977	     42556 ns/op	  49.82 MB/s	   35196 B/op	    1182 allocs/op
+BenchmarkMarshal/Hugo
+BenchmarkMarshal/Hugo-16             	   72664	      8133 ns/op	  67.02 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   72789	      8273 ns/op	  65.87 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   68932	      8322 ns/op	  65.49 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   76290	      8115 ns/op	  67.16 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   75736	      8069 ns/op	  67.54 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   72873	      8226 ns/op	  66.25 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   68533	      8185 ns/op	  66.58 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkMarshal/Hugo-16             	   76291	      7969 ns/op	  68.39 MB/s	    9815 B/op	     229 allocs/op
+BenchmarkUnmarshal
+BenchmarkUnmarshal/Document
+BenchmarkUnmarshal/Document/struct
+BenchmarkUnmarshal/Document/struct-16         	  541320	      1092 ns/op	  10.07 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  545247	      1088 ns/op	  10.11 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  556917	      1103 ns/op	   9.98 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  503499	      1093 ns/op	  10.06 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  495616	      1121 ns/op	   9.81 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  546418	      1104 ns/op	   9.96 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  563026	      1092 ns/op	  10.08 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/struct-16         	  567498	      1098 ns/op	  10.02 MB/s	    3272 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map
+BenchmarkUnmarshal/Document/map-16            	  474440	      1178 ns/op	   9.34 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  454326	      1185 ns/op	   9.28 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  503605	      1166 ns/op	   9.43 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  511846	      1282 ns/op	   8.58 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  517322	      1176 ns/op	   9.35 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  525458	      1178 ns/op	   9.34 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  452259	      1204 ns/op	   9.13 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/Document/map-16            	  518784	      1171 ns/op	   9.40 MB/s	    3568 B/op	      28 allocs/op
+BenchmarkUnmarshal/ReferenceFile
+BenchmarkUnmarshal/ReferenceFile/struct
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5364	    107713 ns/op	  48.66 MB/s	   97972 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5479	    108208 ns/op	  48.43 MB/s	   97970 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5490	    108614 ns/op	  48.25 MB/s	   97969 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5317	    110650 ns/op	  47.37 MB/s	   97971 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5520	    108461 ns/op	  48.32 MB/s	   97969 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5528	    109153 ns/op	  48.02 MB/s	   97969 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5539	    108424 ns/op	  48.34 MB/s	   97970 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/struct-16    	    5467	    110440 ns/op	  47.46 MB/s	   97969 B/op	    1067 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6282	     96587 ns/op	  54.26 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6274	     95276 ns/op	  55.01 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6444	     93609 ns/op	  55.99 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6372	     94668 ns/op	  55.36 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    5696	     93827 ns/op	  55.86 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6459	     93567 ns/op	  56.01 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6158	     93208 ns/op	  56.23 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/ReferenceFile/map-16       	    6303	     92767 ns/op	  56.50 MB/s	   85104 B/op	     787 allocs/op
+BenchmarkUnmarshal/Hugo
+BenchmarkUnmarshal/Hugo-16                    	   42652	     14198 ns/op	  38.46 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   41980	     14250 ns/op	  38.32 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   42249	     14308 ns/op	  38.16 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   40186	     14418 ns/op	  37.87 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   41600	     14296 ns/op	  38.19 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   42399	     14381 ns/op	  37.97 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   42454	     14608 ns/op	  37.38 MB/s	   14600 B/op	     194 allocs/op
+BenchmarkUnmarshal/Hugo-16                    	   36344	     15342 ns/op	  35.59 MB/s	   14600 B/op	     194 allocs/op
+PASS
+ok  	github.com/zchee/pandaemonium/toml-simd/pkg/toml/benchmark	47.703s
