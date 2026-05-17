@@ -14,7 +14,10 @@
 
 package memchr
 
-import "testing"
+import (
+	"slices"
+	"testing"
+)
 
 // naiveMemchr is the canonical byte-by-byte oracle used by every parity test
 // in this package (AC-HARNESS-2, AC-HARNESS-4 in plan). It is intentionally
@@ -54,8 +57,8 @@ func naiveMemchr3(n1, n2, n3 byte, haystack []byte) int {
 // naiveMemrchr returns the last offset in haystack whose byte equals needle,
 // or -1 when no byte matches.
 func naiveMemrchr(needle byte, haystack []byte) int {
-	for i := len(haystack) - 1; i >= 0; i-- {
-		if haystack[i] == needle {
+	for i, h := range slices.Backward(haystack) {
+		if h == needle {
 			return i
 		}
 	}
@@ -65,8 +68,8 @@ func naiveMemrchr(needle byte, haystack []byte) int {
 // naiveMemrchr2 returns the last offset in haystack whose byte equals n1 or
 // n2, or -1 when neither appears.
 func naiveMemrchr2(n1, n2 byte, haystack []byte) int {
-	for i := len(haystack) - 1; i >= 0; i-- {
-		if c := haystack[i]; c == n1 || c == n2 {
+	for i, c := range slices.Backward(haystack) {
+		if c == n1 || c == n2 {
 			return i
 		}
 	}
@@ -76,8 +79,8 @@ func naiveMemrchr2(n1, n2 byte, haystack []byte) int {
 // naiveMemrchr3 returns the last offset in haystack whose byte equals n1,
 // n2, or n3, or -1 when none appear.
 func naiveMemrchr3(n1, n2, n3 byte, haystack []byte) int {
-	for i := len(haystack) - 1; i >= 0; i-- {
-		if c := haystack[i]; c == n1 || c == n2 || c == n3 {
+	for i, c := range slices.Backward(haystack) {
+		if c == n1 || c == n2 || c == n3 {
 			return i
 		}
 	}

@@ -202,7 +202,7 @@ func findRegressions(bsOut string) []string {
 	for _, n := range gatedSizes {
 		gated[n] = true
 	}
-	for _, line := range strings.Split(bsOut, "\n") {
+	for line := range strings.SplitSeq(bsOut, "\n") {
 		m := regressionRowRe.FindStringSubmatch(line)
 		if m == nil {
 			continue
