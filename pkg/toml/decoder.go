@@ -87,10 +87,29 @@ type Decoder struct {
 	expectingValue bool
 	atLineStart    bool
 
-	limits      Limits
-	arrayDepth  int
-	inlineDepth int
-	localAsUTC  bool
+	limits         Limits
+	arrayDepth     int
+	inlineDepth    int
+	containerStack []byte
+	localAsUTC     bool
+}
+
+// containerArray and containerInline mark entries pushed onto containerStack
+// to distinguish array context (where `,` introduces a value) from inline
+// table context (where `,` introduces a key).
+const (
+	containerArray  byte = 'a'
+	containerInline byte = 'i'
+)
+
+// innermostIsArray reports whether the innermost open container is an array.
+// Top-level (no open container) returns false.
+func (d *Decoder) innermostIsArray() bool {
+	n := len(d.containerStack)
+	if n == 0 {
+		return false
+	}
+	return d.containerStack[n-1] == containerArray
 }
 
 // NewDecoder creates a Decoder over an io.Reader input.
@@ -218,7 +237,7 @@ func (d *Decoder) ReadToken() (Token, error) {
 			continue
 		case ',':
 			d.advanceOne()
-			if d.arrayDepth > 0 || d.inlineDepth > 0 {
+			if d.innermostIsArray() {
 				d.expectingValue = true
 			}
 			continue
@@ -236,8 +255,9 @@ func (d *Decoder) skipSpaces() {
 		rem := d.buf[d.off:]
 		n := scan.SkipWhitespace(rem)
 		if n > 0 {
+			wasAtLineStart := d.atLineStart
 			d.advanceBytes(rem[:n])
-			if n > 0 && d.atLineStart {
+			if wasAtLineStart {
 				// still at the beginning of line until first non-space.
 				d.atLineStart = true
 			}
@@ -357,7 +377,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		}
 		d.advanceBytes(chunk)
 		d.expectingValue = false
-		if d.arrayDepth > 0 || d.inlineDepth > 0 {
+		if d.innermostIsArray() {
 			d.expectingValue = true
 		}
 		return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
@@ -416,7 +436,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 	}
 	d.advanceBytes(chunk)
 	d.expectingValue = false
-	if d.arrayDepth > 0 || d.inlineDepth > 0 {
+	if d.innermostIsArray() {
 		d.expectingValue = true
 	}
 	return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
@@ -428,6 +448,7 @@ func (d *Decoder) scanArrayStart() (Token, error) {
 	d.advanceOne()
 	d.arrayDepth++
 	d.enforceNestedDepth(start, d.arrayDepth)
+	d.containerStack = append(d.containerStack, containerArray)
 	d.expectingValue = true
 	return Token{Kind: TokenKindArrayStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
@@ -439,10 +460,10 @@ func (d *Decoder) scanArrayEnd() (Token, error) {
 	if d.arrayDepth > 0 {
 		d.arrayDepth--
 	}
-	d.expectingValue = false
-	if d.arrayDepth > 0 || d.inlineDepth > 0 {
-		d.expectingValue = true
+	if n := len(d.containerStack); n > 0 && d.containerStack[n-1] == containerArray {
+		d.containerStack = d.containerStack[:n-1]
 	}
+	d.expectingValue = d.innermostIsArray()
 	return Token{Kind: TokenKindArrayEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -451,6 +472,7 @@ func (d *Decoder) scanInlineTableStart() (Token, error) {
 	line, col := d.line, d.col
 	d.advanceOne()
 	d.inlineDepth++
+	d.containerStack = append(d.containerStack, containerInline)
 	d.expectingValue = false
 	return Token{Kind: TokenKindInlineTableStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
@@ -462,10 +484,10 @@ func (d *Decoder) scanInlineTableEnd() (Token, error) {
 	if d.inlineDepth > 0 {
 		d.inlineDepth--
 	}
-	d.expectingValue = d.inlineDepth > 0
-	if !d.expectingValue {
-		d.expectingValue = false
+	if n := len(d.containerStack); n > 0 && d.containerStack[n-1] == containerInline {
+		d.containerStack = d.containerStack[:n-1]
 	}
+	d.expectingValue = d.innermostIsArray()
 	return Token{Kind: TokenKindInlineTableEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
