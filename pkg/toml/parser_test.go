@@ -691,3 +691,205 @@ func TestHasBytePrefix(t *testing.T) {
 		})
 	}
 }
+
+// TestDecoder_IndentedTableHeaderAtLineStart guards the skipSpaces
+// regression: leading whitespace before a [header] or [[header]] at line
+// start must still be classified as a table-header token, not as a value.
+func TestDecoder_IndentedTableHeaderAtLineStart(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want []TokenKind
+	}{
+		{
+			name: "indented subtable under array of tables",
+			in:   "[[cascade]]\n  [cascade._target]\n    kind = \"page\"\n",
+			want: []TokenKind{
+				TokenKindArrayTableHeader,
+				TokenKindTableHeader,
+				TokenKindKey,
+				TokenKindValueString,
+			},
+		},
+		{
+			name: "indented subtable under table",
+			in:   "[a]\n  [a.b]\n    kind = \"page\"\n",
+			want: []TokenKind{
+				TokenKindTableHeader,
+				TokenKindTableHeader,
+				TokenKindKey,
+				TokenKindValueString,
+			},
+		},
+		{
+			name: "tab-indented array-of-tables header",
+			in:   "\t[[cascade]]\n",
+			want: []TokenKind{TokenKindArrayTableHeader},
+		},
+		{
+			name: "space-indented table header at file start",
+			in:   "    [server]\n",
+			want: []TokenKind{TokenKindTableHeader},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			toks, err := readTokenKinds(NewDecoderBytes([]byte(tc.in)))
+			if err != nil {
+				t.Fatalf("readTokenKinds(%q) error = %v", tc.in, err)
+			}
+			got := make([]TokenKind, len(toks))
+			for i, tok := range toks {
+				got[i] = tok.Kind
+			}
+			if diff := gocmp.Diff(tc.want, got); diff != "" {
+				t.Fatalf("token kinds mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestUnmarshal_InlineTableMultipleEntries guards the inline-table
+// state-machine regression: a comma inside `{ ... }` introduces the next
+// key, not the next value.
+func TestUnmarshal_InlineTableMultipleEntries(t *testing.T) {
+	t.Parallel()
+
+	type Name struct {
+		First string
+		Last  string
+	}
+	type Point struct {
+		X int64
+		Y int64
+	}
+	type Doc struct {
+		Name  Name
+		Point Point
+	}
+
+	tests := []struct {
+		name string
+		in   string
+		want Doc
+	}{
+		{
+			name: "two-entry inline table of strings",
+			in:   "name = { first = \"Tom\", last = \"Preston-Werner\" }\n",
+			want: Doc{Name: Name{First: "Tom", Last: "Preston-Werner"}},
+		},
+		{
+			name: "two-entry inline table of integers",
+			in:   "point = { x = 1, y = 2 }\n",
+			want: Doc{Point: Point{X: 1, Y: 2}},
+		},
+		{
+			name: "both inline tables in same document",
+			in:   "name = { first = \"Tom\", last = \"Preston-Werner\" }\npoint = { x = 1, y = 2 }\n",
+			want: Doc{
+				Name:  Name{First: "Tom", Last: "Preston-Werner"},
+				Point: Point{X: 1, Y: 2},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got Doc
+			if err := Unmarshal([]byte(tc.in), &got); err != nil {
+				t.Fatalf("Unmarshal(%q) error = %v", tc.in, err)
+			}
+			if diff := gocmp.Diff(tc.want, got); diff != "" {
+				t.Fatalf("Unmarshal result mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestDecoder_InlineTableTokenStream verifies the token-stream contract
+// after a comma inside an inline table: the next non-whitespace token must
+// be a key, not a value.
+func TestDecoder_InlineTableTokenStream(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+		want []TokenKind
+	}{
+		{
+			name: "two-entry inline table",
+			in:   "name = { first = \"Tom\", last = \"PW\" }\n",
+			want: []TokenKind{
+				TokenKindKey,
+				TokenKindInlineTableStart,
+				TokenKindKey,
+				TokenKindValueString,
+				TokenKindKey,
+				TokenKindValueString,
+				TokenKindInlineTableEnd,
+			},
+		},
+		{
+			name: "nested inline table",
+			in:   "v = { a = 1, b = { x = 1, y = 2 } }\n",
+			want: []TokenKind{
+				TokenKindKey,
+				TokenKindInlineTableStart,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindKey,
+				TokenKindInlineTableStart,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindInlineTableEnd,
+				TokenKindInlineTableEnd,
+			},
+		},
+		{
+			name: "inline tables inside an array",
+			in:   "arr = [{a = 1, b = 2}, {a = 3, b = 4}]\n",
+			want: []TokenKind{
+				TokenKindKey,
+				TokenKindArrayStart,
+				TokenKindInlineTableStart,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindInlineTableEnd,
+				TokenKindInlineTableStart,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindKey,
+				TokenKindValueInteger,
+				TokenKindInlineTableEnd,
+				TokenKindArrayEnd,
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			toks, err := readTokenKinds(NewDecoderBytes([]byte(tc.in)))
+			if err != nil {
+				t.Fatalf("readTokenKinds(%q) error = %v", tc.in, err)
+			}
+			got := make([]TokenKind, len(toks))
+			for i, tok := range toks {
+				got[i] = tok.Kind
+			}
+			if diff := gocmp.Diff(tc.want, got); diff != "" {
+				t.Fatalf("token kinds mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
