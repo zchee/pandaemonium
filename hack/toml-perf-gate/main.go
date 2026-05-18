@@ -63,7 +63,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"sort"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -768,7 +768,7 @@ func sortedScanNames() string {
 	for k := range validScans {
 		keys = append(keys, k)
 	}
-	sort.Strings(keys)
+	slices.Sort(keys)
 	return strings.Join(keys, ", ")
 }
 

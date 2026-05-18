@@ -16,8 +16,9 @@
 package reflectcache
 
 import (
+	"cmp"
 	"reflect"
-	"sort"
+	"slices"
 	"strings"
 	"sync"
 )
@@ -117,9 +118,9 @@ func build(t reflect.Type) (*TypeInfo, error) {
 			info.ByName[lower] = field
 		}
 	}
-	info.MarshalFields = append([]Field(nil), info.Fields...)
-	sort.Slice(info.MarshalFields, func(i, j int) bool {
-		return info.MarshalFields[i].Name < info.MarshalFields[j].Name
+	info.MarshalFields = slices.Clone(info.Fields)
+	slices.SortFunc(info.MarshalFields, func(x, y Field) int {
+		return cmp.Compare(x.Name, y.Name)
 	})
 	return info, nil
 }

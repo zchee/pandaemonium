@@ -16,6 +16,7 @@ package toml
 
 import (
 	"bufio"
+	"cmp"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -23,7 +24,7 @@ import (
 	"os"
 	"path/filepath"
 	"runtime"
-	"sort"
+	"slices"
 	"strings"
 	"testing"
 
@@ -535,8 +536,8 @@ func mustListTokenFixtures(t *testing.T, dir string) []os.DirEntry {
 		}
 		fixtures = append(fixtures, e)
 	}
-	sort.Slice(fixtures, func(i, j int) bool {
-		return fixtures[i].Name() < fixtures[j].Name()
+	slices.SortFunc(fixtures, func(x, y os.DirEntry) int {
+		return cmp.Compare(x.Name(), y.Name())
 	})
 	return fixtures
 }
