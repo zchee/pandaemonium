@@ -62,11 +62,12 @@
 TEXT ·locateNewlineSSE2(SB), NOSPLIT, $0-32
 	MOVQ s_base+0(FP), SI
 	MOVQ s_len+8(FP), BX
+
 	// Broadcast '\n' (0x0A) to every byte of X0.
-	MOVQ $0x0A0A0A0A0A0A0A0A, AX
-	MOVQ AX, X0
+	MOVQ      $0x0A0A0A0A0A0A0A0A, AX
+	MOVQ      AX, X0
 	PUNPCKLBW X0, X0
-	PSHUFL $0, X0, X0
+	PSHUFL    $0, X0, X0
 
 	CMPQ BX, $16
 	JLT  small
@@ -76,24 +77,26 @@ TEXT ·locateNewlineSSE2(SB), NOSPLIT, $0-32
 	JMP  sseloopentry
 
 	PCALIGN $16
+
 sseloop:
-	MOVOU (DI), X1
-	PCMPEQB X0, X1
+	MOVOU    (DI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL DX, DX
-	JNZ  ssesuccess
-	ADDQ $16, DI
+	BSFL     DX, DX
+	JNZ      ssesuccess
+	ADDQ     $16, DI
+
 sseloopentry:
 	CMPQ DI, AX
 	JB   sseloop
 
 	// Final overlapping 16-byte chunk.
-	MOVQ AX, DI
-	MOVOU (AX), X1
-	PCMPEQB X0, X1
+	MOVQ     AX, DI
+	MOVOU    (AX), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL DX, DX
-	JNZ  ssesuccess
+	BSFL     DX, DX
+	JNZ      ssesuccess
 
 	MOVQ $-1, ret+24(FP)
 	RET
@@ -112,26 +115,26 @@ small:
 	TESTW $0xff0, AX
 	JEQ   endofpage
 
-	MOVOU (SI), X1
-	PCMPEQB X0, X1
+	MOVOU    (SI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	CMPL  DX, BX
-	JAE   smallmiss
-	MOVQ  DX, ret+24(FP)
+	BSFL     DX, DX
+	JZ       smallmiss
+	CMPL     DX, BX
+	JAE      smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 endofpage:
-	MOVOU -16(SI)(BX*1), X1
-	PCMPEQB X0, X1
+	MOVOU    -16(SI)(BX*1), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	MOVL  BX, CX
-	SHLL  CX, DX
-	SHRL  $16, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	MOVQ  DX, ret+24(FP)
+	MOVL     BX, CX
+	SHLL     CX, DX
+	SHRL     $16, DX
+	BSFL     DX, DX
+	JZ       smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 smallmiss:
@@ -142,11 +145,12 @@ smallmiss:
 TEXT ·locateNewlineAVX2(SB), NOSPLIT, $0-32
 	MOVQ s_base+0(FP), SI
 	MOVQ s_len+8(FP), BX
+
 	// Broadcast '\n' to X0 (used for both SSE2 fallback and AVX2 init).
-	MOVQ $0x0A0A0A0A0A0A0A0A, AX
-	MOVQ AX, X0
+	MOVQ      $0x0A0A0A0A0A0A0A0A, AX
+	MOVQ      AX, X0
 	PUNPCKLBW X0, X0
-	PSHUFL $0, X0, X0
+	PSHUFL    $0, X0, X0
 
 	CMPQ BX, $16
 	JLT  small
@@ -159,23 +163,25 @@ TEXT ·locateNewlineAVX2(SB), NOSPLIT, $0-32
 	JMP  sseloopentry
 
 	PCALIGN $16
+
 sseloop:
-	MOVOU (DI), X1
-	PCMPEQB X0, X1
+	MOVOU    (DI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL DX, DX
-	JNZ  ssesuccess
-	ADDQ $16, DI
+	BSFL     DX, DX
+	JNZ      ssesuccess
+	ADDQ     $16, DI
+
 sseloopentry:
 	CMPQ DI, AX
 	JB   sseloop
 
-	MOVQ  AX, DI
-	MOVOU (AX), X1
-	PCMPEQB X0, X1
+	MOVQ     AX, DI
+	MOVOU    (AX), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JNZ   ssesuccess
+	BSFL     DX, DX
+	JNZ      ssesuccess
 
 	MOVQ $-1, ret+24(FP)
 	RET
@@ -188,25 +194,26 @@ ssesuccess:
 
 avx2:
 	VPBROADCASTB X0, Y1
-	MOVQ SI, DI
-	LEAQ -32(SI)(BX*1), R11
+	MOVQ         SI, DI
+	LEAQ         -32(SI)(BX*1), R11
 
 	PCALIGN $32
+
 avx2_loop:
-	VMOVDQU (DI), Y2
+	VMOVDQU  (DI), Y2
 	VPCMPEQB Y1, Y2, Y3
-	VPTEST Y3, Y3
-	JNZ avx2success
-	ADDQ $32, DI
-	CMPQ DI, R11
-	JLT avx2_loop
+	VPTEST   Y3, Y3
+	JNZ      avx2success
+	ADDQ     $32, DI
+	CMPQ     DI, R11
+	JLT      avx2_loop
 
 	// Final overlapping 32-byte chunk.
-	MOVQ R11, DI
-	VMOVDQU (DI), Y2
+	MOVQ     R11, DI
+	VMOVDQU  (DI), Y2
 	VPCMPEQB Y1, Y2, Y3
-	VPTEST Y3, Y3
-	JNZ avx2success
+	VPTEST   Y3, Y3
+	JNZ      avx2success
 
 	VZEROUPPER
 	MOVQ $-1, ret+24(FP)
@@ -214,11 +221,11 @@ avx2_loop:
 
 avx2success:
 	VPMOVMSKB Y3, DX
-	BSFL DX, DX
-	SUBQ SI, DI
-	ADDQ DI, DX
+	BSFL      DX, DX
+	SUBQ      SI, DI
+	ADDQ      DI, DX
 	VZEROUPPER
-	MOVQ DX, ret+24(FP)
+	MOVQ      DX, ret+24(FP)
 	RET
 
 small:
@@ -229,26 +236,26 @@ small:
 	TESTW $0xff0, AX
 	JEQ   endofpage
 
-	MOVOU (SI), X1
-	PCMPEQB X0, X1
+	MOVOU    (SI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	CMPL  DX, BX
-	JAE   smallmiss
-	MOVQ  DX, ret+24(FP)
+	BSFL     DX, DX
+	JZ       smallmiss
+	CMPL     DX, BX
+	JAE      smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 endofpage:
-	MOVOU -16(SI)(BX*1), X1
-	PCMPEQB X0, X1
+	MOVOU    -16(SI)(BX*1), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	MOVL  BX, CX
-	SHLL  CX, DX
-	SHRL  $16, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	MOVQ  DX, ret+24(FP)
+	MOVL     BX, CX
+	SHLL     CX, DX
+	SHRL     $16, DX
+	BSFL     DX, DX
+	JZ       smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 smallmiss:
@@ -263,12 +270,12 @@ smallmiss:
 
 // func scanLiteralStringSSE2(s []byte) int
 TEXT ·scanLiteralStringSSE2(SB), NOSPLIT, $0-32
-	MOVQ s_base+0(FP), SI
-	MOVQ s_len+8(FP), BX
-	MOVQ $0x2727272727272727, AX
-	MOVQ AX, X0
+	MOVQ      s_base+0(FP), SI
+	MOVQ      s_len+8(FP), BX
+	MOVQ      $0x2727272727272727, AX
+	MOVQ      AX, X0
 	PUNPCKLBW X0, X0
-	PSHUFL $0, X0, X0
+	PSHUFL    $0, X0, X0
 
 	CMPQ BX, $16
 	JLT  small
@@ -278,23 +285,25 @@ TEXT ·scanLiteralStringSSE2(SB), NOSPLIT, $0-32
 	JMP  sseloopentry
 
 	PCALIGN $16
+
 sseloop:
-	MOVOU (DI), X1
-	PCMPEQB X0, X1
+	MOVOU    (DI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL DX, DX
-	JNZ  ssesuccess
-	ADDQ $16, DI
+	BSFL     DX, DX
+	JNZ      ssesuccess
+	ADDQ     $16, DI
+
 sseloopentry:
 	CMPQ DI, AX
 	JB   sseloop
 
-	MOVQ  AX, DI
-	MOVOU (AX), X1
-	PCMPEQB X0, X1
+	MOVQ     AX, DI
+	MOVOU    (AX), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JNZ   ssesuccess
+	BSFL     DX, DX
+	JNZ      ssesuccess
 
 	MOVQ BX, ret+24(FP)
 	RET
@@ -313,26 +322,26 @@ small:
 	TESTW $0xff0, AX
 	JEQ   endofpage
 
-	MOVOU (SI), X1
-	PCMPEQB X0, X1
+	MOVOU    (SI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	CMPL  DX, BX
-	JAE   smallmiss
-	MOVQ  DX, ret+24(FP)
+	BSFL     DX, DX
+	JZ       smallmiss
+	CMPL     DX, BX
+	JAE      smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 endofpage:
-	MOVOU -16(SI)(BX*1), X1
-	PCMPEQB X0, X1
+	MOVOU    -16(SI)(BX*1), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	MOVL  BX, CX
-	SHLL  CX, DX
-	SHRL  $16, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	MOVQ  DX, ret+24(FP)
+	MOVL     BX, CX
+	SHLL     CX, DX
+	SHRL     $16, DX
+	BSFL     DX, DX
+	JZ       smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 smallmiss:
@@ -341,12 +350,12 @@ smallmiss:
 
 // func scanLiteralStringAVX2(s []byte) int
 TEXT ·scanLiteralStringAVX2(SB), NOSPLIT, $0-32
-	MOVQ s_base+0(FP), SI
-	MOVQ s_len+8(FP), BX
-	MOVQ $0x2727272727272727, AX
-	MOVQ AX, X0
+	MOVQ      s_base+0(FP), SI
+	MOVQ      s_len+8(FP), BX
+	MOVQ      $0x2727272727272727, AX
+	MOVQ      AX, X0
 	PUNPCKLBW X0, X0
-	PSHUFL $0, X0, X0
+	PSHUFL    $0, X0, X0
 
 	CMPQ BX, $16
 	JLT  small
@@ -358,23 +367,25 @@ TEXT ·scanLiteralStringAVX2(SB), NOSPLIT, $0-32
 	JMP  sseloopentry
 
 	PCALIGN $16
+
 sseloop:
-	MOVOU (DI), X1
-	PCMPEQB X0, X1
+	MOVOU    (DI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL DX, DX
-	JNZ  ssesuccess
-	ADDQ $16, DI
+	BSFL     DX, DX
+	JNZ      ssesuccess
+	ADDQ     $16, DI
+
 sseloopentry:
 	CMPQ DI, AX
 	JB   sseloop
 
-	MOVQ  AX, DI
-	MOVOU (AX), X1
-	PCMPEQB X0, X1
+	MOVQ     AX, DI
+	MOVOU    (AX), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JNZ   ssesuccess
+	BSFL     DX, DX
+	JNZ      ssesuccess
 
 	MOVQ BX, ret+24(FP)
 	RET
@@ -387,24 +398,25 @@ ssesuccess:
 
 avx2:
 	VPBROADCASTB X0, Y1
-	MOVQ SI, DI
-	LEAQ -32(SI)(BX*1), R11
+	MOVQ         SI, DI
+	LEAQ         -32(SI)(BX*1), R11
 
 	PCALIGN $32
-avx2_loop:
-	VMOVDQU (DI), Y2
-	VPCMPEQB Y1, Y2, Y3
-	VPTEST Y3, Y3
-	JNZ avx2success
-	ADDQ $32, DI
-	CMPQ DI, R11
-	JLT avx2_loop
 
-	MOVQ R11, DI
-	VMOVDQU (DI), Y2
+avx2_loop:
+	VMOVDQU  (DI), Y2
 	VPCMPEQB Y1, Y2, Y3
-	VPTEST Y3, Y3
-	JNZ avx2success
+	VPTEST   Y3, Y3
+	JNZ      avx2success
+	ADDQ     $32, DI
+	CMPQ     DI, R11
+	JLT      avx2_loop
+
+	MOVQ     R11, DI
+	VMOVDQU  (DI), Y2
+	VPCMPEQB Y1, Y2, Y3
+	VPTEST   Y3, Y3
+	JNZ      avx2success
 
 	VZEROUPPER
 	MOVQ BX, ret+24(FP)
@@ -412,11 +424,11 @@ avx2_loop:
 
 avx2success:
 	VPMOVMSKB Y3, DX
-	BSFL DX, DX
-	SUBQ SI, DI
-	ADDQ DI, DX
+	BSFL      DX, DX
+	SUBQ      SI, DI
+	ADDQ      DI, DX
 	VZEROUPPER
-	MOVQ DX, ret+24(FP)
+	MOVQ      DX, ret+24(FP)
 	RET
 
 small:
@@ -427,26 +439,26 @@ small:
 	TESTW $0xff0, AX
 	JEQ   endofpage
 
-	MOVOU (SI), X1
-	PCMPEQB X0, X1
+	MOVOU    (SI), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	CMPL  DX, BX
-	JAE   smallmiss
-	MOVQ  DX, ret+24(FP)
+	BSFL     DX, DX
+	JZ       smallmiss
+	CMPL     DX, BX
+	JAE      smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 endofpage:
-	MOVOU -16(SI)(BX*1), X1
-	PCMPEQB X0, X1
+	MOVOU    -16(SI)(BX*1), X1
+	PCMPEQB  X0, X1
 	PMOVMSKB X1, DX
-	MOVL  BX, CX
-	SHLL  CX, DX
-	SHRL  $16, DX
-	BSFL  DX, DX
-	JZ    smallmiss
-	MOVQ  DX, ret+24(FP)
+	MOVL     BX, CX
+	SHLL     CX, DX
+	SHRL     $16, DX
+	BSFL     DX, DX
+	JZ       smallmiss
+	MOVQ     DX, ret+24(FP)
 	RET
 
 smallmiss:

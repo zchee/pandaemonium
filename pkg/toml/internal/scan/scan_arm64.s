@@ -48,109 +48,116 @@
 
 // func scanBareKeyNEON(s []byte) int
 TEXT ·scanBareKeyNEON(SB), NOSPLIT, $0-32
-	MOVD	s_base+0(FP), R0
-	MOVD	s_len+8(FP), R1
-	MOVD	R0, R2
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R2
 
 	// Broadcast the eight class boundary bytes to V1..V8.
-	MOVD	$'A', R3
-	VMOV	R3, V1.B16
-	MOVD	$'Z', R3
-	VMOV	R3, V2.B16
-	MOVD	$'a', R3
-	VMOV	R3, V3.B16
-	MOVD	$'z', R3
-	VMOV	R3, V4.B16
-	MOVD	$'0', R3
-	VMOV	R3, V5.B16
-	MOVD	$'9', R3
-	VMOV	R3, V6.B16
-	MOVD	$'_', R3
-	VMOV	R3, V7.B16
-	MOVD	$'-', R3
-	VMOV	R3, V8.B16
+	MOVD $'A', R3
+	VMOV R3, V1.B16
+	MOVD $'Z', R3
+	VMOV R3, V2.B16
+	MOVD $'a', R3
+	VMOV R3, V3.B16
+	MOVD $'z', R3
+	VMOV R3, V4.B16
+	MOVD $'0', R3
+	VMOV R3, V5.B16
+	MOVD $'9', R3
+	VMOV R3, V6.B16
+	MOVD $'_', R3
+	VMOV R3, V7.B16
+	MOVD $'-', R3
+	VMOV R3, V8.B16
 
 bare_loop16:
-	CMP	$16, R1
-	BLT	bare_tail
-	VLD1	(R0), [V0.B16]
+	CMP  $16, R1
+	BLT  bare_tail
+	VLD1 (R0), [V0.B16]
 
 	// isUpper = (V0 >= 'A') && (V0 <= 'Z')
-	VCMHS	V1.B16, V0.B16, V9.B16  // V0 >= 'A'
-	VCMHS	V0.B16, V2.B16, V10.B16 // 'Z' >= V0
-	VAND	V9.B16, V10.B16, V9.B16 // V9 = isUpper
+	VCMHS V1.B16, V0.B16, V9.B16  // V0 >= 'A'
+	VCMHS V0.B16, V2.B16, V10.B16 // 'Z' >= V0
+	VAND  V9.B16, V10.B16, V9.B16 // V9 = isUpper
 
 	// isLower = (V0 >= 'a') && (V0 <= 'z')
-	VCMHS	V3.B16, V0.B16, V10.B16
-	VCMHS	V0.B16, V4.B16, V11.B16
-	VAND	V10.B16, V11.B16, V10.B16
-	VORR	V10.B16, V9.B16, V9.B16
+	VCMHS V3.B16, V0.B16, V10.B16
+	VCMHS V0.B16, V4.B16, V11.B16
+	VAND  V10.B16, V11.B16, V10.B16
+	VORR  V10.B16, V9.B16, V9.B16
 
 	// isDigit = (V0 >= '0') && (V0 <= '9')
-	VCMHS	V5.B16, V0.B16, V10.B16
-	VCMHS	V0.B16, V6.B16, V11.B16
-	VAND	V10.B16, V11.B16, V10.B16
-	VORR	V10.B16, V9.B16, V9.B16
+	VCMHS V5.B16, V0.B16, V10.B16
+	VCMHS V0.B16, V6.B16, V11.B16
+	VAND  V10.B16, V11.B16, V10.B16
+	VORR  V10.B16, V9.B16, V9.B16
 
 	// is underscore or hyphen
-	VCMEQ	V7.B16, V0.B16, V10.B16
-	VORR	V10.B16, V9.B16, V9.B16
-	VCMEQ	V8.B16, V0.B16, V10.B16
-	VORR	V10.B16, V9.B16, V9.B16
+	VCMEQ V7.B16, V0.B16, V10.B16
+	VORR  V10.B16, V9.B16, V9.B16
+	VCMEQ V8.B16, V0.B16, V10.B16
+	VORR  V10.B16, V9.B16, V9.B16
 
 	// Want first NON-member: invert mask then locate first match.
-	VNOT	V9.B16, V9.B16
-	VSHRN	$4, V9.H8, V12.B8
-	VMOV	V12.D[0], R4
-	CBNZ	R4, bare_found
+	VNOT  V9.B16, V9.B16
+	VSHRN $4, V9.H8, V12.B8
+	VMOV  V12.D[0], R4
+	CBNZ  R4, bare_found
 
-	ADD	$16, R0
-	SUB	$16, R1
-	B	bare_loop16
+	ADD $16, R0
+	SUB $16, R1
+	B   bare_loop16
 
 bare_found:
-	RBIT	R4, R4
-	CLZ	R4, R4
-	LSR	$2, R4, R4
-	ADD	R4, R0, R0
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	RBIT R4, R4
+	CLZ  R4, R4
+	LSR  $2, R4, R4
+	ADD  R4, R0, R0
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 bare_tail:
-	CBZ	R1, bare_done
+	CBZ R1, bare_done
+
 bare_tail_loop:
-	MOVBU	(R0), R3
+	MOVBU (R0), R3
+
 	// In class?
 	// 'A' <= b <= 'Z'?
-	SUB	$'A', R3, R4
-	CMP	$25, R4
-	BLS	bare_tail_next
+	SUB $'A', R3, R4
+	CMP $25, R4
+	BLS bare_tail_next
+
 	// 'a' <= b <= 'z'?
-	SUB	$'a', R3, R4
-	CMP	$25, R4
-	BLS	bare_tail_next
+	SUB $'a', R3, R4
+	CMP $25, R4
+	BLS bare_tail_next
+
 	// '0' <= b <= '9'?
-	SUB	$'0', R3, R4
-	CMP	$9, R4
-	BLS	bare_tail_next
+	SUB $'0', R3, R4
+	CMP $9, R4
+	BLS bare_tail_next
+
 	// _ or -?
-	CMP	$'_', R3
-	BEQ	bare_tail_next
-	CMP	$'-', R3
-	BEQ	bare_tail_next
+	CMP $'_', R3
+	BEQ bare_tail_next
+	CMP $'-', R3
+	BEQ bare_tail_next
+
 	// Not in class.
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
+
 bare_tail_next:
-	ADD	$1, R0
-	SUB	$1, R1
-	CBNZ	R1, bare_tail_loop
+	ADD  $1, R0
+	SUB  $1, R1
+	CBNZ R1, bare_tail_loop
 
 bare_done:
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 // ============================================================================
@@ -159,58 +166,60 @@ bare_done:
 
 // func scanBasicStringNEON(s []byte) int
 TEXT ·scanBasicStringNEON(SB), NOSPLIT, $0-32
-	MOVD	s_base+0(FP), R0
-	MOVD	s_len+8(FP), R1
-	MOVD	R0, R2
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R2
 
-	MOVD	$'"', R3
-	VMOV	R3, V1.B16
-	MOVD	$'\\', R3
-	VMOV	R3, V2.B16
+	MOVD $'"', R3
+	VMOV R3, V1.B16
+	MOVD $'\\', R3
+	VMOV R3, V2.B16
 
 bstr_loop16:
-	CMP	$16, R1
-	BLT	bstr_tail
-	VLD1	(R0), [V0.B16]
-	VCMEQ	V1.B16, V0.B16, V9.B16
-	VCMEQ	V2.B16, V0.B16, V10.B16
-	VORR	V10.B16, V9.B16, V9.B16
-	VSHRN	$4, V9.H8, V11.B8
-	VMOV	V11.D[0], R4
-	CBNZ	R4, bstr_found
+	CMP   $16, R1
+	BLT   bstr_tail
+	VLD1  (R0), [V0.B16]
+	VCMEQ V1.B16, V0.B16, V9.B16
+	VCMEQ V2.B16, V0.B16, V10.B16
+	VORR  V10.B16, V9.B16, V9.B16
+	VSHRN $4, V9.H8, V11.B8
+	VMOV  V11.D[0], R4
+	CBNZ  R4, bstr_found
 
-	ADD	$16, R0
-	SUB	$16, R1
-	B	bstr_loop16
+	ADD $16, R0
+	SUB $16, R1
+	B   bstr_loop16
 
 bstr_found:
-	RBIT	R4, R4
-	CLZ	R4, R4
-	LSR	$2, R4, R4
-	ADD	R4, R0, R0
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	RBIT R4, R4
+	CLZ  R4, R4
+	LSR  $2, R4, R4
+	ADD  R4, R0, R0
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 bstr_tail:
-	CBZ	R1, bstr_done
+	CBZ R1, bstr_done
+
 bstr_tail_loop:
-	MOVBU	(R0), R3
-	CMP	$'"', R3
-	BEQ	bstr_match
-	CMP	$'\\', R3
-	BEQ	bstr_match
-	ADD	$1, R0
-	SUB	$1, R1
-	CBNZ	R1, bstr_tail_loop
+	MOVBU (R0), R3
+	CMP   $'"', R3
+	BEQ   bstr_match
+	CMP   $'\\', R3
+	BEQ   bstr_match
+	ADD   $1, R0
+	SUB   $1, R1
+	CBNZ  R1, bstr_tail_loop
 
 bstr_done:
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
+
 bstr_match:
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 // ============================================================================
@@ -229,74 +238,77 @@ bstr_match:
 
 // func scanLiteralStringNEON(s []byte) int
 TEXT ·scanLiteralStringNEON(SB), NOSPLIT, $0-32
-	MOVD	s_base+0(FP), R0
-	MOVD	s_len+8(FP), R1
-	MOVD	R0, R11               // R11 = saved base, for final offset
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R11          // R11 = saved base, for final offset
 
 	// Empty input: 0 (offset of "past end").
-	CBZ	R1, lstr_drained
+	CBZ R1, lstr_drained
 
 	// Magic constant 0x40100401: broadcast to V5.S4 yields the 16-byte
 	// pattern {0x01, 0x04, 0x10, 0x40, …}. Used to AND with VCMEQ
 	// results so each matched lane contributes 2 bits to the syndrome.
-	MOVD	$0x40100401, R5
-	VMOV	R5, V5.S4
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
 
 	// Broadcast target byte ('\'') to all 16 lanes of V0.
-	MOVD	$'\'', R3
-	VMOV	R3, V0.B16
+	MOVD $'\'', R3
+	VMOV R3, V0.B16
 
 lstr_loop32:
-	CMP	$32, R1
-	BLT	lstr_tail
-	VLD1.P	(R0), [V1.B16, V2.B16]   // load 32 B, post-increment R0 by 32
-	SUB	$32, R1, R1
-	VCMEQ	V0.B16, V1.B16, V3.B16
-	VCMEQ	V0.B16, V2.B16, V4.B16
+	CMP    $32, R1
+	BLT    lstr_tail
+	VLD1.P (R0), [V1.B16, V2.B16] // load 32 B, post-increment R0 by 32
+	SUB    $32, R1, R1
+	VCMEQ  V0.B16, V1.B16, V3.B16
+	VCMEQ  V0.B16, V2.B16, V4.B16
+
 	// Fast termination check: VORR collapses the two compare masks; the
 	// VADDP.D2 pair-adds the two 64-bit halves, producing a value that
 	// is zero iff every byte mismatched (every byte in V_or is 0x00).
-	VORR	V4.B16, V3.B16, V6.B16
-	VADDP	V6.D2, V6.D2, V6.D2
-	VMOV	V6.D[0], R6
-	CBNZ	R6, lstr_construct
-	CBNZ	R1, lstr_loop32
+	VORR  V4.B16, V3.B16, V6.B16
+	VADDP V6.D2, V6.D2, V6.D2
+	VMOV  V6.D[0], R6
+	CBNZ  R6, lstr_construct
+	CBNZ  R1, lstr_loop32
+
 	// Exactly 32-aligned drain: nothing left, no match.
-	B	lstr_drained
+	B lstr_drained
 
 lstr_construct:
 	// Build the precise 2-bit-per-lane syndrome (lane k → bit 2k).
-	VAND	V5.B16, V3.B16, V3.B16
-	VAND	V5.B16, V4.B16, V4.B16
-	VADDP	V4.B16, V3.B16, V6.B16   // 32 B → 16 B (interleaved)
-	VADDP	V6.B16, V6.B16, V6.B16   // 16 B → 8 B
-	VMOV	V6.D[0], R6
-	RBIT	R6, R6
-	CLZ	R6, R6                    // R6 = 2 * lane index of first match
-	SUB	$32, R0, R0               // R0 was post-incremented; rewind 32
-	ADD	R6>>1, R0, R0             // R0 = match address (lane index = R6/2)
-	SUB	R11, R0, R0
-	MOVD	R0, ret+24(FP)
+	VAND  V5.B16, V3.B16, V3.B16
+	VAND  V5.B16, V4.B16, V4.B16
+	VADDP V4.B16, V3.B16, V6.B16 // 32 B → 16 B (interleaved)
+	VADDP V6.B16, V6.B16, V6.B16 // 16 B → 8 B
+	VMOV  V6.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6                 // R6 = 2 * lane index of first match
+	SUB   $32, R0, R0            // R0 was post-incremented; rewind 32
+	ADD   R6>>1, R0, R0          // R0 = match address (lane index = R6/2)
+	SUB   R11, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
 
 lstr_tail:
-	CBZ	R1, lstr_drained
+	CBZ R1, lstr_drained
+
 lstr_tail_loop:
-	MOVBU.P	1(R0), R3
-	CMP	$'\'', R3
-	BEQ	lstr_tail_match
-	SUBS	$1, R1, R1
-	BNE	lstr_tail_loop
+	MOVBU.P 1(R0), R3
+	CMP     $'\'', R3
+	BEQ     lstr_tail_match
+	SUBS    $1, R1, R1
+	BNE     lstr_tail_loop
 
 lstr_drained:
-	SUB	R11, R0, R0               // R0 - base = len(s) consumed
-	MOVD	R0, ret+24(FP)
+	SUB  R11, R0, R0    // R0 - base = len(s) consumed
+	MOVD R0, ret+24(FP)
 	RET
 
 lstr_tail_match:
-	SUB	$1, R0, R0                // rewind MOVBU.P to point at match
-	SUB	R11, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  $1, R0, R0     // rewind MOVBU.P to point at match
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 // ============================================================================
@@ -305,60 +317,63 @@ lstr_tail_match:
 
 // func skipWhitespaceNEON(s []byte) int
 TEXT ·skipWhitespaceNEON(SB), NOSPLIT, $0-32
-	MOVD	s_base+0(FP), R0
-	MOVD	s_len+8(FP), R1
-	MOVD	R0, R2
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R2
 
-	MOVD	$' ', R3
-	VMOV	R3, V1.B16
-	MOVD	$'\t', R3
-	VMOV	R3, V2.B16
+	MOVD $' ', R3
+	VMOV R3, V1.B16
+	MOVD $'\t', R3
+	VMOV R3, V2.B16
 
 ws_loop16:
-	CMP	$16, R1
-	BLT	ws_tail
-	VLD1	(R0), [V0.B16]
-	VCMEQ	V1.B16, V0.B16, V9.B16
-	VCMEQ	V2.B16, V0.B16, V10.B16
-	VORR	V10.B16, V9.B16, V9.B16
-	// "find first non-member" — invert.
-	VNOT	V9.B16, V9.B16
-	VSHRN	$4, V9.H8, V11.B8
-	VMOV	V11.D[0], R4
-	CBNZ	R4, ws_found
+	CMP   $16, R1
+	BLT   ws_tail
+	VLD1  (R0), [V0.B16]
+	VCMEQ V1.B16, V0.B16, V9.B16
+	VCMEQ V2.B16, V0.B16, V10.B16
+	VORR  V10.B16, V9.B16, V9.B16
 
-	ADD	$16, R0
-	SUB	$16, R1
-	B	ws_loop16
+	// "find first non-member" — invert.
+	VNOT  V9.B16, V9.B16
+	VSHRN $4, V9.H8, V11.B8
+	VMOV  V11.D[0], R4
+	CBNZ  R4, ws_found
+
+	ADD $16, R0
+	SUB $16, R1
+	B   ws_loop16
 
 ws_found:
-	RBIT	R4, R4
-	CLZ	R4, R4
-	LSR	$2, R4, R4
-	ADD	R4, R0, R0
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	RBIT R4, R4
+	CLZ  R4, R4
+	LSR  $2, R4, R4
+	ADD  R4, R0, R0
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 ws_tail:
-	CBZ	R1, ws_done
+	CBZ R1, ws_done
+
 ws_tail_loop:
-	MOVBU	(R0), R3
-	CMP	$' ', R3
-	BEQ	ws_tail_next
-	CMP	$'\t', R3
-	BEQ	ws_tail_next
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	MOVBU (R0), R3
+	CMP   $' ', R3
+	BEQ   ws_tail_next
+	CMP   $'\t', R3
+	BEQ   ws_tail_next
+	SUB   R2, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
+
 ws_tail_next:
-	ADD	$1, R0
-	SUB	$1, R1
-	CBNZ	R1, ws_tail_loop
+	ADD  $1, R0
+	SUB  $1, R1
+	CBNZ R1, ws_tail_loop
 
 ws_done:
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 // ============================================================================
@@ -374,63 +389,64 @@ ws_done:
 
 // func locateNewlineNEON(s []byte) int
 TEXT ·locateNewlineNEON(SB), NOSPLIT, $0-32
-	MOVD	s_base+0(FP), R0
-	MOVD	s_len+8(FP), R1
-	MOVD	R0, R11
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R11
 
-	CBZ	R1, nl_notfound
+	CBZ R1, nl_notfound
 
-	MOVD	$0x40100401, R5
-	VMOV	R5, V5.S4
-	MOVD	$'\n', R3
-	VMOV	R3, V0.B16
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
+	MOVD $'\n', R3
+	VMOV R3, V0.B16
 
 nl_loop32:
-	CMP	$32, R1
-	BLT	nl_tail
-	VLD1.P	(R0), [V1.B16, V2.B16]
-	SUB	$32, R1, R1
-	VCMEQ	V0.B16, V1.B16, V3.B16
-	VCMEQ	V0.B16, V2.B16, V4.B16
-	VORR	V4.B16, V3.B16, V6.B16
-	VADDP	V6.D2, V6.D2, V6.D2
-	VMOV	V6.D[0], R6
-	CBNZ	R6, nl_construct
-	CBNZ	R1, nl_loop32
-	B	nl_notfound
+	CMP    $32, R1
+	BLT    nl_tail
+	VLD1.P (R0), [V1.B16, V2.B16]
+	SUB    $32, R1, R1
+	VCMEQ  V0.B16, V1.B16, V3.B16
+	VCMEQ  V0.B16, V2.B16, V4.B16
+	VORR   V4.B16, V3.B16, V6.B16
+	VADDP  V6.D2, V6.D2, V6.D2
+	VMOV   V6.D[0], R6
+	CBNZ   R6, nl_construct
+	CBNZ   R1, nl_loop32
+	B      nl_notfound
 
 nl_construct:
-	VAND	V5.B16, V3.B16, V3.B16
-	VAND	V5.B16, V4.B16, V4.B16
-	VADDP	V4.B16, V3.B16, V6.B16
-	VADDP	V6.B16, V6.B16, V6.B16
-	VMOV	V6.D[0], R6
-	RBIT	R6, R6
-	CLZ	R6, R6
-	SUB	$32, R0, R0
-	ADD	R6>>1, R0, R0
-	SUB	R11, R0, R0
-	MOVD	R0, ret+24(FP)
+	VAND  V5.B16, V3.B16, V3.B16
+	VAND  V5.B16, V4.B16, V4.B16
+	VADDP V4.B16, V3.B16, V6.B16
+	VADDP V6.B16, V6.B16, V6.B16
+	VMOV  V6.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R11, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
 
 nl_tail:
-	CBZ	R1, nl_notfound
+	CBZ R1, nl_notfound
+
 nl_tail_loop:
-	MOVBU.P	1(R0), R3
-	CMP	$'\n', R3
-	BEQ	nl_tail_match
-	SUBS	$1, R1, R1
-	BNE	nl_tail_loop
+	MOVBU.P 1(R0), R3
+	CMP     $'\n', R3
+	BEQ     nl_tail_match
+	SUBS    $1, R1, R1
+	BNE     nl_tail_loop
 
 nl_notfound:
-	MOVD	$-1, R0
-	MOVD	R0, ret+24(FP)
+	MOVD $-1, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 nl_tail_match:
-	SUB	$1, R0, R0
-	SUB	R11, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  $1, R0, R0
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 // ============================================================================
@@ -441,51 +457,54 @@ nl_tail_match:
 
 // func validateUTF8NEONBulk(s []byte) int
 TEXT ·validateUTF8NEONBulk(SB), NOSPLIT, $0-32
-	MOVD	s_base+0(FP), R0
-	MOVD	s_len+8(FP), R1
-	MOVD	R0, R2
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R2
 
-	MOVD	$0x80, R3
-	VMOV	R3, V1.B16
+	MOVD $0x80, R3
+	VMOV R3, V1.B16
 
 u8_loop16:
-	CMP	$16, R1
-	BLT	u8_tail
-	VLD1	(R0), [V0.B16]
-	// b >= 0x80 ⇔ high bit set; VCMHS gives 0xFF per lane that matches.
-	VCMHS	V1.B16, V0.B16, V9.B16
-	VSHRN	$4, V9.H8, V11.B8
-	VMOV	V11.D[0], R4
-	CBNZ	R4, u8_found
+	CMP  $16, R1
+	BLT  u8_tail
+	VLD1 (R0), [V0.B16]
 
-	ADD	$16, R0
-	SUB	$16, R1
-	B	u8_loop16
+	// b >= 0x80 ⇔ high bit set; VCMHS gives 0xFF per lane that matches.
+	VCMHS V1.B16, V0.B16, V9.B16
+	VSHRN $4, V9.H8, V11.B8
+	VMOV  V11.D[0], R4
+	CBNZ  R4, u8_found
+
+	ADD $16, R0
+	SUB $16, R1
+	B   u8_loop16
 
 u8_found:
-	RBIT	R4, R4
-	CLZ	R4, R4
-	LSR	$2, R4, R4
-	ADD	R4, R0, R0
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	RBIT R4, R4
+	CLZ  R4, R4
+	LSR  $2, R4, R4
+	ADD  R4, R0, R0
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
 
 u8_tail:
-	CBZ	R1, u8_done
+	CBZ R1, u8_done
+
 u8_tail_loop:
-	MOVBU	(R0), R3
-	CMP	$0x80, R3
-	BHS	u8_match
-	ADD	$1, R0
-	SUB	$1, R1
-	CBNZ	R1, u8_tail_loop
+	MOVBU (R0), R3
+	CMP   $0x80, R3
+	BHS   u8_match
+	ADD   $1, R0
+	SUB   $1, R1
+	CBNZ  R1, u8_tail_loop
 
 u8_done:
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
+
 u8_match:
-	SUB	R2, R0, R0
-	MOVD	R0, ret+24(FP)
+	SUB  R2, R0, R0
+	MOVD R0, ret+24(FP)
 	RET
