@@ -16,6 +16,8 @@ package toml
 
 import (
 	"reflect"
+	"runtime/debug"
+	"strings"
 	"testing"
 )
 
@@ -74,6 +76,95 @@ func TestParseDottedKeyHotPaths(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestParseDirectRawPathHotPaths(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+		want  string
+		ok    bool
+	}{
+		"success: bare dotted": {
+			input: "fruit.variety",
+			want:  "fruit.variety",
+			ok:    true,
+		},
+		"success: bare with trim": {
+			input: "  table.subtable  ",
+			want:  "table.subtable",
+			ok:    true,
+		},
+		"fallback: quoted": {
+			input: `fruit."apple pie"`,
+		},
+		"fallback: spaced separator": {
+			input: "fruit . variety",
+		},
+		"fallback: empty segment": {
+			input: "fruit..variety",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, ok := parseDirectRawPath([]byte(tc.input))
+			if ok != tc.ok {
+				t.Fatalf("parseDirectRawPath(%q) ok = %v, want %v", tc.input, ok, tc.ok)
+			}
+			if !ok {
+				return
+			}
+			if got.string() != tc.want {
+				t.Fatalf("parseDirectRawPath(%q).string() = %q, want %q", tc.input, got.string(), tc.want)
+			}
+		})
+	}
+}
+
+func TestDirectAssignmentForKeyAvoidsSuccessAllocation(t *testing.T) {
+	type sample struct {
+		Count int
+	}
+
+	dst := reflect.ValueOf(&sample{}).Elem()
+	raw := []byte("count")
+	if _, ok, err := directAssignmentForKey(dst, raw); err != nil || !ok {
+		t.Fatalf("directAssignmentForKey() = ok %v, err %v; want ok true", ok, err)
+	}
+
+	valid := true
+	allocs := testing.AllocsPerRun(1000, func() {
+		target, ok, err := directAssignmentForKey(dst, raw)
+		if err != nil || !ok || !target.dst.IsValid() {
+			valid = false
+		}
+	})
+	if !valid {
+		t.Fatal("directAssignmentForKey() did not return a valid target")
+	}
+	if checkptrInstrumented() {
+		t.Skipf("checkptr instrumentation changes unsafe lookup allocation count: got %v", allocs)
+	}
+	if allocs != 0 {
+		t.Fatalf("directAssignmentForKey() allocs = %v, want 0", allocs)
+	}
+}
+
+func checkptrInstrumented() bool {
+	info, ok := debug.ReadBuildInfo()
+	if !ok {
+		return false
+	}
+	for _, setting := range info.Settings {
+		if setting.Key == "-gcflags" && strings.Contains(setting.Value, "checkptr") {
+			return true
+		}
+	}
+	return false
 }
 
 func TestParseValueTokenNormalizationHotPaths(t *testing.T) {
