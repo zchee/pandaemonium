@@ -119,6 +119,10 @@ func directTypeContainsMap(t reflect.Type, seen map[reflect.Type]bool) bool {
 func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindConfig) error {
 	dec := NewDecoderBytes(data, opts...)
 	current := dst
+	currentInfo, err := directStructInfo(current)
+	if err != nil {
+		return err
+	}
 	currentPath := directPathState{}
 	for {
 		tok, err := dec.ReadToken()
@@ -138,6 +142,10 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 					return err
 				}
 				current = next
+				currentInfo, err = directStructInfo(current)
+				if err != nil {
+					return err
+				}
 				currentPath = directPathState{raw: path, valid: true, arrayIndex: -1}
 				continue
 			}
@@ -150,6 +158,10 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				return err
 			}
 			current = next
+			currentInfo, err = directStructInfo(current)
+			if err != nil {
+				return err
+			}
 			currentPath = directPathState{text: path, valid: true, arrayIndex: -1}
 		case TokenKindArrayTableHeader:
 			if path, ok := parseDirectHeaderPath(tok.Bytes, true); ok {
@@ -158,6 +170,10 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 					return err
 				}
 				current = next
+				currentInfo, err = directStructInfo(current)
+				if err != nil {
+					return err
+				}
 				currentPath = directPathState{raw: path, valid: true, arrayIndex: index}
 				continue
 			}
@@ -170,10 +186,14 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				return err
 			}
 			current = next
+			currentInfo, err = directStructInfo(current)
+			if err != nil {
+				return err
+			}
 			currentPath = directPathState{text: path, valid: true, arrayIndex: index}
 		case TokenKindKey:
 			if isSimpleBareKey(tok.Bytes) {
-				target, ok, err := directAssignmentForKey(current, tok.Bytes)
+				target, ok, err := directAssignmentForKeyInfo(current, currentInfo, tok.Bytes)
 				if err != nil {
 					return err
 				}
@@ -193,7 +213,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				continue
 			}
 			if path, ok := parseDirectRawPath(tok.Bytes); ok {
-				ok, err := directCanAssignRaw(current, path)
+				dst, ok, err := directDestinationRaw(current, path)
 				if err != nil {
 					return err
 				}
@@ -207,7 +227,12 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				if err != nil {
 					return err
 				}
-				if err := directAssignRaw(current, path, value, cfg); err != nil {
+				if dst.IsValid() {
+					err = directBindRaw(dst, path, value, cfg)
+				} else {
+					err = directAssignRaw(current, path, value, cfg)
+				}
+				if err != nil {
 					return bindErrorPath(err, currentPath.string())
 				}
 				continue
@@ -216,7 +241,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 			if err != nil {
 				return err
 			}
-			ok, err := directCanAssign(current, key)
+			dst, ok, err := directDestination(current, key)
 			if err != nil {
 				return err
 			}
@@ -230,13 +255,30 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 			if err != nil {
 				return err
 			}
-			if err := directAssign(current, key, value, cfg); err != nil {
+			if dst.IsValid() {
+				err = directBind(dst, key, value, cfg)
+			} else {
+				err = directAssign(current, key, value, cfg)
+			}
+			if err != nil {
 				return bindErrorPath(err, currentPath.string())
 			}
 		default:
 			return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: [2]int{0, 1}}
 		}
 	}
+}
+
+func directStructInfo(v reflect.Value) (*reflectcache.TypeInfo, error) {
+	v = directWritableValue(v)
+	if !v.IsValid() || v.Kind() != reflect.Struct {
+		return nil, nil
+	}
+	info, err := reflectcache.Lookup(v.Type())
+	if err != nil {
+		return nil, normalizeReflectcacheError(err)
+	}
+	return info, nil
 }
 
 func parseDirectHeaderPath(raw []byte, array bool) (directRawPath, bool) {
@@ -343,15 +385,22 @@ func (s directPathState) stringNoIndex() string {
 }
 
 func directAssignmentForKey(root reflect.Value, raw []byte) (directAssignment, bool, error) {
+	return directAssignmentForKeyInfo(root, nil, raw)
+}
+
+func directAssignmentForKeyInfo(root reflect.Value, info *reflectcache.TypeInfo, raw []byte) (directAssignment, bool, error) {
 	if !root.IsValid() {
 		return directAssignment{}, false, nil
 	}
 	cur := directWritableValue(root)
 	switch cur.Kind() {
 	case reflect.Struct:
-		info, err := reflectcache.Lookup(cur.Type())
-		if err != nil {
-			return directAssignment{}, false, normalizeReflectcacheError(err)
+		if info == nil || info.Type != cur.Type() {
+			var err error
+			info, err = reflectcache.Lookup(cur.Type())
+			if err != nil {
+				return directAssignment{}, false, normalizeReflectcacheError(err)
+			}
 		}
 		field, ok := lookupStructFieldBytes(info, raw)
 		if !ok {
@@ -494,8 +543,13 @@ func directTable(root reflect.Value, path []string) (reflect.Value, error) {
 }
 
 func directCanAssignRaw(root reflect.Value, path directRawPath) (bool, error) {
+	_, ok, err := directDestinationRaw(root, path)
+	return ok, err
+}
+
+func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value, bool, error) {
 	if !root.IsValid() {
-		return false, nil
+		return reflect.Value{}, false, nil
 	}
 	cur := root
 	for i := 0; i < path.len(); i++ {
@@ -504,25 +558,30 @@ func directCanAssignRaw(root reflect.Value, path directRawPath) (bool, error) {
 		case reflect.Struct:
 			info, err := reflectcache.Lookup(cur.Type())
 			if err != nil {
-				return false, normalizeReflectcacheError(err)
+				return reflect.Value{}, false, normalizeReflectcacheError(err)
 			}
 			field, ok := lookupStructFieldBytes(info, path.part(i))
 			if !ok {
-				return false, nil
+				return reflect.Value{}, false, nil
 			}
 			cur = cur.FieldByIndex(field.Index)
 		case reflect.Map:
-			return true, nil
+			return reflect.Value{}, true, nil
 		default:
-			return false, nil
+			return reflect.Value{}, false, nil
 		}
 	}
-	return true, nil
+	return cur, true, nil
 }
 
 func directCanAssign(root reflect.Value, path []string) (bool, error) {
+	_, ok, err := directDestination(root, path)
+	return ok, err
+}
+
+func directDestination(root reflect.Value, path []string) (reflect.Value, bool, error) {
 	if !root.IsValid() {
-		return false, nil
+		return reflect.Value{}, false, nil
 	}
 	cur := root
 	for _, name := range path {
@@ -531,20 +590,20 @@ func directCanAssign(root reflect.Value, path []string) (bool, error) {
 		case reflect.Struct:
 			info, err := reflectcache.Lookup(cur.Type())
 			if err != nil {
-				return false, normalizeReflectcacheError(err)
+				return reflect.Value{}, false, normalizeReflectcacheError(err)
 			}
 			field, ok := lookupStructField(info, name)
 			if !ok {
-				return false, nil
+				return reflect.Value{}, false, nil
 			}
 			cur = cur.FieldByIndex(field.Index)
 		case reflect.Map:
-			return true, nil
+			return reflect.Value{}, true, nil
 		default:
-			return false, nil
+			return reflect.Value{}, false, nil
 		}
 	}
-	return true, nil
+	return cur, true, nil
 }
 
 func directArrayTableRaw(root reflect.Value, path directRawPath) (reflect.Value, int, error) {
@@ -638,6 +697,13 @@ func directAssignRaw(root reflect.Value, path directRawPath, value any, cfg bind
 	return nil
 }
 
+func directBindRaw(dst reflect.Value, path directRawPath, value any, cfg bindConfig) error {
+	if err := bindValue(dst, value, cfg); err != nil {
+		return bindDirectRawErrorPath(err, path)
+	}
+	return nil
+}
+
 func directAssign(root reflect.Value, path []string, value any, cfg bindConfig) error {
 	if !root.IsValid() {
 		return nil
@@ -667,6 +733,13 @@ func directAssign(root reflect.Value, path []string, value any, cfg bindConfig) 
 	if err != nil {
 		return err
 	}
+	if err := bindValue(dst, value, cfg); err != nil {
+		return bindDirectErrorPath(err, path)
+	}
+	return nil
+}
+
+func directBind(dst reflect.Value, path []string, value any, cfg bindConfig) error {
 	if err := bindValue(dst, value, cfg); err != nil {
 		return bindDirectErrorPath(err, path)
 	}

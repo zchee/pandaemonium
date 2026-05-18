@@ -154,6 +154,49 @@ func TestDirectAssignmentForKeyAvoidsSuccessAllocation(t *testing.T) {
 	}
 }
 
+func TestDirectAssignmentForKeyInfoReusesCurrentStructMetadata(t *testing.T) {
+	type sample struct {
+		Count int
+	}
+
+	dst := reflect.ValueOf(&sample{}).Elem()
+	info, err := directStructInfo(dst)
+	if err != nil {
+		t.Fatalf("directStructInfo() error = %v", err)
+	}
+	raw := []byte("count")
+	target, ok, err := directAssignmentForKeyInfo(dst, info, raw)
+	if err != nil || !ok {
+		t.Fatalf("directAssignmentForKeyInfo() = ok %v, err %v; want ok true", ok, err)
+	}
+	if target.dst.Kind() != reflect.Int {
+		t.Fatalf("directAssignmentForKeyInfo() dst kind = %s, want int", target.dst.Kind())
+	}
+}
+
+func TestDirectDestinationRawResolvesFinalStructField(t *testing.T) {
+	type sample struct {
+		Fruit struct {
+			Physical struct {
+				Color string
+			}
+		}
+	}
+
+	dst := reflect.ValueOf(&sample{}).Elem()
+	path, ok := parseDirectRawPath([]byte("fruit.physical.color"))
+	if !ok {
+		t.Fatal("parseDirectRawPath() failed for bare dotted path")
+	}
+	target, ok, err := directDestinationRaw(dst, path)
+	if err != nil || !ok {
+		t.Fatalf("directDestinationRaw() = ok %v, err %v; want ok true", ok, err)
+	}
+	if !target.IsValid() || target.Kind() != reflect.String {
+		t.Fatalf("directDestinationRaw() target = %#v, want string field", target)
+	}
+}
+
 func checkptrInstrumented() bool {
 	info, ok := debug.ReadBuildInfo()
 	if !ok {
