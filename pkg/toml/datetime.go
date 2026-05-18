@@ -15,6 +15,7 @@
 package toml
 
 import (
+	"encoding"
 	"fmt"
 	"strconv"
 	"time"
@@ -32,9 +33,80 @@ type LocalDateTime struct {
 	nanoDigits int8
 }
 
+var (
+	_ encoding.TextMarshaler   = (*LocalDateTime)(nil)
+	_ encoding.TextUnmarshaler = (*LocalDateTime)(nil)
+)
+
+// String returns the TOML representation of dt.
+func (dt LocalDateTime) String() string {
+	text, err := dt.MarshalText()
+	if err != nil {
+		return ""
+	}
+	return string(text)
+}
+
+// MarshalText implements [encoding.TextMarshaler].
+func (dt LocalDateTime) MarshalText() ([]byte, error) {
+	if err := validateDate(dt.Year, dt.Month, dt.Day); err != nil {
+		return nil, err
+	}
+	if err := validateLocalClock(dt.Hour, dt.Minute, dt.Second, dt.Nanosecond, dt.nanoDigits); err != nil {
+		return nil, err
+	}
+	buf := make([]byte, 0, len("0000-00-00T00:00:00.000000000"))
+	buf = appendDate(buf, dt.Year, dt.Month, dt.Day)
+	buf = append(buf, 'T')
+	buf = appendTime(buf, dt.Hour, dt.Minute, dt.Second, dt.Nanosecond, dt.nanoDigits)
+	return buf, nil
+}
+
+// UnmarshalText implements [encoding.TextUnmarshaler].
+func (dt *LocalDateTime) UnmarshalText(text []byte) error {
+	v, err := parseLocalDateTime(text)
+	if err != nil {
+		return err
+	}
+	*dt = v
+	return nil
+}
+
 // LocalDate is a TOML local date without time or offset information.
 type LocalDate struct {
 	Year, Month, Day int
+}
+
+var (
+	_ encoding.TextMarshaler   = (*LocalDate)(nil)
+	_ encoding.TextUnmarshaler = (*LocalDate)(nil)
+)
+
+// String returns the TOML representation of d.
+func (d LocalDate) String() string {
+	text, err := d.MarshalText()
+	if err != nil {
+		return ""
+	}
+	return string(text)
+}
+
+// MarshalText implements [encoding.TextMarshaler].
+func (d LocalDate) MarshalText() ([]byte, error) {
+	if err := validateDate(d.Year, d.Month, d.Day); err != nil {
+		return nil, err
+	}
+	return appendDate(make([]byte, 0, len("0000-00-00")), d.Year, d.Month, d.Day), nil
+}
+
+// UnmarshalText implements [encoding.TextUnmarshaler].
+func (d *LocalDate) UnmarshalText(text []byte) error {
+	v, err := parseLocalDate(text)
+	if err != nil {
+		return err
+	}
+	*d = v
+	return nil
 }
 
 // LocalTime is a TOML local time without date or offset information.
@@ -46,6 +118,38 @@ type LocalTime struct {
 	Nanosecond           int
 
 	nanoDigits int8
+}
+
+var (
+	_ encoding.TextMarshaler   = (*LocalTime)(nil)
+	_ encoding.TextUnmarshaler = (*LocalTime)(nil)
+)
+
+// String returns the TOML representation of lt.
+func (lt LocalTime) String() string {
+	text, err := lt.MarshalText()
+	if err != nil {
+		return ""
+	}
+	return string(text)
+}
+
+// MarshalText implements [encoding.TextMarshaler].
+func (lt LocalTime) MarshalText() ([]byte, error) {
+	if err := validateLocalClock(lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits); err != nil {
+		return nil, err
+	}
+	return appendTime(make([]byte, 0, len("00:00:00.000000000")), lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits), nil
+}
+
+// UnmarshalText implements [encoding.TextUnmarshaler].
+func (lt *LocalTime) UnmarshalText(text []byte) error {
+	v, err := parseLocalTime(text)
+	if err != nil {
+		return err
+	}
+	*lt = v
+	return nil
 }
 
 // ParseLocalDateTime parses a TOML local date-time.
@@ -99,94 +203,6 @@ func ParseDateTime(text []byte) (any, error) {
 // TOML forms return *LocalTimeIntoTimeError unless WithLocalAsUTC is supplied.
 func ParseDateTimeAsTime(text []byte, opts ...Option) (time.Time, error) {
 	return parseDateTimeAsTime(text, [2]int{0, len(text)}, opts...)
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (dt LocalDateTime) MarshalText() ([]byte, error) {
-	if err := validateDate(dt.Year, dt.Month, dt.Day); err != nil {
-		return nil, err
-	}
-	if err := validateLocalClock(dt.Hour, dt.Minute, dt.Second, dt.Nanosecond, dt.nanoDigits); err != nil {
-		return nil, err
-	}
-	buf := make([]byte, 0, len("0000-00-00T00:00:00.000000000"))
-	buf = appendDate(buf, dt.Year, dt.Month, dt.Day)
-	buf = append(buf, 'T')
-	buf = appendTime(buf, dt.Hour, dt.Minute, dt.Second, dt.Nanosecond, dt.nanoDigits)
-	return buf, nil
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (dt *LocalDateTime) UnmarshalText(text []byte) error {
-	v, err := parseLocalDateTime(text)
-	if err != nil {
-		return err
-	}
-	*dt = v
-	return nil
-}
-
-// String returns the TOML representation of dt.
-func (dt LocalDateTime) String() string {
-	text, err := dt.MarshalText()
-	if err != nil {
-		return ""
-	}
-	return string(text)
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (d LocalDate) MarshalText() ([]byte, error) {
-	if err := validateDate(d.Year, d.Month, d.Day); err != nil {
-		return nil, err
-	}
-	return appendDate(make([]byte, 0, len("0000-00-00")), d.Year, d.Month, d.Day), nil
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (d *LocalDate) UnmarshalText(text []byte) error {
-	v, err := parseLocalDate(text)
-	if err != nil {
-		return err
-	}
-	*d = v
-	return nil
-}
-
-// String returns the TOML representation of d.
-func (d LocalDate) String() string {
-	text, err := d.MarshalText()
-	if err != nil {
-		return ""
-	}
-	return string(text)
-}
-
-// MarshalText implements encoding.TextMarshaler.
-func (lt LocalTime) MarshalText() ([]byte, error) {
-	if err := validateLocalClock(lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits); err != nil {
-		return nil, err
-	}
-	return appendTime(make([]byte, 0, len("00:00:00.000000000")), lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits), nil
-}
-
-// UnmarshalText implements encoding.TextUnmarshaler.
-func (lt *LocalTime) UnmarshalText(text []byte) error {
-	v, err := parseLocalTime(text)
-	if err != nil {
-		return err
-	}
-	*lt = v
-	return nil
-}
-
-// String returns the TOML representation of lt.
-func (lt LocalTime) String() string {
-	text, err := lt.MarshalText()
-	if err != nil {
-		return ""
-	}
-	return string(text)
 }
 
 func appendDate(buf []byte, year, month, day int) []byte {

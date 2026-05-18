@@ -16,6 +16,7 @@ package toml
 
 import (
 	"fmt"
+	"slices"
 	"time"
 )
 
@@ -29,6 +30,7 @@ const (
 	dateTimeKindLocalTime
 )
 
+// parseDateTimeValue parses raw as the most specific TOML datetime form it matches.
 func parseDateTimeValue(raw []byte) (any, dateTimeKind, error) {
 	if t, _, err := parseOffsetDateTime(raw); err == nil {
 		return t, dateTimeKindOffset, nil
@@ -59,16 +61,41 @@ func parseDateTimeAsTime(raw []byte, span [2]int, opts ...Option) (time.Time, er
 		opt(cfg)
 	}
 	if !cfg.localAsUTC {
-		return time.Time{}, &LocalTimeIntoTimeError{Kind: TokenKindValueDatetime, Source: append([]byte(nil), raw...), Span: span}
+		return time.Time{}, &LocalTimeIntoTimeError{
+			Kind:   TokenKindValueDatetime,
+			Source: slices.Clone(raw),
+			Span:   span,
+		}
 	}
 
 	switch x := v.(type) {
 	case LocalDateTime:
-		return time.Date(x.Year, time.Month(x.Month), x.Day, x.Hour, x.Minute, x.Second, x.Nanosecond, time.UTC), nil
+		return time.Date(
+			x.Year,
+			time.Month(x.Month),
+			x.Day,
+			x.Hour, x.Minute, x.Second, x.Nanosecond,
+			time.UTC,
+		), nil
+
 	case LocalDate:
-		return time.Date(x.Year, time.Month(x.Month), x.Day, 0, 0, 0, 0, time.UTC), nil
+		return time.Date(
+			x.Year,
+			time.Month(x.Month),
+			x.Day,
+			0, 0, 0, 0,
+			time.UTC,
+		), nil
+
 	case LocalTime:
-		return time.Date(0, time.January, 1, x.Hour, x.Minute, x.Second, x.Nanosecond, time.UTC), nil
+		return time.Date(
+			0,
+			time.January,
+			1,
+			x.Hour, x.Minute, x.Second, x.Nanosecond,
+			time.UTC,
+		), nil
+
 	default:
 		return time.Time{}, fmt.Errorf("toml: unsupported datetime value %T", v)
 	}
@@ -94,7 +121,14 @@ func parseOffsetDateTime(raw []byte) (time.Time, int8, error) {
 	if err != nil {
 		return time.Time{}, 0, err
 	}
-	return time.Date(date.Year, time.Month(date.Month), date.Day, clock.Hour, clock.Minute, clock.Second, clock.Nanosecond, loc), clock.nanoDigits, nil
+	t := time.Date(
+		date.Year,
+		time.Month(date.Month),
+		date.Day,
+		clock.Hour, clock.Minute, clock.Second, clock.Nanosecond,
+		loc,
+	)
+	return t, clock.nanoDigits, nil
 }
 
 func parseLocalDateTime(raw []byte) (LocalDateTime, error) {
@@ -153,6 +187,7 @@ func parseDatePrefix(raw []byte) (LocalDate, int, error) {
 	if raw[4] != '-' || raw[7] != '-' {
 		return LocalDate{}, 0, fmt.Errorf("toml: malformed date separators")
 	}
+
 	year, ok := parseFixedDigits(raw[0:4])
 	if !ok {
 		return LocalDate{}, 0, fmt.Errorf("toml: malformed year")
@@ -168,7 +203,13 @@ func parseDatePrefix(raw []byte) (LocalDate, int, error) {
 	if err := validateDate(year, month, day); err != nil {
 		return LocalDate{}, 0, err
 	}
-	return LocalDate{Year: year, Month: month, Day: day}, len("0000-00-00"), nil
+
+	date := LocalDate{
+		Year:  year,
+		Month: month,
+		Day:   day,
+	}
+	return date, len("0000-00-00"), nil
 }
 
 func parseTimePrefix(raw []byte) (LocalTime, int, error) {
@@ -178,6 +219,7 @@ func parseTimePrefix(raw []byte) (LocalTime, int, error) {
 	if raw[2] != ':' || raw[5] != ':' {
 		return LocalTime{}, 0, fmt.Errorf("toml: malformed time separators")
 	}
+
 	hour, ok := parseFixedDigits(raw[0:2])
 	if !ok {
 		return LocalTime{}, 0, fmt.Errorf("toml: malformed hour")
@@ -190,6 +232,7 @@ func parseTimePrefix(raw []byte) (LocalTime, int, error) {
 	if !ok {
 		return LocalTime{}, 0, fmt.Errorf("toml: malformed second")
 	}
+
 	next := len("00:00:00")
 	nanos := 0
 	nanoDigits := int8(0)
@@ -216,7 +259,15 @@ func parseTimePrefix(raw []byte) (LocalTime, int, error) {
 	if err := validateLocalClock(hour, minute, second, nanos, nanoDigits); err != nil {
 		return LocalTime{}, 0, err
 	}
-	return LocalTime{Hour: hour, Minute: minute, Second: second, Nanosecond: nanos, nanoDigits: nanoDigits}, next, nil
+
+	clock := LocalTime{
+		Hour:       hour,
+		Minute:     minute,
+		Second:     second,
+		Nanosecond: nanos,
+		nanoDigits: nanoDigits,
+	}
+	return clock, next, nil
 }
 
 func parseZone(raw []byte) (*time.Location, error) {
@@ -226,6 +277,7 @@ func parseZone(raw []byte) (*time.Location, error) {
 	if len(raw) != len("+00:00") || (raw[0] != '+' && raw[0] != '-') || raw[3] != ':' {
 		return nil, fmt.Errorf("toml: malformed datetime offset")
 	}
+
 	hour, ok := parseFixedDigits(raw[1:3])
 	if !ok {
 		return nil, fmt.Errorf("toml: malformed offset hour")
@@ -237,6 +289,7 @@ func parseZone(raw []byte) (*time.Location, error) {
 	if hour > 23 || minute > 59 {
 		return nil, fmt.Errorf("toml: offset out of range")
 	}
+
 	seconds := hour*3600 + minute*60
 	if raw[0] == '-' {
 		seconds = -seconds
@@ -268,6 +321,7 @@ func validateDate(year, month, day int) error {
 	return nil
 }
 
+// validateLocalClock checks local time ranges and fractional precision consistency.
 func validateLocalClock(hour, minute, second, nanos int, nanoDigits int8) error {
 	if hour < 0 || hour > 23 {
 		return fmt.Errorf("toml: hour out of range")
@@ -290,26 +344,32 @@ func validateLocalClock(hour, minute, second, nanos int, nanoDigits int8) error 
 	return nil
 }
 
+// daysInMonth returns the number of days in the given month of the given year.
 func daysInMonth(year, month int) int {
-	switch month {
-	case 1, 3, 5, 7, 8, 10, 12:
+	switch time.Month(month) {
+	case time.January, time.March, time.May, time.July, time.August, time.October, time.December:
 		return 31
-	case 4, 6, 9, 11:
+
+	case time.April, time.June, time.September, time.November:
 		return 30
-	case 2:
+
+	case time.February:
 		if isLeapYear(year) {
 			return 29
 		}
 		return 28
+
 	default:
 		return 0
 	}
 }
 
+// isLeapYear reports whether the given year is a leap year.
 func isLeapYear(year int) bool {
 	return year%4 == 0 && (year%100 != 0 || year%400 == 0)
 }
 
+// isDateTimeSeparator reports whether the given byte is a valid date-time separator.
 func isDateTimeSeparator(ch byte) bool {
 	return ch == 'T' || ch == 't' || ch == ' '
 }
