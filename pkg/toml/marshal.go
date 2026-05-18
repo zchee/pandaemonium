@@ -22,12 +22,17 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/zchee/pandaemonium/pkg/toml/internal/reflectcache"
 )
 
 var textMarshalerType = reflect.TypeFor[encoding.TextMarshaler]()
+
+const maxPooledStringKeys = 1024
+
+var stringKeysPool sync.Pool
 
 type marshalEntry struct {
 	name  string
@@ -198,6 +203,7 @@ func encodeMapDocument(buf *bytes.Buffer, v reflect.Value, path []string) error 
 
 func encodeAnyMapDocument(buf *bytes.Buffer, m map[string]any, path []string) error {
 	keys := sortedStringKeys(m)
+	defer recycleStringKeys(keys)
 	for _, key := range keys {
 		value := m[key]
 		if isTableLikeAny(value) {
@@ -501,6 +507,7 @@ func writeInlineTable(buf *bytes.Buffer, v reflect.Value) error {
 func writeInlineAnyMap(buf *bytes.Buffer, m map[string]any) error {
 	buf.WriteString("{ ")
 	keys := sortedStringKeys(m)
+	defer recycleStringKeys(keys)
 	for i, key := range keys {
 		if i > 0 {
 			buf.WriteString(", ")
@@ -634,12 +641,25 @@ func sortedMapKeys(v reflect.Value) ([]reflect.Value, error) {
 }
 
 func sortedStringKeys(m map[string]any) []string {
-	keys := make([]string, 0, len(m))
+	keys, _ := stringKeysPool.Get().([]string)
+	if cap(keys) < len(m) {
+		keys = make([]string, 0, len(m))
+	} else {
+		keys = keys[:0]
+	}
 	for key := range m {
 		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func recycleStringKeys(keys []string) {
+	if cap(keys) > maxPooledStringKeys {
+		return
+	}
+	clear(keys)
+	stringKeysPool.Put(keys[:0])
 }
 
 func appendPath(path []string, key string) []string {

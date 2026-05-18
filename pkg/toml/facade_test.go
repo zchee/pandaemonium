@@ -193,6 +193,27 @@ func TestMarshalDirectCompatibilityQuotedMapKeys(t *testing.T) {
 	}
 }
 
+func TestSortedStringKeysReusableOrdering(t *testing.T) {
+	first := sortedStringKeys(map[string]any{
+		"z": true,
+		"a": true,
+		"m": true,
+	})
+	if got, want := strings.Join(first, ","), "a,m,z"; got != want {
+		t.Fatalf("first sortedStringKeys() = %q, want %q", got, want)
+	}
+	recycleStringKeys(first)
+
+	second := sortedStringKeys(map[string]any{
+		"b": true,
+		"a": true,
+	})
+	defer recycleStringKeys(second)
+	if got, want := strings.Join(second, ","), "a,b"; got != want {
+		t.Fatalf("second sortedStringKeys() = %q, want %q", got, want)
+	}
+}
+
 func TestEncoderBytesBufferMatchesMarshal(t *testing.T) {
 	t.Parallel()
 
