@@ -17,6 +17,7 @@ package reflectcache
 
 import (
 	"reflect"
+	"sort"
 	"strings"
 	"sync"
 )
@@ -31,9 +32,11 @@ type Field struct {
 
 // TypeInfo is cached metadata for a struct type.
 type TypeInfo struct {
-	Type   reflect.Type
-	Fields []Field
-	ByName map[string]Field
+	Type              reflect.Type
+	Fields            []Field
+	MarshalFields     []Field
+	HasDuplicateNames bool
+	ByName            map[string]Field
 }
 
 // InvalidTagOptionError reports unsupported TOML tag options.
@@ -69,6 +72,7 @@ func Lookup(t reflect.Type) (*TypeInfo, error) {
 
 func build(t reflect.Type) (*TypeInfo, error) {
 	info := &TypeInfo{Type: t, ByName: make(map[string]Field)}
+	seenNames := make(map[string]struct{})
 	for i := range t.NumField() {
 		sf := t.Field(i)
 		if sf.PkgPath != "" && !sf.Anonymous {
@@ -87,6 +91,11 @@ func build(t reflect.Type) (*TypeInfo, error) {
 		field := Field{Name: name, Index: append([]int(nil), sf.Index...), OmitZero: omit, Type: sf.Type}
 		if _, exists := info.ByName[name]; !exists {
 			info.ByName[name] = field
+		}
+		if _, exists := seenNames[name]; exists {
+			info.HasDuplicateNames = true
+		} else {
+			seenNames[name] = struct{}{}
 		}
 		lower := strings.ToLower(name)
 		if lower != name {
@@ -108,6 +117,10 @@ func build(t reflect.Type) (*TypeInfo, error) {
 			info.ByName[lower] = field
 		}
 	}
+	info.MarshalFields = append([]Field(nil), info.Fields...)
+	sort.Slice(info.MarshalFields, func(i, j int) bool {
+		return info.MarshalFields[i].Name < info.MarshalFields[j].Name
+	})
 	return info, nil
 }
 

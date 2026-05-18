@@ -29,69 +29,236 @@ import (
 
 var textMarshalerType = reflect.TypeFor[encoding.TextMarshaler]()
 
+type marshalEntry struct {
+	name  string
+	value reflect.Value
+}
+
 // Marshal encodes v as a TOML document.
 func Marshal(v any) ([]byte, error) {
 	return marshalWithOptions(v, MarshalOptions{})
 }
 
-func marshalWithOptions(v any, _ MarshalOptions) ([]byte, error) {
-	if m, ok := v.(MarshalerTo); ok {
-		var buf bytes.Buffer
-		if err := m.MarshalTOMLTo(NewEncoder(&buf)); err != nil {
-			return nil, err
-		}
-		return buf.Bytes(), nil
-	}
+func marshalWithOptions(v any, opts MarshalOptions) ([]byte, error) {
 	var buf bytes.Buffer
-	if err := encodeDocument(&buf, reflect.ValueOf(v), nil); err != nil {
+	if err := marshalToBuffer(&buf, v, opts); err != nil {
 		return nil, err
 	}
 	return buf.Bytes(), nil
 }
 
-func encodeDocument(buf *bytes.Buffer, v reflect.Value, path []string) error {
-	m, err := valueMap(v)
-	if err != nil {
-		return err
+func marshalToBuffer(buf *bytes.Buffer, v any, opts MarshalOptions) error {
+	if m, ok := v.(MarshalerTo); ok {
+		return m.MarshalTOMLTo(NewEncoder(buf, opts))
 	}
-	keys := sortedKeys(m)
-	for _, k := range keys {
-		if isTableLike(reflect.ValueOf(m[k])) {
+	if m, ok := v.(map[string]any); ok {
+		return encodeAnyMapDocument(buf, m, nil)
+	}
+	return encodeDocument(buf, reflect.ValueOf(v), nil)
+}
+
+func encodeDocument(buf *bytes.Buffer, v reflect.Value, path []string) error {
+	v = indirectValue(v)
+	if !v.IsValid() {
+		return &UnsupportedTypeError{Type: "nil"}
+	}
+	switch v.Kind() {
+	case reflect.Map:
+		return encodeMapDocument(buf, v, path)
+	case reflect.Struct:
+		return encodeStructDocument(buf, v, path)
+	default:
+		return &UnsupportedTypeError{Type: v.Type().String()}
+	}
+}
+
+func encodeStructDocument(buf *bytes.Buffer, v reflect.Value, path []string) error {
+	info, err := reflectcache.Lookup(v.Type())
+	if err != nil {
+		return normalizeReflectcacheError(err)
+	}
+	if info.HasDuplicateNames {
+		entries, err := structMarshalEntries(v)
+		if err != nil {
+			return err
+		}
+		return encodeEntriesDocument(buf, entries, path)
+	}
+	for _, field := range info.MarshalFields {
+		value, ok := marshalFieldValue(v, field)
+		if !ok || isTableLike(value) {
 			continue
 		}
-		if err := writeKeyValue(buf, k, reflect.ValueOf(m[k])); err != nil {
+		if err := writeKeyValue(buf, field.Name, value); err != nil {
 			return err
 		}
 	}
-	for _, k := range keys {
-		rv := reflect.ValueOf(m[k])
-		if !isTableLike(rv) {
+	for _, field := range info.MarshalFields {
+		value, ok := marshalFieldValue(v, field)
+		if !ok || !isTableLike(value) {
 			continue
 		}
-		if isArrayOfTables(rv) {
-			items := indirectValue(rv)
+		if isArrayOfTables(value) {
+			items := indirectValue(value)
 			for i := range items.Len() {
 				buf.WriteByte('\n')
-				writeHeader(buf, append(path, k), true)
-				if err := encodeDocument(buf, items.Index(i), append(path, k)); err != nil {
+				nextPath := appendPath(path, field.Name)
+				writeHeader(buf, nextPath, true)
+				if err := encodeDocument(buf, items.Index(i), nextPath); err != nil {
 					return err
 				}
 			}
 			continue
 		}
 		buf.WriteByte('\n')
-		writeHeader(buf, append(path, k), false)
-		if err := encodeDocument(buf, rv, append(path, k)); err != nil {
+		nextPath := appendPath(path, field.Name)
+		writeHeader(buf, nextPath, false)
+		if err := encodeDocument(buf, value, nextPath); err != nil {
 			return err
 		}
 	}
 	return nil
 }
 
+func encodeEntriesDocument(buf *bytes.Buffer, entries []marshalEntry, path []string) error {
+	for _, entry := range entries {
+		if isTableLike(entry.value) {
+			continue
+		}
+		if err := writeKeyValue(buf, entry.name, entry.value); err != nil {
+			return err
+		}
+	}
+	for _, entry := range entries {
+		if !isTableLike(entry.value) {
+			continue
+		}
+		if isArrayOfTables(entry.value) {
+			items := indirectValue(entry.value)
+			for i := range items.Len() {
+				buf.WriteByte('\n')
+				nextPath := appendPath(path, entry.name)
+				writeHeader(buf, nextPath, true)
+				if err := encodeDocument(buf, items.Index(i), nextPath); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		buf.WriteByte('\n')
+		nextPath := appendPath(path, entry.name)
+		writeHeader(buf, nextPath, false)
+		if err := encodeDocument(buf, entry.value, nextPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func encodeMapDocument(buf *bytes.Buffer, v reflect.Value, path []string) error {
+	keys, err := sortedMapKeys(v)
+	if err != nil {
+		return err
+	}
+	for _, key := range keys {
+		value := v.MapIndex(key)
+		if isTableLike(value) {
+			continue
+		}
+		if err := writeKeyValue(buf, key.String(), value); err != nil {
+			return err
+		}
+	}
+	for _, key := range keys {
+		value := v.MapIndex(key)
+		if !isTableLike(value) {
+			continue
+		}
+		if isArrayOfTables(value) {
+			items := indirectValue(value)
+			for i := range items.Len() {
+				buf.WriteByte('\n')
+				nextPath := appendPath(path, key.String())
+				writeHeader(buf, nextPath, true)
+				if err := encodeDocument(buf, items.Index(i), nextPath); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		buf.WriteByte('\n')
+		nextPath := appendPath(path, key.String())
+		writeHeader(buf, nextPath, false)
+		if err := encodeDocument(buf, value, nextPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func encodeAnyMapDocument(buf *bytes.Buffer, m map[string]any, path []string) error {
+	keys := sortedStringKeys(m)
+	for _, key := range keys {
+		value := m[key]
+		if isTableLikeAny(value) {
+			continue
+		}
+		if err := writeKeyValueAny(buf, key, value); err != nil {
+			return err
+		}
+	}
+	for _, key := range keys {
+		value := m[key]
+		if !isTableLikeAny(value) {
+			continue
+		}
+		if isArrayOfTablesAny(value) {
+			items := value.([]any)
+			for i := range items {
+				buf.WriteByte('\n')
+				nextPath := appendPath(path, key)
+				writeHeader(buf, nextPath, true)
+				if err := encodeAnyDocument(buf, items[i], nextPath); err != nil {
+					return err
+				}
+			}
+			continue
+		}
+		buf.WriteByte('\n')
+		nextPath := appendPath(path, key)
+		writeHeader(buf, nextPath, false)
+		if err := encodeAnyDocument(buf, value, nextPath); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func encodeAnyDocument(buf *bytes.Buffer, value any, path []string) error {
+	switch x := value.(type) {
+	case map[string]any:
+		return encodeAnyMapDocument(buf, x, path)
+	case documentMap:
+		return encodeAnyMapDocument(buf, map[string]any(x), path)
+	default:
+		return encodeDocument(buf, reflect.ValueOf(value), path)
+	}
+}
+
 func writeKeyValue(buf *bytes.Buffer, key string, v reflect.Value) error {
 	buf.WriteString(formatKey(key))
 	buf.WriteString(" = ")
 	if err := writeValue(buf, v); err != nil {
+		return err
+	}
+	buf.WriteByte('\n')
+	return nil
+}
+
+func writeKeyValueAny(buf *bytes.Buffer, key string, value any) error {
+	buf.WriteString(formatKey(key))
+	buf.WriteString(" = ")
+	if err := writeAnyValue(buf, value); err != nil {
 		return err
 	}
 	buf.WriteByte('\n')
@@ -185,24 +352,7 @@ func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 		buf.WriteByte(']')
 		return nil
 	case reflect.Map, reflect.Struct:
-		m, err := valueMap(v)
-		if err != nil {
-			return err
-		}
-		buf.WriteString("{ ")
-		keys := sortedKeys(m)
-		for i, k := range keys {
-			if i > 0 {
-				buf.WriteString(", ")
-			}
-			buf.WriteString(formatKey(k))
-			buf.WriteString(" = ")
-			if err := writeValue(buf, reflect.ValueOf(m[k])); err != nil {
-				return err
-			}
-		}
-		buf.WriteString(" }")
-		return nil
+		return writeInlineTable(buf, v)
 	case reflect.Interface:
 		if v.IsNil() {
 			return &UnsupportedTypeError{Type: "nil interface"}
@@ -213,45 +363,197 @@ func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 	}
 }
 
-func valueMap(v reflect.Value) (map[string]any, error) {
+func writeAnyValue(buf *bytes.Buffer, value any) error {
+	switch x := value.(type) {
+	case nil:
+		return &UnsupportedTypeError{Type: "nil"}
+	case string:
+		buf.WriteString(strconv.Quote(x))
+		return nil
+	case bool:
+		buf.WriteString(strconv.FormatBool(x))
+		return nil
+	case int:
+		buf.WriteString(strconv.FormatInt(int64(x), 10))
+		return nil
+	case int8:
+		buf.WriteString(strconv.FormatInt(int64(x), 10))
+		return nil
+	case int16:
+		buf.WriteString(strconv.FormatInt(int64(x), 10))
+		return nil
+	case int32:
+		buf.WriteString(strconv.FormatInt(int64(x), 10))
+		return nil
+	case int64:
+		buf.WriteString(strconv.FormatInt(x, 10))
+		return nil
+	case uint:
+		buf.WriteString(strconv.FormatUint(uint64(x), 10))
+		return nil
+	case uint8:
+		buf.WriteString(strconv.FormatUint(uint64(x), 10))
+		return nil
+	case uint16:
+		buf.WriteString(strconv.FormatUint(uint64(x), 10))
+		return nil
+	case uint32:
+		buf.WriteString(strconv.FormatUint(uint64(x), 10))
+		return nil
+	case uint64:
+		buf.WriteString(strconv.FormatUint(x, 10))
+		return nil
+	case uintptr:
+		buf.WriteString(strconv.FormatUint(uint64(x), 10))
+		return nil
+	case float32:
+		writeFloat(buf, float64(x), 32)
+		return nil
+	case float64:
+		writeFloat(buf, x, 64)
+		return nil
+	case time.Time:
+		buf.WriteString(x.Format(time.RFC3339Nano))
+		return nil
+	case LocalDateTime:
+		buf.WriteString(x.String())
+		return nil
+	case LocalDate:
+		buf.WriteString(x.String())
+		return nil
+	case LocalTime:
+		buf.WriteString(x.String())
+		return nil
+	case encoding.TextMarshaler:
+		text, err := x.MarshalText()
+		if err != nil {
+			return err
+		}
+		buf.WriteString(strconv.Quote(string(text)))
+		return nil
+	case []any:
+		buf.WriteByte('[')
+		for i, item := range x {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			if err := writeAnyValue(buf, item); err != nil {
+				return err
+			}
+		}
+		buf.WriteByte(']')
+		return nil
+	case map[string]any:
+		return writeInlineAnyMap(buf, x)
+	case documentMap:
+		return writeInlineAnyMap(buf, map[string]any(x))
+	default:
+		return writeValue(buf, reflect.ValueOf(value))
+	}
+}
+
+func writeFloat(buf *bytes.Buffer, value float64, bitSize int) {
+	switch {
+	case math.IsInf(value, 1):
+		buf.WriteString("inf")
+	case math.IsInf(value, -1):
+		buf.WriteString("-inf")
+	case math.IsNaN(value):
+		buf.WriteString("nan")
+	default:
+		buf.WriteString(strconv.FormatFloat(value, 'g', -1, bitSize))
+	}
+}
+
+func writeInlineTable(buf *bytes.Buffer, v reflect.Value) error {
 	v = indirectValue(v)
 	if !v.IsValid() {
-		return nil, &UnsupportedTypeError{Type: "nil"}
+		return &UnsupportedTypeError{Type: "nil"}
 	}
+	buf.WriteString("{ ")
 	switch v.Kind() {
 	case reflect.Map:
-		if v.Type().Key().Kind() != reflect.String {
-			return nil, &UnsupportedTypeError{Type: v.Type().String()}
-		}
-		m := make(map[string]any, v.Len())
-		iter := v.MapRange()
-		for iter.Next() {
-			m[iter.Key().String()] = iter.Value().Interface()
-		}
-		return m, nil
-	case reflect.Struct:
-		info, err := reflectcache.Lookup(v.Type())
+		keys, err := sortedMapKeys(v)
 		if err != nil {
-			return nil, normalizeReflectcacheError(err)
+			return err
 		}
-		m := make(map[string]any, len(info.Fields))
-		for _, f := range info.Fields {
-			fv := v.FieldByIndex(f.Index)
-			if f.OmitZero && fv.IsZero() {
-				continue
+		for i, key := range keys {
+			if i > 0 {
+				buf.WriteString(", ")
 			}
-			if !fv.CanInterface() {
-				continue
+			buf.WriteString(formatKey(key.String()))
+			buf.WriteString(" = ")
+			if err := writeValue(buf, v.MapIndex(key)); err != nil {
+				return err
 			}
-			if isNilValue(fv) {
-				continue
-			}
-			m[f.Name] = fv.Interface()
 		}
-		return m, nil
+	case reflect.Struct:
+		if err := writeInlineStructTable(buf, v); err != nil {
+			return err
+		}
 	default:
-		return nil, &UnsupportedTypeError{Type: v.Type().String()}
+		return &UnsupportedTypeError{Type: v.Type().String()}
 	}
+	buf.WriteString(" }")
+	return nil
+}
+
+func writeInlineAnyMap(buf *bytes.Buffer, m map[string]any) error {
+	buf.WriteString("{ ")
+	keys := sortedStringKeys(m)
+	for i, key := range keys {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(formatKey(key))
+		buf.WriteString(" = ")
+		if err := writeAnyValue(buf, m[key]); err != nil {
+			return err
+		}
+	}
+	buf.WriteString(" }")
+	return nil
+}
+
+func writeInlineStructTable(buf *bytes.Buffer, v reflect.Value) error {
+	info, err := reflectcache.Lookup(v.Type())
+	if err != nil {
+		return normalizeReflectcacheError(err)
+	}
+	if info.HasDuplicateNames {
+		entries, err := structMarshalEntries(v)
+		if err != nil {
+			return err
+		}
+		for i, entry := range entries {
+			if i > 0 {
+				buf.WriteString(", ")
+			}
+			buf.WriteString(formatKey(entry.name))
+			buf.WriteString(" = ")
+			if err := writeValue(buf, entry.value); err != nil {
+				return err
+			}
+		}
+		return nil
+	}
+	first := true
+	for _, field := range info.MarshalFields {
+		value, ok := marshalFieldValue(v, field)
+		if !ok {
+			continue
+		}
+		if !first {
+			buf.WriteString(", ")
+		}
+		first = false
+		buf.WriteString(formatKey(field.Name))
+		buf.WriteString(" = ")
+		if err := writeValue(buf, value); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func indirectValue(v reflect.Value) reflect.Value {
@@ -273,13 +575,78 @@ func isNilValue(v reflect.Value) bool {
 	}
 }
 
-func sortedKeys(m map[string]any) []string {
+func structMarshalEntries(v reflect.Value) ([]marshalEntry, error) {
+	info, err := reflectcache.Lookup(v.Type())
+	if err != nil {
+		return nil, normalizeReflectcacheError(err)
+	}
+	entries := make([]marshalEntry, 0, len(info.Fields))
+	for _, f := range info.Fields {
+		fv, ok := marshalFieldValue(v, f)
+		if !ok {
+			continue
+		}
+		entry := marshalEntry{name: f.Name, value: fv}
+		if i := findMarshalEntry(entries, f.Name); i >= 0 {
+			entries[i] = entry
+			continue
+		}
+		entries = append(entries, entry)
+	}
+	sort.Slice(entries, func(i, j int) bool {
+		return entries[i].name < entries[j].name
+	})
+	return entries, nil
+}
+
+func marshalFieldValue(v reflect.Value, field reflectcache.Field) (reflect.Value, bool) {
+	fv := v.FieldByIndex(field.Index)
+	if field.OmitZero && fv.IsZero() {
+		return reflect.Value{}, false
+	}
+	if !fv.CanInterface() {
+		return reflect.Value{}, false
+	}
+	if isNilValue(fv) {
+		return reflect.Value{}, false
+	}
+	return fv, true
+}
+
+func findMarshalEntry(entries []marshalEntry, name string) int {
+	for i, entry := range entries {
+		if entry.name == name {
+			return i
+		}
+	}
+	return -1
+}
+
+func sortedMapKeys(v reflect.Value) ([]reflect.Value, error) {
+	if v.Type().Key().Kind() != reflect.String {
+		return nil, &UnsupportedTypeError{Type: v.Type().String()}
+	}
+	keys := v.MapKeys()
+	sort.Slice(keys, func(i, j int) bool {
+		return keys[i].String() < keys[j].String()
+	})
+	return keys, nil
+}
+
+func sortedStringKeys(m map[string]any) []string {
 	keys := make([]string, 0, len(m))
-	for k := range m {
-		keys = append(keys, k)
+	for key := range m {
+		keys = append(keys, key)
 	}
 	sort.Strings(keys)
 	return keys
+}
+
+func appendPath(path []string, key string) []string {
+	next := make([]string, len(path)+1)
+	copy(next, path)
+	next[len(path)] = key
+	return next
 }
 
 func isTableLike(v reflect.Value) bool {
@@ -291,6 +658,21 @@ func isTableLike(v reflect.Value) bool {
 		return true
 	}
 	return v.Kind() == reflect.Struct || v.Kind() == reflect.Map
+}
+
+func isTableLikeAny(value any) bool {
+	switch x := value.(type) {
+	case nil:
+		return false
+	case time.Time, LocalDateTime, LocalDate, LocalTime, encoding.TextMarshaler:
+		return false
+	case map[string]any, documentMap:
+		return true
+	case []any:
+		return isArrayOfTablesAny(x)
+	default:
+		return isTableLike(reflect.ValueOf(value))
+	}
 }
 
 func isScalarSpecial(v reflect.Value) bool {
@@ -311,6 +693,19 @@ func isArrayOfTables(v reflect.Value) bool {
 	}
 	e := indirectValue(v.Index(0))
 	return e.IsValid() && !isScalarSpecial(e) && (e.Kind() == reflect.Struct || e.Kind() == reflect.Map)
+}
+
+func isArrayOfTablesAny(value any) bool {
+	items, ok := value.([]any)
+	if !ok || len(items) == 0 {
+		return false
+	}
+	switch first := items[0].(type) {
+	case map[string]any, documentMap:
+		return true
+	default:
+		return isTableLike(reflect.ValueOf(first))
+	}
 }
 
 func formatKey(key string) string {

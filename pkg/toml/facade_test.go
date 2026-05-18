@@ -131,6 +131,173 @@ func TestFacadeMarshalStructTagsOmitZeroAndRoundTrip(t *testing.T) {
 	}
 }
 
+func TestMarshalDirectCompatibilityOutputShape(t *testing.T) {
+	t.Parallel()
+
+	type item struct {
+		Name string
+	}
+	type table struct {
+		B int
+	}
+	type config struct {
+		Z     string
+		A     string
+		Table table
+		Items []item
+	}
+
+	body, err := Marshal(config{
+		Z:     "z",
+		A:     "a",
+		Table: table{B: 1},
+		Items: []item{{Name: "one"}, {Name: "two"}},
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	const want = `A = "a"
+Z = "z"
+
+[[Items]]
+Name = "one"
+
+[[Items]]
+Name = "two"
+
+[Table]
+B = 1
+`
+	if got := string(body); got != want {
+		t.Fatalf("Marshal() output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestMarshalDirectCompatibilityQuotedMapKeys(t *testing.T) {
+	t.Parallel()
+
+	body, err := Marshal(map[string]any{
+		"sp ace":       true,
+		"alpha":        int64(1),
+		"key.with.dot": "v",
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	const want = `alpha = 1
+"key.with.dot" = "v"
+"sp ace" = true
+`
+	if got := string(body); got != want {
+		t.Fatalf("Marshal() output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestEncoderBytesBufferMatchesMarshal(t *testing.T) {
+	t.Parallel()
+
+	type config struct {
+		Name string
+		Port int
+	}
+	value := config{Name: "demo", Port: 8080}
+
+	want, err := Marshal(value)
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	var got bytes.Buffer
+	if err := NewEncoder(&got).Encode(value); err != nil {
+		t.Fatalf("Encode() error = %v", err)
+	}
+	if got.String() != string(want) {
+		t.Fatalf("Encode() = %q, want %q", got.String(), string(want))
+	}
+}
+
+func TestMarshalDirectCompatibilityDuplicateTagOverwrite(t *testing.T) {
+	t.Parallel()
+
+	type config struct {
+		First  string `toml:"name"`
+		Second string `toml:"name"`
+		Empty  string `toml:"name,omitzero"`
+	}
+
+	body, err := Marshal(config{First: "first", Second: "second"})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	const want = "name = \"second\"\n"
+	if got := string(body); got != want {
+		t.Fatalf("Marshal() output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestMarshalDirectCompatibilityScalarSpecialsAndErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		value   any
+		want    string
+		wantErr string
+	}{
+		"success: datetime values": {
+			value: struct {
+				When time.Time
+				Date LocalDate
+			}{
+				When: time.Date(2026, 5, 17, 3, 4, 5, 0, time.UTC),
+				Date: LocalDate{Year: 2026, Month: 5, Day: 17},
+			},
+			want: "Date = 2026-05-17\nWhen = 2026-05-17T03:04:05Z\n",
+		},
+		"success: nil interface is omitted": {
+			value: struct {
+				Value any
+			}{},
+			want: "",
+		},
+		"error: unsupported channel": {
+			value: struct {
+				Ch chan int
+			}{Ch: make(chan int)},
+			wantErr: "toml: unsupported type chan int",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			body, err := Marshal(tc.value)
+			if tc.wantErr != "" {
+				if err == nil || err.Error() != tc.wantErr {
+					t.Fatalf("Marshal() error = %v, want %q", err, tc.wantErr)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Marshal() error = %v", err)
+			}
+			if got := string(body); got != tc.want {
+				t.Fatalf("Marshal() output mismatch:\ngot:\n%s\nwant:\n%s", got, tc.want)
+			}
+		})
+	}
+
+	textValue := struct {
+		Value customText
+	}{Value: "encoded"}
+	body, err := Marshal(textValue)
+	if err != nil {
+		t.Fatalf("Marshal(TextMarshaler) error = %v", err)
+	}
+	if got, want := string(body), "Value = \"encoded\"\n"; got != want {
+		t.Fatalf("Marshal(TextMarshaler) = %q, want %q", got, want)
+	}
+}
+
 func TestFacadeRejectsOmitEmptyAsTypedError(t *testing.T) {
 	t.Parallel()
 	type Bad struct {
@@ -190,7 +357,120 @@ count = "bad"
 	}
 }
 
+func TestFacadeUnmarshalDirectNestedArrayTables(t *testing.T) {
+	t.Parallel()
+
+	type config struct {
+		Fruit []struct {
+			Name     string
+			Physical struct {
+				Color string
+				Shape string
+			}
+			Variety []struct {
+				Name string
+			}
+		}
+	}
+	input := []byte(`[[fruit]]
+name = "apple"
+
+[fruit.physical]
+color = "red"
+shape = "round"
+
+[[fruit.variety]]
+name = "red delicious"
+
+[[fruit.variety]]
+name = "granny smith"
+
+[[fruit]]
+name = "banana"
+
+[[fruit.variety]]
+name = "plantain"
+`)
+	var dst config
+	if err := Unmarshal(input, &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if len(dst.Fruit) != 2 {
+		t.Fatalf("len(Fruit) = %d, want 2", len(dst.Fruit))
+	}
+	if got, want := dst.Fruit[0].Name, "apple"; got != want {
+		t.Fatalf("Fruit[0].Name = %q, want %q", got, want)
+	}
+	if got, want := dst.Fruit[0].Physical.Color, "red"; got != want {
+		t.Fatalf("Fruit[0].Physical.Color = %q, want %q", got, want)
+	}
+	if len(dst.Fruit[0].Variety) != 2 {
+		t.Fatalf("len(Fruit[0].Variety) = %d, want 2", len(dst.Fruit[0].Variety))
+	}
+	if got, want := dst.Fruit[0].Variety[1].Name, "granny smith"; got != want {
+		t.Fatalf("Fruit[0].Variety[1].Name = %q, want %q", got, want)
+	}
+	if len(dst.Fruit[1].Variety) != 1 {
+		t.Fatalf("len(Fruit[1].Variety) = %d, want 1", len(dst.Fruit[1].Variety))
+	}
+	if got, want := dst.Fruit[1].Variety[0].Name, "plantain"; got != want {
+		t.Fatalf("Fruit[1].Variety[0].Name = %q, want %q", got, want)
+	}
+}
+
+func TestFacadeUnmarshalEmptyMapTakesDecodedEntries(t *testing.T) {
+	t.Parallel()
+
+	dst := map[string]any{}
+	if err := Unmarshal([]byte("name = \"demo\"\ncount = 2\n"), &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if got, want := dst["name"], "demo"; got != want {
+		t.Fatalf("name = %v, want %v", got, want)
+	}
+	if got, want := dst["count"], int64(2); got != want {
+		t.Fatalf("count = %v, want %v", got, want)
+	}
+}
+
+func TestFacadeUnmarshalNestedMapFallback(t *testing.T) {
+	t.Parallel()
+
+	type config struct {
+		Labels map[string]map[string]string
+	}
+
+	var dst config
+	if err := Unmarshal([]byte("[labels.prod]\nname = \"api\"\n"), &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if got, want := dst.Labels["prod"]["name"], "api"; got != want {
+		t.Fatalf("Labels[prod][name] = %q, want %q", got, want)
+	}
+}
+
+func TestFacadeUnmarshalMapKeepsExistingEntries(t *testing.T) {
+	t.Parallel()
+
+	dst := map[string]any{"existing": "keep"}
+	if err := Unmarshal([]byte(`name = "demo"`), &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if got, want := dst["existing"], "keep"; got != want {
+		t.Fatalf("existing entry = %v, want %v", got, want)
+	}
+	if got, want := dst["name"], "demo"; got != want {
+		t.Fatalf("decoded entry = %v, want %v", got, want)
+	}
+}
+
 type customFacade struct{ decoded bool }
+
+type customText string
+
+func (c customText) MarshalText() ([]byte, error) {
+	return []byte(c), nil
+}
 
 func (customFacade) MarshalTOMLTo(enc *Encoder) error {
 	_, err := enc.Write([]byte("name = \"custom\"\n"))

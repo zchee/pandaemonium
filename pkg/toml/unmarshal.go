@@ -36,7 +36,6 @@ func Unmarshal(data []byte, dst any) error {
 }
 
 func unmarshalWithOptions(data []byte, dst any, opts UnmarshalOptions) error {
-	cfg := bindConfigFromOptions(opts.DecoderOptions)
 	if dst == nil {
 		return &TypeMismatchError{Want: "non-nil pointer", Got: "nil"}
 	}
@@ -46,6 +45,10 @@ func unmarshalWithOptions(data []byte, dst any, opts UnmarshalOptions) error {
 	v := reflect.ValueOf(dst)
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return &TypeMismatchError{Want: "non-nil pointer", Got: v.Kind().String()}
+	}
+	if directStructUnmarshalEligible(v.Elem().Type()) {
+		cfg := bindConfigFromOptions(opts.DecoderOptions)
+		return bindDocumentDirect(data, v.Elem(), opts.DecoderOptions, cfg)
 	}
 	filter, err := newDecodeFilter(v.Elem().Type())
 	if err != nil {
@@ -58,6 +61,7 @@ func unmarshalWithOptions(data []byte, dst any, opts UnmarshalOptions) error {
 	if canRecycleDocumentFor(v.Elem().Type()) {
 		defer recycleDocument(root)
 	}
+	cfg := bindConfigFromOptions(opts.DecoderOptions)
 	return bindValue(v.Elem(), root, cfg)
 }
 
@@ -66,6 +70,9 @@ type bindConfig struct {
 }
 
 func bindConfigFromOptions(opts []Option) bindConfig {
+	if len(opts) == 0 {
+		return bindConfig{}
+	}
 	decoder := &Decoder{}
 	for _, opt := range opts {
 		opt(decoder)
@@ -270,6 +277,17 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 		}
 		if dst.Type().Key().Kind() != reflect.String {
 			return &UnsupportedTypeError{Type: dst.Type().String()}
+		}
+		if dst.Type().Elem().Kind() == reflect.Interface && dst.Len() == 0 {
+			source := reflect.ValueOf(map[string]any(m))
+			if source.Type().AssignableTo(dst.Type()) {
+				dst.Set(source)
+				return nil
+			}
+			if source.Type().ConvertibleTo(dst.Type()) {
+				dst.Set(source.Convert(dst.Type()))
+				return nil
+			}
 		}
 		if dst.IsNil() {
 			dst.Set(reflect.MakeMapWithSize(dst.Type(), len(m)))

@@ -14,7 +14,10 @@
 
 package toml
 
-import "io"
+import (
+	"bytes"
+	"io"
+)
 
 // MarshalerTo is the fast-path TOML encoder hook.
 type MarshalerTo interface {
@@ -48,6 +51,9 @@ func (e *Encoder) Encode(v any) error {
 	}
 	if m, ok := v.(MarshalerTo); ok {
 		return m.MarshalTOMLTo(e)
+	}
+	if buf, ok := e.w.(*bytes.Buffer); ok {
+		return marshalToBuffer(buf, v, e.opts)
 	}
 	b, err := marshalWithOptions(v, e.opts)
 	if err != nil {

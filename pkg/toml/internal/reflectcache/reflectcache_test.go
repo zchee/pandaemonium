@@ -75,6 +75,15 @@ func TestLookupCachesFieldMetadata(t *testing.T) {
 	if len(info.Fields) != 2 {
 		t.Fatalf("Fields len = %d, want 2", len(info.Fields))
 	}
+	if info.HasDuplicateNames {
+		t.Fatal("HasDuplicateNames = true, want false")
+	}
+	if got, want := len(info.MarshalFields), 2; got != want {
+		t.Fatalf("MarshalFields len = %d, want %d", got, want)
+	}
+	if got := []string{info.MarshalFields[0].Name, info.MarshalFields[1].Name}; got[0] != "Name" || got[1] != "zero" {
+		t.Fatalf("MarshalFields order = %v, want [Name zero]", got)
+	}
 
 	again, err := Lookup(reflect.TypeOf(sample{}))
 	if err != nil {
@@ -82,5 +91,28 @@ func TestLookupCachesFieldMetadata(t *testing.T) {
 	}
 	if again != info {
 		t.Fatalf("Lookup() cache miss: %p != %p", again, info)
+	}
+}
+
+func TestLookupMarksDuplicateMarshalNames(t *testing.T) {
+	t.Parallel()
+
+	type sample struct {
+		First  string `toml:"name"`
+		Second string `toml:"name"`
+	}
+
+	info, err := Lookup(reflect.TypeOf(sample{}))
+	if err != nil {
+		t.Fatalf("Lookup() error = %v", err)
+	}
+	if !info.HasDuplicateNames {
+		t.Fatal("HasDuplicateNames = false, want true")
+	}
+	if got, want := len(info.MarshalFields), 2; got != want {
+		t.Fatalf("MarshalFields len = %d, want %d", got, want)
+	}
+	if info.MarshalFields[0].Name != "name" || info.MarshalFields[1].Name != "name" {
+		t.Fatalf("MarshalFields duplicate names = %#v", info.MarshalFields)
 	}
 }
