@@ -268,34 +268,31 @@ func TestBuildLaunchArgs_SettingSources(t *testing.T) {
 		wantIn  []string
 		wantOut []string
 	}{
-		"success: single path setting source": {
-			opts:   &Options{SettingSources: []SettingSource{{Path: "/etc/claude/settings.json"}}},
-			wantIn: []string{"--setting-sources=/etc/claude/settings.json"},
+		"success: single literal setting source": {
+			opts:   &Options{SettingSources: []SettingSource{SettingSourceUser}},
+			wantIn: []string{"--setting-sources=user"},
 		},
-		"success: multiple path sources are comma-joined": {
+		"success: multiple literals are comma-joined in order": {
 			opts: &Options{SettingSources: []SettingSource{
-				{Path: "/etc/claude/a.json"},
-				{Path: "/etc/claude/b.json"},
+				SettingSourceUser,
+				SettingSourceProject,
 			}},
-			wantIn: []string{"--setting-sources=/etc/claude/a.json,/etc/claude/b.json"},
+			wantIn: []string{"--setting-sources=user,project"},
 		},
-		"success: URL source is included": {
-			opts:   &Options{SettingSources: []SettingSource{{URL: "https://example.com/settings.json"}}},
-			wantIn: []string{"--setting-sources=https://example.com/settings.json"},
+		"success: local literal is included": {
+			opts:   &Options{SettingSources: []SettingSource{SettingSourceLocal}},
+			wantIn: []string{"--setting-sources=local"},
 		},
 		"success: empty SettingSources omits the flag": {
 			opts:    &Options{SettingSources: []SettingSource{}},
 			wantOut: []string{"--setting-sources"},
 		},
-		"success: setting source with both Path and URL uses Path": {
-			opts: &Options{SettingSources: []SettingSource{
-				{Path: "/local/settings.json", URL: "https://example.com/settings.json"},
-			}},
-			wantIn:  []string{"--setting-sources=/local/settings.json"},
-			wantOut: []string{"https://example.com"},
+		"success: nil SettingSources omits the flag": {
+			opts:    &Options{},
+			wantOut: []string{"--setting-sources"},
 		},
-		"success: setting source with empty path and empty URL is skipped": {
-			opts:    &Options{SettingSources: []SettingSource{{}}},
+		"success: empty-string entry is skipped": {
+			opts:    &Options{SettingSources: []SettingSource{""}},
 			wantOut: []string{"--setting-sources"},
 		},
 	}

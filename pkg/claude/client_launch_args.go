@@ -142,17 +142,20 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		}
 	}
 
-	// Setting sources — comma-joined list passed as a single --setting-sources= flag.
-	// Mirrors upstream Python subprocess_cli.py:
-	//   cmd.append(f"--setting-sources={','.join(effective_setting_sources)}")
+	// Setting sources — comma-joined list of literals (user|project|local)
+	// passed as a single --setting-sources= flag. Mirrors upstream
+	// subprocess_cli.py:353. Empty entries are skipped so a zero-value
+	// SettingSource does not produce a trailing empty token.
+	//
+	// Upstream defaults setting_sources to ["user","project"] only when
+	// Options.Skills is set (subprocess_cli.py:205-217); that coupling is
+	// deferred until the Skills option lands, so an unset SettingSources emits
+	// nothing here.
 	if len(opts.SettingSources) > 0 {
 		parts := make([]string, 0, len(opts.SettingSources))
 		for _, ss := range opts.SettingSources {
-			switch {
-			case ss.Path != "":
-				parts = append(parts, ss.Path)
-			case ss.URL != "":
-				parts = append(parts, ss.URL)
+			if ss != "" {
+				parts = append(parts, string(ss))
 			}
 		}
 		if len(parts) > 0 {

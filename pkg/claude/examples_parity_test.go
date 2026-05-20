@@ -502,13 +502,13 @@ func TestExampleParity_SettingSources_LaunchArgs(t *testing.T) {
 
 	opts := &Options{
 		SettingSources: []SettingSource{
-			{Path: "/etc/claude/settings.json"},
-			{Path: "/home/user/.claude/settings.json"},
+			SettingSourceUser,
+			SettingSourceProject,
 		},
 	}
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
 
-	want := "--setting-sources=/etc/claude/settings.json,/home/user/.claude/settings.json"
+	want := "--setting-sources=user,project"
 	found := slices.Contains(args, want)
 	if !found {
 		t.Errorf("buildLaunchArgs args = %v; want %q", args, want)

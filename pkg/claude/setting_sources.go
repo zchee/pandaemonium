@@ -14,22 +14,24 @@
 
 package claude
 
-import (
-	"github.com/go-json-experiment/json/jsontext"
-)
-
-// SettingSource describes an external settings source for the claude CLI.
+// SettingSource identifies which on-disk settings layer the claude CLI loads.
 //
-// Setting sources are registered via [Options].SettingSources and round-trip
-// into CLI launch arguments. The exact CLI flag mapping is implemented in
-// Phase G.
-type SettingSource struct {
-	// Path is the filesystem path to a settings file.
-	Path string `json:"path,omitzero"`
+// It is one of a fixed set of literals the CLI understands; values are
+// registered via [Options].SettingSources and emitted as a comma-joined
+// --setting-sources flag (e.g. --setting-sources=user,project), mirroring
+// upstream subprocess_cli.py:353.
+//
+// No Raw forward-compat field is needed (unlike most types in this package):
+// the wire form is a closed set of literals, not an object with unknown fields.
+type SettingSource string
 
-	// URL is the URL of a remote settings source (mutually exclusive with Path).
-	URL string `json:"url,omitzero"`
+const (
+	// SettingSourceUser is the user-level settings layer (~/.claude/settings.json).
+	SettingSourceUser SettingSource = "user"
 
-	// Raw preserves unknown fields for forward compatibility.
-	Raw jsontext.Value `json:",inline"`
-}
+	// SettingSourceProject is the project-level settings layer (.claude/settings.json).
+	SettingSourceProject SettingSource = "project"
+
+	// SettingSourceLocal is the local (gitignored) project settings layer.
+	SettingSourceLocal SettingSource = "local"
+)

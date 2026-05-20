@@ -12,10 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command setting_sources demonstrates passing external settings files to the
-// claude CLI via [claude.Options].SettingSources. Each [claude.SettingSource]
-// may point to a local file path or a remote URL; the CLI merges settings from
-// all sources in order.
+// Command setting_sources demonstrates restricting which settings layers the
+// claude CLI loads via [claude.Options].SettingSources. Each
+// [claude.SettingSource] is one of the fixed layers the CLI understands
+// (user, project, local); the CLI merges the selected layers in order.
 //
 // Port of examples/setting_sources.py from claude-agent-sdk-python.
 //
@@ -39,23 +39,19 @@ func main() {
 		return
 	}
 
-	// Example: load a project-specific settings file, then overlay a user-level
-	// settings file. Paths are illustrative; adjust for your installation.
-	settingsPath := os.Getenv("CLAUDE_SETTINGS_PATH")
-	if settingsPath == "" {
-		settingsPath = os.ExpandEnv("$HOME/.claude/settings.json")
-	}
-
+	// Example: load only the user-level and project-level settings layers,
+	// excluding the local (gitignored) layer.
 	ctx := context.Background()
 
 	opts := &claude.Options{
 		SettingSources: []claude.SettingSource{
-			{Path: settingsPath},
+			claude.SettingSourceUser,
+			claude.SettingSourceProject,
 		},
 		MaxTurns: 1,
 	}
 
-	fmt.Printf("Loading settings from: %s\n", settingsPath)
+	fmt.Println("Loading settings from layers: user, project")
 
 	for msg, err := range claude.Query(ctx, "What model are you?", opts) {
 		if err != nil {
