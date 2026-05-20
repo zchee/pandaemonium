@@ -15,6 +15,7 @@
 package claude
 
 import (
+	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -221,5 +222,48 @@ func TestClientFork_StoreNotFoundPropagatesError(t *testing.T) {
 	}
 	if !errors.Is(err, ErrSessionNotFound) {
 		t.Errorf("Fork() error = %v, want to wrap ErrSessionNotFound", err)
+	}
+}
+
+func TestClientFork_OptionsIsolation(t *testing.T) {
+	t.Parallel()
+
+	store := NewInMemorySessionStore()
+	if err := store.Save(t.Context(), &Session{ID: "parent-iso"}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	noop := func(_ context.Context, _ HookEvent) (HookDecision, error) { return HookDecision{}, nil }
+	parentOpts := &Options{
+		SessionStore: store,
+		Hooks:        []HookRegistration{{Kind: HookEventStop, Fn: noop}},
+		AllowedTools: []string{"Read"},
+		Env:          map[string]string{"PARENT": "1"},
+	}
+	c, err := NewClient(t.Context(), parentOpts)
+	if err != nil {
+		t.Fatalf("NewClient() error = %v", err)
+	}
+	c.sessionID = "parent-iso"
+
+	child, err := c.Fork(t.Context(), "")
+	if err != nil {
+		t.Fatalf("Fork() error = %v", err)
+	}
+
+	// Mutating the child's reference-typed Options fields must not reach the
+	// parent. A shallow struct copy would alias these slices/maps.
+	child.opts.Hooks = append(child.opts.Hooks, HookRegistration{Kind: HookEventPreToolUse, Fn: noop})
+	child.opts.AllowedTools = append(child.opts.AllowedTools, "Write")
+	child.opts.Env["CHILD"] = "1"
+
+	if got := len(c.opts.Hooks); got != 1 {
+		t.Errorf("parent Hooks len = %d after child append, want 1 (aliasing)", got)
+	}
+	if got := len(c.opts.AllowedTools); got != 1 {
+		t.Errorf("parent AllowedTools len = %d after child append, want 1 (aliasing)", got)
+	}
+	if _, ok := c.opts.Env["CHILD"]; ok {
+		t.Error("parent Env gained CHILD key from child mutation (map aliasing)")
 	}
 }

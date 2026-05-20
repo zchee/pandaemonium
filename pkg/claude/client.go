@@ -285,15 +285,16 @@ func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*Clau
 		return nil, fmt.Errorf("Fork: %w", err)
 	}
 
-	// Shallow-copy the options so the forked client is independently
-	// configurable without affecting the parent. Options is frozen at Phase 0;
-	// no fields will be added that would require a deep copy.
-	childOpts := *c.opts
+	// Clone the options so the forked client is independently configurable:
+	// clone gives the child its own slice/map containers, so mutating the
+	// child's Hooks/MCPServers/Env/etc. never reaches the parent (a shallow
+	// struct copy would alias them).
+	childOpts := c.opts.clone()
 
 	// The child's sessionID drives --resume in buildLaunchArgs so the CLI
 	// subprocess loads the forked session when it starts.
 	child := &ClaudeSDKClient{
-		opts:      &childOpts,
+		opts:      childOpts,
 		sessionID: forked.ID,
 	}
 	return child, nil

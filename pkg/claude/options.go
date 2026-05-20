@@ -30,15 +30,55 @@ func (o *Options) validate() error {
 	return nil
 }
 
+// clone returns a copy of o whose reference-typed fields (slices and maps) are
+// independent of the receiver's, so a caller can mutate the copy — including
+// appending to its slices or writing to its Env map — without affecting the
+// original. It is used by [ClaudeSDKClient.Fork] to give the child client its
+// own configuration.
+//
+// Only the containers are copied, not their elements: [Message] values, hook
+// functions, [MCPServer] instances, and the [SessionStore] are shared by
+// reference because they are immutable or intentionally shared (a forked child
+// branches from the same store). This is what prevents append-aliasing while
+// keeping fork cheap. A nil receiver returns nil.
+func (o *Options) clone() *Options {
+	if o == nil {
+		return nil
+	}
+	c := *o
+	if o.AllowedTools != nil {
+		c.AllowedTools = append([]string(nil), o.AllowedTools...)
+	}
+	if o.MCPServers != nil {
+		c.MCPServers = append([]MCPServer(nil), o.MCPServers...)
+	}
+	if o.Hooks != nil {
+		c.Hooks = append([]HookRegistration(nil), o.Hooks...)
+	}
+	if o.Agents != nil {
+		c.Agents = append([]AgentDefinition(nil), o.Agents...)
+	}
+	if o.Plugins != nil {
+		c.Plugins = append([]Plugin(nil), o.Plugins...)
+	}
+	if o.SettingSources != nil {
+		c.SettingSources = append([]SettingSource(nil), o.SettingSources...)
+	}
+	if o.Env != nil {
+		c.Env = make(map[string]string, len(o.Env))
+		for k, v := range o.Env {
+			c.Env[k] = v
+		}
+	}
+	return &c
+}
+
 // Options configures a [Query] or [ClaudeSDKClient] session.
 //
 // The zero value is usable: it exercises stdio defaults and performs CLI
 // discovery without any filesystem side effects beyond binary lookup (AC-i1).
 // All fields are set once at construction time; modifying Options after passing
 // it to NewClient or Query has no effect.
-//
-// This struct is frozen as of Phase 0; no fields will be added or removed in
-// subsequent implementation phases.
 type Options struct {
 	// SystemPrompt is the system prompt injected at the start of every session.
 	// Corresponds to --system-prompt in the CLI.
