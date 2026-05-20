@@ -15,10 +15,12 @@
 package toml
 
 import (
+	"errors"
 	"reflect"
 	"runtime/debug"
 	"strings"
 	"testing"
+	"time"
 )
 
 func TestParseStringValueHotPaths(t *testing.T) {
@@ -188,12 +190,134 @@ func TestDirectDestinationRawResolvesFinalStructField(t *testing.T) {
 	if !ok {
 		t.Fatal("parseDirectRawPath() failed for bare dotted path")
 	}
-	target, ok, err := directDestinationRaw(dst, path)
+	target, valueKind, ok, err := directDestinationRaw(dst, path)
 	if err != nil || !ok {
 		t.Fatalf("directDestinationRaw() = ok %v, err %v; want ok true", ok, err)
 	}
 	if !target.IsValid() || target.Kind() != reflect.String {
 		t.Fatalf("directDestinationRaw() target = %#v, want string field", target)
+	}
+	if valueKind != directValueString {
+		t.Fatalf("directDestinationRaw() valueKind = %v, want directValueString", valueKind)
+	}
+}
+
+func TestDirectBindTypedTokenScalarDestinations(t *testing.T) {
+	type sample struct {
+		Name     string
+		Enabled  bool
+		Count    int16
+		Unsigned uint16
+		Ratio    float32
+		When     time.Time
+	}
+
+	tests := map[string]struct {
+		field string
+		kind  directValueKind
+		token Token
+		check func(t *testing.T, got sample)
+	}{
+		"success: string": {
+			field: "Name",
+			kind:  directValueString,
+			token: Token{Kind: TokenKindValueString, Bytes: []byte(`"demo"`)},
+			check: func(t *testing.T, got sample) {
+				t.Helper()
+				if got.Name != "demo" {
+					t.Fatalf("Name = %q, want demo", got.Name)
+				}
+			},
+		},
+		"success: bool": {
+			field: "Enabled",
+			kind:  directValueBool,
+			token: Token{Kind: TokenKindValueBool, Bytes: []byte("true")},
+			check: func(t *testing.T, got sample) {
+				t.Helper()
+				if !got.Enabled {
+					t.Fatal("Enabled = false, want true")
+				}
+			},
+		},
+		"success: int": {
+			field: "Count",
+			kind:  directValueInt,
+			token: Token{Kind: TokenKindValueInteger, Bytes: []byte("12")},
+			check: func(t *testing.T, got sample) {
+				t.Helper()
+				if got.Count != 12 {
+					t.Fatalf("Count = %d, want 12", got.Count)
+				}
+			},
+		},
+		"success: uint": {
+			field: "Unsigned",
+			kind:  directValueUint,
+			token: Token{Kind: TokenKindValueInteger, Bytes: []byte("34")},
+			check: func(t *testing.T, got sample) {
+				t.Helper()
+				if got.Unsigned != 34 {
+					t.Fatalf("Unsigned = %d, want 34", got.Unsigned)
+				}
+			},
+		},
+		"success: float": {
+			field: "Ratio",
+			kind:  directValueFloat,
+			token: Token{Kind: TokenKindValueFloat, Bytes: []byte("1.25")},
+			check: func(t *testing.T, got sample) {
+				t.Helper()
+				if got.Ratio != 1.25 {
+					t.Fatalf("Ratio = %v, want 1.25", got.Ratio)
+				}
+			},
+		},
+		"success: time": {
+			field: "When",
+			kind:  directValueTime,
+			token: Token{Kind: TokenKindValueDatetime, Bytes: []byte("2026-05-17T03:04:05Z")},
+			check: func(t *testing.T, got sample) {
+				t.Helper()
+				if got.When.Format(time.RFC3339) != "2026-05-17T03:04:05Z" {
+					t.Fatalf("When = %s, want 2026-05-17T03:04:05Z", got.When.Format(time.RFC3339Nano))
+				}
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got sample
+			field := reflect.ValueOf(&got).Elem().FieldByName(tc.field)
+			if err := directBindTypedToken(nil, tc.token, field, tc.kind, bindConfig{}); err != nil {
+				t.Fatalf("directBindTypedToken() error = %v", err)
+			}
+			tc.check(t, got)
+		})
+	}
+}
+
+func TestDirectBindTypedTokenLocalTimeUTCOption(t *testing.T) {
+	type sample struct {
+		When time.Time
+	}
+
+	tok := Token{Kind: TokenKindValueDatetime, Bytes: []byte("2026-05-17T03:04:05")}
+	var rejected sample
+	err := directBindTypedToken(nil, tok, reflect.ValueOf(&rejected).Elem().FieldByName("When"), directValueTime, bindConfig{})
+	var localErr *LocalTimeIntoTimeError
+	if !errors.As(err, &localErr) {
+		t.Fatalf("directBindTypedToken(local datetime) error = %T(%v), want LocalTimeIntoTimeError", err, err)
+	}
+
+	var got sample
+	if err := directBindTypedToken(nil, tok, reflect.ValueOf(&got).Elem().FieldByName("When"), directValueTime, bindConfig{localAsUTC: true}); err != nil {
+		t.Fatalf("directBindTypedToken(localAsUTC) error = %v", err)
+	}
+	want := time.Date(2026, time.May, 17, 3, 4, 5, 0, time.UTC)
+	if !got.When.Equal(want) || got.When.Location() != time.UTC {
+		t.Fatalf("When = %s (%s), want %s UTC", got.When, got.When.Location(), want)
 	}
 }
 

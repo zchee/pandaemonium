@@ -36,8 +36,21 @@ type directAssignment struct {
 	name      string
 	rawName   []byte
 	dst       reflect.Value
+	valueKind directValueKind
 	mapTarget bool
 }
+
+type directValueKind uint8
+
+const (
+	directValueGeneric directValueKind = iota
+	directValueString
+	directValueBool
+	directValueInt
+	directValueUint
+	directValueFloat
+	directValueTime
+)
 
 // directRawPath keeps common dotted bare-key paths on the stack. It is used
 // only while binding the current input buffer, so its byte slices must not be
@@ -203,17 +216,13 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 					}
 					continue
 				}
-				value, err := parseNextValue(dec)
-				if err != nil {
-					return err
-				}
-				if err := target.assign(value, cfg); err != nil {
+				if err := target.assignFromDecoder(dec, cfg); err != nil {
 					return bindErrorPath(err, currentPath.string())
 				}
 				continue
 			}
 			if path, ok := parseDirectRawPath(tok.Bytes); ok {
-				dst, ok, err := directDestinationRaw(current, path)
+				dst, valueKind, ok, err := directDestinationRaw(current, path)
 				if err != nil {
 					return err
 				}
@@ -223,13 +232,13 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 					}
 					continue
 				}
-				value, err := parseNextValue(dec)
-				if err != nil {
-					return err
-				}
 				if dst.IsValid() {
-					err = directBindRaw(dst, path, value, cfg)
+					err = directBindRawFromDecoder(dec, dst, valueKind, path, cfg)
 				} else {
+					value, parseErr := parseNextValue(dec)
+					if parseErr != nil {
+						return parseErr
+					}
 					err = directAssignRaw(current, path, value, cfg)
 				}
 				if err != nil {
@@ -241,7 +250,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 			if err != nil {
 				return err
 			}
-			dst, ok, err := directDestination(current, key)
+			dst, valueKind, ok, err := directDestination(current, key)
 			if err != nil {
 				return err
 			}
@@ -251,13 +260,13 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				}
 				continue
 			}
-			value, err := parseNextValue(dec)
-			if err != nil {
-				return err
-			}
 			if dst.IsValid() {
-				err = directBind(dst, key, value, cfg)
+				err = directBindFromDecoder(dec, dst, valueKind, key, cfg)
 			} else {
+				value, parseErr := parseNextValue(dec)
+				if parseErr != nil {
+					return parseErr
+				}
 				err = directAssign(current, key, value, cfg)
 			}
 			if err != nil {
@@ -279,6 +288,26 @@ func directStructInfo(v reflect.Value) (*reflectcache.TypeInfo, error) {
 		return nil, normalizeReflectcacheError(err)
 	}
 	return info, nil
+}
+
+func directValueKindOfType(t reflect.Type) directValueKind {
+	if t == reflect.TypeFor[time.Time]() {
+		return directValueTime
+	}
+	switch t.Kind() {
+	case reflect.String:
+		return directValueString
+	case reflect.Bool:
+		return directValueBool
+	case reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64:
+		return directValueInt
+	case reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr:
+		return directValueUint
+	case reflect.Float32, reflect.Float64:
+		return directValueFloat
+	default:
+		return directValueGeneric
+	}
 }
 
 func parseDirectHeaderPath(raw []byte, array bool) (directRawPath, bool) {
@@ -406,7 +435,7 @@ func directAssignmentForKeyInfo(root reflect.Value, info *reflectcache.TypeInfo,
 		if !ok {
 			return directAssignment{}, false, nil
 		}
-		return directAssignment{rawName: raw, dst: cur.FieldByIndex(field.Index)}, true, nil
+		return directAssignment{rawName: raw, dst: cur.FieldByIndex(field.Index), valueKind: directValueKindOfType(field.Type)}, true, nil
 	case reflect.Map:
 		if cur.Type().Key().Kind() != reflect.String {
 			return directAssignment{}, false, &UnsupportedTypeError{Type: cur.Type().String()}
@@ -470,6 +499,20 @@ func (a directAssignment) assign(value any, cfg bindConfig) error {
 		return nil
 	}
 	if err := bindValue(a.dst, value, cfg); err != nil {
+		return bindErrorPath(err, a.pathName())
+	}
+	return nil
+}
+
+func (a directAssignment) assignFromDecoder(dec *Decoder, cfg bindConfig) error {
+	if a.mapTarget {
+		value, err := parseNextValue(dec)
+		if err != nil {
+			return err
+		}
+		return a.assign(value, cfg)
+	}
+	if err := directBindFromDecoderNoPath(dec, a.dst, a.valueKind, cfg); err != nil {
 		return bindErrorPath(err, a.pathName())
 	}
 	return nil
@@ -543,13 +586,13 @@ func directTable(root reflect.Value, path []string) (reflect.Value, error) {
 }
 
 func directCanAssignRaw(root reflect.Value, path directRawPath) (bool, error) {
-	_, ok, err := directDestinationRaw(root, path)
+	_, _, ok, err := directDestinationRaw(root, path)
 	return ok, err
 }
 
-func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value, bool, error) {
+func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value, directValueKind, bool, error) {
 	if !root.IsValid() {
-		return reflect.Value{}, false, nil
+		return reflect.Value{}, directValueGeneric, false, nil
 	}
 	cur := root
 	for i := 0; i < path.len(); i++ {
@@ -558,30 +601,30 @@ func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value
 		case reflect.Struct:
 			info, err := reflectcache.Lookup(cur.Type())
 			if err != nil {
-				return reflect.Value{}, false, normalizeReflectcacheError(err)
+				return reflect.Value{}, directValueGeneric, false, normalizeReflectcacheError(err)
 			}
 			field, ok := lookupStructFieldBytes(info, path.part(i))
 			if !ok {
-				return reflect.Value{}, false, nil
+				return reflect.Value{}, directValueGeneric, false, nil
 			}
 			cur = cur.FieldByIndex(field.Index)
 		case reflect.Map:
-			return reflect.Value{}, true, nil
+			return reflect.Value{}, directValueGeneric, true, nil
 		default:
-			return reflect.Value{}, false, nil
+			return reflect.Value{}, directValueGeneric, false, nil
 		}
 	}
-	return cur, true, nil
+	return cur, directValueKindOfType(cur.Type()), true, nil
 }
 
 func directCanAssign(root reflect.Value, path []string) (bool, error) {
-	_, ok, err := directDestination(root, path)
+	_, _, ok, err := directDestination(root, path)
 	return ok, err
 }
 
-func directDestination(root reflect.Value, path []string) (reflect.Value, bool, error) {
+func directDestination(root reflect.Value, path []string) (reflect.Value, directValueKind, bool, error) {
 	if !root.IsValid() {
-		return reflect.Value{}, false, nil
+		return reflect.Value{}, directValueGeneric, false, nil
 	}
 	cur := root
 	for _, name := range path {
@@ -590,20 +633,20 @@ func directDestination(root reflect.Value, path []string) (reflect.Value, bool, 
 		case reflect.Struct:
 			info, err := reflectcache.Lookup(cur.Type())
 			if err != nil {
-				return reflect.Value{}, false, normalizeReflectcacheError(err)
+				return reflect.Value{}, directValueGeneric, false, normalizeReflectcacheError(err)
 			}
 			field, ok := lookupStructField(info, name)
 			if !ok {
-				return reflect.Value{}, false, nil
+				return reflect.Value{}, directValueGeneric, false, nil
 			}
 			cur = cur.FieldByIndex(field.Index)
 		case reflect.Map:
-			return reflect.Value{}, true, nil
+			return reflect.Value{}, directValueGeneric, true, nil
 		default:
-			return reflect.Value{}, false, nil
+			return reflect.Value{}, directValueGeneric, false, nil
 		}
 	}
-	return cur, true, nil
+	return cur, directValueKindOfType(cur.Type()), true, nil
 }
 
 func directArrayTableRaw(root reflect.Value, path directRawPath) (reflect.Value, int, error) {
@@ -704,6 +747,13 @@ func directBindRaw(dst reflect.Value, path directRawPath, value any, cfg bindCon
 	return nil
 }
 
+func directBindRawFromDecoder(dec *Decoder, dst reflect.Value, valueKind directValueKind, path directRawPath, cfg bindConfig) error {
+	if err := directBindFromDecoderNoPath(dec, dst, valueKind, cfg); err != nil {
+		return bindDirectRawErrorPath(err, path)
+	}
+	return nil
+}
+
 func directAssign(root reflect.Value, path []string, value any, cfg bindConfig) error {
 	if !root.IsValid() {
 		return nil
@@ -742,6 +792,151 @@ func directAssign(root reflect.Value, path []string, value any, cfg bindConfig) 
 func directBind(dst reflect.Value, path []string, value any, cfg bindConfig) error {
 	if err := bindValue(dst, value, cfg); err != nil {
 		return bindDirectErrorPath(err, path)
+	}
+	return nil
+}
+
+func directBindFromDecoder(dec *Decoder, dst reflect.Value, valueKind directValueKind, path []string, cfg bindConfig) error {
+	if err := directBindFromDecoderNoPath(dec, dst, valueKind, cfg); err != nil {
+		return bindDirectErrorPath(err, path)
+	}
+	return nil
+}
+
+func directBindFromDecoderNoPath(dec *Decoder, dst reflect.Value, valueKind directValueKind, cfg bindConfig) error {
+	tok, err := directNextValueToken(dec)
+	if err != nil {
+		return err
+	}
+	return directBindTypedToken(dec, tok, dst, valueKind, cfg)
+}
+
+func directNextValueToken(dec *Decoder) (Token, error) {
+	for {
+		tok, err := dec.ReadToken()
+		if err != nil {
+			return Token{}, err
+		}
+		if tok.Kind == TokenKindComment {
+			continue
+		}
+		return tok, nil
+	}
+}
+
+func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind directValueKind, cfg bindConfig) error {
+	if !dst.CanSet() {
+		return nil
+	}
+	switch valueKind {
+	case directValueString:
+		if tok.Kind == TokenKindValueString {
+			s, err := parseStringValue(tok.Bytes)
+			if err != nil {
+				return err
+			}
+			dst.SetString(s)
+			return nil
+		}
+	case directValueBool:
+		if tok.Kind == TokenKindValueBool {
+			switch {
+			case bytes.EqualFold(tok.Bytes, trueLiteral):
+				dst.SetBool(true)
+				return nil
+			case bytes.EqualFold(tok.Bytes, falseLiteral):
+				dst.SetBool(false)
+				return nil
+			default:
+				b, err := strconv.ParseBool(string(tok.Bytes))
+				if err != nil {
+					return err
+				}
+				dst.SetBool(b)
+				return nil
+			}
+		}
+	case directValueInt:
+		if tok.Kind == TokenKindValueInteger {
+			i, err := strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+			if err != nil {
+				return err
+			}
+			if dst.OverflowInt(i) {
+				return mismatch(dst.Type(), i)
+			}
+			dst.SetInt(i)
+			return nil
+		}
+	case directValueUint:
+		if tok.Kind == TokenKindValueInteger {
+			i, err := strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+			if err != nil {
+				return err
+			}
+			if i < 0 || dst.OverflowUint(uint64(i)) {
+				return mismatch(dst.Type(), i)
+			}
+			dst.SetUint(uint64(i))
+			return nil
+		}
+	case directValueFloat:
+		switch tok.Kind {
+		case TokenKindValueFloat:
+			f, err := strconv.ParseFloat(normalizeNumericText(tok.Bytes, true), 64)
+			if err != nil {
+				return err
+			}
+			if dst.OverflowFloat(f) {
+				return mismatch(dst.Type(), f)
+			}
+			dst.SetFloat(f)
+			return nil
+		case TokenKindValueInteger:
+			i, err := strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+			if err != nil {
+				return err
+			}
+			f := float64(i)
+			if dst.OverflowFloat(f) {
+				return mismatch(dst.Type(), i)
+			}
+			dst.SetFloat(f)
+			return nil
+		}
+	case directValueTime:
+		if tok.Kind == TokenKindValueDatetime {
+			return directBindTimeToken(tok, dst, cfg)
+		}
+	}
+	value, err := parseValueToken(dec, tok)
+	if err != nil {
+		return err
+	}
+	return bindValue(dst, value, cfg)
+}
+
+func directBindTimeToken(tok Token, dst reflect.Value, cfg bindConfig) error {
+	v, kind, err := parseDateTimeValue(tok.Bytes)
+	if err != nil {
+		return err
+	}
+	if kind == dateTimeKindOffset {
+		dst.Set(reflect.ValueOf(v.(time.Time)))
+		return nil
+	}
+	if !cfg.localAsUTC {
+		return &LocalTimeIntoTimeError{Kind: TokenKindValueDatetime}
+	}
+	switch x := v.(type) {
+	case LocalDateTime:
+		dst.Set(reflect.ValueOf(time.Date(x.Year, time.Month(x.Month), x.Day, x.Hour, x.Minute, x.Second, x.Nanosecond, time.UTC)))
+	case LocalDate:
+		dst.Set(reflect.ValueOf(time.Date(x.Year, time.Month(x.Month), x.Day, 0, 0, 0, 0, time.UTC)))
+	case LocalTime:
+		dst.Set(reflect.ValueOf(time.Date(0, time.January, 1, x.Hour, x.Minute, x.Second, x.Nanosecond, time.UTC)))
+	default:
+		return mismatch(dst.Type(), v)
 	}
 	return nil
 }
