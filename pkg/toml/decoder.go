@@ -91,12 +91,11 @@ type Decoder struct {
 	needSeparator  bool
 	atLineStart    bool
 
-	limits          Limits
-	arrayDepth      int
-	inlineDepth     int
-	containerStack  []byte
-	arrayStateStack []uint8
-	localAsUTC      bool
+	limits         Limits
+	arrayDepth     int
+	inlineDepth    int
+	containerStack []byte
+	localAsUTC     bool
 }
 
 const (
@@ -120,29 +119,6 @@ func (d *Decoder) innermostIsArray() bool {
 		return false
 	}
 	return d.containerStack[n-1] == containerArray
-}
-
-func (d *Decoder) innermostArrayState() (uint8, bool) {
-	for i := len(d.containerStack) - 1; i >= 0; i-- {
-		if d.containerStack[i] == containerArray {
-			if i < len(d.arrayStateStack) {
-				return d.arrayStateStack[i], true
-			}
-			break
-		}
-	}
-	return 0, false
-}
-
-func (d *Decoder) setInnermostArrayState(state uint8) {
-	for i := len(d.containerStack) - 1; i >= 0; i-- {
-		if d.containerStack[i] == containerArray {
-			if i < len(d.arrayStateStack) {
-				d.arrayStateStack[i] = state
-			}
-			return
-		}
-	}
 }
 
 // NewDecoder creates a Decoder over an io.Reader input.
@@ -309,34 +285,14 @@ func (d *Decoder) ReadToken() (Token, error) {
 			d.expectingValue = true
 			continue
 		case ',':
-			if d.innermostIsArray() {
-				if state, ok := d.innermostArrayState(); ok && state == arrayStateNeedValue {
-					return Token{}, d.syntaxError("expected value", d.off)
-				}
-			}
 			d.advanceOne()
 			if d.innermostIsArray() {
 				d.expectingValue = true
-				d.setInnermostArrayState(arrayStateNeedValue)
 			}
-			d.needSeparator = false
 			continue
-			default:
-				if d.expectingValue {
-					if d.needSeparator && d.innermostIsArray() {
-						return Token{}, d.syntaxError("expected array separator", d.off)
-					}
-					return d.scanValueToken()
-				}
-				if d.needSeparator && len(d.containerStack) > 0 {
-					return Token{}, d.syntaxError("expected inline table separator", d.off)
-				}
-				return d.scanKeyToken()
-			}
-			if d.innermostIsArray() {
-				if state, ok := d.innermostArrayState(); ok && state == arrayStateNeedComma {
-					return Token{}, d.syntaxError("expected comma", d.off)
-				}
+		default:
+			if d.expectingValue {
+				return d.scanValueToken()
 			}
 			return d.scanKeyToken()
 		}
@@ -475,9 +431,8 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		}
 		d.advanceBytes(chunk)
 		d.expectingValue = false
-		d.needSeparator = true
 		if d.innermostIsArray() {
-			d.setInnermostArrayState(arrayStateNeedComma)
+			d.expectingValue = true
 		}
 		return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
 	case '[':
@@ -509,10 +464,12 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		kind = TokenKindValueDatetime
 	case strings.ContainsAny(clean, "= "):
 		return Token{}, d.syntaxError("unexpected = in value", start)
-	case bytes.Equal(chunk, trueLiteral) || bytes.Equal(chunk, falseLiteral):
+	case norm == "true" || norm == "false":
 		kind = TokenKindValueBool
-	case bytes.Equal(chunk, infLiteral) || bytes.Equal(chunk, posInfLiteral) || bytes.Equal(chunk, negInfLiteral) ||
-		bytes.Equal(chunk, nanLiteral) || bytes.Equal(chunk, posNanLiteral) || bytes.Equal(chunk, negNanLiteral):
+		if clean == "" || clean == "+" || clean == "-" {
+			return Token{}, d.syntaxError("malformed value", start)
+		}
+	case isSpecialFloat(norm):
 		kind = TokenKindValueFloat
 	case isIntCandidate(norm):
 		if _, err := strconv.ParseInt(clean, 10, 64); err != nil {
@@ -533,7 +490,9 @@ func (d *Decoder) scanValueToken() (Token, error) {
 	}
 	d.advanceBytes(chunk)
 	d.expectingValue = false
-	d.setInnermostArrayState(arrayStateNeedComma)
+	if d.innermostIsArray() {
+		d.expectingValue = true
+	}
 	return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
 }
 
@@ -544,7 +503,6 @@ func (d *Decoder) scanArrayStart() (Token, error) {
 	d.arrayDepth++
 	d.enforceNestedDepth(start, d.arrayDepth)
 	d.containerStack = append(d.containerStack, containerArray)
-	d.arrayStateStack = append(d.arrayStateStack, arrayStateNeedValue)
 	d.expectingValue = true
 	d.needSeparator = false
 	return Token{Kind: TokenKindArrayStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
@@ -560,13 +518,7 @@ func (d *Decoder) scanArrayEnd() (Token, error) {
 	if n := len(d.containerStack); n > 0 && d.containerStack[n-1] == containerArray {
 		d.containerStack = d.containerStack[:n-1]
 	}
-	if n := len(d.arrayStateStack); n > 0 {
-		d.arrayStateStack = d.arrayStateStack[:n-1]
-	}
-	if d.innermostIsArray() {
-		d.setInnermostArrayState(arrayStateNeedComma)
-	}
-	d.expectingValue = false
+	d.expectingValue = d.innermostIsArray()
 	return Token{Kind: TokenKindArrayEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -591,10 +543,7 @@ func (d *Decoder) scanInlineTableEnd() (Token, error) {
 	if n := len(d.containerStack); n > 0 && d.containerStack[n-1] == containerInline {
 		d.containerStack = d.containerStack[:n-1]
 	}
-	if d.innermostIsArray() {
-		d.setInnermostArrayState(arrayStateNeedComma)
-	}
-	d.expectingValue = false
+	d.expectingValue = d.innermostIsArray()
 	return Token{Kind: TokenKindInlineTableEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 

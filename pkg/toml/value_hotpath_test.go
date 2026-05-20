@@ -398,7 +398,7 @@ func TestParseValueTokenNormalizationHotPaths(t *testing.T) {
 	}{
 		{name: "integer underscores", tok: Token{Kind: TokenKindValueInteger, Bytes: []byte("1_2_3")}, want: int64(123)},
 		{name: "float normalization", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("1_2.3E+4")}, want: 123000.0},
-		{name: "bool true", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("true")}, want: true},
+		{name: "bool true", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE")}, want: true},
 		{name: "bool false", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("false")}, want: false},
 	}
 

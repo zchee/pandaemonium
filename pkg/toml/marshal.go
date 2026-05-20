@@ -333,21 +333,7 @@ func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 		buf.WriteString(strconv.FormatUint(v.Uint(), 10))
 		return nil
 	case reflect.Float32, reflect.Float64:
-		f := v.Float()
-		switch {
-		case math.IsInf(f, 1):
-			buf.WriteString("inf")
-		case math.IsInf(f, -1):
-			buf.WriteString("-inf")
-		case math.IsNaN(f):
-			if math.Signbit(f) {
-				buf.WriteString("-nan")
-			} else {
-				buf.WriteString("nan")
-			}
-		default:
-			buf.WriteString(strconv.FormatFloat(f, 'g', -1, v.Type().Bits()))
-		}
+		writeFloat(buf, v.Float(), v.Type().Bits())
 		return nil
 	case reflect.Slice, reflect.Array:
 		buf.WriteByte('[')
@@ -475,7 +461,11 @@ func writeFloat(buf *bytes.Buffer, value float64, bitSize int) {
 			buf.WriteString("nan")
 		}
 	default:
-		buf.WriteString(strconv.FormatFloat(value, 'g', -1, bitSize))
+		text := strconv.FormatFloat(value, 'g', -1, bitSize)
+		if !strings.ContainsAny(text, ".eE") {
+			text += ".0"
+		}
+		buf.WriteString(text)
 	}
 }
 
@@ -728,11 +718,65 @@ func isArrayOfTablesAny(value any) bool {
 	if !ok || len(items) == 0 {
 		return false
 	}
-	switch first := items[0].(type) {
-	case map[string]any, documentMap:
-		return true
+	allMaps := true
+	allEmpty := true
+	hasNestedTable := false
+	for _, item := range items {
+		switch x := item.(type) {
+		case map[string]any:
+			if len(x) != 0 {
+				allEmpty = false
+				if containsNonEmptyTableLikeValueAny(x) {
+					hasNestedTable = true
+				}
+			}
+		case documentMap:
+			if len(x) != 0 {
+				allEmpty = false
+				if containsNonEmptyTableLikeValueAny(map[string]any(x)) {
+					hasNestedTable = true
+				}
+			}
+		default:
+			allMaps = false
+		}
+		if !allMaps {
+			return false
+		}
+	}
+	return allEmpty || hasNestedTable
+}
+
+func containsNonEmptyTableLikeValueAny(v map[string]any) bool {
+	for _, child := range v {
+		if hasNonEmptyTableLikeDescendantAny(child) {
+			return true
+		}
+	}
+	return false
+}
+
+func hasNonEmptyTableLikeDescendantAny(v any) bool {
+	switch x := v.(type) {
+	case map[string]any:
+		if len(x) == 0 {
+			return false
+		}
+		return containsNonEmptyTableLikeValueAny(x)
+	case documentMap:
+		if len(x) == 0 {
+			return false
+		}
+		return containsNonEmptyTableLikeValueAny(map[string]any(x))
+	case []any:
+		for _, child := range x {
+			if hasNonEmptyTableLikeDescendantAny(child) {
+				return true
+			}
+		}
+		return false
 	default:
-		return isTableLike(reflect.ValueOf(first))
+		return false
 	}
 }
 

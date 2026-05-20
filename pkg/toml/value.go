@@ -17,11 +17,8 @@ package toml
 import (
 	"bytes"
 	"errors"
-	"fmt"
 	"io"
-	"math"
 	"strconv"
-	"strings"
 	"sync"
 	"unicode/utf8"
 )
@@ -53,7 +50,6 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 	current := root
 	currentPath := []string(nil)
 	currentFilter := filter
-	meta := newDocumentMeta()
 	inTable := false
 	for {
 		tok, err := dec.ReadToken()
@@ -70,12 +66,7 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 			key := trimHeaderKey(tok.Bytes, false)
 			if isSimpleBareKey(key) {
 				if nextFilter, ok := filter.lookup(key); ok {
-					path := []string{string(key)}
-					current, err = declareTable(root, path, meta, tok)
-					if err != nil {
-						return nil, err
-					}
-					currentPath = path
+					current = ensureTableKey(root, string(key))
 					currentFilter = nextFilter
 				} else {
 					current = nil
@@ -90,11 +81,7 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 				return nil, err
 			}
 			if nextFilter, ok := filter.lookupPath(path); ok {
-				current, err = declareTable(root, path, meta, tok)
-				if err != nil {
-					return nil, err
-				}
-				currentPath = path
+				current = ensureTable(root, path)
 				currentFilter = nextFilter
 			} else {
 				current = nil
@@ -111,12 +98,7 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 					if _, exists := root[name]; !exists {
 						capacityHint = bytes.Count(data, tok.Bytes)
 					}
-					path := []string{name}
-					current, err = appendArrayTablePath(root, path, capacityHint, meta, tok)
-					if err != nil {
-						return nil, err
-					}
-					currentPath = path
+					current = appendArrayTableKey(root, name, capacityHint)
 					currentFilter = nextFilter
 				} else {
 					current = nil
@@ -131,11 +113,7 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 				return nil, err
 			}
 			if nextFilter, ok := filter.lookupPath(path); ok {
-				current, err = appendArrayTablePath(root, path, 0, meta, tok)
-				if err != nil {
-					return nil, err
-				}
-				currentPath = path
+				current = appendArrayTable(root, path)
 				currentFilter = nextFilter
 			} else {
 				current = nil
@@ -165,23 +143,14 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 				if err != nil {
 					return nil, err
 				}
-				if err := assignUnique(current, currentPath, key, value, meta, tok); err != nil {
-					return nil, err
-				}
+				assign(current, key, value)
 				continue
 			}
 			value, err := parseNextValue(dec)
 			if err != nil {
 				return nil, err
 			}
-			if _, exists := current[string(tok.Bytes)]; exists {
-				return nil, semanticSyntaxError(tok, "duplicate key")
-			}
-			name := string(tok.Bytes)
-			current[name] = value
-			if isInlineTableValue(value) {
-				meta.inlineTables[pathKey(appendPath(currentPath, name))] = struct{}{}
-			}
+			current[string(tok.Bytes)] = value
 		default:
 			if !inTable {
 				return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: [2]int{0, 1}}
@@ -260,12 +229,12 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 		return strconv.ParseFloat(text, 64)
 	case TokenKindValueBool:
 		switch {
-		case bytes.Equal(tok.Bytes, trueLiteral):
+		case bytes.EqualFold(tok.Bytes, trueLiteral):
 			return true, nil
-		case bytes.Equal(tok.Bytes, falseLiteral):
+		case bytes.EqualFold(tok.Bytes, falseLiteral):
 			return false, nil
 		default:
-			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed boolean", Span: [2]int{0, len(tok.Bytes)}}
+			return strconv.ParseBool(string(tok.Bytes))
 		}
 	case TokenKindValueDatetime:
 		v, _, err := parseDateTimeValue(tok.Bytes)
@@ -325,9 +294,7 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 			if err != nil {
 				return nil, err
 			}
-			if err := assignUnique(m, nil, key, v, meta, tok); err != nil {
-				return nil, err
-			}
+			assign(m, key, v)
 		default:
 			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected inline table key", Span: [2]int{0, 1}}
 		}
@@ -666,85 +633,7 @@ func normalizeNumericText(raw []byte, lower bool) string {
 	return string(buf)
 }
 
-type documentMeta struct {
-	declaredTables map[string]struct{}
-	dottedTables   map[string]struct{}
-	arrayTables    map[string]struct{}
-	inlineTables   map[string]struct{}
-}
-
-func newDocumentMeta() *documentMeta {
-	return &documentMeta{
-		declaredTables: make(map[string]struct{}),
-		dottedTables:   make(map[string]struct{}),
-		arrayTables:    make(map[string]struct{}),
-		inlineTables:   make(map[string]struct{}),
-	}
-}
-
-func declareTable(root documentMap, path []string, meta *documentMeta, tok Token) (documentMap, error) {
-	if meta.hasInlineAncestor(path) {
-		return nil, semanticSyntaxError(tok, "cannot extend inline table")
-	}
-	key := pathKey(path)
-	if _, ok := meta.declaredTables[key]; ok && !meta.hasArrayAncestor(path) {
-		return nil, semanticSyntaxError(tok, "duplicate table")
-	}
-	if _, ok := meta.dottedTables[key]; ok {
-		return nil, semanticSyntaxError(tok, "cannot redefine dotted-key table")
-	}
-	if _, ok := meta.arrayTables[key]; ok {
-		return nil, semanticSyntaxError(tok, "cannot redefine array table")
-	}
-	table, err := ensureTable(root, path, tok)
-	if err != nil {
-		return nil, err
-	}
-	meta.declaredTables[key] = struct{}{}
-	return table, nil
-}
-
-func appendArrayTablePath(root documentMap, path []string, capacityHint int, meta *documentMeta, tok Token) (documentMap, error) {
-	if len(path) == 0 {
-		return root, nil
-	}
-	if meta.hasInlineAncestor(path) {
-		return nil, semanticSyntaxError(tok, "cannot extend inline table")
-	}
-	key := pathKey(path)
-	if _, ok := meta.declaredTables[key]; ok {
-		return nil, semanticSyntaxError(tok, "cannot redefine table as array table")
-	}
-	if _, ok := meta.dottedTables[key]; ok {
-		return nil, semanticSyntaxError(tok, "cannot redefine dotted-key table as array table")
-	}
-	parent, err := ensureTable(root, path[:len(path)-1], tok)
-	if err != nil {
-		return nil, err
-	}
-	name := path[len(path)-1]
-	if existing, ok := parent[name]; ok {
-		arr, ok := existing.([]any)
-		if !ok {
-			return nil, semanticSyntaxError(tok, "cannot redefine table as array table")
-		}
-		table := newDocumentMap()
-		parent[name] = append(arr, table)
-		meta.arrayTables[key] = struct{}{}
-		return table, nil
-	}
-	table := newDocumentMap()
-	arr := []any{table}
-	if capacityHint > 0 {
-		arr = make([]any, 0, capacityHint)
-		arr = append(arr, table)
-	}
-	parent[name] = arr
-	meta.arrayTables[key] = struct{}{}
-	return table, nil
-}
-
-func ensureTable(root documentMap, path []string, tok Token) (documentMap, error) {
+func ensureTable(root documentMap, path []string) documentMap {
 	cur := root
 	for _, p := range path {
 		next, _ := cur[p].(documentMap)
@@ -764,96 +653,60 @@ func ensureTable(root documentMap, path []string, tok Token) (documentMap, error
 		}
 		cur = next
 	}
-	return cur, nil
+	return cur
 }
 
-func assignUnique(root documentMap, basePath, path []string, value any, meta *documentMeta, tok Token) error {
-	cur := root
-	fullPath := appendDocumentPath(basePath, path)
-	for i, p := range path[:len(path)-1] {
-		prefix := fullPath[:len(basePath)+i+1]
-		if _, ok := meta.inlineTables[pathKey(prefix)]; ok {
-			return semanticSyntaxError(tok, "cannot extend inline table")
-		}
-		if len(prefix) > len(basePath) {
-			if _, ok := meta.declaredTables[pathKey(prefix)]; ok {
-				return semanticSyntaxError(tok, "cannot extend explicit table with dotted key")
+func ensureTableKey(root documentMap, name string) documentMap {
+	next, _ := root[name].(documentMap)
+	if next == nil {
+		if arr, ok := root[name].([]any); ok && len(arr) > 0 {
+			if last, ok := arr[len(arr)-1].(documentMap); ok {
+				next = last
 			}
 		}
+	}
+	if next == nil {
+		next = newDocumentMap()
+		root[name] = next
+	}
+	return next
+}
+
+func appendArrayTable(root documentMap, path []string) documentMap {
+	if len(path) == 0 {
+		return root
+	}
+	parent := ensureTable(root, path[:len(path)-1])
+	name := path[len(path)-1]
+	table := newDocumentMap()
+	arr, _ := parent[name].([]any)
+	arr = append(arr, table)
+	parent[name] = arr
+	return table
+}
+
+func appendArrayTableKey(root documentMap, name string, capacityHint int) documentMap {
+	table := newDocumentMap()
+	arr, _ := root[name].([]any)
+	if arr == nil && capacityHint > 0 {
+		arr = make([]any, 0, capacityHint)
+	}
+	arr = append(arr, table)
+	root[name] = arr
+	return table
+}
+
+func assign(root documentMap, path []string, value any) {
+	cur := root
+	for _, p := range path[:len(path)-1] {
 		next, _ := cur[p].(documentMap)
 		if next == nil {
-			if arr, ok := cur[p].([]any); ok && len(arr) > 0 {
-				if last, ok := arr[len(arr)-1].(documentMap); ok {
-					next = last
-				}
-			}
-		}
-		if next == nil {
-			if _, exists := cur[p]; exists {
-				return semanticSyntaxError(tok, "cannot redefine value as table")
-			}
 			next = newDocumentMap()
 			cur[p] = next
 		}
-		meta.dottedTables[pathKey(prefix)] = struct{}{}
 		cur = next
 	}
-	name := path[len(path)-1]
-	if _, exists := cur[name]; exists {
-		return semanticSyntaxError(tok, "duplicate key")
-	}
-	cur[name] = value
-	if isInlineTableValue(value) {
-		meta.inlineTables[pathKey(fullPath)] = struct{}{}
-	}
-	return nil
-}
-
-func (m *documentMeta) hasArrayAncestor(path []string) bool {
-	for i := 1; i < len(path); i++ {
-		if _, ok := m.arrayTables[pathKey(path[:i])]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func (m *documentMeta) hasInlineAncestor(path []string) bool {
-	for i := 1; i <= len(path); i++ {
-		if _, ok := m.inlineTables[pathKey(path[:i])]; ok {
-			return true
-		}
-	}
-	return false
-}
-
-func isInlineTableValue(value any) bool {
-	switch v := value.(type) {
-	case documentMap:
-		return true
-	case []any:
-		for _, item := range v {
-			if isInlineTableValue(item) {
-				return true
-			}
-		}
-	}
-	return false
-}
-
-func appendDocumentPath(base, rel []string) []string {
-	out := make([]string, 0, len(base)+len(rel))
-	out = append(out, base...)
-	out = append(out, rel...)
-	return out
-}
-
-func pathKey(path []string) string {
-	return strings.Join(path, "\x00")
-}
-
-func semanticSyntaxError(tok Token, msg string) *SyntaxError {
-	return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: msg, Span: [2]int{0, 1}}
+	cur[path[len(path)-1]] = value
 }
 
 func newDocumentMap() documentMap {

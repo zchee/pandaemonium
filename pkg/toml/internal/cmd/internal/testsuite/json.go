@@ -32,7 +32,8 @@ func CmpJSON(t *testing.T, key string, want, have any) {
 	default:
 		t.Errorf(
 			"Key '%s' in expected output should be a map or a list of maps, but it's a %T",
-			key, want)
+			key, want,
+		)
 	}
 }
 
@@ -187,7 +188,8 @@ func cmpFloats(t *testing.T, key string, want, have string) {
 var datetimeRepl = strings.NewReplacer(
 	" ", "T",
 	"t", "T",
-	"z", "Z")
+	"z", "Z",
+)
 
 var layouts = map[string]string{
 	"datetime":       time.RFC3339Nano,

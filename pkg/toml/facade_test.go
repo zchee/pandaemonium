@@ -19,7 +19,6 @@ import (
 	"errors"
 	"io"
 	"math"
-	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -246,6 +245,26 @@ func TestMarshalDirectCompatibilityQuotedMapKeys(t *testing.T) {
 	const want = `alpha = 1
 "key.with.dot" = "v"
 "sp ace" = true
+`
+	if got := string(body); got != want {
+		t.Fatalf("Marshal() output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
+	}
+}
+
+func TestMarshalFloatWholeNumbersRemainTOMLFloats(t *testing.T) {
+	t.Parallel()
+
+	body, err := Marshal(map[string]any{
+		"exponent": 5e22,
+		"neg_zero": math.Copysign(0, -1),
+		"whole":    1000.0,
+	})
+	if err != nil {
+		t.Fatalf("Marshal() error = %v", err)
+	}
+	const want = `exponent = 5e+22
+neg_zero = -0.0
+whole = 1000.0
 `
 	if got := string(body); got != want {
 		t.Fatalf("Marshal() output mismatch:\ngot:\n%s\nwant:\n%s", got, want)
