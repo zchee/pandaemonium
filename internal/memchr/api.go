@@ -14,11 +14,10 @@
 
 package memchr
 
-// Each wrapper is intentionally a one-line forward to the selected backend so
-// the Go inliner promotes the wrapper into its caller (AC-API-5). Memchr uses
-// a tiny package-private shim because GOAMD64=v3/v4 artifacts bind that hot
-// path directly to AVX2/AVX-512 assembly; the other wrappers still dispatch
-// through the package-level *Impl function pointers selected at init time.
+// Each wrapper is intentionally a one-line forward to a package-private shim so
+// the Go inliner promotes the wrapper into its caller (AC-API-5). GOAMD64=v3/v4
+// artifacts bind those shims directly to AVX2/AVX-512 routines, while legacy
+// and fallback tuples keep the package-level *Impl dispatcher shape.
 
 // Memchr returns the offset of the first byte in haystack equal to needle,
 // or -1 if no byte matches.
@@ -29,31 +28,31 @@ func Memchr(needle byte, haystack []byte) int {
 // Memchr2 returns the offset of the first byte in haystack equal to n1 or
 // n2, or -1 if no byte matches either needle.
 func Memchr2(n1, n2 byte, haystack []byte) int {
-	return memchr2Impl(n1, n2, haystack)
+	return memchr2(n1, n2, haystack)
 }
 
 // Memchr3 returns the offset of the first byte in haystack equal to any of
 // n1, n2, or n3, or -1 if no byte matches any of them.
 func Memchr3(n1, n2, n3 byte, haystack []byte) int {
-	return memchr3Impl(n1, n2, n3, haystack)
+	return memchr3(n1, n2, n3, haystack)
 }
 
 // Memrchr returns the offset of the LAST byte in haystack equal to needle,
 // or -1 if no byte matches.
 func Memrchr(needle byte, haystack []byte) int {
-	return memrchrImpl(needle, haystack)
+	return memrchr(needle, haystack)
 }
 
 // Memrchr2 returns the offset of the LAST byte in haystack equal to n1 or
 // n2, or -1 if no byte matches either needle.
 func Memrchr2(n1, n2 byte, haystack []byte) int {
-	return memrchr2Impl(n1, n2, haystack)
+	return memrchr2(n1, n2, haystack)
 }
 
 // Memrchr3 returns the offset of the LAST byte in haystack equal to any of
 // n1, n2, or n3, or -1 if no byte matches any of them.
 func Memrchr3(n1, n2, n3 byte, haystack []byte) int {
-	return memrchr3Impl(n1, n2, n3, haystack)
+	return memrchr3(n1, n2, n3, haystack)
 }
 
 // IndexByte returns the offset of the first byte in haystack equal to
@@ -66,30 +65,30 @@ func IndexByte(haystack []byte, needle byte) int {
 // IndexByte2 returns the offset of the first byte in haystack equal to n1 or
 // n2, or -1 if no byte matches either needle.
 func IndexByte2(haystack []byte, n1, n2 byte) int {
-	return memchr2Impl(n1, n2, haystack)
+	return memchr2(n1, n2, haystack)
 }
 
 // IndexByte3 returns the offset of the first byte in haystack equal to any
 // of n1, n2, or n3, or -1 if no byte matches any of them.
 func IndexByte3(haystack []byte, n1, n2, n3 byte) int {
-	return memchr3Impl(n1, n2, n3, haystack)
+	return memchr3(n1, n2, n3, haystack)
 }
 
 // LastIndexByte returns the offset of the LAST byte in haystack equal to
 // needle, or -1 if no byte matches. The argument order mirrors
 // bytes.LastIndexByte for drop-in idiom compatibility.
 func LastIndexByte(haystack []byte, needle byte) int {
-	return memrchrImpl(needle, haystack)
+	return memrchr(needle, haystack)
 }
 
 // LastIndexByte2 returns the offset of the LAST byte in haystack equal to
 // n1 or n2, or -1 if no byte matches either needle.
 func LastIndexByte2(haystack []byte, n1, n2 byte) int {
-	return memrchr2Impl(n1, n2, haystack)
+	return memrchr2(n1, n2, haystack)
 }
 
 // LastIndexByte3 returns the offset of the LAST byte in haystack equal to
 // any of n1, n2, or n3, or -1 if no byte matches any of them.
 func LastIndexByte3(haystack []byte, n1, n2, n3 byte) int {
-	return memrchr3Impl(n1, n2, n3, haystack)
+	return memrchr3(n1, n2, n3, haystack)
 }

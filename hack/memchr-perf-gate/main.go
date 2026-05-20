@@ -31,6 +31,7 @@
 // Usage:
 //
 //	go run ./hack/memchr-perf-gate
+//	go run ./hack/memchr-perf-gate --compare-artifacts=v3,v4
 //
 // Or, after pre-generating bench output:
 //
@@ -71,6 +72,14 @@ var benchstatPath = flag.String("benchstat", "benchstat", "path to benchstat bin
 // AVX-512 support, otherwise use the GOAMD64=v3 AVX2 fallback when available.
 var goamd64Level = flag.String("goamd64", "", "amd64 artifact level for benchmark subprocesses (default: archsimd-selected v4 or v3)")
 
+// compareArtifacts compares two GOAMD64 artifacts as baseline,treatment, for
+// example --compare-artifacts=v3,v4. This mode is used by the AVX-512 rollout
+// gate so v4 regressions against the v3 AVX2 fallback fail CI.
+var compareArtifacts = flag.String("compare-artifacts", "", "compare two GOAMD64 artifacts as baseline,treatment, for example v3,v4")
+
+// artifactBenchPattern is the benchmark regex used by --compare-artifacts.
+var artifactBenchPattern = flag.String("bench", "^(BenchmarkMemchr|BenchmarkMemchr2|BenchmarkMemchr3|BenchmarkMemrchr|BenchmarkMemrchr2|BenchmarkMemrchr3)$", "benchmark regex for --compare-artifacts")
+
 func main() {
 	flag.Parse()
 
@@ -83,6 +92,13 @@ func main() {
 	if runtime.GOARCH != "amd64" {
 		fmt.Printf("memchr-perf-gate: GOARCH=%s is UNTESTED by this gate; only amd64 is enforced; exiting 0\n", runtime.GOARCH)
 		os.Exit(0)
+	}
+
+	if *compareArtifacts != "" {
+		if err := runArtifactCompare(*compareArtifacts, *artifactBenchPattern); err != nil {
+			die("%v", err)
+		}
+		return
 	}
 
 	benchGOAMD64 := selectBenchGOAMD64()
@@ -136,6 +152,83 @@ func main() {
 		fmt.Fprintf(os.Stderr, "  %s\n", r)
 	}
 	os.Exit(1)
+}
+
+func runArtifactCompare(spec, benchPattern string) error {
+	baseline, treatment, err := parseArtifactPair(spec)
+	if err != nil {
+		return err
+	}
+	if err := validateArtifactPairSupported(baseline, treatment); err != nil {
+		return err
+	}
+	fmt.Printf("memchr-perf-gate: comparing GOAMD64=%s baseline to GOAMD64=%s treatment\n", baseline, treatment)
+	fmt.Printf("memchr-perf-gate: artifact benchmark regex: %s\n", benchPattern)
+
+	tmp, err := os.MkdirTemp("", "memchr-perf-gate-artifacts-*")
+	if err != nil {
+		return fmt.Errorf("mktemp: %w", err)
+	}
+	defer os.RemoveAll(tmp)
+
+	baseFile, err := runBench(tmp, benchPattern, baseline, baseline)
+	if err != nil {
+		return fmt.Errorf("run GOAMD64=%s baseline bench: %w", baseline, err)
+	}
+	treatFile, err := runBench(tmp, benchPattern, treatment, treatment)
+	if err != nil {
+		return fmt.Errorf("run GOAMD64=%s treatment bench: %w", treatment, err)
+	}
+
+	bsOut, err := runBenchstat(*benchstatPath, baseFile, treatFile)
+	if err != nil {
+		return fmt.Errorf("benchstat: %w", err)
+	}
+	fmt.Println(strings.TrimRight(bsOut, "\n"))
+
+	regressions := findRegressions(bsOut)
+	if len(regressions) == 0 {
+		fmt.Println()
+		fmt.Printf("memchr-perf-gate: PASS (no gated GOAMD64=%s routine is statistically slower than GOAMD64=%s)\n", treatment, baseline)
+		return nil
+	}
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintf(os.Stderr, "memchr-perf-gate: FAIL — GOAMD64=%s regressed against GOAMD64=%s:\n", treatment, baseline)
+	for _, r := range regressions {
+		fmt.Fprintf(os.Stderr, "  %s\n", r)
+	}
+	os.Exit(1)
+	return nil
+}
+
+func parseArtifactPair(spec string) (baseline, treatment string, err error) {
+	parts := strings.Split(spec, ",")
+	if len(parts) != 2 {
+		return "", "", fmt.Errorf("--compare-artifacts expects baseline,treatment; got %q", spec)
+	}
+	baseline = strings.TrimSpace(parts[0])
+	treatment = strings.TrimSpace(parts[1])
+	if baseline == "" || treatment == "" {
+		return "", "", fmt.Errorf("--compare-artifacts expects non-empty baseline,treatment; got %q", spec)
+	}
+	return baseline, treatment, nil
+}
+
+func validateArtifactPairSupported(baseline, treatment string) error {
+	widest := autodetectBenchGOAMD64()
+	for _, level := range []string{baseline, treatment} {
+		switch level {
+		case "v4":
+			if widest != "v4" {
+				return errors.New("GOAMD64=v4 artifact requested but simd/archsimd did not report AVX-512 support")
+			}
+		case "v3":
+			if widest == "" {
+				return errors.New("GOAMD64=v3 artifact requested but simd/archsimd did not report AVX2 support")
+			}
+		}
+	}
+	return nil
 }
 
 func selectBenchGOAMD64() string {
@@ -223,9 +316,10 @@ func runBenchstatArgs(bin string, args []string) (string, error) {
 // Example benchstat row (the perf-gate parses the table format):
 //
 //	BenchmarkScan/n=64       42.0n ± 2%   55.0n ± 3%   +30.95% (p=0.000 n=10)
+//	Memchr2/n=64             42.0n ± 2%   55.0n ± 3%   +30.95% (p=0.000 n=10)
 //
 // A `+X.XX% (p=<0.05 ...)` cell on a gatedSizes row is a regression.
-var regressionRowRe = regexp.MustCompile(`(?:Benchmark)?Scan/n=(\d+)(?:-\d+)?.*?\+([\d.]+)%\s+\(p=([\d.]+)\s+n=\d+\)`)
+var regressionRowRe = regexp.MustCompile(`(?:Benchmark)?([A-Za-z0-9]+)/n=(\d+)(?:-\d+)?.*?\+([\d.]+)%\s+\(p=([\d.]+)\s+n=\d+\)`)
 
 // findRegressions scans benchstat output for any gated Memchr size
 // whose treatment ns/op is statistically slower than the baseline at
@@ -253,15 +347,20 @@ func findRegressions(bsOut string) []string {
 		if m == nil {
 			continue
 		}
-		n, _ := strconv.Atoi(m[1])
+		name := m[1]
+		n, _ := strconv.Atoi(m[2])
 		if !gated[n] {
 			continue
 		}
-		p, _ := strconv.ParseFloat(m[3], 64)
+		p, _ := strconv.ParseFloat(m[4], 64)
 		if p > 0.05 {
 			continue
 		}
-		out = append(out, fmt.Sprintf("n=%d: +%s%% slower (p=%s)", n, m[2], m[3]))
+		row := fmt.Sprintf("n=%d", n)
+		if name != "Scan" {
+			row = fmt.Sprintf("%s/%s", name, row)
+		}
+		out = append(out, fmt.Sprintf("%s: +%s%% slower (p=%s)", row, m[3], m[4]))
 	}
 	return out
 }

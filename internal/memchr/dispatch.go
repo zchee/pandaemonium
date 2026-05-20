@@ -22,7 +22,7 @@ package memchr
 //   - memchr_amd64_legacy.go   — GOAMD64=v1/v2 SSE2 or AVX2 chosen at
 //     init() time from archsimd.X86.AVX2().
 //   - memchr_amd64_v3.go       — GOAMD64=v3 AVX2 fallback artifact.
-//   - memchr_amd64_v4.go       — GOAMD64=v4 AVX-512 Memchr primary artifact.
+//   - memchr_amd64_v4.go       — GOAMD64=v4 AVX-512 primary artifact.
 //   - memchr_arm64.go          — NEON.
 //
 // The commit-train invariant is: for every (arch, goexperiment.simd,
@@ -51,10 +51,10 @@ var (
 // real implementation behind each public routine.
 var boundImpl string
 
-// Per-function backend markers keep staged amd64 rollouts honest. In
-// particular, GOAMD64=v4 binds Memchr to AVX-512 before the multi-needle and
-// reverse routines are converted, so the old aggregate marker alone would be
-// misleading.
+// Per-function backend markers keep staged amd64 rollouts honest. They also
+// prove artifact boundaries after a rollout completes: GOAMD64=v4 must report
+// AVX-512 for every bound routine, while GOAMD64=v3 remains the AVX2 fallback
+// artifact.
 var (
 	boundMemchrImpl   string
 	boundMemchr2Impl  string

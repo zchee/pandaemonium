@@ -36,6 +36,16 @@ Scan/n=64-44 3.349n ± 0% 3.900n ± 0% +16.45% (p=0.000 n=10)`,
 BenchmarkScan/n=256 5.800n ± 0% 6.100n ± 0% +5.17% (p=0.012 n=10)`,
 			want: []string{"n=256: +5.17% slower (p=0.012)"},
 		},
+		"success: detects artifact routine row": {
+			benchstat: `│ sec/op │
+Memchr2/n=64-44 3.349n ± 0% 3.900n ± 0% +16.45% (p=0.000 n=10)`,
+			want: []string{"Memchr2/n=64: +16.45% slower (p=0.000)"},
+		},
+		"success: detects artifact benchmark-prefixed routine row": {
+			benchstat: `│ sec/op │
+BenchmarkMemrchr3/n=65536 1.000µ ± 0% 1.090µ ± 1% +9.00% (p=0.001 n=10)`,
+			want: []string{"Memrchr3/n=65536: +9.00% slower (p=0.001)"},
+		},
 		"success: ignores ungated n=16 regression": {
 			benchstat: `│ sec/op │
 Scan/n=16-44 2.400n ± 0% 11.000n ± 1% +358.33% (p=0.000 n=10)`,

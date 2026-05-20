@@ -19,3 +19,23 @@ package memchr
 func memchr(needle byte, haystack []byte) int {
 	return memchrImpl(needle, haystack)
 }
+
+func memchr2(n1, n2 byte, haystack []byte) int {
+	return memchr2Impl(n1, n2, haystack)
+}
+
+func memchr3(n1, n2, n3 byte, haystack []byte) int {
+	return memchr3Impl(n1, n2, n3, haystack)
+}
+
+func memrchr(needle byte, haystack []byte) int {
+	return memrchrImpl(needle, haystack)
+}
+
+func memrchr2(n1, n2 byte, haystack []byte) int {
+	return memrchr2Impl(n1, n2, haystack)
+}
+
+func memrchr3(n1, n2, n3 byte, haystack []byte) int {
+	return memrchr3Impl(n1, n2, n3, haystack)
+}

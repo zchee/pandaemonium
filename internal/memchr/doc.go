@@ -33,7 +33,7 @@
 // lanes, with one legacy runtime selection for v1/v2 builds:
 //
 //	GOARCH / level       goexperiment.simd  force_swar  backend (file)
-//	amd64 GOAMD64=v4     ON                 OFF         AVX-512 Memchr + AVX2 fallback routines
+//	amd64 GOAMD64=v4     ON                 OFF         AVX-512 primary artifact
 //	amd64 GOAMD64=v3     ON                 OFF         AVX2 fallback artifact
 //	amd64 GOAMD64=v1/v2  ON                 OFF         SSE2 or AVX2 via archsimd.X86.AVX2()
 //	amd64                OFF                OFF         SWAR        (dispatch_swar_default.go)
@@ -66,6 +66,7 @@
 // Memmem (substring search), iterator types, and stateful Memchr* objects
 // from the upstream Rust crate are deliberately out of scope; see the
 // project spec deep-interview-port-burntsushi-memchr-to-go.md for the
-// rationale. wasm32 SIMD, AVO codegen, cgo, and expanding beyond the staged
-// AVX-512 Memchr path without a benchmark-backed plan are explicit non-goals.
+// rationale. wasm32 SIMD, AVO codegen, cgo, and adding new AVX-512 routine
+// shapes beyond the current byte-search API without a benchmark-backed plan
+// are explicit non-goals.
 package memchr

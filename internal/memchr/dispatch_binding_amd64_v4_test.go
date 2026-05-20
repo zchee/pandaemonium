@@ -18,21 +18,21 @@ package memchr
 
 import "testing"
 
-// expectedBackend on the GOAMD64=v4 artifact is mixed during the staged rollout:
-// Memchr is AVX-512, while unconverted routines stay on AVX2.
+// expectedBackend on the GOAMD64=v4 artifact is the complete AVX-512 primary
+// backend; GOAMD64=v3 remains the AVX2 fallback artifact.
 func expectedBackend(t *testing.T) string {
 	t.Helper()
-	return "mixed-v4"
+	return "avx512"
 }
 
 func expectedFunctionBackends(t *testing.T) backendMarkers {
 	t.Helper()
 	return backendMarkers{
 		memchr:   "avx512-v4",
-		memchr2:  "avx2-v4",
-		memchr3:  "avx2-v4",
-		memrchr:  "avx2-v4",
-		memrchr2: "avx2-v4",
-		memrchr3: "avx2-v4",
+		memchr2:  "avx512-v4",
+		memchr3:  "avx512-v4",
+		memrchr:  "avx512-v4",
+		memrchr2: "avx512-v4",
+		memrchr3: "avx512-v4",
 	}
 }

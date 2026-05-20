@@ -34,20 +34,23 @@ func findTerminator(buf []byte) int {
 }
 ```
 
-Most wrappers in `api.go` are intentionally one-line calls through dispatched
-function pointers. `Memchr` and `IndexByte` route through a package-private
-`memchr` shim so amd64 SIMD builds can call the selected single-needle assembly
-entry directly while other tuples keep the same dispatcher shape.
+Wrappers in `api.go` are intentionally one-line calls through package-private
+shims. `GOAMD64=v3/v4` artifacts bind those shims directly to their AVX2 or
+AVX-512 routines, while legacy and portable tuples keep the same dispatcher
+shape through package-level function pointers.
 
 ## Backends and build tags
 
 Dispatch is build-tag-first. amd64 SIMD uses separate `GOAMD64` artifact lanes:
-`GOAMD64=v4` binds AVX-512 `Memchr`, `GOAMD64=v3` binds the AVX2 fallback, and
-legacy v1/v2 builds keep one runtime CPU decision through `simd/archsimd`.
+`GOAMD64=v4` binds the AVX-512 primary artifact for all current routines,
+`GOAMD64=v3` binds the AVX2 fallback, and legacy v1/v2 builds keep one runtime
+CPU decision through `simd/archsimd`. The v4 public shims use AVX-512
+single-needle assembly plus `simd/archsimd` Int8x64 multi-needle paths so the
+compiler can inline the hot wrappers and hoist constant needle broadcasts.
 
 | GOARCH / level | `goexperiment.simd` | `force_swar` | Backend | Binding file |
 | --- | --- | --- | --- | --- |
-| `amd64`, `GOAMD64=v4` | on | off | AVX-512 `Memchr`; AVX2 for unconverted amd64 SIMD routines | `memchr_amd64_v4.go`, `memchr_amd64_v4.s`, `memchr_amd64_avx2.s` |
+| `amd64`, `GOAMD64=v4` | on | off | AVX-512 primary artifact | `memchr_amd64_v4.go`, `memchr_amd64_v4_archsimd.go`, `memchr_amd64_v4.s` |
 | `amd64`, `GOAMD64=v3` | on | off | AVX2 fallback artifact | `memchr_amd64_v3.go`, `memchr_amd64_avx2.s` |
 | `amd64`, `GOAMD64=v1/v2` | on | off | AVX2 when `archsimd.X86.AVX2()` is true, otherwise SSE2 | `memchr_amd64_legacy.go`, `memchr_amd64.go`, `memchr_amd64_avx2.s` |
 | `amd64` | off | off | SWAR | `dispatch_swar_default.go` |
@@ -60,9 +63,8 @@ The invariant is that every supported `(GOARCH, goexperiment.simd, force_swar)`
 tuple has exactly one file that binds each dispatched `*Impl` function pointer.
 `TestBackendBinding` checks the selected backend through the package-private
 `boundImpl` marker and per-function `boundMemchrImpl`-style markers. The
-per-function markers are required because the first amd64 v4 stage intentionally
-binds only `Memchr` to AVX-512 while the multi-needle and reverse routines keep
-the AVX2 implementation.
+per-function markers prove that the v4 artifact has AVX-512 implementations
+bound for every routine and that v3 remains the AVX2 fallback artifact.
 
 ### amd64 CPU detection and artifact selection
 
@@ -93,8 +95,8 @@ Do not add these without a new plan and benchmark evidence:
 - substring search / `memmem`;
 - upstream Rust iterator or stateful `Memchr*` types;
 - Rabin-Karp, Two-Way, Shift-Or, packed-pair, or other `arch::all` algorithms;
-- cgo, AVO code generation, wasm32 SIMD, or expanding beyond the staged AVX-512
-  `Memchr` path without a new benchmark-backed plan;
+- cgo, AVO code generation, wasm32 SIMD, or adding new AVX-512 routine shapes
+  beyond the current byte-search API without a new benchmark-backed plan;
 - production behavior gated behind the test-only `force_swar` tag.
 
 ## Correctness tests

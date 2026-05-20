@@ -18,21 +18,56 @@ package memchr
 
 import simd "simd/archsimd"
 
-var useAVX2Memchr bool
+var useAVX2Backend bool
 
 func memchr(needle byte, haystack []byte) int {
-	if useAVX2Memchr {
+	if useAVX2Backend {
 		return avx2Memchr(needle, haystack)
 	}
 	return memchrImpl(needle, haystack)
 }
 
+func memchr2(n1, n2 byte, haystack []byte) int {
+	if useAVX2Backend {
+		return avx2Memchr2(n1, n2, haystack)
+	}
+	return memchr2Impl(n1, n2, haystack)
+}
+
+func memchr3(n1, n2, n3 byte, haystack []byte) int {
+	if useAVX2Backend {
+		return avx2Memchr3(n1, n2, n3, haystack)
+	}
+	return memchr3Impl(n1, n2, n3, haystack)
+}
+
+func memrchr(needle byte, haystack []byte) int {
+	if useAVX2Backend {
+		return avx2Memrchr(needle, haystack)
+	}
+	return memrchrImpl(needle, haystack)
+}
+
+func memrchr2(n1, n2 byte, haystack []byte) int {
+	if useAVX2Backend {
+		return avx2Memrchr2(n1, n2, haystack)
+	}
+	return memrchr2Impl(n1, n2, haystack)
+}
+
+func memrchr3(n1, n2, n3 byte, haystack []byte) int {
+	if useAVX2Backend {
+		return avx2Memrchr3(n1, n2, n3, haystack)
+	}
+	return memrchr3Impl(n1, n2, n3, haystack)
+}
+
 // init runs at package load for GOAMD64=v1/v2 amd64 SIMD builds and selects
-// between the AVX2 assembly Memchr hot path and the SSE2 Go fallback based on
+// between the AVX2 hot paths and the SSE2 Go fallback based on
 // simd/archsimd runtime CPU detection.
 func init() {
 	if simd.X86.AVX2() {
-		useAVX2Memchr = true
+		useAVX2Backend = true
 		memchrImpl = avx2Memchr
 		memchr2Impl = avx2Memchr2
 		memchr3Impl = avx2Memchr3
@@ -42,7 +77,7 @@ func init() {
 		setBackendMarkers("avx2", "avx2", "avx2", "avx2", "avx2", "avx2", "avx2")
 		return
 	}
-	useAVX2Memchr = false
+	useAVX2Backend = false
 	memchrImpl = sse2Memchr
 	memchr2Impl = sse2Memchr2
 	memchr3Impl = sse2Memchr3

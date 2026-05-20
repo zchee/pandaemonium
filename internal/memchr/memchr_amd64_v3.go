@@ -20,10 +20,29 @@ func memchr(needle byte, haystack []byte) int {
 	return avx2Memchr(needle, haystack)
 }
 
+func memchr2(n1, n2 byte, haystack []byte) int {
+	return avx2Memchr2(n1, n2, haystack)
+}
+
+func memchr3(n1, n2, n3 byte, haystack []byte) int {
+	return avx2Memchr3(n1, n2, n3, haystack)
+}
+
+func memrchr(needle byte, haystack []byte) int {
+	return avx2Memrchr(needle, haystack)
+}
+
+func memrchr2(n1, n2 byte, haystack []byte) int {
+	return avx2Memrchr2(n1, n2, haystack)
+}
+
+func memrchr3(n1, n2, n3 byte, haystack []byte) int {
+	return avx2Memrchr3(n1, n2, n3, haystack)
+}
+
 // init binds the separate GOAMD64=v3 fallback artifact. GOAMD64=v3 makes AVX2
-// part of the program startup contract, so Memchr can bind directly to the
-// AVX2 assembly routine while the unconverted routines keep the existing AVX2
-// Go implementations.
+// part of the program startup contract, so all public shims can bind directly
+// to the AVX2 routines.
 func init() {
 	memchrImpl = avx2Memchr
 	memchr2Impl = avx2Memchr2
