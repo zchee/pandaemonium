@@ -21,6 +21,17 @@ package claude
 //	Options{ExtraArgs: map[string]*string{"verbose-tools": nil, "log-level": ExtraFlag("debug")}}
 func ExtraFlag(value string) *string { return &value }
 
+// skillsAll is the sentinel [Options].Skills value (returned by [AllSkills])
+// that enables every installed skill, mirroring upstream skills == "all".
+const skillsAll = "all"
+
+// AllSkills returns the [Options].Skills value that enables every installed
+// skill (injecting the bare "Skill" tool), mirroring upstream skills="all".
+// Use it instead of a named-skill list:
+//
+//	Options{Skills: AllSkills()}
+func AllSkills() []string { return []string{skillsAll} }
+
 // validate checks that o is a consistent, usable configuration. The zero value
 // is always valid per AC-i1. Callers (NewClient, Query) invoke this before
 // launching a subprocess so errors surface early without transport side effects.

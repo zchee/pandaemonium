@@ -47,6 +47,49 @@ import (
 //
 // Mirrors the structure of pkg/codex/client.go:563 buildAppServerArgs.
 // Round-trip parity is tested in client_launch_args_test.go (AC13).
+// effectiveToolsAndSources computes the allowed tools and setting sources after
+// applying the Skills coupling, mirroring upstream _apply_skills_defaults
+// (subprocess_cli.py:186-219). When Skills is set it injects the skill tools
+// into a copy of AllowedTools (the bare "Skill" for [AllSkills], otherwise
+// "Skill(name)" per entry, skipping duplicates) and, if SettingSources is
+// unset, defaults the sources to user+project so the CLI discovers installed
+// skills. When Skills is nil/empty it is a no-op: tools and sources pass
+// through unchanged. The receiver is never mutated.
+func effectiveToolsAndSources(opts *Options) (tools []string, sources []SettingSource) {
+	tools = append([]string(nil), opts.AllowedTools...)
+	sources = opts.SettingSources
+
+	if len(opts.Skills) == 0 {
+		return tools, sources
+	}
+
+	has := func(t string) bool {
+		for _, x := range tools {
+			if x == t {
+				return true
+			}
+		}
+		return false
+	}
+	if len(opts.Skills) == 1 && opts.Skills[0] == skillsAll {
+		if !has("Skill") {
+			tools = append(tools, "Skill")
+		}
+	} else {
+		for _, name := range opts.Skills {
+			pattern := "Skill(" + name + ")"
+			if !has(pattern) {
+				tools = append(tools, pattern)
+			}
+		}
+	}
+
+	if len(sources) == 0 {
+		sources = []SettingSource{SettingSourceUser, SettingSourceProject}
+	}
+	return tools, sources
+}
+
 func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]string, error) {
 	args := []string{cliPath}
 
@@ -88,9 +131,13 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 	// SystemPrompt Preset/File variants are added in a later milestone.
 	args = append(args, "--system-prompt", opts.SystemPrompt)
 
-	// Allowed tools.
-	for _, tool := range opts.AllowedTools {
-		args = append(args, "--allowedTools", tool)
+	// Allowed tools and setting sources are coupled through Skills (see
+	// effectiveToolsAndSources). Compute both once; emit allowedTools here as a
+	// single comma-joined flag (subprocess_cli.py:257) and setting-sources
+	// below.
+	effTools, effSources := effectiveToolsAndSources(opts)
+	if len(effTools) > 0 {
+		args = append(args, "--allowedTools", strings.Join(effTools, ","))
 	}
 
 	// Max turns per session.
@@ -195,17 +242,14 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 	}
 
 	// Setting sources — comma-joined list of literals (user|project|local)
-	// passed as a single --setting-sources= flag. Mirrors upstream
-	// subprocess_cli.py:353. Empty entries are skipped so a zero-value
-	// SettingSource does not produce a trailing empty token.
-	//
-	// Upstream defaults setting_sources to ["user","project"] only when
-	// Options.Skills is set (subprocess_cli.py:205-217); that coupling is
-	// deferred until the Skills option lands, so an unset SettingSources emits
-	// nothing here.
-	if len(opts.SettingSources) > 0 {
-		parts := make([]string, 0, len(opts.SettingSources))
-		for _, ss := range opts.SettingSources {
+	// passed as a single --setting-sources= flag (subprocess_cli.py:353). The
+	// list is the Skills-adjusted effSources from effectiveToolsAndSources: when
+	// Skills is set and the user left SettingSources unset, it defaults to
+	// user+project. Empty entries are skipped so a zero-value SettingSource does
+	// not produce a trailing empty token.
+	if len(effSources) > 0 {
+		parts := make([]string, 0, len(effSources))
+		for _, ss := range effSources {
 			if ss != "" {
 				parts = append(parts, string(ss))
 			}

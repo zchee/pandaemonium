@@ -399,7 +399,8 @@ func TestExampleParity_SystemPrompt_LaunchArgs(t *testing.T) {
 // ── TestExampleParity_ToolsOption_LaunchArgs ──────────────────────────────────
 
 // TestExampleParity_ToolsOption_LaunchArgs verifies that Options.AllowedTools
-// round-trips into --allowedTools flags. Mirrors examples/tools_option.py.
+// round-trips into a single comma-joined --allowedTools flag (subprocess_cli.py
+// :257). Mirrors examples/tools_option.py.
 func TestExampleParity_ToolsOption_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
@@ -412,11 +413,11 @@ func TestExampleParity_ToolsOption_LaunchArgs(t *testing.T) {
 			gotTools = append(gotTools, args[i+1])
 		}
 	}
-	if len(gotTools) != 2 {
-		t.Fatalf("--allowedTools count = %d, want 2; args = %v", len(gotTools), args)
+	if len(gotTools) != 1 {
+		t.Fatalf("--allowedTools count = %d, want 1 (comma-joined); args = %v", len(gotTools), args)
 	}
-	if gotTools[0] != "Read" || gotTools[1] != "Bash" {
-		t.Errorf("--allowedTools = %v, want [Read Bash]", gotTools)
+	if gotTools[0] != "Read,Bash" {
+		t.Errorf("--allowedTools = %q, want Read,Bash", gotTools[0])
 	}
 }
 

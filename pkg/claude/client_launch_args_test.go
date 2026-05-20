@@ -83,10 +83,10 @@ func TestBuildLaunchArgs(t *testing.T) {
 			opts:    &Options{SystemPrompt: "Be concise."},
 			wantIn:  []string{"--system-prompt", "Be concise."},
 		},
-		"success: multiple allowed tools each get their own flag": {
+		"success: allowed tools are comma-joined into one flag": {
 			cliPath: fakeCLI,
 			opts:    &Options{AllowedTools: []string{"Bash", "Write"}},
-			wantIn:  []string{"--allowedTools", "Bash", "--allowedTools", "Write"},
+			wantIn:  []string{"--allowedTools", "Bash,Write"},
 		},
 		"success: max turns flag appears when positive": {
 			cliPath: fakeCLI,
@@ -506,4 +506,81 @@ func extraArgIndex(s []string, v string) int {
 		}
 	}
 	return -1
+}
+
+// TestBuildLaunchArgs_Skills covers the M9c Skills coupling: skill-tool
+// injection into --allowedTools and the user,project setting-sources default,
+// mirroring upstream _apply_skills_defaults.
+func TestBuildLaunchArgs_Skills(t *testing.T) {
+	t.Parallel()
+
+	const fakeCLI = "/usr/local/bin/claude"
+
+	tests := map[string]struct {
+		opts        *Options
+		wantAllowed string // expected --allowedTools value, "" to skip
+		wantSources string // expected --setting-sources= value, "" means flag absent
+	}{
+		"AllSkills injects bare Skill and defaults sources": {
+			opts:        &Options{Skills: AllSkills()},
+			wantAllowed: "Skill",
+			wantSources: "user,project",
+		},
+		"named skills inject Skill(name) and default sources": {
+			opts:        &Options{Skills: []string{"foo", "bar"}},
+			wantAllowed: "Skill(foo),Skill(bar)",
+			wantSources: "user,project",
+		},
+		"explicit SettingSources wins over the default": {
+			opts:        &Options{Skills: AllSkills(), SettingSources: []SettingSource{SettingSourceLocal}},
+			wantAllowed: "Skill",
+			wantSources: "local",
+		},
+		"skill injection is additive to existing AllowedTools": {
+			opts:        &Options{Skills: AllSkills(), AllowedTools: []string{"Read"}},
+			wantAllowed: "Read,Skill",
+			wantSources: "user,project",
+		},
+		"no skills: no injection and no sources default": {
+			opts:        &Options{AllowedTools: []string{"Read"}},
+			wantAllowed: "Read",
+			wantSources: "",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			args := mustLaunchArgs(t, fakeCLI, tt.opts, "")
+
+			if tt.wantAllowed != "" {
+				ai := extraArgIndex(args, "--allowedTools")
+				if ai < 0 || ai+1 >= len(args) || args[ai+1] != tt.wantAllowed {
+					t.Errorf("--allowedTools = %q, want %q (args=%v)", argValue(args, "--allowedTools"), tt.wantAllowed, args)
+				}
+			}
+
+			si := extraArgIndex(args, "--setting-sources="+tt.wantSources)
+			if tt.wantSources != "" {
+				if si < 0 {
+					t.Errorf("missing --setting-sources=%s (args=%v)", tt.wantSources, args)
+				}
+			} else {
+				for _, a := range args {
+					if strings.HasPrefix(a, "--setting-sources=") {
+						t.Errorf("unexpected %q with no Skills/SettingSources", a)
+					}
+				}
+			}
+		})
+	}
+}
+
+// argValue returns the token following flag in args, or "" if absent.
+func argValue(args []string, flag string) string {
+	i := extraArgIndex(args, flag)
+	if i < 0 || i+1 >= len(args) {
+		return ""
+	}
+	return args[i+1]
 }
