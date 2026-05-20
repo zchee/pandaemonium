@@ -374,3 +374,101 @@ func TestBuildLaunchArgs_Resume(t *testing.T) {
 		})
 	}
 }
+
+// TestBuildLaunchArgs_M9PassthroughFlags covers the bucket-2 flag-passthrough
+// Options fields added in M9a, each mapping to a single CLI flag.
+func TestBuildLaunchArgs_M9PassthroughFlags(t *testing.T) {
+	t.Parallel()
+
+	const fakeCLI = "/usr/local/bin/claude"
+
+	tests := map[string]struct {
+		opts    *Options
+		wantIn  []string
+		wantOut []string
+	}{
+		"disallowed tools are comma-joined into one flag": {
+			opts:   &Options{DisallowedTools: []string{"Bash", "Write"}},
+			wantIn: []string{"--disallowedTools", "Bash,Write"},
+		},
+		"fallback model": {
+			opts:   &Options{FallbackModel: "claude-haiku-4-5"},
+			wantIn: []string{"--fallback-model", "claude-haiku-4-5"},
+		},
+		"betas are comma-joined": {
+			opts:   &Options{Betas: []string{"beta-a", "beta-b"}},
+			wantIn: []string{"--betas", "beta-a,beta-b"},
+		},
+		"permission prompt tool": {
+			opts:   &Options{PermissionPromptToolName: "mcp__auth__prompt"},
+			wantIn: []string{"--permission-prompt-tool", "mcp__auth__prompt"},
+		},
+		"continue conversation": {
+			opts:   &Options{ContinueConversation: true},
+			wantIn: []string{"--continue"},
+		},
+		"continue absent when false": {
+			opts:    &Options{},
+			wantOut: []string{"--continue"},
+		},
+		"session id": {
+			opts:   &Options{SessionID: "sess-123"},
+			wantIn: []string{"--session-id", "sess-123"},
+		},
+		"settings string": {
+			opts:   &Options{Settings: "/etc/claude/settings.json"},
+			wantIn: []string{"--settings", "/etc/claude/settings.json"},
+		},
+		"add dirs each get their own flag": {
+			opts:   &Options{AddDirs: []string{"/a", "/b"}},
+			wantIn: []string{"--add-dir", "/a", "--add-dir", "/b"},
+		},
+		"include hook events": {
+			opts:   &Options{IncludeHookEvents: true},
+			wantIn: []string{"--include-hook-events"},
+		},
+		"fork session": {
+			opts:   &Options{ForkSession: true},
+			wantIn: []string{"--fork-session"},
+		},
+		"resume from opts": {
+			opts:   &Options{Resume: "resume-me"},
+			wantIn: []string{"--resume", "resume-me"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := mustLaunchArgs(t, fakeCLI, tt.opts, "")
+			joined := strings.Join(got, " ")
+			for _, want := range tt.wantIn {
+				if !strings.Contains(joined, want) {
+					t.Errorf("args %v missing %q", got, want)
+				}
+			}
+			for _, reject := range tt.wantOut {
+				if strings.Contains(joined, reject) {
+					t.Errorf("args %v should not contain %q", got, reject)
+				}
+			}
+		})
+	}
+}
+
+// TestBuildLaunchArgs_ResumePrecedence verifies the Fork-driven resumeSessionID
+// parameter wins over opts.Resume.
+func TestBuildLaunchArgs_ResumePrecedence(t *testing.T) {
+	t.Parallel()
+
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{Resume: "from-opts"}, "from-fork")
+	var got string
+	for i, a := range args {
+		if a == "--resume" && i+1 < len(args) {
+			got = args[i+1]
+		}
+	}
+	if got != "from-fork" {
+		t.Errorf("--resume = %q, want from-fork (Fork param wins over opts.Resume)", got)
+	}
+}

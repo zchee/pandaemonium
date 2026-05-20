@@ -64,10 +64,28 @@ func (o *Options) clone() *Options {
 	if o.SettingSources != nil {
 		c.SettingSources = append([]SettingSource(nil), o.SettingSources...)
 	}
+	if o.DisallowedTools != nil {
+		c.DisallowedTools = append([]string(nil), o.DisallowedTools...)
+	}
+	if o.Betas != nil {
+		c.Betas = append([]string(nil), o.Betas...)
+	}
+	if o.AddDirs != nil {
+		c.AddDirs = append([]string(nil), o.AddDirs...)
+	}
+	if o.Skills != nil {
+		c.Skills = append([]string(nil), o.Skills...)
+	}
 	if o.Env != nil {
 		c.Env = make(map[string]string, len(o.Env))
 		for k, v := range o.Env {
 			c.Env[k] = v
+		}
+	}
+	if o.ExtraArgs != nil {
+		c.ExtraArgs = make(map[string]*string, len(o.ExtraArgs))
+		for k, v := range o.ExtraArgs {
+			c.ExtraArgs[k] = v
 		}
 	}
 	return &c
@@ -180,4 +198,65 @@ type Options struct {
 	// from the CLI subprocess.
 	// Corresponds to --include-partial-messages in the CLI (if supported).
 	IncludePartialMessages bool
+
+	// DisallowedTools is the list of tool names the CLI is forbidden from
+	// invoking. Corresponds to --disallowedTools (comma-joined).
+	DisallowedTools []string
+
+	// ContinueConversation resumes the most recent conversation in Cwd.
+	// Corresponds to --continue.
+	ContinueConversation bool
+
+	// Resume is the session ID to resume. Corresponds to --resume. When this
+	// client was produced by [ClaudeSDKClient.Fork], the forked session ID
+	// takes precedence over this field.
+	Resume string
+
+	// SessionID sets an explicit session ID for a new session.
+	// Corresponds to --session-id.
+	SessionID string
+
+	// ForkSession, when resuming, forks into a new session ID instead of
+	// continuing the resumed one. Corresponds to --fork-session.
+	ForkSession bool
+
+	// FallbackModel is the model to fall back to if the primary Model is
+	// unavailable. Corresponds to --fallback-model.
+	FallbackModel string
+
+	// Betas is the list of beta feature flags to enable.
+	// Corresponds to --betas (comma-joined).
+	Betas []string
+
+	// PermissionPromptToolName is the name of the MCP tool the CLI calls to
+	// prompt for tool permissions. Corresponds to --permission-prompt-tool.
+	PermissionPromptToolName string
+
+	// Settings is a settings JSON string or a path to a settings file passed
+	// verbatim to the CLI. Corresponds to --settings. (Sandbox merging into
+	// settings is added with the Sandbox type group.)
+	Settings string
+
+	// AddDirs is the list of additional directories the CLI may access.
+	// Corresponds to one --add-dir flag per entry.
+	AddDirs []string
+
+	// IncludeHookEvents enables streaming of hook lifecycle events as messages.
+	// Corresponds to --include-hook-events.
+	IncludeHookEvents bool
+
+	// ExtraArgs passes arbitrary additional CLI flags. A nil value emits a
+	// bare boolean flag (--key); a non-nil value emits --key <value>. Use
+	// [ExtraFlag] to build a value pointer. Mirrors upstream extra_args
+	// (dict[str, str | None]).
+	ExtraArgs map[string]*string
+
+	// Skills selects agent skills to enable. The sentinel value returned by
+	// [AllSkills] enables every installed skill (injecting the bare "Skill"
+	// tool); otherwise each entry "name" injects a "Skill(name)" tool into
+	// AllowedTools. When Skills is non-empty and SettingSources is unset, the
+	// CLI's settings sources default to user and project so installed skills
+	// are discovered. A nil/empty Skills is a no-op. Mirrors upstream
+	// skills (Literal["all"] | list[str]).
+	Skills []string
 }

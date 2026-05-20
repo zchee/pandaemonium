@@ -112,6 +112,57 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--max-budget-usd", strconv.FormatFloat(opts.MaxBudgetUSD, 'f', -1, 64))
 	}
 
+	// Disallowed tools — single comma-joined flag (subprocess_cli.py:266).
+	if len(opts.DisallowedTools) > 0 {
+		args = append(args, "--disallowedTools", strings.Join(opts.DisallowedTools, ","))
+	}
+
+	// Fallback model (subprocess_cli.py:275).
+	if opts.FallbackModel != "" {
+		args = append(args, "--fallback-model", opts.FallbackModel)
+	}
+
+	// Beta feature flags — single comma-joined flag (subprocess_cli.py:278).
+	if len(opts.Betas) > 0 {
+		args = append(args, "--betas", strings.Join(opts.Betas, ","))
+	}
+
+	// Permission-prompt MCP tool name (subprocess_cli.py:281).
+	if opts.PermissionPromptToolName != "" {
+		args = append(args, "--permission-prompt-tool", opts.PermissionPromptToolName)
+	}
+
+	// Continue the most recent conversation (subprocess_cli.py:289).
+	if opts.ContinueConversation {
+		args = append(args, "--continue")
+	}
+
+	// Explicit session ID for a new session (subprocess_cli.py:295).
+	if opts.SessionID != "" {
+		args = append(args, "--session-id", opts.SessionID)
+	}
+
+	// Settings JSON or file path (subprocess_cli.py:300). Sandbox merging into
+	// settings is added with the Sandbox type group.
+	if opts.Settings != "" {
+		args = append(args, "--settings", opts.Settings)
+	}
+
+	// Additional accessible directories — one flag per entry (subprocess_cli.py:305).
+	for _, dir := range opts.AddDirs {
+		args = append(args, "--add-dir", dir)
+	}
+
+	// Stream hook lifecycle events as messages (subprocess_cli.py:338).
+	if opts.IncludeHookEvents {
+		args = append(args, "--include-hook-events")
+	}
+
+	// Fork into a new session ID when resuming (subprocess_cli.py:344).
+	if opts.ForkSession {
+		args = append(args, "--fork-session")
+	}
+
 	// MCP servers — encoded as a single --mcp-config JSON object keyed by
 	// server name, followed by --strict-mcp-config when requested. Mirrors
 	// upstream subprocess_cli.py:307 (json.dumps({"mcpServers": servers_for_cli}))
@@ -163,10 +214,16 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		}
 	}
 
-	// Resume session — used by Fork to replay a branched session in the new
-	// subprocess. Mirrors upstream Python: cmd.extend(["--resume", options.resume]).
-	if resumeSessionID != "" {
-		args = append(args, "--resume", resumeSessionID)
+	// Resume session (subprocess_cli.py:292). The Fork-driven resumeSessionID
+	// parameter takes precedence over opts.Resume: a forked child must resume
+	// the branched session regardless of the user's option. Falls back to
+	// opts.Resume for an explicitly-resumed (non-forked) client.
+	resume := resumeSessionID
+	if resume == "" {
+		resume = opts.Resume
+	}
+	if resume != "" {
+		args = append(args, "--resume", resume)
 	}
 
 	return args, nil
