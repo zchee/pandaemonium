@@ -57,6 +57,13 @@ enc := toml.NewEncoder(w)
 err := enc.Encode(cfg)
 ```
 
+`Decoder.Decode` reads one TOML document from a fresh decoder into a Go value:
+
+```go
+dec := toml.NewDecoder(r)
+err := dec.Decode(&cfg)
+```
+
 Types can bypass reflection by implementing `MarshalerTo` or
 `UnmarshalerFrom`. Struct tags use `toml:"name"` and `toml:"name,omitzero"`.
 The package intentionally rejects `omitempty` in TOML tags with a typed error;
@@ -95,6 +102,10 @@ for {
 `Token.Bytes` if the bytes must outlive the next token read. `WithLimits`
 configures parser caps for document size, nesting depth, key length, and string
 length; cap violations return `*LimitError`.
+
+`Decode` is a whole-document convenience and is only valid before token
+consumption starts. If a caller has already called `ReadToken`, continue with the
+token API or create a new decoder before calling `Decode`.
 
 ## Datetime model
 

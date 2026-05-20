@@ -81,9 +81,11 @@ func WithLocalAsUTC() Option {
 type Decoder struct {
 	buf            []byte
 	off            int
+	decodeStart    int
 	line           int
 	col            int
 	err            error
+	decoded        bool
 	expectingValue bool
 	atLineStart    bool
 
@@ -149,6 +151,7 @@ func NewDecoder(r io.Reader, opts ...Option) *Decoder {
 		return d
 	}
 	d.skipBOM()
+	d.decodeStart = d.off
 	return d
 }
 
@@ -179,7 +182,40 @@ func NewDecoderBytes(data []byte, opts ...Option) *Decoder {
 		return d
 	}
 	d.skipBOM()
+	d.decodeStart = d.off
 	return d
+}
+
+// Decode decodes the decoder's TOML document into dst.
+//
+// Decode is a whole-document convenience over Unmarshal for callers that build a
+// decoder from an io.Reader. It is only valid before any ReadToken call consumes
+// the token stream; mixed token reads and value binding on the same decoder are
+// rejected with *DecoderStateError. Decode is not a multi-document streaming API.
+func (d *Decoder) Decode(dst any) error {
+	if d == nil {
+		return io.ErrUnexpectedEOF
+	}
+	if d.err != nil {
+		return d.err
+	}
+	if d.decoded || d.off != d.decodeStart || d.expectingValue || d.arrayDepth != 0 || d.inlineDepth != 0 || len(d.containerStack) != 0 {
+		return &DecoderStateError{Offset: d.off}
+	}
+	if err := unmarshalWithOptions(d.buf, dst, UnmarshalOptions{DecoderOptions: d.decodeOptions()}); err != nil {
+		return err
+	}
+	d.decoded = true
+	d.off = len(d.buf)
+	return nil
+}
+
+func (d *Decoder) decodeOptions() []Option {
+	opts := []Option{WithLimits(d.limits)}
+	if d.localAsUTC {
+		opts = append(opts, WithLocalAsUTC())
+	}
+	return opts
 }
 
 // ReadToken returns the next token in the stream.

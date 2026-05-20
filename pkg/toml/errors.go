@@ -55,6 +55,18 @@ func (e *LimitError) Error() string {
 	return fmt.Sprintf("toml: %s cap exceeded (limit=%d, span=[%d,%d))", e.Limit, e.Value, e.Span[0], e.Span[1])
 }
 
+// DecoderStateError reports a high-level decode operation attempted after the
+// decoder token stream had already been consumed.
+type DecoderStateError struct {
+	// Offset is the current byte offset of the decoder.
+	Offset int
+}
+
+// Error implements the error interface.
+func (e *DecoderStateError) Error() string {
+	return fmt.Sprintf("toml: decoder already consumed input at byte offset %d", e.Offset)
+}
+
 // LocalTimeIntoTimeError reports an unsafe conversion from a TOML local datetime
 // form into time.Time without an explicit local-as-UTC option.
 type LocalTimeIntoTimeError struct {
