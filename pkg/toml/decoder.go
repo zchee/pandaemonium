@@ -91,12 +91,18 @@ type Decoder struct {
 	needSeparator  bool
 	atLineStart    bool
 
-	limits         Limits
-	arrayDepth     int
-	inlineDepth    int
-	containerStack []byte
-	localAsUTC     bool
+	limits          Limits
+	arrayDepth      int
+	inlineDepth     int
+	containerStack  []byte
+	arrayStateStack []uint8
+	localAsUTC      bool
 }
+
+const (
+	arrayStateNeedValue uint8 = iota
+	arrayStateNeedComma
+)
 
 // containerArray and containerInline mark entries pushed onto containerStack
 // to distinguish array context (where `,` introduces a value) from inline
@@ -114,6 +120,29 @@ func (d *Decoder) innermostIsArray() bool {
 		return false
 	}
 	return d.containerStack[n-1] == containerArray
+}
+
+func (d *Decoder) innermostArrayState() (uint8, bool) {
+	for i := len(d.containerStack) - 1; i >= 0; i-- {
+		if d.containerStack[i] == containerArray {
+			if i < len(d.arrayStateStack) {
+				return d.arrayStateStack[i], true
+			}
+			break
+		}
+	}
+	return 0, false
+}
+
+func (d *Decoder) setInnermostArrayState(state uint8) {
+	for i := len(d.containerStack) - 1; i >= 0; i-- {
+		if d.containerStack[i] == containerArray {
+			if i < len(d.arrayStateStack) {
+				d.arrayStateStack[i] = state
+			}
+			return
+		}
+	}
 }
 
 // NewDecoder creates a Decoder over an io.Reader input.
@@ -260,8 +289,14 @@ func (d *Decoder) ReadToken() (Token, error) {
 		ch := d.buf[d.off]
 		switch ch {
 		case '[':
+			if d.innermostIsArray() && !d.expectingValue {
+				return Token{}, d.syntaxError("expected comma", d.off)
+			}
 			return d.scanArrayStart()
 		case '{':
+			if d.innermostIsArray() && !d.expectingValue {
+				return Token{}, d.syntaxError("expected comma", d.off)
+			}
 			return d.scanInlineTableStart()
 		case ']':
 			return d.scanArrayEnd()
@@ -274,12 +309,15 @@ func (d *Decoder) ReadToken() (Token, error) {
 			d.expectingValue = true
 			continue
 		case ',':
-			if !d.needSeparator {
-				return Token{}, d.syntaxError("unexpected comma", d.off)
+			if d.innermostIsArray() {
+				if state, ok := d.innermostArrayState(); ok && state == arrayStateNeedValue {
+					return Token{}, d.syntaxError("expected value", d.off)
+				}
 			}
 			d.advanceOne()
 			if d.innermostIsArray() {
 				d.expectingValue = true
+				d.setInnermostArrayState(arrayStateNeedValue)
 			}
 			d.needSeparator = false
 			continue
@@ -295,6 +333,12 @@ func (d *Decoder) ReadToken() (Token, error) {
 				}
 				return d.scanKeyToken()
 			}
+			if d.innermostIsArray() {
+				if state, ok := d.innermostArrayState(); ok && state == arrayStateNeedComma {
+					return Token{}, d.syntaxError("expected comma", d.off)
+				}
+			}
+			return d.scanKeyToken()
 		}
 	}
 
@@ -433,7 +477,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		d.expectingValue = false
 		d.needSeparator = true
 		if d.innermostIsArray() {
-			d.expectingValue = true
+			d.setInnermostArrayState(arrayStateNeedComma)
 		}
 		return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
 	case '[':
@@ -489,10 +533,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 	}
 	d.advanceBytes(chunk)
 	d.expectingValue = false
-	d.needSeparator = true
-	if d.innermostIsArray() {
-		d.expectingValue = true
-	}
+	d.setInnermostArrayState(arrayStateNeedComma)
 	return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
 }
 
@@ -503,6 +544,7 @@ func (d *Decoder) scanArrayStart() (Token, error) {
 	d.arrayDepth++
 	d.enforceNestedDepth(start, d.arrayDepth)
 	d.containerStack = append(d.containerStack, containerArray)
+	d.arrayStateStack = append(d.arrayStateStack, arrayStateNeedValue)
 	d.expectingValue = true
 	d.needSeparator = false
 	return Token{Kind: TokenKindArrayStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
@@ -518,8 +560,13 @@ func (d *Decoder) scanArrayEnd() (Token, error) {
 	if n := len(d.containerStack); n > 0 && d.containerStack[n-1] == containerArray {
 		d.containerStack = d.containerStack[:n-1]
 	}
-	d.expectingValue = d.innermostIsArray()
-	d.needSeparator = len(d.containerStack) > 0
+	if n := len(d.arrayStateStack); n > 0 {
+		d.arrayStateStack = d.arrayStateStack[:n-1]
+	}
+	if d.innermostIsArray() {
+		d.setInnermostArrayState(arrayStateNeedComma)
+	}
+	d.expectingValue = false
 	return Token{Kind: TokenKindArrayEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -544,8 +591,10 @@ func (d *Decoder) scanInlineTableEnd() (Token, error) {
 	if n := len(d.containerStack); n > 0 && d.containerStack[n-1] == containerInline {
 		d.containerStack = d.containerStack[:n-1]
 	}
-	d.expectingValue = d.innermostIsArray()
-	d.needSeparator = len(d.containerStack) > 0
+	if d.innermostIsArray() {
+		d.setInnermostArrayState(arrayStateNeedComma)
+	}
+	d.expectingValue = false
 	return Token{Kind: TokenKindInlineTableEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 

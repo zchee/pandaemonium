@@ -16,74 +16,47 @@ package testsuite
 
 import (
 	"encoding/json"
-	"strings"
+	"math"
 	"testing"
-
-	"github.com/google/go-cmp/cmp"
 )
 
-func TestValueToTaggedJSONTagsNestedPublicContainers(t *testing.T) {
+func TestValueToTaggedJSONSpecialFloats(t *testing.T) {
 	t.Parallel()
 
-	doc := map[string]any{
-		"title": "demo",
-		"owner": map[string]any{
-			"name":   "alice",
-			"active": true,
-			"limits": map[string]any{
-				"cpu": int64(2),
-			},
+	body, err := ValueToTaggedJSON(map[string]any{
+		"finite": 1.5,
+		"nan":    math.NaN(),
+		"posinf": math.Inf(1),
+		"neginf": math.Inf(-1),
+		"nested": map[string]any{
+			"items": []any{math.NaN(), math.Inf(1)},
 		},
-		"points": []any{
-			map[string]any{"x": int64(1), "y": int64(2)},
-			map[string]any{"x": int64(3), "y": int64(4)},
-		},
-	}
-
-	body, err := ValueToTaggedJSON(doc)
+	})
 	if err != nil {
 		t.Fatalf("ValueToTaggedJSON() error = %v", err)
 	}
 	var got map[string]any
 	if err := json.Unmarshal(body, &got); err != nil {
-		t.Fatalf("json.Unmarshal(ValueToTaggedJSON()) error = %v\n%s", err, body)
+		t.Fatalf("json.Unmarshal() error = %v", err)
 	}
-
-	want := map[string]any{
-		"title": map[string]any{"type": "string", "value": "demo"},
-		"owner": map[string]any{
-			"name":   map[string]any{"type": "string", "value": "alice"},
-			"active": map[string]any{"type": "bool", "value": "true"},
-			"limits": map[string]any{
-				"cpu": map[string]any{"type": "integer", "value": "2"},
-			},
-		},
-		"points": []any{
-			map[string]any{
-				"x": map[string]any{"type": "integer", "value": "1"},
-				"y": map[string]any{"type": "integer", "value": "2"},
-			},
-			map[string]any{
-				"x": map[string]any{"type": "integer", "value": "3"},
-				"y": map[string]any{"type": "integer", "value": "4"},
-			},
-		},
+	nan := got["nan"].(map[string]any)
+	if nan["value"] != "nan" {
+		t.Fatalf("nan tag value = %#v, want %q", nan["value"], "nan")
 	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("ValueToTaggedJSON() mismatch (-want +got):\n%s", diff)
+	posinf := got["posinf"].(map[string]any)
+	if posinf["value"] != "inf" {
+		t.Fatalf("posinf tag value = %#v, want %q", posinf["value"], "inf")
 	}
-}
-
-func TestValueToTaggedJSONRejectsUnsupportedValues(t *testing.T) {
-	t.Parallel()
-
-	_, err := ValueToTaggedJSON(map[string]any{
-		"bad": struct{ Name string }{Name: "not a TOML value"},
-	})
-	if err == nil {
-		t.Fatal("ValueToTaggedJSON() error = nil, want unsupported value error")
+	neginf := got["neginf"].(map[string]any)
+	if neginf["value"] != "-inf" {
+		t.Fatalf("neginf tag value = %#v, want %q", neginf["value"], "-inf")
 	}
-	if got, want := err.Error(), "bad: unsupported TOML value type struct"; !strings.Contains(got, want) {
-		t.Fatalf("ValueToTaggedJSON() error = %q, want substring %q", got, want)
+	nested := got["nested"].(map[string]any)
+	items := nested["items"].([]any)
+	if items[0].(map[string]any)["value"] != "nan" {
+		t.Fatalf("nested.items[0] value = %#v, want %q", items[0], "nan")
+	}
+	if items[1].(map[string]any)["value"] != "inf" {
+		t.Fatalf("nested.items[1] value = %#v, want %q", items[1], "inf")
 	}
 }

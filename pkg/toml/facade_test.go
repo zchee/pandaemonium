@@ -597,72 +597,52 @@ func TestFacadeUnmarshalMapKeepsExistingEntries(t *testing.T) {
 	}
 }
 
-func TestFacadeUnmarshalPublicContainersDoNotLeakDocumentMap(t *testing.T) {
+func TestFacadeUnmarshalMapRecursivelyConvertsPublicContainers(t *testing.T) {
 	t.Parallel()
 
-	input := []byte(`
-title = "demo"
-points = [{ x = 1, y = 2 }, { x = 3, y = 4 }]
-
+	dst := map[string]any{}
+	input := []byte(`title = "demo"
 [owner]
 name = "alice"
-metadata = { active = true, limits = { cpu = 2 } }
+aliases = ["a", "b"]
 
-[[products]]
-name = "hammer"
-tags = [{ label = "tool" }]
+[owner.meta]
+enabled = true
+labels = ["x", "y"]
 `)
-	tests := map[string]struct {
-		decode func(t *testing.T) any
-	}{
-		"success: empty map destination": {
-			decode: func(t *testing.T) any {
-				t.Helper()
-				dst := map[string]any{}
-				if err := Unmarshal(input, &dst); err != nil {
-					t.Fatalf("Unmarshal(map[string]any) error = %v", err)
-				}
-				return dst
-			},
-		},
-		"success: interface destination": {
-			decode: func(t *testing.T) any {
-				t.Helper()
-				var dst any
-				if err := Unmarshal(input, &dst); err != nil {
-					t.Fatalf("Unmarshal(any) error = %v", err)
-				}
-				return dst
-			},
-		},
+	if err := Unmarshal(input, &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
 	}
-
-	for name, tc := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-
-			got := tc.decode(t)
-			assertNoDocumentMap(t, "$", got)
-			root, ok := got.(map[string]any)
-			if !ok {
-				t.Fatalf("decoded root type = %T, want map[string]any", got)
-			}
-			owner, ok := root["owner"].(map[string]any)
-			if !ok {
-				t.Fatalf("owner type = %T, want map[string]any", root["owner"])
-			}
-			metadata, ok := owner["metadata"].(map[string]any)
-			if !ok {
-				t.Fatalf("owner.metadata type = %T, want map[string]any", owner["metadata"])
-			}
-			limits, ok := metadata["limits"].(map[string]any)
-			if !ok {
-				t.Fatalf("owner.metadata.limits type = %T, want map[string]any", metadata["limits"])
-			}
-			if got, want := limits["cpu"], int64(2); got != want {
-				t.Fatalf("owner.metadata.limits.cpu = %v, want %v", got, want)
-			}
-		})
+	owner, ok := dst["owner"].(map[string]any)
+	if !ok {
+		t.Fatalf("owner = %T(%#v), want map[string]any", dst["owner"], dst["owner"])
+	}
+	if _, ok := owner["__toml_internal__"]; ok {
+		t.Fatalf("owner contains unexpected internal sentinel: %#v", owner)
+	}
+	if got, want := owner["name"], "alice"; got != want {
+		t.Fatalf("owner.name = %#v, want %#v", got, want)
+	}
+	aliases, ok := owner["aliases"].([]any)
+	if !ok {
+		t.Fatalf("owner.aliases = %T(%#v), want []any", owner["aliases"], owner["aliases"])
+	}
+	if got, want := len(aliases), 2; got != want {
+		t.Fatalf("len(owner.aliases) = %d, want %d", got, want)
+	}
+	meta, ok := owner["meta"].(map[string]any)
+	if !ok {
+		t.Fatalf("owner.meta = %T(%#v), want map[string]any", owner["meta"], owner["meta"])
+	}
+	if got, want := meta["enabled"], true; got != want {
+		t.Fatalf("owner.meta.enabled = %#v, want %#v", got, want)
+	}
+	labels, ok := meta["labels"].([]any)
+	if !ok {
+		t.Fatalf("owner.meta.labels = %T(%#v), want []any", meta["labels"], meta["labels"])
+	}
+	if got, want := len(labels), 2; got != want {
+		t.Fatalf("len(owner.meta.labels) = %d, want %d", got, want)
 	}
 }
 

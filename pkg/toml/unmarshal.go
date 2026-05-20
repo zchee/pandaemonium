@@ -249,12 +249,7 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	}
 	switch dst.Kind() {
 	case reflect.Interface:
-		public := publicValue(src)
-		if public == nil {
-			dst.Set(reflect.Zero(dst.Type()))
-			return nil
-		}
-		dst.Set(reflect.ValueOf(public))
+		dst.Set(reflect.ValueOf(publicAnyValue(src)))
 		return nil
 	case reflect.Struct:
 		m, ok := asDocumentMap(src)
@@ -284,7 +279,7 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 			return &UnsupportedTypeError{Type: dst.Type().String()}
 		}
 		if dst.Type().Elem().Kind() == reflect.Interface && dst.Len() == 0 {
-			source := reflect.ValueOf(publicValue(m))
+			source := reflect.ValueOf(publicAnyMap(m))
 			if source.Type().AssignableTo(dst.Type()) {
 				dst.Set(source)
 				return nil
@@ -379,6 +374,31 @@ func asDocumentMap(v any) (documentMap, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func publicAnyValue(v any) any {
+	switch x := v.(type) {
+	case documentMap:
+		return publicAnyMap(x)
+	case map[string]any:
+		return publicAnyMap(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, elem := range x {
+			out[i] = publicAnyValue(elem)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+func publicAnyMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = publicAnyValue(v)
+	}
+	return out
 }
 
 func int64Value(v any) (int64, bool) {
