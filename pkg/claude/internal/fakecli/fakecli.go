@@ -43,6 +43,14 @@ type Frame struct {
 	Lines []string
 }
 
+// writeHook is a bidirectional-scripting registration created by
+// [FakeCLI.OnWrite]: when a WriteJSON payload satisfies matcher, the lines from
+// respond() are injected into the read buffer.
+type writeHook struct {
+	matcher func([]byte) bool
+	respond func() []string
+}
+
 // FakeCLI is a hermetic transport double that implements the pkg/claude
 // transport interface (Close + WriteJSON + ReadJSON) without launching a
 // real subprocess.
@@ -56,7 +64,13 @@ type FakeCLI struct {
 	written  [][]byte // copies of payloads received via WriteJSON
 	frameIdx int      // index of next frame to serve
 
-	// lines is a buffered channel of raw lines queued from script frames.
+	// onWrite holds bidirectional-scripting hooks registered via OnWrite. When
+	// a WriteJSON payload matches a hook's matcher, the hook's respond lines are
+	// injected into the read buffer. Guarded by mu.
+	onWrite []writeHook
+
+	// lines is a buffered channel of raw lines queued from script frames or
+	// injected directly via Inject / OnWrite.
 	lines chan []byte
 
 	// closed is closed by Close to unblock ReadJSON.
@@ -103,26 +117,80 @@ func (f *FakeCLI) WriteJSON(_ context.Context, p []byte) error {
 	}
 
 	f.mu.Lock()
-	copy := append([]byte(nil), p...)
-	f.written = append(f.written, copy)
+	payload := append([]byte(nil), p...)
+	f.written = append(f.written, payload)
 	idx := f.frameIdx
 	if idx < len(f.script) {
 		f.frameIdx++
+	}
+	// Snapshot the matching OnWrite hooks (by matcher) under mu so the hook
+	// slice is read consistently, but invoke their respond closures AFTER
+	// releasing mu. respond may call back into FakeCLI accessors such as
+	// Written(), which re-acquire mu; running it under mu would self-deadlock.
+	var matched []func() []string
+	for _, h := range f.onWrite {
+		if h.matcher(payload) {
+			matched = append(matched, h.respond)
+		}
 	}
 	f.mu.Unlock()
 
 	// Enqueue this frame's lines for ReadJSON. Each line gets a trailing
 	// newline so ReadJSON callers see well-formed stream-JSON lines.
 	if idx < len(f.script) {
-		for _, line := range f.script[idx].Lines {
-			select {
-			case f.lines <- []byte(line + "\n"):
-			case <-f.closed:
-				return io.ErrClosedPipe
-			}
+		if err := f.pushLines(f.script[idx].Lines); err != nil {
+			return err
+		}
+	}
+	// Invoke matched OnWrite responders (in registration order) and enqueue
+	// their lines after the frame lines.
+	for _, respond := range matched {
+		if err := f.pushLines(respond()); err != nil {
+			return err
 		}
 	}
 	return nil
+}
+
+// pushLines enqueues raw lines into the read buffer, appending a trailing
+// newline to each so ReadJSON callers see well-formed stream-JSON lines.
+// It returns io.ErrClosedPipe if the FakeCLI is closed before all lines are
+// enqueued.
+func (f *FakeCLI) pushLines(lines []string) error {
+	for _, line := range lines {
+		select {
+		case f.lines <- []byte(line + "\n"):
+		case <-f.closed:
+			return io.ErrClosedPipe
+		}
+	}
+	return nil
+}
+
+// Inject enqueues raw stream-JSON lines into the read buffer immediately,
+// without waiting for a WriteJSON call. This lets a test script the case where
+// the CLI sends data (e.g. an inbound control_request) before the SDK writes.
+//
+// Lines are appended after anything already queued. Inject is safe to call from
+// a test goroutine concurrently with the client's read loop. It is a no-op for
+// the lines that cannot be enqueued because the FakeCLI is already closed.
+func (f *FakeCLI) Inject(lines ...string) {
+	_ = f.pushLines(lines)
+}
+
+// OnWrite registers a bidirectional-scripting hook: whenever a subsequent
+// WriteJSON payload satisfies matcher, the lines returned by respond are
+// injected into the read buffer. This is what lets a test auto-answer the
+// initialize control_request by echoing its request_id.
+//
+// matcher and respond run synchronously inside WriteJSON under the FakeCLI
+// mutex, so they must be cheap and must not block on anything outside the
+// FakeCLI. Multiple hooks are evaluated in registration order; all matching
+// hooks fire (frame advancement is unaffected).
+func (f *FakeCLI) OnWrite(matcher func([]byte) bool, respond func() []string) {
+	f.mu.Lock()
+	f.onWrite = append(f.onWrite, writeHook{matcher: matcher, respond: respond})
+	f.mu.Unlock()
 }
 
 // ReadJSON returns the next queued stream-JSON line.

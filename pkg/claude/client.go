@@ -64,6 +64,12 @@ type ClaudeSDKClient struct {
 	// See race-safety documentation above.
 	transport transport
 
+	// cp is the control-protocol layer bound to this client's transport. It is
+	// constructed in start under closeMu and passed to readLoop as a goroutine
+	// argument (never read from inside the goroutine), mirroring the
+	// snapshot-as-arg discipline used for transport.
+	cp *controlProtocol
+
 	writeMu sync.Mutex
 	closeMu sync.Mutex
 
@@ -355,6 +361,10 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 	c.readDone = make(chan struct{})
 	c.stderrDone = make(chan struct{})
 
+	// Construct the control protocol bound to writeMessage (the writeMu-guarded
+	// writer) so the control layer reuses the single write-exclusion discipline.
+	c.cp = newControlProtocol(c.opts, c.writeMessage)
+
 	if stderrR != nil {
 		go c.drainStderr(stderrR, c.stderrDone)
 	} else {
@@ -362,11 +372,11 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 		close(c.stderrDone)
 	}
 
-	// Launch readLoop with a snapshot of c.transport captured under closeMu.
-	// The goroutine receives the transport as an argument and never reads
-	// c.transport directly — this is the snapshot-as-arg discipline that
+	// Launch readLoop with a snapshot of c.transport and c.cp captured under
+	// closeMu. The goroutine receives both as arguments and never reads
+	// c.transport or c.cp directly — this is the snapshot-as-arg discipline that
 	// prevents the Close/readMessage data race fixed in pkg/codex commit 8c16376.
-	go c.readLoop(ctx, c.transport, c.readDone) // snapshot under closeMu
+	go c.readLoop(ctx, c.transport, c.cp, c.readDone) // snapshot under closeMu
 }
 
 // launchSubprocess resolves the CLI binary, builds launch args, starts the
@@ -439,7 +449,7 @@ func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 // The goroutine argument t MUST be the snapshot captured under closeMu — it
 // never reads c.transport directly. This is the core of the race-safety
 // discipline from pkg/codex commit 8c16376 (pkg/codex/client.go:244).
-func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, done chan<- struct{}) {
+func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *controlProtocol, done chan<- struct{}) {
 	defer close(done)
 	for {
 		line, err := t.ReadJSON(ctx)
@@ -455,6 +465,15 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, done chan<-
 			default:
 			}
 			return
+		}
+		// Intercept control-protocol messages before the regular message path.
+		// route returns consumed=true for control messages it handled; only
+		// non-control lines fall through to rawMessages. cp is the goroutine
+		// argument captured under closeMu, never c.cp directly.
+		if cp != nil {
+			if consumed, _ := cp.route(ctx, line); consumed {
+				continue
+			}
 		}
 		select {
 		case c.rawMessages <- line:
