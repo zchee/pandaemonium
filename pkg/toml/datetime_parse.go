@@ -17,6 +17,7 @@ package toml
 import (
 	"fmt"
 	"slices"
+	"sync/atomic"
 	"time"
 )
 
@@ -29,6 +30,8 @@ const (
 	dateTimeKindLocalDate
 	dateTimeKindLocalTime
 )
+
+var fixedOffsetZoneCache [2][24][60]atomic.Pointer[time.Location]
 
 // parseDateTimeValue parses raw as the most specific TOML datetime form it matches.
 func parseDateTimeValue(raw []byte) (any, dateTimeKind, error) {
@@ -304,7 +307,23 @@ func parseZone(raw []byte) (*time.Location, error) {
 	if raw[0] == '-' {
 		seconds = -seconds
 	}
-	return time.FixedZone(string(raw), seconds), nil
+	return fixedOffsetZone(raw, seconds, hour, minute), nil
+}
+
+func fixedOffsetZone(raw []byte, seconds, hour, minute int) *time.Location {
+	sign := 0
+	if raw[0] == '-' {
+		sign = 1
+	}
+	slot := &fixedOffsetZoneCache[sign][hour][minute]
+	if loc := slot.Load(); loc != nil {
+		return loc
+	}
+	loc := time.FixedZone(string(raw), seconds)
+	if slot.CompareAndSwap(nil, loc) {
+		return loc
+	}
+	return slot.Load()
 }
 
 func parseFixedDigits(raw []byte) (int, bool) {

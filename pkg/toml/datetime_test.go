@@ -170,6 +170,48 @@ func TestDatetimeOffsetDateTimeAsTime(t *testing.T) {
 	}
 }
 
+func TestParseZoneCachesNamedOffsets(t *testing.T) {
+	tests := map[string]struct {
+		source string
+		want   string
+	}{
+		"success: positive named offset": {source: "+09:30", want: "+09:30"},
+		"success: positive zero offset":  {source: "+00:00", want: "+00:00"},
+		"success: negative zero offset":  {source: "-00:00", want: "-00:00"},
+		"success: negative named offset": {source: "-12:00", want: "-12:00"},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			raw := []byte(tc.source)
+			loc, err := parseZone(raw)
+			if err != nil {
+				t.Fatalf("parseZone(%q) warmup error = %v", tc.source, err)
+			}
+			if zone, _ := time.Date(2026, time.May, 20, 0, 0, 0, 0, loc).Zone(); zone != tc.want {
+				t.Fatalf("parseZone(%q) warmup zone = %q, want %q", tc.source, zone, tc.want)
+			}
+
+			var got *time.Location
+			allocs := testing.AllocsPerRun(1000, func() {
+				got, err = parseZone(raw)
+			})
+			if err != nil {
+				t.Fatalf("parseZone(%q) cached error = %v", tc.source, err)
+			}
+			if got != loc {
+				t.Fatalf("parseZone(%q) cached location pointer changed", tc.source)
+			}
+			if zone, _ := time.Date(2026, time.May, 20, 0, 0, 0, 0, got).Zone(); zone != tc.want {
+				t.Fatalf("parseZone(%q) cached zone = %q, want %q", tc.source, zone, tc.want)
+			}
+			if allocs != 0 {
+				t.Fatalf("parseZone(%q) cached allocations = %v, want 0", tc.source, allocs)
+			}
+		})
+	}
+}
+
 func TestDatetimeLocalIntoTimeRequiresExplicitUTC(t *testing.T) {
 	t.Parallel()
 
