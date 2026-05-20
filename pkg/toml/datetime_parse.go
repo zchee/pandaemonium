@@ -154,6 +154,7 @@ func parseLocalDateTime(raw []byte) (LocalDateTime, error) {
 		Minute:     clock.Minute,
 		Second:     clock.Second,
 		Nanosecond: clock.Nanosecond,
+		hasSecond:  clock.hasSecond,
 		nanoDigits: clock.nanoDigits,
 	}, nil
 }
@@ -213,10 +214,10 @@ func parseDatePrefix(raw []byte) (LocalDate, int, error) {
 }
 
 func parseTimePrefix(raw []byte) (LocalTime, int, error) {
-	if len(raw) < len("00:00:00") {
+	if len(raw) < len("00:00") {
 		return LocalTime{}, 0, fmt.Errorf("toml: short time")
 	}
-	if raw[2] != ':' || raw[5] != ':' {
+	if raw[2] != ':' {
 		return LocalTime{}, 0, fmt.Errorf("toml: malformed time separators")
 	}
 
@@ -228,32 +229,40 @@ func parseTimePrefix(raw []byte) (LocalTime, int, error) {
 	if !ok {
 		return LocalTime{}, 0, fmt.Errorf("toml: malformed minute")
 	}
-	second, ok := parseFixedDigits(raw[6:8])
-	if !ok {
-		return LocalTime{}, 0, fmt.Errorf("toml: malformed second")
-	}
 
-	next := len("00:00:00")
+	next := len("00:00")
+	second := 0
 	nanos := 0
 	nanoDigits := int8(0)
-	if next < len(raw) && raw[next] == '.' {
+	if next < len(raw) && raw[next] == ':' {
 		next++
-		fracStart := next
-		for next < len(raw) && raw[next] >= '0' && raw[next] <= '9' {
+		if len(raw)-next < len("00") {
+			return LocalTime{}, 0, fmt.Errorf("toml: short time")
+		}
+		second, ok = parseFixedDigits(raw[next : next+2])
+		if !ok {
+			return LocalTime{}, 0, fmt.Errorf("toml: malformed second")
+		}
+		next += 2
+		if next < len(raw) && raw[next] == '.' {
 			next++
-		}
-		if next == fracStart {
-			return LocalTime{}, 0, fmt.Errorf("toml: empty fractional second")
-		}
-		if next-fracStart > 9 {
-			return LocalTime{}, 0, fmt.Errorf("toml: fractional second precision exceeds nanoseconds")
-		}
-		nanoDigits = int8(next - fracStart)
-		for i := fracStart; i < next; i++ {
-			nanos = nanos*10 + int(raw[i]-'0')
-		}
-		for range 9 - int(nanoDigits) {
-			nanos *= 10
+			fracStart := next
+			for next < len(raw) && raw[next] >= '0' && raw[next] <= '9' {
+				next++
+			}
+			if next == fracStart {
+				return LocalTime{}, 0, fmt.Errorf("toml: empty fractional second")
+			}
+			if next-fracStart > 9 {
+				return LocalTime{}, 0, fmt.Errorf("toml: fractional second precision exceeds nanoseconds")
+			}
+			nanoDigits = int8(next - fracStart)
+			for i := fracStart; i < next; i++ {
+				nanos = nanos*10 + int(raw[i]-'0')
+			}
+			for range 9 - int(nanoDigits) {
+				nanos *= 10
+			}
 		}
 	}
 	if err := validateLocalClock(hour, minute, second, nanos, nanoDigits); err != nil {
@@ -265,13 +274,14 @@ func parseTimePrefix(raw []byte) (LocalTime, int, error) {
 		Minute:     minute,
 		Second:     second,
 		Nanosecond: nanos,
+		hasSecond:  next > len("00:00"),
 		nanoDigits: nanoDigits,
 	}
 	return clock, next, nil
 }
 
 func parseZone(raw []byte) (*time.Location, error) {
-	if len(raw) == 1 && raw[0] == 'Z' {
+	if len(raw) == 1 && (raw[0] == 'Z' || raw[0] == 'z') {
 		return time.UTC, nil
 	}
 	if len(raw) != len("+00:00") || (raw[0] != '+' && raw[0] != '-') || raw[3] != ':' {

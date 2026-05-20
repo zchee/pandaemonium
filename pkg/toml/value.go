@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"math"
 	"strconv"
 	"sync"
 )
@@ -27,8 +28,14 @@ type documentMap map[string]any
 const documentMapHint = 4
 
 var (
-	trueLiteral  = []byte("true")
-	falseLiteral = []byte("false")
+	trueLiteral   = []byte("true")
+	falseLiteral  = []byte("false")
+	infLiteral    = []byte("inf")
+	posInfLiteral = []byte("+inf")
+	negInfLiteral = []byte("-inf")
+	nanLiteral    = []byte("nan")
+	posNanLiteral = []byte("+nan")
+	negNanLiteral = []byte("-nan")
 )
 
 var documentMapPool = sync.Pool{
@@ -205,15 +212,22 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 	case TokenKindValueInteger:
 		return strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
 	case TokenKindValueFloat:
-		return strconv.ParseFloat(normalizeNumericText(tok.Bytes, true), 64)
+		if f, ok := parseSpecialFloatLiteral(tok.Bytes); ok {
+			return f, nil
+		}
+		normalized := normalizeNumericText(tok.Bytes, true)
+		if isSpecialFloat(normalized) {
+			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed special float", Span: [2]int{0, len(tok.Bytes)}}
+		}
+		return strconv.ParseFloat(normalized, 64)
 	case TokenKindValueBool:
 		switch {
-		case bytes.EqualFold(tok.Bytes, trueLiteral):
+		case bytes.Equal(tok.Bytes, trueLiteral):
 			return true, nil
-		case bytes.EqualFold(tok.Bytes, falseLiteral):
+		case bytes.Equal(tok.Bytes, falseLiteral):
 			return false, nil
 		default:
-			return strconv.ParseBool(string(tok.Bytes))
+			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed boolean", Span: [2]int{0, len(tok.Bytes)}}
 		}
 	case TokenKindValueDatetime:
 		v, _, err := parseDateTimeValue(tok.Bytes)
@@ -234,9 +248,10 @@ func parseArrayValue(dec *Decoder) ([]any, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch tok.Kind {
-		case TokenKindComment:
+		if tok.Kind == TokenKindComment {
 			continue
+		}
+		switch tok.Kind {
 		case TokenKindArrayEnd:
 			return values, nil
 		default:
@@ -256,9 +271,10 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch tok.Kind {
-		case TokenKindComment:
+		if tok.Kind == TokenKindComment {
 			continue
+		}
+		switch tok.Kind {
 		case TokenKindInlineTableEnd:
 			return m, nil
 		case TokenKindKey:
@@ -274,6 +290,23 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 		default:
 			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected inline table key", Span: [2]int{0, 1}}
 		}
+	}
+}
+
+func skipLayoutAndComments(dec *Decoder) error {
+	for {
+		start := dec.off
+		dec.skipSpaces()
+		if dec.off != start {
+			continue
+		}
+		if dec.off < len(dec.buf) && dec.buf[dec.off] == '#' {
+			if _, err := dec.scanComment(); err != nil {
+				return err
+			}
+			continue
+		}
+		return nil
 	}
 }
 
@@ -417,6 +450,21 @@ func normalizeNumericText(raw []byte, lower bool) string {
 		buf = append(buf, b)
 	}
 	return string(buf)
+}
+
+func parseSpecialFloatLiteral(raw []byte) (float64, bool) {
+	switch {
+	case bytes.Equal(raw, infLiteral), bytes.Equal(raw, posInfLiteral):
+		return math.Inf(1), true
+	case bytes.Equal(raw, negInfLiteral):
+		return math.Inf(-1), true
+	case bytes.Equal(raw, nanLiteral), bytes.Equal(raw, posNanLiteral):
+		return math.Float64frombits(0x7ff8000000000000), true
+	case bytes.Equal(raw, negNanLiteral):
+		return math.Float64frombits(0xfff8000000000000), true
+	default:
+		return 0, false
+	}
 }
 
 func ensureTable(root documentMap, path []string) documentMap {

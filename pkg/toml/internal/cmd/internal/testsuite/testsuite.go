@@ -58,15 +58,11 @@ func DecodeStdin() error {
 		return fmt.Errorf("error decoding TOML: %w", err)
 	}
 
-	tagged, err := addTag(decoded)
-	if err != nil {
-		return fmt.Errorf("error tagging TOML data: %w", err)
-	}
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "  ")
 	tagged, err := addTag(decoded)
 	if err != nil {
-		return fmt.Errorf("error adding JSON tags: %w", err)
+		return fmt.Errorf("error tagging JSON: %w", err)
 	}
 	if err := j.Encode(tagged); err != nil {
 		return fmt.Errorf("error encoding JSON: %w", err)

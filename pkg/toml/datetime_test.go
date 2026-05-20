@@ -45,6 +45,7 @@ func TestDatetimeTextRoundTrip(t *testing.T) {
 			want: LocalDateTime{
 				Year: 1979, Month: 5, Day: 27,
 				Hour: 7, Minute: 32, Second: 0,
+				hasSecond: true,
 			},
 		},
 		"success: local datetime with trailing fractional zeroes": {
@@ -52,6 +53,7 @@ func TestDatetimeTextRoundTrip(t *testing.T) {
 			want: LocalDateTime{
 				Year: 1979, Month: 5, Day: 27,
 				Hour: 7, Minute: 32, Second: 0,
+				hasSecond:  true,
 				Nanosecond: 120_000_000,
 				nanoDigits: 4,
 			},
@@ -62,12 +64,25 @@ func TestDatetimeTextRoundTrip(t *testing.T) {
 		},
 		"success: local time without fraction": {
 			source: "07:32:00",
-			want:   LocalTime{Hour: 7, Minute: 32, Second: 0},
+			want:   LocalTime{Hour: 7, Minute: 32, Second: 0, hasSecond: true},
+		},
+		"success: local datetime without seconds": {
+			source: "1979-05-27T07:32",
+			want: LocalDateTime{
+				Year: 1979, Month: 5, Day: 27,
+				Hour: 7, Minute: 32, Second: 0,
+				hasSecond: false,
+			},
+		},
+		"success: local time without seconds": {
+			source: "07:32",
+			want:   LocalTime{Hour: 7, Minute: 32, Second: 0, hasSecond: false},
 		},
 		"success: local time with nine fractional digits": {
 			source: "07:32:00.123456789",
 			want: LocalTime{
 				Hour: 7, Minute: 32, Second: 0,
+				hasSecond:  true,
 				Nanosecond: 123_456_789,
 				nanoDigits: 9,
 			},
@@ -206,12 +221,14 @@ func TestDecoderDatetimeClassification(t *testing.T) {
 		source string
 		want   string
 	}{
-		"success: offset datetime": {source: "value = 1979-05-27T07:32:00+09:00", want: "1979-05-27T07:32:00+09:00"},
-		"success: local datetime":  {source: "value = 1979-05-27T07:32:00", want: "1979-05-27T07:32:00"},
-		"success: lowercase t":     {source: "value = 1979-05-27t07:32:00", want: "1979-05-27t07:32:00"},
-		"success: space separator": {source: "value = 1979-05-27 07:32:00", want: "1979-05-27 07:32:00"},
-		"success: local date":      {source: "value = 1979-05-27", want: "1979-05-27"},
-		"success: local time":      {source: "value = 07:32:00", want: "07:32:00"},
+		"success: offset datetime":                {source: "value = 1979-05-27T07:32:00+09:00", want: "1979-05-27T07:32:00+09:00"},
+		"success: local datetime":                 {source: "value = 1979-05-27T07:32:00", want: "1979-05-27T07:32:00"},
+		"success: local datetime without seconds": {source: "value = 1979-05-27T07:32", want: "1979-05-27T07:32"},
+		"success: lowercase t":                    {source: "value = 1979-05-27t07:32:00", want: "1979-05-27t07:32:00"},
+		"success: space separator":                {source: "value = 1979-05-27 07:32:00", want: "1979-05-27 07:32:00"},
+		"success: local date":                     {source: "value = 1979-05-27", want: "1979-05-27"},
+		"success: local time":                     {source: "value = 07:32:00", want: "07:32:00"},
+		"success: local time without seconds":     {source: "value = 07:32", want: "07:32"},
 	}
 
 	for name, tc := range tests {

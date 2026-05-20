@@ -29,6 +29,7 @@ type LocalDateTime struct {
 	Year, Month, Day     int
 	Hour, Minute, Second int
 	Nanosecond           int
+	hasSecond            bool
 
 	nanoDigits int8
 }
@@ -58,7 +59,7 @@ func (dt LocalDateTime) MarshalText() ([]byte, error) {
 	buf := make([]byte, 0, len("0000-00-00T00:00:00.000000000"))
 	buf = appendDate(buf, dt.Year, dt.Month, dt.Day)
 	buf = append(buf, 'T')
-	buf = appendTime(buf, dt.Hour, dt.Minute, dt.Second, dt.Nanosecond, dt.nanoDigits)
+	buf = appendTime(buf, dt.Hour, dt.Minute, dt.Second, dt.Nanosecond, dt.nanoDigits, dt.hasSecond)
 	return buf, nil
 }
 
@@ -116,6 +117,7 @@ func (d *LocalDate) UnmarshalText(text []byte) error {
 type LocalTime struct {
 	Hour, Minute, Second int
 	Nanosecond           int
+	hasSecond            bool
 
 	nanoDigits int8
 }
@@ -139,7 +141,7 @@ func (lt LocalTime) MarshalText() ([]byte, error) {
 	if err := validateLocalClock(lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits); err != nil {
 		return nil, err
 	}
-	return appendTime(make([]byte, 0, len("00:00:00.000000000")), lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits), nil
+	return appendTime(make([]byte, 0, len("00:00:00.000000000")), lt.Hour, lt.Minute, lt.Second, lt.Nanosecond, lt.nanoDigits, lt.hasSecond), nil
 }
 
 // UnmarshalText implements [encoding.TextUnmarshaler].
@@ -214,13 +216,15 @@ func appendDate(buf []byte, year, month, day int) []byte {
 	return buf
 }
 
-func appendTime(buf []byte, hour, minute, second, nanos int, nanoDigits int8) []byte {
+func appendTime(buf []byte, hour, minute, second, nanos int, nanoDigits int8, hasSecond bool) []byte {
 	buf = appendPaddedInt(buf, hour, 2)
 	buf = append(buf, ':')
 	buf = appendPaddedInt(buf, minute, 2)
-	buf = append(buf, ':')
-	buf = appendPaddedInt(buf, second, 2)
-	if nanoDigits > 0 {
+	if hasSecond {
+		buf = append(buf, ':')
+		buf = appendPaddedInt(buf, second, 2)
+	}
+	if hasSecond && nanoDigits > 0 {
 		buf = append(buf, '.')
 		frac := strconv.Itoa(nanos + 1_000_000_000)
 		buf = append(buf, frac[1:1+int(nanoDigits)]...)

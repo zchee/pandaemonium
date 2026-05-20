@@ -16,6 +16,7 @@ package toml
 
 import (
 	"errors"
+	"math"
 	"reflect"
 	"runtime/debug"
 	"strings"
@@ -319,6 +320,28 @@ func TestDirectBindTypedTokenLocalTimeUTCOption(t *testing.T) {
 	if !got.When.Equal(want) || got.When.Location() != time.UTC {
 		t.Fatalf("When = %s (%s), want %s UTC", got.When, got.When.Location(), want)
 	}
+
+	var noSeconds sample
+	noSecondsTok := Token{Kind: TokenKindValueDatetime, Bytes: []byte("2026-05-17T03:04")}
+	if err := directBindTypedToken(nil, noSecondsTok, reflect.ValueOf(&noSeconds).Elem().FieldByName("When"), directValueTime, bindConfig{localAsUTC: true}); err != nil {
+		t.Fatalf("directBindTypedToken(no-seconds) error = %v", err)
+	}
+	want = time.Date(2026, time.May, 17, 3, 4, 0, 0, time.UTC)
+	if !noSeconds.When.Equal(want) || noSeconds.When.Location() != time.UTC {
+		t.Fatalf("When = %s (%s), want %s UTC", noSeconds.When, noSeconds.When.Location(), want)
+	}
+}
+
+func TestDirectBindTypedTokenRejectsCapitalizedBool(t *testing.T) {
+	type sample struct {
+		Enabled bool
+	}
+
+	var got sample
+	err := directBindTypedToken(nil, Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE"), Line: 1, Col: 1}, reflect.ValueOf(&got).Elem().FieldByName("Enabled"), directValueBool, bindConfig{})
+	if err == nil {
+		t.Fatal("directBindTypedToken(TRUE) error = nil, want syntax error")
+	}
 }
 
 func checkptrInstrumented() bool {
@@ -344,7 +367,7 @@ func TestParseValueTokenNormalizationHotPaths(t *testing.T) {
 	}{
 		{name: "integer underscores", tok: Token{Kind: TokenKindValueInteger, Bytes: []byte("1_2_3")}, want: int64(123)},
 		{name: "float normalization", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("1_2.3E+4")}, want: 123000.0},
-		{name: "bool true", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE")}, want: true},
+		{name: "bool true", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("true")}, want: true},
 		{name: "bool false", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("false")}, want: false},
 	}
 
@@ -357,6 +380,54 @@ func TestParseValueTokenNormalizationHotPaths(t *testing.T) {
 			}
 			if !reflect.DeepEqual(got, tc.want) {
 				t.Fatalf("parseValueToken(%q) = %#v, want %#v", tc.tok.Bytes, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestParseValueTokenRejectsCapitalizedBool(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseValueToken(nil, Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE"), Line: 1, Col: 1})
+	if err == nil {
+		t.Fatal("parseValueToken(TRUE) error = nil, want syntax error")
+	}
+}
+
+func TestParseValueTokenSpecialFloatLiterals(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		tok  Token
+		want float64
+	}{
+		{name: "positive inf", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("inf")}, want: math.Inf(1)},
+		{name: "negative inf", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("-inf")}, want: math.Inf(-1)},
+		{name: "nan", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("nan")}, want: math.Float64frombits(0x7ff8000000000000)},
+		{name: "negative nan", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("-nan")}, want: math.Float64frombits(0xfff8000000000000)},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := parseValueToken(nil, tc.tok)
+			if err != nil {
+				t.Fatalf("parseValueToken(%q) error = %v", tc.tok.Bytes, err)
+			}
+			gotF, ok := got.(float64)
+			if !ok {
+				t.Fatalf("parseValueToken(%q) = %T, want float64", tc.tok.Bytes, got)
+			}
+			if math.IsNaN(tc.want) {
+				if !math.IsNaN(gotF) || math.Signbit(gotF) != math.Signbit(tc.want) {
+					t.Fatalf("parseValueToken(%q) = %v, want signed NaN", tc.tok.Bytes, gotF)
+				}
+				return
+			}
+			if gotF != tc.want {
+				t.Fatalf("parseValueToken(%q) = %v, want %v", tc.tok.Bytes, gotF, tc.want)
 			}
 		})
 	}

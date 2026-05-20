@@ -340,7 +340,11 @@ func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 		case math.IsInf(f, -1):
 			buf.WriteString("-inf")
 		case math.IsNaN(f):
-			buf.WriteString("nan")
+			if math.Signbit(f) {
+				buf.WriteString("-nan")
+			} else {
+				buf.WriteString("nan")
+			}
 		default:
 			buf.WriteString(strconv.FormatFloat(f, 'g', -1, v.Type().Bits()))
 		}
@@ -465,7 +469,11 @@ func writeFloat(buf *bytes.Buffer, value float64, bitSize int) {
 	case math.IsInf(value, -1):
 		buf.WriteString("-inf")
 	case math.IsNaN(value):
-		buf.WriteString("nan")
+		if math.Signbit(value) {
+			buf.WriteString("-nan")
+		} else {
+			buf.WriteString("nan")
+		}
 	default:
 		buf.WriteString(strconv.FormatFloat(value, 'g', -1, bitSize))
 	}

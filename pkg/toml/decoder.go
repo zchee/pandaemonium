@@ -15,6 +15,7 @@
 package toml
 
 import (
+	"bytes"
 	"io"
 	"strconv"
 	"strings"
@@ -87,6 +88,7 @@ type Decoder struct {
 	err            error
 	decoded        bool
 	expectingValue bool
+	needSeparator  bool
 	atLineStart    bool
 
 	limits         Limits
@@ -272,19 +274,29 @@ func (d *Decoder) ReadToken() (Token, error) {
 			d.expectingValue = true
 			continue
 		case ',':
+			if !d.needSeparator {
+				return Token{}, d.syntaxError("unexpected comma", d.off)
+			}
 			d.advanceOne()
 			if d.innermostIsArray() {
 				d.expectingValue = true
 			}
+			d.needSeparator = false
 			continue
-		default:
-			if d.expectingValue {
-				return d.scanValueToken()
+			default:
+				if d.expectingValue {
+					if d.needSeparator && d.innermostIsArray() {
+						return Token{}, d.syntaxError("expected array separator", d.off)
+					}
+					return d.scanValueToken()
+				}
+				if d.needSeparator && len(d.containerStack) > 0 {
+					return Token{}, d.syntaxError("expected inline table separator", d.off)
+				}
+				return d.scanKeyToken()
 			}
-			return d.scanKeyToken()
 		}
 	}
-}
 
 func (d *Decoder) skipSpaces() {
 	for d.off < len(d.buf) {
@@ -413,6 +425,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		}
 		d.advanceBytes(chunk)
 		d.expectingValue = false
+		d.needSeparator = true
 		if d.innermostIsArray() {
 			d.expectingValue = true
 		}
@@ -446,12 +459,10 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		kind = TokenKindValueDatetime
 	case strings.ContainsAny(clean, "= "):
 		return Token{}, d.syntaxError("unexpected = in value", start)
-	case norm == "true" || norm == "false":
+	case bytes.Equal(chunk, trueLiteral) || bytes.Equal(chunk, falseLiteral):
 		kind = TokenKindValueBool
-		if clean == "" || clean == "+" || clean == "-" {
-			return Token{}, d.syntaxError("malformed value", start)
-		}
-	case isSpecialFloat(norm):
+	case bytes.Equal(chunk, infLiteral) || bytes.Equal(chunk, posInfLiteral) || bytes.Equal(chunk, negInfLiteral) ||
+		bytes.Equal(chunk, nanLiteral) || bytes.Equal(chunk, posNanLiteral) || bytes.Equal(chunk, negNanLiteral):
 		kind = TokenKindValueFloat
 	case isIntCandidate(norm):
 		if _, err := strconv.ParseInt(clean, 10, 64); err != nil {
@@ -472,6 +483,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 	}
 	d.advanceBytes(chunk)
 	d.expectingValue = false
+	d.needSeparator = true
 	if d.innermostIsArray() {
 		d.expectingValue = true
 	}
@@ -486,6 +498,7 @@ func (d *Decoder) scanArrayStart() (Token, error) {
 	d.enforceNestedDepth(start, d.arrayDepth)
 	d.containerStack = append(d.containerStack, containerArray)
 	d.expectingValue = true
+	d.needSeparator = false
 	return Token{Kind: TokenKindArrayStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -500,6 +513,7 @@ func (d *Decoder) scanArrayEnd() (Token, error) {
 		d.containerStack = d.containerStack[:n-1]
 	}
 	d.expectingValue = d.innermostIsArray()
+	d.needSeparator = len(d.containerStack) > 0
 	return Token{Kind: TokenKindArrayEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -510,6 +524,7 @@ func (d *Decoder) scanInlineTableStart() (Token, error) {
 	d.inlineDepth++
 	d.containerStack = append(d.containerStack, containerInline)
 	d.expectingValue = false
+	d.needSeparator = false
 	return Token{Kind: TokenKindInlineTableStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -524,6 +539,7 @@ func (d *Decoder) scanInlineTableEnd() (Token, error) {
 		d.containerStack = d.containerStack[:n-1]
 	}
 	d.expectingValue = d.innermostIsArray()
+	d.needSeparator = len(d.containerStack) > 0
 	return Token{Kind: TokenKindInlineTableEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
 }
 
@@ -883,17 +899,14 @@ func hasDateShape(raw []byte) bool {
 }
 
 func hasTimeShape(raw []byte) bool {
-	if len(raw) < len("00:00:00") {
+	if len(raw) < len("00:00") {
 		return false
 	}
 	return isDigit(raw[0]) &&
 		isDigit(raw[1]) &&
 		raw[2] == ':' &&
 		isDigit(raw[3]) &&
-		isDigit(raw[4]) &&
-		raw[5] == ':' &&
-		isDigit(raw[6]) &&
-		isDigit(raw[7])
+		isDigit(raw[4])
 }
 
 func isDigit(b byte) bool {

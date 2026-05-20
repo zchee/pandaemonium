@@ -18,7 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
-	"strconv"
+	"math"
 	"strings"
 	"testing"
 	"time"
@@ -679,23 +679,6 @@ tags = [{ label = "tool" }]
 				t.Fatalf("owner.metadata.limits.cpu = %v, want %v", got, want)
 			}
 		})
-	}
-}
-
-func assertNoDocumentMap(t *testing.T, path string, v any) {
-	t.Helper()
-
-	switch x := v.(type) {
-	case documentMap:
-		t.Fatalf("%s leaked internal documentMap", path)
-	case map[string]any:
-		for k, v := range x {
-			assertNoDocumentMap(t, path+"."+k, v)
-		}
-	case []any:
-		for i, v := range x {
-			assertNoDocumentMap(t, path+"["+strconv.Itoa(i)+"]", v)
-		}
 	}
 }
 

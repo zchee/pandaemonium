@@ -240,9 +240,15 @@ func TestDecoderValueKindAndValidation(t *testing.T) {
 		{name: "boolean", in: "a = true", kind: TokenKindValueBool},
 		{name: "integer", in: "a = +12_34", kind: TokenKindValueInteger},
 		{name: "float", in: "a = 12.34e+1", kind: TokenKindValueFloat},
+		{name: "special float inf", in: "a = inf", kind: TokenKindValueFloat},
+		{name: "special float negative inf", in: "a = -inf", kind: TokenKindValueFloat},
+		{name: "special float nan", in: "a = nan", kind: TokenKindValueFloat},
+		{name: "special float negative nan", in: "a = -nan", kind: TokenKindValueFloat},
 		{name: "datetime-z", in: "a = 1987-07-05T17:45:00Z", kind: TokenKindValueDatetime},
+		{name: "datetime-z without seconds", in: "a = 1987-07-05T17:45Z", kind: TokenKindValueDatetime},
 		{name: "date", in: "a = 1979-05-27", kind: TokenKindValueDatetime},
 		{name: "time", in: "a = 07:32:00", kind: TokenKindValueDatetime},
+		{name: "time without seconds", in: "a = 07:32", kind: TokenKindValueDatetime},
 	}
 
 	for _, tc := range valid {
@@ -263,6 +269,10 @@ func TestDecoderValueKindAndValidation(t *testing.T) {
 	}
 
 	invalid := []string{
+		"a = True",
+		"a = False",
+		"a = INF",
+		"a = NaN",
 		"a = 2025-1-1",             // invalid date format
 		"a = 2025-01-01T24:00:00Z", // invalid hour
 		"a = 1e+",
@@ -890,6 +900,105 @@ func TestDecoder_InlineTableTokenStream(t *testing.T) {
 			}
 			if diff := gocmp.Diff(tc.want, got); diff != "" {
 				t.Fatalf("token kinds mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestUnmarshal_ArrayAndInlineTableSeparatorValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name    string
+		in      string
+		want    map[string]any
+		wantErr bool
+	}{
+		{
+			name:    "array missing comma",
+			in:      "arr = [true false]\n",
+			wantErr: true,
+		},
+		{
+			name:    "array double comma",
+			in:      "arr = [1,,2]\n",
+			wantErr: true,
+		},
+		{
+			name:    "array only comma",
+			in:      "arr = [,]\n",
+			wantErr: true,
+		},
+		{
+			name: "array trailing comma remains valid",
+			in:   "arr = [1, 2,]\n",
+			want: map[string]any{
+				"arr": []any{int64(1), int64(2)},
+			},
+		},
+		{
+			name:    "inline table missing comma",
+			in:      "v = { a = 1 b = 2 }\n",
+			wantErr: true,
+		},
+		{
+			name:    "inline table double comma",
+			in:      "v = { a = 1,, b = 2 }\n",
+			wantErr: true,
+		},
+		{
+			name: "inline table multiline trailing comma remains valid",
+			in:   "v = {\n  a = 1,\n  b = 2,\n}\n",
+			want: map[string]any{
+				"v": map[string]any{
+					"a": int64(1),
+					"b": int64(2),
+				},
+			},
+		},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+
+			var got map[string]any
+			err := Unmarshal([]byte(tc.in), &got)
+			if tc.wantErr {
+				if err == nil {
+					t.Fatalf("Unmarshal(%q) error = nil, want error", tc.in)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("Unmarshal(%q) error = %v", tc.in, err)
+			}
+			if diff := gocmp.Diff(tc.want, got); diff != "" {
+				t.Fatalf("Unmarshal result mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+func TestUnmarshalRejectsInvalidArrayAndInlineTableSeparators(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "array double comma", input: "value = [1,,2]\n"},
+		{name: "array leading comma", input: "value = [,1]\n"},
+		{name: "inline table double comma", input: "value = { a = 1,, b = 2 }\n"},
+		{name: "inline table leading comma", input: "value = {, a = 1 }\n"},
+	}
+	for _, tc := range tests {
+		tc := tc
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var dst map[string]any
+			if err := Unmarshal([]byte(tc.input), &dst); err == nil {
+				t.Fatalf("Unmarshal(%q) unexpectedly succeeded: %#v", tc.input, dst)
 			}
 		})
 	}

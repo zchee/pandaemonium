@@ -249,11 +249,16 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	}
 	switch dst.Kind() {
 	case reflect.Interface:
-		if src == nil {
+		public := publicValue(src)
+		if public == nil {
 			dst.Set(reflect.Zero(dst.Type()))
 			return nil
 		}
-		dst.Set(reflect.ValueOf(publicValue(src)))
+		v := reflect.ValueOf(public)
+		if !v.Type().AssignableTo(dst.Type()) {
+			return mismatch(dst.Type(), src)
+		}
+		dst.Set(v)
 		return nil
 	case reflect.Struct:
 		m, ok := asDocumentMap(src)
@@ -372,40 +377,26 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 func publicValue(v any) any {
 	switch x := v.(type) {
 	case documentMap:
-		return publicDocumentMap(x)
-	case map[string]any:
-		return publicStringMap(x)
-	case []any:
-		out := make([]any, len(x))
-		for i, item := range x {
-			out[i] = publicValue(item)
+		out := make(map[string]any, len(x))
+		for k, child := range x {
+			out[k] = publicValue(child)
 		}
 		return out
-	case []map[string]any:
+	case map[string]any:
+		out := make(map[string]any, len(x))
+		for k, child := range x {
+			out[k] = publicValue(child)
+		}
+		return out
+	case []any:
 		out := make([]any, len(x))
-		for i, item := range x {
-			out[i] = publicStringMap(item)
+		for i, child := range x {
+			out[i] = publicValue(child)
 		}
 		return out
 	default:
 		return v
 	}
-}
-
-func publicDocumentMap(m documentMap) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = publicValue(v)
-	}
-	return out
-}
-
-func publicStringMap(m map[string]any) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = publicValue(v)
-	}
-	return out
 }
 
 func asDocumentMap(v any) (documentMap, bool) {
@@ -416,40 +407,6 @@ func asDocumentMap(v any) (documentMap, bool) {
 		return documentMap(m), true
 	default:
 		return nil, false
-	}
-}
-
-func publicValue(v any) any {
-	switch x := v.(type) {
-	case documentMap:
-		if x == nil {
-			return map[string]any(nil)
-		}
-		out := make(map[string]any, len(x))
-		for k, raw := range x {
-			out[k] = publicValue(raw)
-		}
-		return out
-	case map[string]any:
-		if x == nil {
-			return map[string]any(nil)
-		}
-		out := make(map[string]any, len(x))
-		for k, raw := range x {
-			out[k] = publicValue(raw)
-		}
-		return out
-	case []any:
-		if x == nil {
-			return []any(nil)
-		}
-		out := make([]any, len(x))
-		for i, raw := range x {
-			out[i] = publicValue(raw)
-		}
-		return out
-	default:
-		return v
 	}
 }
 

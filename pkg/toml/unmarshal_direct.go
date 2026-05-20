@@ -841,19 +841,14 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 	case directValueBool:
 		if tok.Kind == TokenKindValueBool {
 			switch {
-			case bytes.EqualFold(tok.Bytes, trueLiteral):
+			case bytes.Equal(tok.Bytes, trueLiteral):
 				dst.SetBool(true)
 				return nil
-			case bytes.EqualFold(tok.Bytes, falseLiteral):
+			case bytes.Equal(tok.Bytes, falseLiteral):
 				dst.SetBool(false)
 				return nil
 			default:
-				b, err := strconv.ParseBool(string(tok.Bytes))
-				if err != nil {
-					return err
-				}
-				dst.SetBool(b)
-				return nil
+				return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed boolean", Span: [2]int{0, len(tok.Bytes)}}
 			}
 		}
 	case directValueInt:
@@ -883,7 +878,18 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 	case directValueFloat:
 		switch tok.Kind {
 		case TokenKindValueFloat:
-			f, err := strconv.ParseFloat(normalizeNumericText(tok.Bytes, true), 64)
+			if f, ok := parseSpecialFloatLiteral(tok.Bytes); ok {
+				if dst.OverflowFloat(f) {
+					return mismatch(dst.Type(), f)
+				}
+				dst.SetFloat(f)
+				return nil
+			}
+			normalized := normalizeNumericText(tok.Bytes, true)
+			if isSpecialFloat(normalized) {
+				return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed special float", Span: [2]int{0, len(tok.Bytes)}}
+			}
+			f, err := strconv.ParseFloat(normalized, 64)
 			if err != nil {
 				return err
 			}

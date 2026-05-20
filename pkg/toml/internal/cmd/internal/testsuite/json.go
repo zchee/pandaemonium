@@ -208,7 +208,7 @@ func cmpAsDatetimes(t *testing.T, key string, kind, want, have string) {
 		panic(fmt.Sprintf("Could not read '%s' as a datetime value for key '%s'", want, key))
 	}
 
-	haveT, err := time.Parse(layout, datetimeRepl.Replace(want))
+	haveT, err := time.Parse(layout, datetimeRepl.Replace(have))
 	if err != nil {
 		t.Fatalf("Malformed output from your encoder: key '%s' is not a datetime: '%s'", key, have)
 		return
