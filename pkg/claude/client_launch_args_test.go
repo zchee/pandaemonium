@@ -472,3 +472,38 @@ func TestBuildLaunchArgs_ResumePrecedence(t *testing.T) {
 		t.Errorf("--resume = %q, want from-fork (Fork param wins over opts.Resume)", got)
 	}
 }
+
+// TestBuildLaunchArgs_ExtraArgs covers the M9b ExtraArgs passthrough: a nil
+// value emits a bare flag, a non-nil value emits --key value, and keys are
+// emitted in sorted (deterministic) order.
+func TestBuildLaunchArgs_ExtraArgs(t *testing.T) {
+	t.Parallel()
+
+	opts := &Options{ExtraArgs: map[string]*string{
+		"zeta-flag": nil,
+		"alpha-opt": ExtraFlag("v1"),
+	}}
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
+
+	zi := extraArgIndex(args, "--zeta-flag")
+	if zi < 0 {
+		t.Errorf("args %v missing bare --zeta-flag", args)
+	}
+	ai := extraArgIndex(args, "--alpha-opt")
+	if ai < 0 || ai+1 >= len(args) || args[ai+1] != "v1" {
+		t.Errorf("args %v missing --alpha-opt v1 pair", args)
+	}
+	if ai >= 0 && zi >= 0 && ai > zi {
+		t.Errorf("extra args not sorted: --alpha-opt at %d after --zeta-flag at %d", ai, zi)
+	}
+}
+
+// extraArgIndex returns the index of v in s, or -1.
+func extraArgIndex(s []string, v string) int {
+	for i, x := range s {
+		if x == v {
+			return i
+		}
+	}
+	return -1
+}

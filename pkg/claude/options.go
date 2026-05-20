@@ -14,6 +14,13 @@
 
 package claude
 
+// ExtraFlag returns a pointer to value for use in [Options].ExtraArgs, where a
+// non-nil pointer emits "--key value" and a nil pointer emits a bare "--key".
+// It exists only to make ExtraArgs literals readable:
+//
+//	Options{ExtraArgs: map[string]*string{"verbose-tools": nil, "log-level": ExtraFlag("debug")}}
+func ExtraFlag(value string) *string { return &value }
+
 // validate checks that o is a consistent, usable configuration. The zero value
 // is always valid per AC-i1. Callers (NewClient, Query) invoke this before
 // launching a subprocess so errors surface early without transport side effects.

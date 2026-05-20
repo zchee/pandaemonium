@@ -15,6 +15,7 @@
 package claude
 
 import (
+	"sort"
 	"strconv"
 	"strings"
 
@@ -211,6 +212,25 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		}
 		if len(parts) > 0 {
 			args = append(args, "--setting-sources="+strings.Join(parts, ","))
+		}
+	}
+
+	// Extra args — arbitrary additional CLI flags (subprocess_cli.py:364). A nil
+	// value emits a bare "--key"; a non-nil value emits "--key <value>". Keys
+	// are emitted in sorted order so the argument slice is deterministic (Go
+	// map iteration is randomized, unlike the insertion-ordered Python dict).
+	if len(opts.ExtraArgs) > 0 {
+		keys := make([]string, 0, len(opts.ExtraArgs))
+		for k := range opts.ExtraArgs {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			if v := opts.ExtraArgs[k]; v != nil {
+				args = append(args, "--"+k, *v)
+			} else {
+				args = append(args, "--"+k)
+			}
 		}
 	}
 
