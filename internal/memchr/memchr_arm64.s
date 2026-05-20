@@ -35,7 +35,7 @@ TEXT ·memchrNEON(SB), NOSPLIT, $0-40
 	CBZ   R2, mc_fail
 	MOVD  R1, R11                 // R11 = saved base ptr
 	CMP   $32, R2
-	BLT   mc_scalar               // <32 bytes: scalar only
+	BLT   mc_tail                 // <32 bytes: scalar only
 
 	// Align R1 up to a 32-byte boundary, scanning 0..31 head bytes.
 	AND $0x1f, R1, R3
@@ -71,12 +71,15 @@ mc_chunk_loop:
 	SUB    $32, R2, R2
 	VCMEQ  V0.B16, V1.B16, V3.B16
 	VCMEQ  V0.B16, V2.B16, V4.B16
+	VORR   V4.B16, V3.B16, V6.B16
+	VADDP  V6.D2, V6.D2, V6.D2
+	VMOV   V6.D[0], R6
+	CBZ    R6, mc_chunk_loop
 	VAND   V5.B16, V3.B16, V3.B16
 	VAND   V5.B16, V4.B16, V4.B16
 	VADDP  V4.B16, V3.B16, V6.B16 // 256 -> 128
 	VADDP  V6.B16, V6.B16, V6.B16 // 128 -> 64
 	VMOV   V6.D[0], R6
-	CBZ    R6, mc_chunk_loop
 
 	// Match in this chunk. R1 = chunk_end (after post-increment).
 	RBIT R6, R6
@@ -97,16 +100,14 @@ mc_tail:
 	SUB   $1, R2, R2
 	B     mc_tail
 
-mc_scalar:
-	CBZ   R2, mc_fail
-	MOVBU (R1), R4
-	CMP   R0, R4
-	BEQ   mc_match_at_R1
-	ADD   $1, R1, R1
-	SUB   $1, R2, R2
-	B     mc_scalar
-
 mc_fail:
 	MOVD $-1, R0
 	MOVD R0, ret+32(FP)
 	RET
+
+	// Preserve downstream NEON entry-point addresses after folding mc_scalar
+	// into mc_tail while adding the miss precheck above.
+	WORD $0xd503201f
+	WORD $0xd503201f
+	WORD $0xd503201f
+	WORD $0xd503201f

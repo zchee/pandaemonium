@@ -122,6 +122,38 @@ func TestExhaustiveOffsets(t *testing.T) {
 	})
 }
 
+// TestMemchrLargeOffsets extends the forward single-needle oracle past the
+// small exhaustive range. This keeps large-loop-only backend paths covered
+// without multiplying every multi-needle routine's test cost.
+func TestMemchrLargeOffsets(t *testing.T) {
+	t.Parallel()
+	const sentinel byte = 0xC3
+
+	tests := map[string]struct {
+		n int
+	}{
+		"success: threshold length":       {n: 512},
+		"success: threshold plus tail":    {n: 513},
+		"success: multiple large chunks":  {n: 1024},
+		"success: large chunks with tail": {n: 1088},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			base := exhBase(tt.n)
+			if got, want := Memchr(sentinel, base), naiveMemchr(sentinel, base); got != want {
+				t.Fatalf("miss: n=%d got=%d want=%d", tt.n, got, want)
+			}
+			for pos := range tt.n {
+				hay := exhPlant(base, pos, sentinel)
+				if got, want := Memchr(sentinel, hay), naiveMemchr(sentinel, hay); got != want {
+					t.Fatalf("plant: n=%d pos=%d got=%d want=%d", tt.n, pos, got, want)
+				}
+			}
+		})
+	}
+}
+
 // exhBase returns a length-n haystack filled with bytes that never equal
 // 0xC3 / 0xD4 / 0xE5 (the sentinel triple used by the exhaustive test).
 func exhBase(n int) []byte {
