@@ -37,7 +37,9 @@ func TestParseStringValueHotPaths(t *testing.T) {
 		{name: "literal multiline", input: "'''demo'''", want: "demo"},
 		{name: "basic multiline", input: "\"\"\"demo\"\"\"", want: "demo"},
 		{name: "literal multiline trims initial newline", input: "'''\nfirst\n'''", want: "first\n"},
+		{name: "literal multiline trims initial crlf", input: "'''\r\nfirst\r\n'''", want: "first\r\n"},
 		{name: "basic multiline trims initial newline", input: "\"\"\"\nfirst\n\"\"\"", want: "first\n"},
+		{name: "basic multiline trims initial crlf", input: "\"\"\"\r\nfirst\r\n\"\"\"", want: "first\r\n"},
 		{name: "basic multiline line ending backslash", input: "\"\"\"first\\\n  second\"\"\"", want: "firstsecond"},
 		{name: "escaped", input: "\"demo\\nline\"", want: "demo\nline"},
 		{name: "unicode escape", input: "\"caf\\u00e9\"", want: "café"},
@@ -67,7 +69,8 @@ func TestParseStringValueRejectsInvalidTOMLStrings(t *testing.T) {
 		{name: "basic null", input: "\"\x00\""},
 		{name: "literal null", input: "'\x00'"},
 		{name: "multiline basic vertical tab", input: "\"\"\"\v\"\"\""},
-		{name: "invalid x escape", input: "\"\\x41\""},
+		{name: "multiline basic bare carriage return", input: "\"\"\"\r\"\"\""},
+		{name: "multiline literal bare carriage return", input: "'''\r'''"},
 		{name: "invalid unicode escape hex", input: "\"\\u00xz\""},
 		{name: "invalid unicode scalar", input: "\"\\U00110000\""},
 	}
@@ -79,6 +82,18 @@ func TestParseStringValueRejectsInvalidTOMLStrings(t *testing.T) {
 				t.Fatalf("parseStringValue(%q) = %q, nil error; want error", tc.input, got)
 			}
 		})
+	}
+}
+
+func TestParseStringValueTOML11HexEscape(t *testing.T) {
+	t.Parallel()
+
+	got, err := parseStringValue([]byte("\"\\x41\\x1b\""))
+	if err != nil {
+		t.Fatalf("parseStringValue() TOML 1.1 x escape error = %v", err)
+	}
+	if got != "A\x1b" {
+		t.Fatalf("parseStringValue() = %q, want %q", got, "A\x1b")
 	}
 }
 
@@ -398,7 +413,7 @@ func TestParseValueTokenNormalizationHotPaths(t *testing.T) {
 	}{
 		{name: "integer underscores", tok: Token{Kind: TokenKindValueInteger, Bytes: []byte("1_2_3")}, want: int64(123)},
 		{name: "float normalization", tok: Token{Kind: TokenKindValueFloat, Bytes: []byte("1_2.3E+4")}, want: 123000.0},
-		{name: "bool true", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE")}, want: true},
+		{name: "bool true", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("true")}, want: true},
 		{name: "bool false", tok: Token{Kind: TokenKindValueBool, Bytes: []byte("false")}, want: false},
 	}
 

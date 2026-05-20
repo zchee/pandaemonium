@@ -17,8 +17,11 @@ package toml
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
+	"math"
 	"strconv"
+	"strings"
 	"sync"
 	"unicode/utf8"
 )
@@ -51,6 +54,11 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 	currentPath := []string(nil)
 	currentFilter := filter
 	inTable := false
+	declaredTables := make(map[string]string)
+	dottedKeyTables := make(map[string]string)
+	arrayTables := make(map[string]struct{})
+	arrayTableEpochs := make(map[string]int)
+	closedInlineTables := make(map[string]string)
 	for {
 		tok, err := dec.ReadToken()
 		if errors.Is(err, io.EOF) {
@@ -64,25 +72,34 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 			continue
 		case TokenKindTableHeader:
 			key := trimHeaderKey(tok.Bytes, false)
-			if isSimpleBareKey(key) {
-				if nextFilter, ok := filter.lookup(key); ok {
-					current = ensureTableKey(root, string(key))
-					currentFilter = nextFilter
-				} else {
-					current = nil
-					currentPath = nil
-					currentFilter = nil
-				}
-				inTable = true
-				continue
-			}
-			path, err := parseDottedKey(key)
+			path, err := keyPath(key)
 			if err != nil {
 				return nil, err
 			}
+			pathKey := strings.Join(path, ".")
+			encodedPathKey := encodedKeyPath(path)
+			declContext := declarationContext(path, arrayTableEpochs)
+			if _, ok := arrayTables[encodedPathKey]; ok {
+				return nil, semanticSyntaxError(tok, "cannot redefine array table as table")
+			}
+			if existingContext, ok := dottedKeyTables[encodedPathKey]; ok && existingContext == declContext {
+				return nil, semanticSyntaxError(tok, "cannot redefine dotted key table")
+			}
+			if closedInlinePrefix(path, closedInlineTables, arrayTableEpochs) {
+				return nil, semanticSyntaxError(tok, "cannot extend inline table")
+			}
+			if existingContext, ok := declaredTables[encodedPathKey]; ok && existingContext == declContext {
+				return nil, semanticSyntaxError(tok, "duplicate table")
+			}
 			if nextFilter, ok := filter.lookupPath(path); ok {
-				current = ensureTable(root, path)
+				next, err := ensureTable(root, path, tok)
+				if err != nil {
+					return nil, bindErrorPath(err, pathKey)
+				}
+				current = next
+				currentPath = append(currentPath[:0], path...)
 				currentFilter = nextFilter
+				declaredTables[encodedPathKey] = declContext
 			} else {
 				current = nil
 				currentPath = nil
@@ -91,29 +108,40 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 			inTable = true
 		case TokenKindArrayTableHeader:
 			key := trimHeaderKey(tok.Bytes, true)
-			if isSimpleBareKey(key) {
-				if nextFilter, ok := filter.lookup(key); ok {
-					name := string(key)
-					capacityHint := 0
-					if _, exists := root[name]; !exists {
-						capacityHint = bytes.Count(data, tok.Bytes)
-					}
-					current = appendArrayTableKey(root, name, capacityHint)
-					currentFilter = nextFilter
-				} else {
-					current = nil
-					currentPath = nil
-					currentFilter = nil
-				}
-				inTable = true
-				continue
-			}
-			path, err := parseDottedKey(key)
+			path, err := keyPath(key)
 			if err != nil {
 				return nil, err
 			}
+			pathKey := strings.Join(path, ".")
+			encodedPathKey := encodedKeyPath(path)
+			if _, ok := declaredTables[encodedPathKey]; ok {
+				return nil, semanticSyntaxError(tok, "cannot redefine table as array table")
+			}
+			declContext := declarationContext(path, arrayTableEpochs)
+			if existingContext, ok := dottedKeyTables[encodedPathKey]; ok && existingContext == declContext {
+				return nil, semanticSyntaxError(tok, "cannot redefine dotted key table")
+			}
+			if closedInlinePrefix(path, closedInlineTables, arrayTableEpochs) {
+				return nil, semanticSyntaxError(tok, "cannot extend inline table")
+			}
+			arrayTables[encodedPathKey] = struct{}{}
+			arrayTableEpochs[encodedPathKey]++
 			if nextFilter, ok := filter.lookupPath(path); ok {
-				current = appendArrayTable(root, path)
+				var next documentMap
+				if len(path) == 1 {
+					capacityHint := 0
+					if _, exists := root[path[0]]; !exists {
+						capacityHint = bytes.Count(data, tok.Bytes)
+					}
+					next, err = appendArrayTableKey(root, path[0], capacityHint, tok)
+				} else {
+					next, err = appendArrayTable(root, path, tok)
+				}
+				if err != nil {
+					return nil, bindErrorPath(err, pathKey)
+				}
+				current = next
+				currentPath = append(currentPath[:0], path...)
 				currentFilter = nextFilter
 			} else {
 				current = nil
@@ -134,23 +162,31 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 				}
 				continue
 			}
-			if !isSimpleBareKey(tok.Bytes) {
-				key, err := parseDottedKey(tok.Bytes)
-				if err != nil {
-					return nil, err
+			key, err := keyPath(tok.Bytes)
+			if err != nil {
+				return nil, err
+			}
+			fullPath := append(append([]string(nil), currentPath...), key...)
+			if len(key) > 1 {
+				for i := len(currentPath) + 1; i < len(fullPath); i++ {
+					prefix := encodedKeyPath(fullPath[:i])
+					if _, ok := declaredTables[prefix]; ok {
+						return nil, semanticSyntaxError(tok, "cannot extend explicit table with dotted key")
+					}
+					if existingContext, ok := closedInlineTables[prefix]; ok && existingContext == declarationContext(fullPath[:i], arrayTableEpochs) {
+						return nil, semanticSyntaxError(tok, "cannot extend inline table")
+					}
 				}
-				value, err := parseNextValue(dec)
-				if err != nil {
-					return nil, err
-				}
-				assign(current, key, value)
-				continue
 			}
 			value, err := parseNextValue(dec)
 			if err != nil {
 				return nil, err
 			}
-			current[string(tok.Bytes)] = value
+			if err := assignUnique(current, key, value, tok); err != nil {
+				return nil, bindErrorPath(err, strings.Join(fullPath, "."))
+			}
+			markDottedKeyTables(dottedKeyTables, fullPath, len(currentPath), arrayTableEpochs)
+			markClosedValuePaths(closedInlineTables, fullPath, value, arrayTableEpochs)
 		default:
 			if !inTable {
 				return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: [2]int{0, 1}}
@@ -215,26 +251,21 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 	case TokenKindValueString:
 		return parseStringValue(tok.Bytes)
 	case TokenKindValueInteger:
-		return strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+		return parseIntegerLiteral(tok.Bytes)
 	case TokenKindValueFloat:
-		text := normalizeNumericText(tok.Bytes, true)
-		switch text {
-		case "nan", "+nan", "-nan":
-			return math.NaN(), nil
-		case "inf", "+inf":
-			return math.Inf(1), nil
-		case "-inf":
-			return math.Inf(-1), nil
+		if f, ok := parseSpecialFloatLiteral(tok.Bytes); ok {
+			return f, nil
 		}
+		text := normalizeNumericText(tok.Bytes, true)
 		return strconv.ParseFloat(text, 64)
 	case TokenKindValueBool:
 		switch {
-		case bytes.EqualFold(tok.Bytes, trueLiteral):
+		case bytes.Equal(tok.Bytes, trueLiteral):
 			return true, nil
-		case bytes.EqualFold(tok.Bytes, falseLiteral):
+		case bytes.Equal(tok.Bytes, falseLiteral):
 			return false, nil
 		default:
-			return strconv.ParseBool(string(tok.Bytes))
+			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed boolean", Span: [2]int{0, len(tok.Bytes)}}
 		}
 	case TokenKindValueDatetime:
 		v, _, err := parseDateTimeValue(tok.Bytes)
@@ -273,7 +304,8 @@ func parseArrayValue(dec *Decoder) ([]any, error) {
 
 func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 	m := newDocumentMap()
-	meta := newDocumentMeta()
+	closedInlineTables := make(map[string]string)
+	arrayTableEpochs := map[string]int(nil)
 	for {
 		tok, err := dec.ReadToken()
 		if err != nil {
@@ -290,11 +322,17 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 			if err != nil {
 				return nil, err
 			}
+			if closedInlinePrefix(key, closedInlineTables, arrayTableEpochs) {
+				return nil, semanticSyntaxError(tok, "cannot extend inline table")
+			}
 			v, err := parseNextValue(dec)
 			if err != nil {
 				return nil, err
 			}
-			assign(m, key, v)
+			if err := assignUnique(m, key, v, tok); err != nil {
+				return nil, err
+			}
+			markClosedValuePaths(closedInlineTables, key, v, arrayTableEpochs)
 		default:
 			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected inline table key", Span: [2]int{0, 1}}
 		}
@@ -366,6 +404,12 @@ func parseBasicStringBody(raw []byte, multiline bool) (string, error) {
 	for i := 0; i < len(raw); {
 		c := raw[i]
 		if c != '\\' {
+			if multiline && c == '\r' && i+1 < len(raw) && raw[i+1] == '\n' {
+				b.WriteByte('\r')
+				b.WriteByte('\n')
+				i += 2
+				continue
+			}
 			if prohibitedStringControl(c, multiline) {
 				return "", stringControlError(raw, i)
 			}
@@ -399,12 +443,22 @@ func parseBasicStringBody(raw []byte, multiline bool) (string, error) {
 		case 'r':
 			b.WriteByte('\r')
 			i += 2
+		case 'e':
+			b.WriteByte(0x1b)
+			i += 2
 		case '"':
 			b.WriteByte('"')
 			i += 2
 		case '\\':
 			b.WriteByte('\\')
 			i += 2
+		case 'x':
+			r, err := parseUnicodeEscape(raw, i+2, 2)
+			if err != nil {
+				return "", err
+			}
+			b.WriteRune(r)
+			i += 4
 		case 'u', 'U':
 			digits := 4
 			if next == 'U' {
@@ -479,7 +533,12 @@ func isHexDigit(c byte) bool {
 }
 
 func prohibitedStringControlIndex(raw []byte, multiline bool) int {
-	for i, c := range raw {
+	for i := 0; i < len(raw); i++ {
+		c := raw[i]
+		if multiline && c == '\r' && i+1 < len(raw) && raw[i+1] == '\n' {
+			i++
+			continue
+		}
 		if prohibitedStringControl(c, multiline) {
 			return i
 		}
@@ -491,7 +550,7 @@ func prohibitedStringControl(c byte, multiline bool) bool {
 	if c == '\t' {
 		return false
 	}
-	if multiline && (c == '\n' || c == '\r') {
+	if multiline && c == '\n' {
 		return false
 	}
 	return c < 0x20 || c == 0x7f
@@ -511,15 +570,15 @@ func parseHeaderKey(raw []byte, array bool) ([]string, error) {
 }
 
 func trimHeaderKey(raw []byte, array bool) []byte {
-	raw = bytes.TrimSpace(raw)
+	raw = bytesTrimSpace(raw)
 	if array {
 		if len(raw) >= 4 {
-			return bytes.TrimSpace(raw[2 : len(raw)-2])
+			return bytesTrimSpace(raw[2 : len(raw)-2])
 		}
 		return nil
 	}
 	if len(raw) >= 2 {
-		return bytes.TrimSpace(raw[1 : len(raw)-1])
+		return bytesTrimSpace(raw[1 : len(raw)-1])
 	}
 	return nil
 }
@@ -543,7 +602,7 @@ func isSimpleBareKey(raw []byte) bool {
 
 func parseDottedKey(raw []byte) ([]string, error) {
 	origLen := len(raw)
-	raw = bytes.TrimSpace(raw)
+	raw = bytesTrimSpace(raw)
 	parts := make([]string, 0, bytes.Count(raw, []byte("."))+1)
 	for len(raw) > 0 {
 		raw = bytes.TrimLeft(raw, " \t")
@@ -584,6 +643,9 @@ func parseDottedKey(raw []byte) ([]string, error) {
 			}
 			if part == "" {
 				return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
+			}
+			if !isSimpleBareKey([]byte(part)) {
+				return nil, &SyntaxError{Line: 1, Col: 1, Msg: "unexpected token in dotted key", Span: [2]int{0, origLen}}
 			}
 		}
 		parts = append(parts, part)
@@ -633,7 +695,136 @@ func normalizeNumericText(raw []byte, lower bool) string {
 	return string(buf)
 }
 
-func ensureTable(root documentMap, path []string) documentMap {
+func parseSpecialFloatLiteral(raw []byte) (float64, bool) {
+	switch {
+	case bytes.Equal(raw, nanLiteral), bytes.Equal(raw, posNanLiteral):
+		return math.NaN(), true
+	case bytes.Equal(raw, negNanLiteral):
+		return math.Copysign(math.NaN(), -1), true
+	case bytes.Equal(raw, infLiteral), bytes.Equal(raw, posInfLiteral):
+		return math.Inf(1), true
+	case bytes.Equal(raw, negInfLiteral):
+		return math.Inf(-1), true
+	default:
+		return 0, false
+	}
+}
+
+func parseIntegerLiteral(raw []byte) (int64, error) {
+	text := normalizeNumericText(raw, false)
+	sign := int64(1)
+	if strings.HasPrefix(text, "+") {
+		text = text[1:]
+	} else if strings.HasPrefix(text, "-") {
+		sign = -1
+		text = text[1:]
+	}
+	base := 10
+	if len(text) > 2 && text[0] == '0' {
+		switch text[1] {
+		case 'b', 'B':
+			base = 2
+			text = text[2:]
+		case 'o', 'O':
+			base = 8
+			text = text[2:]
+		case 'x', 'X':
+			base = 16
+			text = text[2:]
+		}
+	}
+	u, err := strconv.ParseUint(text, base, 64)
+	if err != nil {
+		return 0, err
+	}
+	if sign < 0 {
+		const minMagnitude = uint64(1) << 63
+		if u > minMagnitude {
+			return 0, strconv.ErrRange
+		}
+		if u == minMagnitude {
+			return math.MinInt64, nil
+		}
+		return -int64(u), nil
+	}
+	if u > math.MaxInt64 {
+		return 0, strconv.ErrRange
+	}
+	return int64(u), nil
+}
+
+func keyPath(raw []byte) ([]string, error) {
+	if isSimpleBareKey(raw) {
+		return []string{string(raw)}, nil
+	}
+	return parseDottedKey(raw)
+}
+
+func declarationContext(path []string, arrayTableEpochs map[string]int) string {
+	for i := len(path); i > 0; i-- {
+		prefix := encodedKeyPath(path[:i])
+		if epoch := arrayTableEpochs[prefix]; epoch > 0 {
+			return prefix + "#" + strconv.Itoa(epoch)
+		}
+	}
+	return ""
+}
+
+func closedInlinePrefix(path []string, closed map[string]string, arrayTableEpochs map[string]int) bool {
+	for i := 1; i <= len(path); i++ {
+		prefix := path[:i]
+		if existingContext, ok := closed[encodedKeyPath(prefix)]; ok && existingContext == declarationContext(prefix, arrayTableEpochs) {
+			return true
+		}
+	}
+	return false
+}
+
+func markClosedValuePaths(closed map[string]string, path []string, value any, arrayTableEpochs map[string]int) {
+	key := encodedKeyPath(path)
+	switch v := value.(type) {
+	case documentMap:
+		closed[key] = declarationContext(path, arrayTableEpochs)
+		for childKey, child := range v {
+			childPath := append(append([]string(nil), path...), childKey)
+			markClosedValuePaths(closed, childPath, child, arrayTableEpochs)
+		}
+	case []any:
+		closed[key] = declarationContext(path, arrayTableEpochs)
+		for _, child := range v {
+			if childMap, ok := child.(documentMap); ok {
+				for childKey, grandchild := range childMap {
+					childPath := append(append([]string(nil), path...), childKey)
+					markClosedValuePaths(closed, childPath, grandchild, arrayTableEpochs)
+				}
+			}
+		}
+	}
+}
+
+func markDottedKeyTables(dotted map[string]string, fullPath []string, currentPathLen int, arrayTableEpochs map[string]int) {
+	for i := currentPathLen + 1; i < len(fullPath); i++ {
+		prefix := fullPath[:i]
+		dotted[encodedKeyPath(prefix)] = declarationContext(prefix, arrayTableEpochs)
+	}
+}
+
+func encodedKeyPath(path []string) string {
+	var b strings.Builder
+	for i, part := range path {
+		if i > 0 {
+			b.WriteByte(0)
+		}
+		b.WriteString(part)
+	}
+	return b.String()
+}
+
+func semanticSyntaxError(tok Token, msg string) *SyntaxError {
+	return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: msg, Span: [2]int{0, 1}}
+}
+
+func ensureTable(root documentMap, path []string, tok Token) (documentMap, error) {
 	cur := root
 	for _, p := range path {
 		next, _ := cur[p].(documentMap)
@@ -653,10 +844,10 @@ func ensureTable(root documentMap, path []string) documentMap {
 		}
 		cur = next
 	}
-	return cur
+	return cur, nil
 }
 
-func ensureTableKey(root documentMap, name string) documentMap {
+func ensureTableKey(root documentMap, name string, tok Token) (documentMap, error) {
 	next, _ := root[name].(documentMap)
 	if next == nil {
 		if arr, ok := root[name].([]any); ok && len(arr) > 0 {
@@ -666,47 +857,74 @@ func ensureTableKey(root documentMap, name string) documentMap {
 		}
 	}
 	if next == nil {
+		if _, exists := root[name]; exists {
+			return nil, semanticSyntaxError(tok, "cannot redefine value as table")
+		}
 		next = newDocumentMap()
 		root[name] = next
 	}
-	return next
+	return next, nil
 }
 
-func appendArrayTable(root documentMap, path []string) documentMap {
+func appendArrayTable(root documentMap, path []string, tok Token) (documentMap, error) {
 	if len(path) == 0 {
-		return root
+		return root, nil
 	}
-	parent := ensureTable(root, path[:len(path)-1])
+	parent, err := ensureTable(root, path[:len(path)-1], tok)
+	if err != nil {
+		return nil, err
+	}
 	name := path[len(path)-1]
 	table := newDocumentMap()
-	arr, _ := parent[name].([]any)
+	existing, exists := parent[name]
+	arr, _ := existing.([]any)
+	if exists && arr == nil {
+		return nil, semanticSyntaxError(tok, "cannot redefine value as array table")
+	}
 	arr = append(arr, table)
 	parent[name] = arr
-	return table
+	return table, nil
 }
 
-func appendArrayTableKey(root documentMap, name string, capacityHint int) documentMap {
+func appendArrayTableKey(root documentMap, name string, capacityHint int, tok Token) (documentMap, error) {
 	table := newDocumentMap()
 	arr, _ := root[name].([]any)
+	if arr == nil {
+		if _, exists := root[name]; exists {
+			return nil, semanticSyntaxError(tok, "cannot redefine value as array table")
+		}
+	}
 	if arr == nil && capacityHint > 0 {
 		arr = make([]any, 0, capacityHint)
 	}
 	arr = append(arr, table)
 	root[name] = arr
-	return table
+	return table, nil
 }
 
-func assign(root documentMap, path []string, value any) {
+func assignUnique(root documentMap, path []string, value any, tok Token) error {
 	cur := root
 	for _, p := range path[:len(path)-1] {
 		next, _ := cur[p].(documentMap)
 		if next == nil {
+			if _, exists := cur[p]; exists {
+				return semanticSyntaxError(tok, "cannot redefine value as table")
+			}
 			next = newDocumentMap()
 			cur[p] = next
 		}
 		cur = next
 	}
-	cur[path[len(path)-1]] = value
+	key := path[len(path)-1]
+	if _, exists := cur[key]; exists {
+		return semanticSyntaxError(tok, "duplicate key")
+	}
+	cur[key] = value
+	return nil
+}
+
+func assign(root documentMap, path []string, value any) {
+	_ = assignUnique(root, path, value, Token{})
 }
 
 func newDocumentMap() documentMap {

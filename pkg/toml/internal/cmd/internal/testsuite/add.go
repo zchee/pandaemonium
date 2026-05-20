@@ -19,6 +19,7 @@ import (
 	"math"
 	"reflect"
 	"strconv"
+	"strings"
 	"time"
 
 	"github.com/zchee/pandaemonium/pkg/toml"
@@ -66,13 +67,13 @@ func addTag(tomlData any) (any, error) {
 		return typed, nil
 	// Datetime: tag as datetime.
 	case toml.LocalTime:
-		return tag("time-local", orig.String()), nil
+		return tag("time-local", canonicalizeLocalTimeText(orig.String())), nil
 
 	case toml.LocalDate:
 		return tag("date-local", orig.String()), nil
 
 	case toml.LocalDateTime:
-		return tag("datetime-local", orig.String()), nil
+		return tag("datetime-local", canonicalizeLocalDateTimeText(orig.String())), nil
 
 	case time.Time:
 		return tag("datetime", orig.Format("2006-01-02T15:04:05.999999999Z07:00")), nil
@@ -90,6 +91,9 @@ func addTag(tomlData any) (any, error) {
 	case float64:
 		switch {
 		case math.IsNaN(orig):
+			if math.Signbit(orig) {
+				return tag("float", "-nan"), nil
+			}
 			return tag("float", "nan"), nil
 		case math.IsInf(orig, 1):
 			return tag("float", "inf"), nil

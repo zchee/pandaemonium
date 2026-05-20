@@ -17,6 +17,7 @@ package toml
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"strings"
@@ -690,4 +691,20 @@ func (c *customFacade) UnmarshalTOMLFrom(dec *Decoder) error {
 	}
 	c.decoded = true
 	return nil
+}
+
+func assertNoDocumentMap(t *testing.T, path string, value any) {
+	t.Helper()
+	switch v := value.(type) {
+	case documentMap:
+		t.Fatalf("%s = %T(%#v), want public container", path, value, value)
+	case map[string]any:
+		for key, child := range v {
+			assertNoDocumentMap(t, path+"."+key, child)
+		}
+	case []any:
+		for i, child := range v {
+			assertNoDocumentMap(t, fmt.Sprintf("%s[%d]", path, i), child)
+		}
+	}
 }

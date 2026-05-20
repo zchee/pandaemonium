@@ -939,3 +939,213 @@ func TestDecoder_InlineTableTokenStream(t *testing.T) {
 		})
 	}
 }
+
+func TestDecoderQuotedEmptyKeysAndStringControls(t *testing.T) {
+	t.Parallel()
+
+	t.Run("valid quoted empty keys", func(t *testing.T) {
+		t.Parallel()
+		var got map[string]any
+		if err := Unmarshal([]byte("\"\" = \"blank\"\n[a.\"\"]\nvalue = \"nested\"\n"), &got); err != nil {
+			t.Fatalf("Unmarshal() quoted empty keys error = %v", err)
+		}
+		if got[""] != "blank" {
+			t.Fatalf("top-level empty key = %v, want blank", got[""])
+		}
+		a, ok := got["a"].(map[string]any)
+		if !ok {
+			t.Fatalf("a = %T(%#v), want table", got["a"], got["a"])
+		}
+		empty, ok := a[""].(map[string]any)
+		if !ok {
+			t.Fatalf("a.empty = %T(%#v), want table", a[""], a[""])
+		}
+		if empty["value"] != "nested" {
+			t.Fatalf("a.empty.value = %v, want nested", empty["value"])
+		}
+	})
+
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "basic string null", in: "v = \"\x00\"\n"},
+		{name: "literal string null", in: "v = '\x00'\n"},
+		{name: "invalid unicode scalar", in: "v = \"\\U00110000\"\n"},
+		{name: "bare empty dotted segment still invalid", in: "a. = 1\n"},
+	}
+	for _, tc := range tests {
+		t.Run("invalid "+tc.name, func(t *testing.T) {
+			t.Parallel()
+			if _, err := readTokenKinds(NewDecoderBytes([]byte(tc.in))); err == nil {
+				t.Fatalf("readTokenKinds(%q) error = nil, want invalid TOML error", tc.in)
+			}
+		})
+	}
+
+	t.Run("valid TOML 1.1 x escapes", func(t *testing.T) {
+		t.Parallel()
+		if _, err := readTokenKinds(NewDecoderBytes([]byte("v = \"\\x41\"\n\"\\x42\" = 1\n"))); err != nil {
+			t.Fatalf("readTokenKinds() TOML 1.1 x escapes error = %v", err)
+		}
+	})
+}
+
+func TestUnmarshal_TableAndKeyRedefinitionValidation(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "duplicate top-level key", in: "name = \"Tom\"\nname = \"Pradyun\"\n"},
+		{name: "duplicate table header", in: "[a]\nb = 1\n\n[a]\nc = 2\n"},
+		{name: "scalar redefined as dotted table", in: "a = false\na.b = true\n"},
+		{name: "dotted scalar redefined as table", in: "[a]\nb = 1\n\n[a.b]\nc = 2\n"},
+		{name: "dotted key cannot extend explicit table", in: "[a.b.c]\nz = 9\n\n[a]\nb.c.t = \"invalid\"\n"},
+		{name: "inline table duplicate key", in: "a = { k = 1, k = 2 }\n"},
+		{name: "inline table scalar redefined as dotted table", in: "a = { k = 1, k.name = \"joe\" }\n"},
+		{name: "inline table cannot be extended by table header", in: "a = {}\n[a.b]\n"},
+		{name: "inline table cannot be extended by sibling dotted key", in: "a = { inner = { dog = \"best\" }, inner.cat = \"worst\" }\n"},
+		{name: "table cannot become array table", in: "[tbl]\n[[tbl]]\n"},
+		{name: "array table cannot become table", in: "[[tbl]]\n[tbl]\n"},
+		{name: "dotted scalar cannot become nested array table", in: "a.b = 1\n[[a.b]]\n"},
+		{name: "table scalar cannot become nested array table", in: "[a]\nb = 1\n[[a.b]]\n"},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got map[string]any
+			if err := Unmarshal([]byte(tc.in), &got); err == nil {
+				t.Fatalf("Unmarshal(%q) error = nil, want failure", tc.in)
+			}
+		})
+	}
+}
+
+func TestUnmarshal_TableImplicitParentMayBecomeExplicit(t *testing.T) {
+	t.Parallel()
+
+	input := "[a.b.c]\nanswer = 42\n\n[a]\nbetter = 43\n"
+	var got map[string]any
+	if err := Unmarshal([]byte(input), &got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	a, ok := got["a"].(map[string]any)
+	if !ok {
+		t.Fatalf("got[a] = %T, want map[string]any", got["a"])
+	}
+	if got, want := a["better"], int64(43); got != want {
+		t.Fatalf("a.better = %v, want %v", got, want)
+	}
+}
+
+func TestUnmarshal_ArrayTableSubtableMayRepeatPerElement(t *testing.T) {
+	t.Parallel()
+
+	input := "[[arr]]\n[arr.subtab]\nval=1\n\n[[arr]]\n[arr.subtab]\nval=2\n"
+	var got map[string]any
+	if err := Unmarshal([]byte(input), &got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	arr, ok := got["arr"].([]any)
+	if !ok || len(arr) != 2 {
+		t.Fatalf("arr = %#v, want two array-table elements", got["arr"])
+	}
+}
+
+func TestUnmarshal_CaseSensitiveBoolAndSpecialFloatLiterals(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name string
+		in   string
+	}{
+		{name: "capital true", in: "v = True\n"},
+		{name: "capital false", in: "v = False\n"},
+		{name: "capital inf", in: "v = Inf\n"},
+		{name: "capital nan", in: "v = NaN\n"},
+	}
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got map[string]any
+			if err := Unmarshal([]byte(tc.in), &got); err == nil {
+				t.Fatalf("Unmarshal(%q) error = nil, want failure", tc.in)
+			}
+		})
+	}
+}
+
+func TestUnmarshal_TOML11FinalConformanceEdges(t *testing.T) {
+	t.Parallel()
+
+	valid := []struct {
+		name string
+		in   string
+	}{
+		{
+			name: "prefixed integer underscores",
+			in:   "hex = 0xdead_beef\noct = 0o7_6_5\nbin = 0b1_0_1\n",
+		},
+		{
+			name: "multiline basic quote run",
+			in:   `str = """Here are two quotation marks: "". Simple enough."""` + "\n",
+		},
+		{
+			name: "multiline literal starts and ends with quote runs",
+			in:   "str = ''''That,' she said, 'is still pointless.''''\n",
+		},
+		{
+			name: "raw multiline closes with five quotes",
+			in:   "str = '''\nClosing with five quotes\n'''''\n",
+		},
+		{
+			name: "escaped quote before multiline basic close",
+			in:   `str = """When will it end? \"""...""\" should be here""""` + "\n",
+		},
+		{
+			name: "array table dotted key allows later element subtable",
+			in:   "[[fruits]]\nname = 'apple'\nphysical.color = 'red'\n[[fruits]]\nname = 'banana'\n[fruits.physical]\ncolor = 'yellow'\n",
+		},
+		{
+			name: "array table inline value allows later element subtable",
+			in:   "[[fruits]]\nphysical = { color = 'red' }\n[[fruits]]\n[fruits.physical]\ncolor = 'yellow'\n",
+		},
+	}
+	for _, tc := range valid {
+		t.Run("valid "+tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got map[string]any
+			if err := Unmarshal([]byte(tc.in), &got); err != nil {
+				t.Fatalf("Unmarshal(%q) error = %v", tc.in, err)
+			}
+		})
+	}
+
+	invalid := []struct {
+		name string
+		in   string
+	}{
+		{name: "static array table cannot be extended", in: "a = [{ b = 1 }]\n[a.c]\nfoo = 1\n"},
+		{name: "empty array cannot become array table", in: "fruit = []\n[[fruit]]\n"},
+		{name: "delete control in comment", in: "comment_del = \"0x7f\" # \x7f\n"},
+		{name: "ideographic space is not TOML whitespace", in: "\u3000foo = \"bar\"\n"},
+		{name: "newline before equals", in: "barekey\n   = 1\n"},
+		{name: "newline after equals", in: "key =\n1\n"},
+		{name: "value starts with equals", in: "key= = 1\n"},
+		{name: "double equals", in: "a==1\n"},
+		{name: "array table dotted key blocks same element subtable", in: "[[fruits]]\nphysical.color = 'red'\n[fruits.physical]\ncolor = 'green'\n"},
+		{name: "array table inline value blocks same element subtable", in: "[[fruits]]\nphysical = { color = 'red' }\n[fruits.physical]\ncolor = 'green'\n"},
+	}
+	for _, tc := range invalid {
+		t.Run("invalid "+tc.name, func(t *testing.T) {
+			t.Parallel()
+			var got map[string]any
+			if err := Unmarshal([]byte(tc.in), &got); err == nil {
+				t.Fatalf("Unmarshal(%q) error = nil, want failure", tc.in)
+			}
+		})
+	}
+}
