@@ -332,6 +332,20 @@ func (cp *controlProtocol) initialize(ctx context.Context) (jsontext.Value, erro
 	return resp, nil
 }
 
+// serverInfoResult returns the CLI's cached initialize response — the
+// commands/output-style/etc. object the CLI sent in reply to the initialize
+// handshake. It is set once by initialize and read-only thereafter.
+//
+// Upstream exposes the stored _initialization_result rather than issuing a new
+// control request (there is no get_server_info subtype). An empty result means
+// initialize has not completed, which is reported as a not-connected error.
+func (cp *controlProtocol) serverInfoResult() (jsontext.Value, error) {
+	if len(cp.initializationResult) == 0 {
+		return nil, &CLIConnectionError{Message: "CLI is not connected: initialize has not completed"}
+	}
+	return cp.initializationResult, nil
+}
+
 // agentsWire converts opts.Agents into the upstream initialize "agents" wire
 // shape: a map keyed by agent Name whose value carries the dataclass field
 // names used by the Python SDK (description, prompt, tools, model), omitting
@@ -459,6 +473,37 @@ func (cp *controlProtocol) closeInflight() {
 	cp.inflightMu.Unlock()
 	for _, cancel := range cancels {
 		cancel()
+	}
+}
+
+// failPending delivers a CLIConnectionError to every outbound control request
+// still waiting for a response, so a transport close or read error fails them
+// fast instead of stalling for the full per-request timeout. It mirrors
+// upstream's read-loop reaping ("Signal all pending control requests so they
+// fail fast instead of timing out", _internal/query.py).
+//
+// It only delivers the sentinel; each sendControlRequest still deletes its own
+// pending entry on exit (one writer per request_id). Delivery is non-blocking:
+// a channel that already received a real response is skipped. Safe to call more
+// than once (a second call finds no live waiters or races harmlessly).
+func (cp *controlProtocol) failPending(cause error) {
+	cp.pendingMu.Lock()
+	chans := make([]chan controlResult, 0, len(cp.pending))
+	for _, ch := range cp.pending {
+		chans = append(chans, ch)
+	}
+	cp.pendingMu.Unlock()
+
+	msg := "CLI disconnected"
+	if cause != nil {
+		msg = "CLI disconnected: " + cause.Error()
+	}
+	res := controlResult{err: &CLIConnectionError{Message: msg}}
+	for _, ch := range chans {
+		select {
+		case ch <- res:
+		default:
+		}
 	}
 }
 

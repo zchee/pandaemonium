@@ -253,20 +253,6 @@ func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message
 	}
 }
 
-// Interrupt sends SIGINT to the claude CLI subprocess, requesting that it
-// cancel the current operation. Returns CLIConnectionError if no subprocess
-// is running.
-func (c *ClaudeSDKClient) Interrupt(ctx context.Context) error {
-	_ = ctx
-	c.closeMu.Lock()
-	cmd := c.cmd
-	c.closeMu.Unlock()
-	if cmd == nil || cmd.Process == nil {
-		return &CLIConnectionError{Message: "no active subprocess to interrupt"}
-	}
-	return cmd.Process.Signal(os.Interrupt)
-}
-
 // Fork creates a new [ClaudeSDKClient] whose conversation history is branched
 // from fromMessageID in the current session. The parent client continues
 // unaffected; the forked client has its own independent transport.
@@ -354,6 +340,11 @@ func (c *ClaudeSDKClient) Close() error {
 	// cancel funcs are independent of the locks above.
 	if cp != nil {
 		cp.closeInflight()
+		// Fail any outbound control requests still awaiting a response so a
+		// Close that races ahead of readLoop noticing the closed transport does
+		// not leave callers blocked until their timeout. Idempotent with the
+		// readLoop error-path call.
+		cp.failPending(nil)
 	}
 
 	// Close registered MCP servers deterministically (MCPServer.Close contract).
@@ -538,6 +529,14 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *control
 			c.readErrMu.Lock()
 			c.readErr = err
 			c.readErrMu.Unlock()
+			// Fail any in-flight outbound control requests so they return a
+			// CLIConnectionError immediately instead of stalling for their full
+			// timeout. This covers a clean EOF (subprocess exit) as well as a
+			// transport error, mirroring upstream's read-loop reaping. cp is the
+			// snapshot argument, never c.cp directly.
+			if cp != nil {
+				cp.failPending(err)
+			}
 			// Drain the rawMessages channel to unblock any pending ReceiveResponse.
 			// A nil sentinel signals EOF/error to the consumer.
 			select {
