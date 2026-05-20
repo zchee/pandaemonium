@@ -457,15 +457,17 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 		return err
 	}
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
-	if c.opts != nil && c.opts.Cwd != "" {
-		cmd.Dir = c.opts.Cwd
-	}
-	cmd.Env = os.Environ()
+	var cwd string
 	if c.opts != nil {
-		for k, v := range c.opts.Env {
-			cmd.Env = append(cmd.Env, k+"="+v)
-		}
+		cwd = c.opts.Cwd
 	}
+	if cwd != "" {
+		cmd.Dir = cwd
+	}
+	// Build the subprocess env: inherit the parent environment minus CLAUDECODE,
+	// inject the SDK identity and PWD, and let opts.Env override. See
+	// buildSubprocessEnv (client_env.go).
+	cmd.Env = buildSubprocessEnv(os.Environ(), c.opts, cwd)
 
 	stdin, err := cmd.StdinPipe()
 	if err != nil {
