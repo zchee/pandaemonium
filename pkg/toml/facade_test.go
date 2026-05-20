@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"errors"
 	"io"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -86,6 +87,63 @@ enabled = false
 	}
 	if _, ok := got.Any.([]any); !ok {
 		t.Fatalf("Any = %T(%#v), want []any", got.Any, got.Any)
+	}
+}
+
+func TestFacadeUnmarshalMapStringAnyPreservesPublicContainers(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`title = "demo"
+[server]
+host = "127.0.0.1"
+[server.tls]
+enabled = true
+certs = [{ name = "primary" }, { name = "backup" }]
+
+[inline]
+value = { nested = { ok = true } }
+`)
+
+	var got map[string]any
+	if err := Unmarshal(input, &got); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+
+	server, ok := got["server"].(map[string]any)
+	if !ok {
+		t.Fatalf("server = %T(%#v), want map[string]any", got["server"], got["server"])
+	}
+	tls, ok := server["tls"].(map[string]any)
+	if !ok {
+		t.Fatalf("server.tls = %T(%#v), want map[string]any", server["tls"], server["tls"])
+	}
+	certs, ok := tls["certs"].([]any)
+	if !ok {
+		t.Fatalf("server.tls.certs = %T(%#v), want []any", tls["certs"], tls["certs"])
+	}
+	for i, item := range certs {
+		entry, ok := item.(map[string]any)
+		if !ok {
+			t.Fatalf("server.tls.certs[%d] = %T(%#v), want map[string]any", i, item, item)
+		}
+		if _, ok := entry["name"].(string); !ok {
+			t.Fatalf("server.tls.certs[%d].name = %T(%#v), want string", i, entry["name"], entry["name"])
+		}
+	}
+	inline, ok := got["inline"].(map[string]any)
+	if !ok {
+		t.Fatalf("inline = %T(%#v), want map[string]any", got["inline"], got["inline"])
+	}
+	value, ok := inline["value"].(map[string]any)
+	if !ok {
+		t.Fatalf("inline.value = %T(%#v), want map[string]any", inline["value"], inline["value"])
+	}
+	nested, ok := value["nested"].(map[string]any)
+	if !ok {
+		t.Fatalf("inline.value.nested = %T(%#v), want map[string]any", value["nested"], value["nested"])
+	}
+	if got, ok := nested["ok"].(bool); !ok || !got {
+		t.Fatalf("inline.value.nested.ok = %T(%#v), want true bool", nested["ok"], nested["ok"])
 	}
 }
 
@@ -273,6 +331,12 @@ func TestMarshalDirectCompatibilityScalarSpecialsAndErrors(t *testing.T) {
 			},
 			want: "Date = 2026-05-17\nWhen = 2026-05-17T03:04:05Z\n",
 		},
+		"success: signed nan": {
+			value: struct {
+				Value float64
+			}{Value: math.Float64frombits(0xfff8000000000000)},
+			want: "Value = -nan\n",
+		},
 		"success: nil interface is omitted": {
 			value: struct {
 				Value any
@@ -454,6 +518,70 @@ func TestFacadeUnmarshalEmptyMapTakesDecodedEntries(t *testing.T) {
 	}
 }
 
+func TestFacadeUnmarshalMapUsesPublicContainers(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+	}{
+		"nested tables and inline tables": {
+			input: `title = "TOML"
+
+[owner]
+name = "Tom"
+inline = { child = { answer = 42 }, items = [ { name = "first" }, { name = "second" } ] }
+
+[[fruit]]
+name = "apple"
+
+[fruit.physical]
+color = "red"
+
+[[fruit.variety]]
+name = "red delicious"
+
+[[fruit.variety]]
+name = "granny smith"
+`,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			dst := map[string]any{}
+			if err := Unmarshal([]byte(tc.input), &dst); err != nil {
+				t.Fatalf("Unmarshal() error = %v", err)
+			}
+			assertNoDocumentMap(t, "dst", dst)
+
+			var iface any
+			if err := Unmarshal([]byte(tc.input), &iface); err != nil {
+				t.Fatalf("Unmarshal() into interface error = %v", err)
+			}
+			assertNoDocumentMap(t, "iface", iface)
+		})
+	}
+}
+
+func assertNoDocumentMap(t *testing.T, path string, v any) {
+	t.Helper()
+
+	switch x := v.(type) {
+	case documentMap:
+		t.Fatalf("%s has internal documentMap type", path)
+	case map[string]any:
+		for k, item := range x {
+			assertNoDocumentMap(t, path+"."+k, item)
+		}
+	case []any:
+		for i, item := range x {
+			assertNoDocumentMap(t, path+indexPath(i), item)
+		}
+	}
+}
+
 func TestFacadeUnmarshalNestedMapFallback(t *testing.T) {
 	t.Parallel()
 
@@ -482,6 +610,92 @@ func TestFacadeUnmarshalMapKeepsExistingEntries(t *testing.T) {
 	}
 	if got, want := dst["name"], "demo"; got != want {
 		t.Fatalf("decoded entry = %v, want %v", got, want)
+	}
+}
+
+func TestFacadeUnmarshalPublicContainersDoNotLeakDocumentMap(t *testing.T) {
+	t.Parallel()
+
+	input := []byte(`
+title = "demo"
+points = [{ x = 1, y = 2 }, { x = 3, y = 4 }]
+
+[owner]
+name = "alice"
+metadata = { active = true, limits = { cpu = 2 } }
+
+[[products]]
+name = "hammer"
+tags = [{ label = "tool" }]
+`)
+	tests := map[string]struct {
+		decode func(t *testing.T) any
+	}{
+		"success: empty map destination": {
+			decode: func(t *testing.T) any {
+				t.Helper()
+				dst := map[string]any{}
+				if err := Unmarshal(input, &dst); err != nil {
+					t.Fatalf("Unmarshal(map[string]any) error = %v", err)
+				}
+				return dst
+			},
+		},
+		"success: interface destination": {
+			decode: func(t *testing.T) any {
+				t.Helper()
+				var dst any
+				if err := Unmarshal(input, &dst); err != nil {
+					t.Fatalf("Unmarshal(any) error = %v", err)
+				}
+				return dst
+			},
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := tc.decode(t)
+			assertNoDocumentMap(t, "$", got)
+			root, ok := got.(map[string]any)
+			if !ok {
+				t.Fatalf("decoded root type = %T, want map[string]any", got)
+			}
+			owner, ok := root["owner"].(map[string]any)
+			if !ok {
+				t.Fatalf("owner type = %T, want map[string]any", root["owner"])
+			}
+			metadata, ok := owner["metadata"].(map[string]any)
+			if !ok {
+				t.Fatalf("owner.metadata type = %T, want map[string]any", owner["metadata"])
+			}
+			limits, ok := metadata["limits"].(map[string]any)
+			if !ok {
+				t.Fatalf("owner.metadata.limits type = %T, want map[string]any", metadata["limits"])
+			}
+			if got, want := limits["cpu"], int64(2); got != want {
+				t.Fatalf("owner.metadata.limits.cpu = %v, want %v", got, want)
+			}
+		})
+	}
+}
+
+func assertNoDocumentMap(t *testing.T, path string, v any) {
+	t.Helper()
+
+	switch x := v.(type) {
+	case documentMap:
+		t.Fatalf("%s leaked internal documentMap", path)
+	case map[string]any:
+		for k, v := range x {
+			assertNoDocumentMap(t, path+"."+k, v)
+		}
+	case []any:
+		for i, v := range x {
+			assertNoDocumentMap(t, path+"["+strconv.Itoa(i)+"]", v)
+		}
 	}
 }
 

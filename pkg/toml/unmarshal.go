@@ -249,7 +249,11 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	}
 	switch dst.Kind() {
 	case reflect.Interface:
-		dst.Set(reflect.ValueOf(src))
+		if src == nil {
+			dst.Set(reflect.Zero(dst.Type()))
+			return nil
+		}
+		dst.Set(reflect.ValueOf(publicValue(src)))
 		return nil
 	case reflect.Struct:
 		m, ok := asDocumentMap(src)
@@ -279,7 +283,7 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 			return &UnsupportedTypeError{Type: dst.Type().String()}
 		}
 		if dst.Type().Elem().Kind() == reflect.Interface && dst.Len() == 0 {
-			source := reflect.ValueOf(map[string]any(m))
+			source := reflect.ValueOf(publicValue(m))
 			if source.Type().AssignableTo(dst.Type()) {
 				dst.Set(source)
 				return nil
@@ -365,6 +369,45 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	}
 }
 
+func publicValue(v any) any {
+	switch x := v.(type) {
+	case documentMap:
+		return publicDocumentMap(x)
+	case map[string]any:
+		return publicStringMap(x)
+	case []any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = publicValue(item)
+		}
+		return out
+	case []map[string]any:
+		out := make([]any, len(x))
+		for i, item := range x {
+			out[i] = publicStringMap(item)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+func publicDocumentMap(m documentMap) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = publicValue(v)
+	}
+	return out
+}
+
+func publicStringMap(m map[string]any) map[string]any {
+	out := make(map[string]any, len(m))
+	for k, v := range m {
+		out[k] = publicValue(v)
+	}
+	return out
+}
+
 func asDocumentMap(v any) (documentMap, bool) {
 	switch m := v.(type) {
 	case documentMap:
@@ -374,6 +417,46 @@ func asDocumentMap(v any) (documentMap, bool) {
 	default:
 		return nil, false
 	}
+}
+
+func publicValue(v any) any {
+	switch x := v.(type) {
+	case documentMap:
+		if x == nil {
+			return map[string]any(nil)
+		}
+		out := make(map[string]any, len(x))
+		for k, raw := range x {
+			out[k] = publicValue(raw)
+		}
+		return out
+	case map[string]any:
+		if x == nil {
+			return map[string]any(nil)
+		}
+		out := make(map[string]any, len(x))
+		for k, raw := range x {
+			out[k] = publicValue(raw)
+		}
+		return out
+	case []any:
+		if x == nil {
+			return []any(nil)
+		}
+		out := make([]any, len(x))
+		for i, raw := range x {
+			out[i] = publicValue(raw)
+		}
+		return out
+	default:
+		return v
+	}
+}
+
+// PublicValue returns v converted to the public TOML container shapes used by
+// the facade and testsuite helpers.
+func PublicValue(v any) any {
+	return publicValue(v)
 }
 
 func int64Value(v any) (int64, bool) {

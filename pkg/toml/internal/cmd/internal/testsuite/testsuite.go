@@ -41,7 +41,11 @@ func Unmarshal(data []byte, v any) error {
 // ValueToTaggedJSON takes a data structure and returns the tagged JSON
 // representation.
 func ValueToTaggedJSON(doc any) ([]byte, error) {
-	return json.MarshalIndent(addTag(doc), "", "  ")
+	tagged, err := addTag(doc)
+	if err != nil {
+		return nil, err
+	}
+	return json.MarshalIndent(tagged, "", "  ")
 }
 
 // DecodeStdin is a helper function for the toml-test binary interface.  TOML input
@@ -54,9 +58,17 @@ func DecodeStdin() error {
 		return fmt.Errorf("error decoding TOML: %w", err)
 	}
 
+	tagged, err := addTag(decoded)
+	if err != nil {
+		return fmt.Errorf("error tagging TOML data: %w", err)
+	}
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "  ")
-	if err := j.Encode(addTag(decoded)); err != nil {
+	tagged, err := addTag(decoded)
+	if err != nil {
+		return fmt.Errorf("error adding JSON tags: %w", err)
+	}
+	if err := j.Encode(tagged); err != nil {
 		return fmt.Errorf("error encoding JSON: %w", err)
 	}
 
