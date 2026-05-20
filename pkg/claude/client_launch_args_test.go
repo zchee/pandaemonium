@@ -19,6 +19,18 @@ import (
 	"testing"
 )
 
+// mustLaunchArgs calls buildLaunchArgs and fails the test if it returns an
+// error. buildLaunchArgs only errors when the --mcp-config payload fails to
+// marshal, which the well-formed test inputs never trigger.
+func mustLaunchArgs(t *testing.T, cliPath string, opts *Options, resumeSessionID string) []string {
+	t.Helper()
+	args, err := buildLaunchArgs(cliPath, opts, resumeSessionID)
+	if err != nil {
+		t.Fatalf("buildLaunchArgs() error = %v", err)
+	}
+	return args
+}
+
 func TestBuildLaunchArgs(t *testing.T) {
 	t.Parallel()
 
@@ -139,9 +151,9 @@ func TestBuildLaunchArgs(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := buildLaunchArgs(tt.cliPath, tt.opts, "")
+			got := mustLaunchArgs(t, tt.cliPath, tt.opts, "")
 			if len(got) == 0 {
-				t.Fatal("buildLaunchArgs() returned empty slice")
+				t.Fatal("mustLaunchArgs(t, ) returned empty slice")
 			}
 			if got[0] != tt.cliPath {
 				t.Fatalf("got[0] = %q, want %q", got[0], tt.cliPath)
@@ -164,7 +176,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 
 func TestBuildLaunchArgs_CLIPathIsFirst(t *testing.T) {
 	t.Parallel()
-	args := buildLaunchArgs("/path/to/claude", nil, "")
+	args := mustLaunchArgs(t, "/path/to/claude", nil, "")
 	if args[0] != "/path/to/claude" {
 		t.Fatalf("args[0] = %q, want /path/to/claude", args[0])
 	}
@@ -204,7 +216,7 @@ func TestBuildLaunchArgs_Plugins(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			got := buildLaunchArgs(fakeCLI, tt.opts, "")
+			got := mustLaunchArgs(t, fakeCLI, tt.opts, "")
 			joined := strings.Join(got, " ")
 			for _, want := range tt.wantIn {
 				if !strings.Contains(joined, want) {
@@ -265,7 +277,7 @@ func TestBuildLaunchArgs_SettingSources(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			got := buildLaunchArgs(fakeCLI, tt.opts, "")
+			got := mustLaunchArgs(t, fakeCLI, tt.opts, "")
 			joined := strings.Join(got, " ")
 			for _, want := range tt.wantIn {
 				if !strings.Contains(joined, want) {
@@ -287,7 +299,7 @@ func TestBuildLaunchArgs_Agents(t *testing.T) {
 	// Agents are sent via the streaming initialize request (not CLI flags).
 	// Verify that no --agent flag (or similar) appears in the launch args
 	// regardless of how many AgentDefinitions are configured.
-	got := buildLaunchArgs("/usr/local/bin/claude", &Options{
+	got := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{
 		Agents: []AgentDefinition{
 			{Name: "helper", Description: "A helper agent", SystemPrompt: "You help."},
 			{Name: "coder", Description: "A coding agent", AllowedTools: []string{"Bash"}},
@@ -324,7 +336,7 @@ func TestBuildLaunchArgs_Resume(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			got := buildLaunchArgs(fakeCLI, nil, tt.resumeID)
+			got := mustLaunchArgs(t, fakeCLI, nil, tt.resumeID)
 			joined := strings.Join(got, " ")
 			for _, want := range tt.wantIn {
 				if !strings.Contains(joined, want) {

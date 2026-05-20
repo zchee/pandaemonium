@@ -69,8 +69,15 @@ type Options struct {
 	PermissionMode string
 
 	// MCPServers is the list of MCP servers to register with the CLI session.
-	// Create in-process servers with [NewSDKMCPServer].
+	// Create in-process servers with [NewSDKMCPServer]. Each server is encoded
+	// into the --mcp-config flag at launch; in-process servers additionally
+	// have their tool calls routed back over the control protocol.
 	MCPServers []MCPServer
+
+	// StrictMCPConfig restricts the CLI to only the MCP servers passed via
+	// --mcp-config, ignoring any from filesystem settings.
+	// Corresponds to --strict-mcp-config in the CLI.
+	StrictMCPConfig bool
 
 	// Hooks is the ordered list of hook registrations. The dispatcher invokes
 	// matching hooks in registration order and stops at the first

@@ -18,9 +18,9 @@ import (
 	"context"
 	"strings"
 	"testing"
+	"time"
 
-	"github.com/google/go-cmp/cmp"
-	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/go-json-experiment/json"
 )
 
 // ── NewSDKMCPServer / ToolDefinition accessors ────────────────────────────────
@@ -62,209 +62,409 @@ func TestToolDefinition_Accessors(t *testing.T) {
 	}
 }
 
-// ── inProcessMCPServer.start / Close ─────────────────────────────────────────
+// ── Close ─────────────────────────────────────────────────────────────────────
 
-func TestInProcessMCPServer_StartClose(t *testing.T) {
+func TestInProcessMCPServer_CloseNoop(t *testing.T) {
 	t.Parallel()
 
-	srv := NewSDKMCPServer("test-srv", "0.1.0").(*inProcessMCPServer)
-
-	cliR, cliW, err := srv.start(t.Context())
-	if err != nil {
-		t.Fatalf("start() error = %v", err)
-	}
-	if cliR == nil {
-		t.Fatal("start() cliR is nil")
-	}
-	if cliW == nil {
-		t.Fatal("start() cliW is nil")
-	}
-	// Close must drain the goroutine without hanging.
-	if err := cliW.Close(); err != nil {
-		t.Errorf("cliW.Close() error = %v", err)
-	}
-	cliR.Close()
-	if err := srv.Close(); err != nil {
-		t.Errorf("Close() error = %v", err)
-	}
-}
-
-func TestInProcessMCPServer_CloseIdempotent(t *testing.T) {
-	t.Parallel()
-
-	srv := NewSDKMCPServer("test-srv", "0.1.0").(*inProcessMCPServer)
-	cliR, cliW, err := srv.start(t.Context())
-	if err != nil {
-		t.Fatalf("start() error = %v", err)
-	}
-	cliW.Close()
-	cliR.Close()
-
-	// First Close stops the goroutine.
+	// The in-process server holds no resources; Close must be a no-op and
+	// idempotent.
+	srv := NewSDKMCPServer("test-srv", "0.1.0")
 	if err := srv.Close(); err != nil {
 		t.Errorf("Close() #1 error = %v", err)
 	}
-	// Second Close must be a no-op (idempotent).
 	if err := srv.Close(); err != nil {
 		t.Errorf("Close() #2 error = %v", err)
 	}
 }
 
-func TestInProcessMCPServer_CloseBeforeStart(t *testing.T) {
+// ── configForCLI ──────────────────────────────────────────────────────────────
+
+func TestInProcessMCPServer_ConfigForCLI(t *testing.T) {
 	t.Parallel()
 
-	// Close on a server that was never started must not panic or error.
-	srv := NewSDKMCPServer("test-srv", "0.1.0")
-	if err := srv.Close(); err != nil {
-		t.Errorf("Close() before start error = %v", err)
+	srv := NewSDKMCPServer("my-tools", "1.0.0").(*inProcessMCPServer)
+	cfg := srv.configForCLI()
+	if cfg["type"] != "sdk" {
+		t.Errorf("configForCLI type = %v, want sdk", cfg["type"])
+	}
+	if cfg["name"] != "my-tools" {
+		t.Errorf("configForCLI name = %v, want my-tools", cfg["name"])
 	}
 }
 
-// ── tool dispatch via MCP protocol ───────────────────────────────────────────
+// ── --mcp-config launch arg ────────────────────────────────────────────────────
+
+func TestBuildLaunchArgs_MCPConfig(t *testing.T) {
+	t.Parallel()
+
+	opts := &Options{
+		MCPServers:      []MCPServer{NewSDKMCPServer("calc", "1.0.0")},
+		StrictMCPConfig: true,
+	}
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
+
+	var cfg string
+	var strict bool
+	for i, a := range args {
+		if a == "--mcp-config" && i+1 < len(args) {
+			cfg = args[i+1]
+		}
+		if a == "--strict-mcp-config" {
+			strict = true
+		}
+	}
+	if cfg == "" {
+		t.Fatalf("--mcp-config not emitted; args = %v", args)
+	}
+	if !strict {
+		t.Errorf("--strict-mcp-config not emitted; args = %v", args)
+	}
+
+	var parsed struct {
+		MCPServers map[string]struct {
+			Type string `json:"type"`
+			Name string `json:"name"`
+		} `json:"mcpServers"`
+	}
+	if err := json.Unmarshal([]byte(cfg), &parsed); err != nil {
+		t.Fatalf("unmarshal --mcp-config %q: %v", cfg, err)
+	}
+	calc, ok := parsed.MCPServers["calc"]
+	if !ok {
+		t.Fatalf("mcpServers missing 'calc': %s", cfg)
+	}
+	if calc.Type != "sdk" || calc.Name != "calc" {
+		t.Errorf("calc config = %+v, want {type:sdk name:calc}", calc)
+	}
+}
+
+func TestBuildLaunchArgs_NoMCPServers(t *testing.T) {
+	t.Parallel()
+
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{}, "")
+	for _, a := range args {
+		if a == "--mcp-config" {
+			t.Fatalf("--mcp-config emitted with no MCPServers; args = %v", args)
+		}
+	}
+}
+
+// TestBuildLaunchArgs_StrictWithoutServers verifies that --strict-mcp-config is
+// emitted independent of server presence (matching upstream) and that no
+// --mcp-config accompanies it when there are no servers.
+func TestBuildLaunchArgs_StrictWithoutServers(t *testing.T) {
+	t.Parallel()
+
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{StrictMCPConfig: true}, "")
+	var strict, hasConfig bool
+	for _, a := range args {
+		switch a {
+		case "--strict-mcp-config":
+			strict = true
+		case "--mcp-config":
+			hasConfig = true
+		}
+	}
+	if !strict {
+		t.Errorf("--strict-mcp-config not emitted; args = %v", args)
+	}
+	if hasConfig {
+		t.Errorf("--mcp-config emitted with no MCPServers; args = %v", args)
+	}
+}
+
+// ── mcp_message dispatch ────────────────────────────────────────────────────
 
 // echoInput is the JSON-unmarshalable input for the echo tool used in tests.
 type echoInput struct {
 	Msg string `json:"msg"`
 }
 
-// TestInProcessMCPServer_ToolDispatch connects a real gomcp.Client to the
-// pipe bridge returned by start() and verifies that a registered tool is
-// invoked correctly end-to-end.
-func TestInProcessMCPServer_ToolDispatch(t *testing.T) {
+// newMCPProtocol builds a controlProtocol with the given in-process servers
+// registered, exactly as ClaudeSDKClient.start would, plus a writeFn that
+// captures responses on the returned channel.
+func newMCPProtocol(t *testing.T, servers ...MCPServer) (*controlProtocol, <-chan []byte) {
+	t.Helper()
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{MCPServers: servers}, writeFn)
+	cp.registerMCPServers()
+	return cp, out
+}
+
+// mcpResponseFromControl drives a control_request line through route and
+// returns the inner mcp_response JSONRPC object from the success control
+// response.
+func mcpResponseFromControl(t *testing.T, cp *controlProtocol, out <-chan []byte, line string) map[string]any {
+	t.Helper()
+	if _, err := cp.route(t.Context(), []byte(line)); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	subtype, _, errMsg, resp := awaitControlResponse(t, out)
+	if subtype != "success" {
+		t.Fatalf("control response subtype = %q (err=%q), want success", subtype, errMsg)
+	}
+	mr, ok := resp["mcp_response"].(map[string]any)
+	if !ok {
+		t.Fatalf("response missing mcp_response object: %v", resp)
+	}
+	return mr
+}
+
+func TestControlProtocol_MCPMessage_Initialize(t *testing.T) {
 	t.Parallel()
 
-	type testCase struct {
-		toolName    string
-		args        map[string]string
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "2.3.4"))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":1,"method":"initialize"}}}`)
+
+	if mr["id"] != float64(1) {
+		t.Errorf("jsonrpc id = %v, want 1", mr["id"])
+	}
+	result, ok := mr["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("initialize result missing: %v", mr)
+	}
+	if result["protocolVersion"] != "2024-11-05" {
+		t.Errorf("protocolVersion = %v, want 2024-11-05", result["protocolVersion"])
+	}
+	info, ok := result["serverInfo"].(map[string]any)
+	if !ok || info["name"] != "test-srv" || info["version"] != "2.3.4" {
+		t.Errorf("serverInfo = %v, want {name:test-srv version:2.3.4}", result["serverInfo"])
+	}
+}
+
+func TestControlProtocol_MCPMessage_ToolsList(t *testing.T) {
+	t.Parallel()
+
+	echoTool := Tool("echo", "echoes the msg field", nil, func(_ context.Context, i echoInput) (ToolResult, error) {
+		return ToolResult{Content: i.Msg}, nil
+	})
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0", echoTool))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":2,"method":"tools/list"}}}`)
+
+	result, ok := mr["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("tools/list result missing: %v", mr)
+	}
+	tools, ok := result["tools"].([]any)
+	if !ok || len(tools) != 1 {
+		t.Fatalf("tools = %v, want 1 entry", result["tools"])
+	}
+	tool := tools[0].(map[string]any)
+	if tool["name"] != "echo" {
+		t.Errorf("tool name = %v, want echo", tool["name"])
+	}
+	if tool["description"] != "echoes the msg field" {
+		t.Errorf("tool description = %v", tool["description"])
+	}
+	if _, has := tool["inputSchema"]; !has {
+		t.Error("tool inputSchema missing")
+	}
+}
+
+func TestControlProtocol_MCPMessage_ToolsCall(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		args        string
 		wantContent string
 		wantIsError bool
-	}
-	tests := map[string]testCase{
-		"success: echo tool returns msg": {
-			toolName:    "echo",
-			args:        map[string]string{"msg": "hello from test"},
-			wantContent: "hello from test",
-			wantIsError: false,
-		},
-		"success: empty args": {
-			toolName:    "echo",
-			args:        nil,
-			wantContent: "",
-			wantIsError: false,
-		},
+	}{
+		"success: echo returns msg": {args: `{"msg":"hello"}`, wantContent: "hello"},
+		"success: empty args":       {args: `{}`, wantContent: ""},
 	}
 
 	echoTool := Tool("echo", "echoes the msg field", nil, func(_ context.Context, i echoInput) (ToolResult, error) {
 		return ToolResult{Content: i.Msg}, nil
 	})
 
-	for name, tc := range tests {
+	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			srv := NewSDKMCPServer("test-srv", "0.1.0", echoTool).(*inProcessMCPServer)
-			ctx, cancel := context.WithCancel(t.Context())
-			t.Cleanup(cancel)
+			cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0", echoTool))
+			line := `{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":3,"method":"tools/call","params":{"name":"echo","arguments":` + tt.args + `}}}}`
+			mr := mcpResponseFromControl(t, cp, out, line)
 
-			cliR, cliW, err := srv.start(ctx)
-			if err != nil {
-				t.Fatalf("start() error = %v", err)
+			result, ok := mr["result"].(map[string]any)
+			if !ok {
+				t.Fatalf("tools/call result missing: %v", mr)
 			}
-			t.Cleanup(func() {
-				cliW.Close()
-				cliR.Close()
-				srv.Close()
-			})
-
-			// Build a real MCP client over the pipe bridge.
-			client := gomcp.NewClient(
-				&gomcp.Implementation{Name: "test-client", Version: "1.0.0"},
-				nil,
-			)
-			clientTransport := &gomcp.IOTransport{Reader: cliR, Writer: cliW}
-			cs, err := client.Connect(ctx, clientTransport, nil)
-			if err != nil {
-				t.Fatalf("client.Connect() error = %v", err)
+			content, ok := result["content"].([]any)
+			if !ok || len(content) != 1 {
+				t.Fatalf("content = %v, want 1 entry", result["content"])
 			}
-			t.Cleanup(func() { cs.Close() })
-
-			// Call the tool.
-			var args any
-			if tc.args != nil {
-				args = tc.args
+			item := content[0].(map[string]any)
+			if item["type"] != "text" {
+				t.Errorf("content type = %v, want text", item["type"])
 			}
-			result, err := cs.CallTool(ctx, &gomcp.CallToolParams{
-				Name:      tc.toolName,
-				Arguments: args,
-			})
-			if err != nil {
-				t.Fatalf("CallTool() error = %v", err)
+			if item["text"] != tt.wantContent {
+				t.Errorf("content text = %v, want %q", item["text"], tt.wantContent)
 			}
-
-			if result.IsError != tc.wantIsError {
-				t.Errorf("IsError = %v, want %v", result.IsError, tc.wantIsError)
-			}
-
-			var gotContent string
-			if len(result.Content) > 0 {
-				if tc, ok := result.Content[0].(*gomcp.TextContent); ok {
-					gotContent = tc.Text
-				}
-			}
-			if diff := cmp.Diff(tc.wantContent, gotContent); diff != "" {
-				t.Errorf("content mismatch (-want +got):\n%s", diff)
+			if _, hasErr := result["isError"]; hasErr != tt.wantIsError {
+				t.Errorf("isError present = %v, want %v", hasErr, tt.wantIsError)
 			}
 		})
 	}
 }
 
-// TestInProcessMCPServer_ToolError verifies that a tool returning an error
-// is surfaced as IsError=true in the CallToolResult.
-func TestInProcessMCPServer_ToolError(t *testing.T) {
+func TestControlProtocol_MCPMessage_ToolsCall_ToolError(t *testing.T) {
 	t.Parallel()
 
-	errTool := Tool("fail", "always fails", nil, func(_ context.Context, _ struct{}) (ToolResult, error) {
+	failTool := Tool("fail", "always fails", nil, func(_ context.Context, _ struct{}) (ToolResult, error) {
 		return ToolResult{}, &CLIConnectionError{Message: "intentional tool error"}
 	})
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0", failTool))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":4,"method":"tools/call","params":{"name":"fail","arguments":{}}}}}`)
 
-	srv := NewSDKMCPServer("test-srv", "0.1.0", errTool).(*inProcessMCPServer)
-	ctx, cancel := context.WithCancel(t.Context())
-	t.Cleanup(cancel)
-
-	cliR, cliW, err := srv.start(ctx)
-	if err != nil {
-		t.Fatalf("start() error = %v", err)
+	// A tool returning an error is a successful JSONRPC result with isError set
+	// (not a JSONRPC protocol error), matching the Tool constructor's contract.
+	result, ok := mr["result"].(map[string]any)
+	if !ok {
+		t.Fatalf("tools/call result missing: %v", mr)
 	}
-	t.Cleanup(func() {
-		cliW.Close()
-		cliR.Close()
-		srv.Close()
+	if result["isError"] != true {
+		t.Errorf("isError = %v, want true", result["isError"])
+	}
+	content := result["content"].([]any)
+	if len(content) == 0 {
+		t.Fatal("content empty, want error text")
+	}
+	text, _ := content[0].(map[string]any)["text"].(string)
+	if !strings.Contains(text, "intentional tool error") {
+		t.Errorf("content text = %q, want to contain error message", text)
+	}
+}
+
+func TestControlProtocol_MCPMessage_ToolsCall_UnknownTool(t *testing.T) {
+	t.Parallel()
+
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0"))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":5,"method":"tools/call","params":{"name":"nope","arguments":{}}}}}`)
+
+	jerr, ok := mr["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected JSONRPC error for unknown tool: %v", mr)
+	}
+	if jerr["code"] != float64(-32603) {
+		t.Errorf("error code = %v, want -32603", jerr["code"])
+	}
+}
+
+func TestControlProtocol_MCPMessage_UnknownServer(t *testing.T) {
+	t.Parallel()
+
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0"))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"ghost","message":{"id":6,"method":"tools/list"}}}`)
+
+	jerr, ok := mr["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected JSONRPC error for unknown server: %v", mr)
+	}
+	if jerr["code"] != float64(-32601) {
+		t.Errorf("error code = %v, want -32601", jerr["code"])
+	}
+	if msg, _ := jerr["message"].(string); !strings.Contains(msg, "ghost") {
+		t.Errorf("error message = %q, want to mention server name", msg)
+	}
+}
+
+func TestControlProtocol_MCPMessage_UnknownMethod(t *testing.T) {
+	t.Parallel()
+
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0"))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":7,"method":"resources/list"}}}`)
+
+	jerr, ok := mr["error"].(map[string]any)
+	if !ok {
+		t.Fatalf("expected JSONRPC error for unknown method: %v", mr)
+	}
+	if jerr["code"] != float64(-32601) {
+		t.Errorf("error code = %v, want -32601", jerr["code"])
+	}
+}
+
+func TestControlProtocol_MCPMessage_NotificationsInitialized(t *testing.T) {
+	t.Parallel()
+
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0"))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"method":"notifications/initialized"}}}`)
+
+	// A notification carries no id, so the response must omit it (upstream sends
+	// {"jsonrpc":"2.0","result":{}}).
+	if _, has := mr["id"]; has {
+		t.Errorf("notification response carried an id: %v", mr)
+	}
+	if _, ok := mr["result"].(map[string]any); !ok {
+		t.Errorf("result = %v, want empty object", mr["result"])
+	}
+}
+
+// TestControlProtocol_MCPMessage_StringID verifies that a string JSONRPC id is
+// echoed verbatim (not coerced to a number).
+func TestControlProtocol_MCPMessage_StringID(t *testing.T) {
+	t.Parallel()
+
+	cp, out := newMCPProtocol(t, NewSDKMCPServer("test-srv", "0.1.0"))
+	mr := mcpResponseFromControl(t, cp, out,
+		`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":"abc","method":"initialize"}}}`)
+
+	if mr["id"] != "abc" {
+		t.Errorf("jsonrpc id = %v, want \"abc\"", mr["id"])
+	}
+}
+
+// TestControlProtocol_MCPMessage_Cancel verifies that an in-flight mcp_message
+// handler blocked in a slow tool is cancelled by closeInflight and writes no
+// response — the same cancel contract as hook_callback, exercised on the MCP
+// path so a future special-case in handleMCPMessage cannot silently break it.
+func TestControlProtocol_MCPMessage_Cancel(t *testing.T) {
+	t.Parallel()
+
+	wrote := make(chan struct{}, 1)
+	writeFn := func(context.Context, []byte) error {
+		select {
+		case wrote <- struct{}{}:
+		default:
+		}
+		return nil
+	}
+
+	started := make(chan struct{})
+	done := make(chan struct{})
+	blockTool := Tool("block", "blocks until cancelled", nil, func(ctx context.Context, _ struct{}) (ToolResult, error) {
+		close(started)
+		<-ctx.Done()
+		close(done)
+		return ToolResult{}, ctx.Err()
 	})
 
-	client := gomcp.NewClient(&gomcp.Implementation{Name: "test-client", Version: "1.0.0"}, nil)
-	cs, err := client.Connect(ctx, &gomcp.IOTransport{Reader: cliR, Writer: cliW}, nil)
-	if err != nil {
-		t.Fatalf("client.Connect() error = %v", err)
-	}
-	t.Cleanup(func() { cs.Close() })
+	cp := newControlProtocol(&Options{MCPServers: []MCPServer{NewSDKMCPServer("test-srv", "0.1.0", blockTool)}}, writeFn)
+	cp.registerMCPServers()
 
-	result, err := cs.CallTool(ctx, &gomcp.CallToolParams{Name: "fail"})
-	if err != nil {
-		t.Fatalf("CallTool() unexpected transport error = %v", err)
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"test-srv","message":{"id":1,"method":"tools/call","params":{"name":"block","arguments":{}}}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
 	}
-	if !result.IsError {
-		t.Errorf("IsError = false, want true")
+
+	<-started
+	cp.closeInflight()
+
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		t.Fatal("tool did not unblock after closeInflight")
 	}
-	if len(result.Content) == 0 {
-		t.Fatal("Content is empty, want error message")
-	}
-	tc, ok := result.Content[0].(*gomcp.TextContent)
-	if !ok {
-		t.Fatalf("Content[0] type = %T, want *gomcp.TextContent", result.Content[0])
-	}
-	// CLIConnectionError.Error() wraps the message; just check it's present.
-	const wantSubstr = "intentional tool error"
-	if !strings.Contains(tc.Text, wantSubstr) {
-		t.Errorf("Content[0].Text = %q, want to contain %q", tc.Text, wantSubstr)
+	select {
+	case <-wrote:
+		t.Fatal("cancelled mcp_message handler wrote a response, want none")
+	case <-time.After(100 * time.Millisecond):
 	}
 }

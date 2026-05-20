@@ -17,6 +17,8 @@ package claude
 import (
 	"strconv"
 	"strings"
+
+	"github.com/go-json-experiment/json"
 )
 
 // buildLaunchArgs constructs the argument slice for launching the claude CLI
@@ -37,9 +39,14 @@ import (
 // the initialize handshake completes (see [ClaudeSDKClient.Query]). There is
 // no --print flag.
 //
+// It returns an error only if the --mcp-config payload fails to marshal, which
+// cannot happen for the well-formed maps configForCLI produces; the error path
+// exists so a future MCPServer config that is not JSON-encodable surfaces a
+// CLIConnectionError instead of silently launching without its servers.
+//
 // Mirrors the structure of pkg/codex/client.go:563 buildAppServerArgs.
 // Round-trip parity is tested in client_launch_args_test.go (AC13).
-func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) []string {
+func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]string, error) {
 	args := []string{cliPath}
 
 	if opts == nil {
@@ -105,6 +112,27 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) []st
 		args = append(args, "--max-budget", strconv.FormatFloat(opts.MaxBudgetUSD, 'f', -1, 64))
 	}
 
+	// MCP servers — encoded as a single --mcp-config JSON object keyed by
+	// server name, followed by --strict-mcp-config when requested. Mirrors
+	// upstream subprocess_cli.py:307 (json.dumps({"mcpServers": servers_for_cli}))
+	// and :340 (--strict-mcp-config). In-process servers contribute
+	// {"type":"sdk","name":<name>}; the CLI then routes their tool calls back
+	// over the control protocol.
+	if len(opts.MCPServers) > 0 {
+		servers := make(map[string]any, len(opts.MCPServers))
+		for _, srv := range opts.MCPServers {
+			servers[srv.Name()] = srv.configForCLI()
+		}
+		cfg, err := json.Marshal(map[string]any{"mcpServers": servers})
+		if err != nil {
+			return nil, &CLIConnectionError{Message: "marshal --mcp-config: " + err.Error()}
+		}
+		args = append(args, "--mcp-config", string(cfg))
+	}
+	if opts.StrictMCPConfig {
+		args = append(args, "--strict-mcp-config")
+	}
+
 	// Plugins — local plugins use --plugin-dir (one flag per plugin).
 	// Mirrors upstream Python subprocess_cli.py:
 	//   if plugin["type"] == "local": cmd.extend(["--plugin-dir", plugin["path"]])
@@ -138,5 +166,5 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) []st
 		args = append(args, "--resume", resumeSessionID)
 	}
 
-	return args
+	return args, nil
 }

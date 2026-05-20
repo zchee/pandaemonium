@@ -42,9 +42,11 @@
 // # In-process MCP servers
 //
 // [Options].MCPServers accepts [MCPServer] values created by [NewSDKMCPServer].
-// Each in-process server runs as a goroutine bridged to the CLI subprocess
-// over two independent io.Pipe pairs (one per direction). Closing the owning
-// [ClaudeSDKClient] deterministically closes every registered MCP server.
+// Each server is advertised to the CLI subprocess via the --mcp-config launch
+// flag; the CLI then issues tool calls for in-process servers as
+// control-protocol mcp_message requests, which the SDK routes back to the
+// registered server's tools. Closing the owning [ClaudeSDKClient]
+// deterministically closes every registered MCP server.
 //
 // # Session store
 //

@@ -356,6 +356,15 @@ func (c *ClaudeSDKClient) Close() error {
 		cp.closeInflight()
 	}
 
+	// Close registered MCP servers deterministically (MCPServer.Close contract).
+	// c.opts is set once at construction and never mutated, so reading it here
+	// without a lock is safe.
+	if c.opts != nil {
+		for _, srv := range c.opts.MCPServers {
+			_ = srv.Close()
+		}
+	}
+
 	// Signal and wait for the subprocess.
 	if cmd != nil && cmd.Process != nil {
 		_ = cmd.Process.Signal(os.Interrupt)
@@ -411,6 +420,10 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 	// writer) so the control layer reuses the single write-exclusion discipline.
 	c.cp = newControlProtocol(c.opts, c.writeMessage)
 
+	// Index in-process MCP servers by name before initialize so the CLI's
+	// mcp_message control requests can be routed back to them.
+	c.cp.registerMCPServers()
+
 	if stderrR != nil {
 		go c.drainStderr(stderrR, c.stderrDone)
 	} else {
@@ -447,7 +460,10 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
-	args := buildLaunchArgs(cliPath, c.opts, c.sessionID)
+	args, err := buildLaunchArgs(cliPath, c.opts, c.sessionID)
+	if err != nil {
+		return err
+	}
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	if c.opts != nil && c.opts.Cwd != "" {
 		cmd.Dir = c.opts.Cwd

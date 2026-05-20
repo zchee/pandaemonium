@@ -18,7 +18,6 @@ import (
 	"context"
 	stdjson "encoding/json"
 	"fmt"
-	"io"
 
 	"github.com/google/jsonschema-go/jsonschema"
 	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
@@ -28,9 +27,9 @@ import (
 type MCPServerMode string
 
 const (
-	// MCPServerModeInProcess is an in-process goroutine bridged via two
-	// io.Pipe pairs (one per direction). This is the mode produced by
-	// [NewSDKMCPServer].
+	// MCPServerModeInProcess is an in-process server whose tools are invoked
+	// directly from the control-protocol mcp_message handler (no external
+	// transport). This is the mode produced by [NewSDKMCPServer].
 	MCPServerModeInProcess MCPServerMode = "in_process"
 
 	// MCPServerModeStdio is an external MCP server launched as a subprocess
@@ -127,35 +126,39 @@ type MCPServer interface {
 	// Mode returns how the server communicates with the CLI.
 	Mode() MCPServerMode
 
+	// configForCLI returns the per-server object that goes under the
+	// "mcpServers" key of the --mcp-config flag. In-process servers return
+	// {"type":"sdk","name":<name>} so the CLI knows to route their tool calls
+	// back over the control protocol; external servers return their stdio/sse
+	// configuration. Mirrors upstream subprocess_cli.py's servers_for_cli, which
+	// strips the in-process "instance" and passes the rest through.
+	configForCLI() map[string]any
+
 	// Close shuts the server down and releases any associated resources.
 	// Called deterministically by the owning [ClaudeSDKClient.Close].
 	Close() error
 }
 
-// inProcessMCPServer is the in-process MCPServer implementation backed by
-// github.com/modelcontextprotocol/go-sdk. The server is started via the
-// unexported start method and bridges to the claude CLI subprocess through a
-// pair of io.Pipe connections (one per direction).
+// inProcessMCPServer is the in-process MCPServer implementation. Its tools are
+// invoked directly from the control-protocol mcp_message handler: the CLI sends
+// JSONRPC requests (initialize / tools/list / tools/call) as control requests,
+// and the handler routes them against this server's tools without any external
+// transport. This mirrors upstream Query._handle_sdk_mcp_request, which routes
+// JSONRPC methods manually rather than running a streaming MCP server.
 type inProcessMCPServer struct {
 	name    string
 	version string
 	tools   []ToolDefinition
-
-	// cancel stops the serve goroutine; nil before start is called.
-	cancel context.CancelCauseFunc
-
-	// done is closed when the serve goroutine exits; nil before start.
-	done chan struct{}
 }
 
 // NewSDKMCPServer creates an in-process [MCPServer] that exposes the given
-// tools to the claude CLI via a goroutine bridge over two io.Pipe pairs.
+// tools to the claude CLI over the control protocol.
 //
-// The server is backed by github.com/modelcontextprotocol/go-sdk (v1.6.0).
-// It is connected to the CLI subprocess by [ClaudeSDKClient] at session start
-// and closed deterministically when the client closes (AC-i4).
-//
-// Register the returned MCPServer via [Options].MCPServers:
+// Register the returned MCPServer via [Options].MCPServers; the owning
+// [ClaudeSDKClient] advertises it to the CLI via --mcp-config at launch and
+// routes the CLI's tool calls back to it through the control protocol. The
+// server holds no OS resources, so Close is a no-op kept for interface
+// symmetry.
 //
 //	opts := &claude.Options{
 //	    MCPServers: []claude.MCPServer{
@@ -174,77 +177,96 @@ func (s *inProcessMCPServer) Name() string        { return s.name }
 func (s *inProcessMCPServer) Version() string     { return s.version }
 func (s *inProcessMCPServer) Mode() MCPServerMode { return MCPServerModeInProcess }
 
-// start builds the go-sdk MCP server, registers all tools, creates two io.Pipe
-// pairs for bidirectional communication, and launches the serve goroutine.
-//
-// It returns the CLI-side pipe ends: cliR for the CLI to read server messages
-// from, and cliW for the CLI to write client messages to. The goroutine owns
-// the server-side ends and closes them when done.
-//
-// Calling start more than once on the same instance is not supported.
-func (s *inProcessMCPServer) start(ctx context.Context) (cliR io.ReadCloser, cliW io.WriteCloser, err error) {
-	srv := gomcp.NewServer(
-		&gomcp.Implementation{Name: s.name, Version: s.version},
-		nil,
-	)
-
-	for _, def := range s.tools {
-		tool := &gomcp.Tool{
-			Name:        def.name,
-			Description: def.description,
-		}
-		if def.schema != nil {
-			raw, merr := stdjson.Marshal(def.schema)
-			if merr != nil {
-				return nil, nil, &CLIConnectionError{
-					Message: fmt.Sprintf("marshal input schema for MCP tool %q: %v", def.name, merr),
-				}
-			}
-			tool.InputSchema = stdjson.RawMessage(raw)
-		} else {
-			tool.InputSchema = stdjson.RawMessage(`{"type":"object"}`)
-		}
-		if def.mcpHandler != nil {
-			srv.AddTool(tool, def.mcpHandler)
-		}
-	}
-
-	// Create two io.Pipe pairs for the bidirectional bridge:
-	//   r1, w1: CLI writes to w1 → server reads from r1
-	//   r2, w2: server writes to w2 → CLI reads from r2
-	r1, w1 := io.Pipe()
-	r2, w2 := io.Pipe()
-
-	transport := &gomcp.IOTransport{
-		Reader: r1,
-		Writer: w2,
-	}
-
-	serveCtx, cancel := context.WithCancelCause(ctx)
-	done := make(chan struct{})
-
-	go func() {
-		defer close(done)
-		defer r1.Close()
-		defer w2.Close()
-		_ = srv.Run(serveCtx, transport)
-	}()
-
-	s.cancel = cancel
-	s.done = done
-
-	return r2, w1, nil
+// configForCLI returns {"type":"sdk","name":<name>}: the wire shape an SDK
+// (in-process) server takes under --mcp-config's mcpServers map, matching
+// upstream's sdk_config (everything except the in-process "instance").
+func (s *inProcessMCPServer) configForCLI() map[string]any {
+	return map[string]any{"type": "sdk", "name": s.name}
 }
 
-// Close stops the serve goroutine and waits for it to exit.
-// Idempotent: subsequent calls return nil immediately.
-func (s *inProcessMCPServer) Close() error {
-	if s.cancel != nil {
-		s.cancel(nil)
-		if s.done != nil {
-			<-s.done
-		}
-		s.cancel = nil
+// Close releases the server's resources. The in-process server holds none, so
+// this is a no-op; it exists to satisfy the [MCPServer] interface and is called
+// deterministically by [ClaudeSDKClient.Close].
+func (s *inProcessMCPServer) Close() error { return nil }
+
+// serverInfo returns the MCP serverInfo object for an initialize response,
+// defaulting an empty version to "1.0.0" as upstream does.
+func (s *inProcessMCPServer) serverInfo() map[string]any {
+	version := s.version
+	if version == "" {
+		version = "1.0.0"
 	}
-	return nil
+	return map[string]any{"name": s.name, "version": version}
+}
+
+// listTools returns the tools/list JSONRPC result object for this server: a
+// {"tools":[...]} map whose entries carry name, description, and inputSchema
+// (defaulting to {"type":"object"} when a tool declares no schema), matching
+// upstream's tools_data construction.
+func (s *inProcessMCPServer) listTools() (map[string]any, error) {
+	tools := make([]map[string]any, 0, len(s.tools))
+	for _, def := range s.tools {
+		var schema any = map[string]any{"type": "object"}
+		if def.schema != nil {
+			raw, err := stdjson.Marshal(def.schema)
+			if err != nil {
+				return nil, fmt.Errorf("marshal input schema for MCP tool %q: %w", def.name, err)
+			}
+			schema = stdjson.RawMessage(raw)
+		}
+		tools = append(tools, map[string]any{
+			"name":        def.name,
+			"description": def.description,
+			"inputSchema": schema,
+		})
+	}
+	return map[string]any{"tools": tools}, nil
+}
+
+// callTool invokes the named tool with the given raw JSON arguments and returns
+// the tools/call JSONRPC result object {"content":[...], "isError"?:true}.
+//
+// Tool results are converted following upstream: text content passes through;
+// the in-process Tool constructor only ever emits TextContent, so other content
+// types are not produced here (the conversion loop is shaped to match upstream
+// so future image/resource support slots in). A missing tool is a JSONRPC
+// method-not-found style error returned to the caller as a Go error so the
+// handler can map it to the -32601/-32603 envelope.
+func (s *inProcessMCPServer) callTool(ctx context.Context, name string, arguments stdjson.RawMessage) (map[string]any, error) {
+	var def *ToolDefinition
+	for i := range s.tools {
+		if s.tools[i].name == name {
+			def = &s.tools[i]
+			break
+		}
+	}
+	if def == nil || def.mcpHandler == nil {
+		return nil, fmt.Errorf("tool %q not found", name)
+	}
+
+	req := &gomcp.CallToolRequest{
+		Params: &gomcp.CallToolParamsRaw{
+			Name:      name,
+			Arguments: arguments,
+		},
+	}
+	result, err := def.mcpHandler(ctx, req)
+	if err != nil {
+		return nil, err
+	}
+
+	content := make([]map[string]any, 0, len(result.Content))
+	for _, item := range result.Content {
+		if tc, ok := item.(*gomcp.TextContent); ok {
+			content = append(content, map[string]any{"type": "text", "text": tc.Text})
+		}
+		// Non-text content is not emitted by the in-process Tool constructor;
+		// match upstream by silently skipping unsupported content types.
+	}
+
+	out := map[string]any{"content": content}
+	if result.IsError {
+		out["isError"] = true
+	}
+	return out, nil
 }

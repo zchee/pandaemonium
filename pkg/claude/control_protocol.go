@@ -18,6 +18,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"os"
@@ -485,8 +486,8 @@ func (cp *controlProtocol) cancelControlRequest(line []byte) {
 // Query._handle_control_request: can_use_tool invokes the CanUseTool callback
 // and replies with a permission-result object; hook_callback invokes the Go
 // hook registered under the request's callback_id and replies with that hook's
-// output; any other subtype (including mcp_message until M5) replies with an
-// error.
+// output; mcp_message routes a JSONRPC request to the named in-process MCP
+// server; any other subtype replies with an error.
 //
 // If ctx is cancelled (via control_cancel_request) at any await point, no
 // response is written: the CLI has already abandoned the request.
@@ -519,9 +520,9 @@ func (cp *controlProtocol) dispatchControlSubtype(ctx context.Context, subtype s
 		return cp.handleCanUseTool(ctx, reqBody)
 	case "hook_callback":
 		return cp.handleHookCallback(ctx, reqBody)
+	case "mcp_message":
+		return cp.handleMCPMessage(ctx, reqBody)
 	default:
-		// Includes mcp_message, which is wired in M5. Until then, an unsupported
-		// subtype is an error response, matching upstream.
 		return nil, fmt.Errorf("unsupported control request subtype: %s", subtype)
 	}
 }
@@ -619,6 +620,116 @@ func hookDecisionWire(d HookDecision) map[string]any {
 		out["hookSpecificOutput"] = hso
 	}
 	return out
+}
+
+// registerMCPServers indexes the in-process MCP servers from opts by name so
+// the mcp_message handler can route to them. It is called once at session start
+// before initialize, mirroring how hook callbacks are registered before the CLI
+// can reference them. Non-in-process servers (stdio/sse) are handled entirely
+// by the CLI and need no SDK-side routing entry.
+func (cp *controlProtocol) registerMCPServers() {
+	if cp.opts == nil {
+		return
+	}
+	for _, srv := range cp.opts.MCPServers {
+		if ip, ok := srv.(*inProcessMCPServer); ok {
+			cp.mcpServers[ip.name] = ip
+		}
+	}
+}
+
+// handleMCPMessage bridges a JSONRPC request from the CLI to the named
+// in-process MCP server and returns the control_response inner object
+// {"mcp_response": <jsonrpc-response>}. It mirrors upstream
+// Query._handle_sdk_mcp_request: the JSONRPC methods initialize, tools/list,
+// tools/call, and notifications/initialized are routed manually; an unknown
+// server or method yields a JSONRPC -32601 error and a handler failure a -32603
+// error, both carried inside the (successful) control_response envelope.
+func (cp *controlProtocol) handleMCPMessage(ctx context.Context, reqBody jsontext.Value) (map[string]any, error) {
+	var req struct {
+		ServerName string `json:"server_name"`
+		Message    struct {
+			ID     jsontext.Value `json:"id"`
+			Method string         `json:"method"`
+			Params struct {
+				Name      string             `json:"name"`
+				Arguments stdjson.RawMessage `json:"arguments"`
+			} `json:"params"`
+		} `json:"message"`
+	}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		return nil, fmt.Errorf("decode mcp_message request: %w", err)
+	}
+	if req.ServerName == "" {
+		return nil, errors.New("missing server_name for MCP request")
+	}
+
+	id := jsonrpcID(req.Message.ID)
+	srv, ok := cp.mcpServers[req.ServerName]
+	if !ok {
+		return mcpResponse(jsonrpcError(id, -32601, fmt.Sprintf("Server '%s' not found", req.ServerName))), nil
+	}
+
+	switch req.Message.Method {
+	case "initialize":
+		return mcpResponse(map[string]any{
+			"jsonrpc": "2.0",
+			"id":      id,
+			"result": map[string]any{
+				"protocolVersion": "2024-11-05",
+				"capabilities":    map[string]any{"tools": map[string]any{}},
+				"serverInfo":      srv.serverInfo(),
+			},
+		}), nil
+
+	case "tools/list":
+		result, err := srv.listTools()
+		if err != nil {
+			return mcpResponse(jsonrpcError(id, -32603, err.Error())), nil
+		}
+		return mcpResponse(map[string]any{"jsonrpc": "2.0", "id": id, "result": result}), nil
+
+	case "tools/call":
+		result, err := srv.callTool(ctx, req.Message.Params.Name, req.Message.Params.Arguments)
+		if err != nil {
+			return mcpResponse(jsonrpcError(id, -32603, err.Error())), nil
+		}
+		return mcpResponse(map[string]any{"jsonrpc": "2.0", "id": id, "result": result}), nil
+
+	case "notifications/initialized":
+		// A notification has no id; acknowledge with an empty result, matching
+		// upstream's literal {"jsonrpc":"2.0","result":{}}.
+		return mcpResponse(map[string]any{"jsonrpc": "2.0", "result": map[string]any{}}), nil
+
+	default:
+		return mcpResponse(jsonrpcError(id, -32601, fmt.Sprintf("Method '%s' not found", req.Message.Method))), nil
+	}
+}
+
+// jsonrpcID normalizes a possibly-absent JSONRPC id to an any value: a present
+// id is returned as raw JSON (so a numeric or string id round-trips verbatim),
+// and an absent id becomes nil (serialized as JSON null), matching upstream's
+// message.get("id").
+func jsonrpcID(id jsontext.Value) any {
+	if len(id) == 0 {
+		return nil
+	}
+	return id
+}
+
+// jsonrpcError builds a JSONRPC error response object echoing id.
+func jsonrpcError(id any, code int, message string) map[string]any {
+	return map[string]any{
+		"jsonrpc": "2.0",
+		"id":      id,
+		"error":   map[string]any{"code": code, "message": message},
+	}
+}
+
+// mcpResponse wraps a JSONRPC response object as the control_response inner
+// object the CLI expects for an mcp_message reply.
+func mcpResponse(jsonrpc map[string]any) map[string]any {
+	return map[string]any{"mcp_response": jsonrpc}
 }
 
 // writeControlSuccess writes a success control_response carrying responseData

@@ -619,15 +619,15 @@ func TestControlProtocol_HandleCanUseTool_NoCallback(t *testing.T) {
 	}
 }
 
-// TestControlProtocol_HandleUnsupportedSubtype verifies that an unknown subtype
-// (e.g. mcp_message, wired in M5) produces an error response.
+// TestControlProtocol_HandleUnsupportedSubtype verifies that a subtype the SDK
+// does not handle inbound produces an error response naming the subtype.
 func TestControlProtocol_HandleUnsupportedSubtype(t *testing.T) {
 	t.Parallel()
 
 	writeFn, out := collectWriter(1)
 	cp := newControlProtocol(&Options{}, writeFn)
 
-	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"mcp_message","server_name":"x","message":{}}}`)
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"set_permission_mode","mode":"plan"}}`)
 	if _, err := cp.route(t.Context(), line); err != nil {
 		t.Fatalf("route error = %v", err)
 	}
@@ -635,8 +635,8 @@ func TestControlProtocol_HandleUnsupportedSubtype(t *testing.T) {
 	if subtype != "error" {
 		t.Fatalf("subtype = %q, want error", subtype)
 	}
-	if !strings.Contains(errMsg, "mcp_message") {
-		t.Errorf("error = %q, want to mention mcp_message", errMsg)
+	if !strings.Contains(errMsg, "set_permission_mode") {
+		t.Errorf("error = %q, want to mention set_permission_mode", errMsg)
 	}
 }
 
