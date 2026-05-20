@@ -269,7 +269,7 @@ func TestPublicClientRoutingAndRetryPort(t *testing.T) {
 func TestRetryableErrorClassificationPort(t *testing.T) {
 	t.Parallel()
 
-	_, err := codex.RetryOnOverload[string](t.Context(), codex.RetryConfig{MaxAttempts: 1}, func() (string, error) {
+	_, err := codex.RetryOnOverload(t.Context(), codex.RetryConfig{MaxAttempts: 1}, func() (string, error) {
 		return "", context.Canceled
 	})
 	if !errors.Is(err, context.Canceled) {

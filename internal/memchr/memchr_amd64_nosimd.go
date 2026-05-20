@@ -22,7 +22,7 @@ package memchr
 // dispatch_swar_default.go, whose tag's `(amd64 && !goexperiment.simd)`
 // disjunct covers exactly this configuration. The SWAR routines that the
 // dispatch_swar_default.go init() binds to live in memchr_swar_impl.go,
-// which has no build tag and is therefore compiled here too.
+// whose matching build tag includes this slot.
 //
 // Keeping this anchor file means a future contributor adding a non-SWAR-
 // but-non-SIMD amd64 path (e.g. AVO-generated SSE2 without the

@@ -16,7 +16,6 @@ package codex
 
 import (
 	"context"
-	"fmt"
 	"maps"
 	"slices"
 
@@ -70,10 +69,6 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 		}
 	}
 
-	//lint:ignore SA4031 defensive guard against future loop edits; AC-3.1
-	if completed == nil {
-		return RunResult{}, fmt.Errorf("turn %s ended without TurnCompleted", turnID)
-	}
 	if completed.Turn.Status == TurnStatusFailed {
 		return RunResult{}, &TurnFailedError{TurnID: turnID, Status: completed.Turn.Status, Err: completed.Turn.Error}
 	}

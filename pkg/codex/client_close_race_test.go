@@ -52,7 +52,10 @@ func TestCloseDuringConcurrentWrite(t *testing.T) {
 	go client.readLoop(ctx, client.loadTransport(), client.readDone)
 
 	// Responder: echo each request back as a successful response.
+	responderErr := make(chan error, 1)
+	responderDone := make(chan struct{})
 	go func() {
+		defer close(responderDone)
 		defer stdinR.Close()
 		scanner := bufio.NewScanner(stdinR)
 		for scanner.Scan() {
@@ -71,6 +74,9 @@ func TestCloseDuringConcurrentWrite(t *testing.T) {
 			if _, err := stdoutW.Write(append(raw, '\n')); err != nil {
 				return
 			}
+		}
+		if err := scanner.Err(); err != nil && !errors.Is(err, io.ErrClosedPipe) {
+			responderErr <- err
 		}
 	}()
 
@@ -92,6 +98,18 @@ func TestCloseDuringConcurrentWrite(t *testing.T) {
 	// Drain stdoutW so any writes after stdoutCloser.Close() don't block responder.
 	_ = stdoutW.Close()
 	wg.Wait()
+	responderExit := time.NewTimer(5 * time.Second)
+	defer responderExit.Stop()
+	select {
+	case <-responderDone:
+	case <-responderExit.C:
+		t.Fatal("timed out waiting for responder goroutine to exit")
+	}
+	select {
+	case err := <-responderErr:
+		t.Errorf("responder scanner error: %v", err)
+	default:
+	}
 
 	for i, err := range errs {
 		if err == nil {

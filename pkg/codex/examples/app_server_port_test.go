@@ -386,8 +386,8 @@ func handleMockTurnStart(writer *bufio.Writer, id string, params map[string]any)
 		return errors.New("turn/start input is empty")
 	}
 	text, _ := inputItems[0]["text"].(string)
-	switch {
-	case text == "run lifecycle turn":
+	switch text {
+	case "run lifecycle turn":
 		if err := requireInputTypes(params, "text"); err != nil {
 			return err
 		}
@@ -396,7 +396,7 @@ func handleMockTurnStart(writer *bufio.Writer, id string, params map[string]any)
 		writeJSON(writer, codex.Object{"method": codex.NotificationMethodThreadTokenUsageUpdated, "params": codex.Object{"threadId": "thr_examples", "turnId": "turn_run", "tokenUsage": codex.Object{"last": tokenUsage(1), "total": tokenUsage(6)}}})
 		writeJSON(writer, codex.Object{"method": codex.NotificationMethodItemCompleted, "params": codex.Object{"threadId": "thr_examples", "turnId": "turn_run", "item": finalAgentMessage("final lifecycle text")}})
 		writeJSON(writer, turnCompletedNotification("thr_examples", "turn_run", "completed", "final lifecycle text"))
-	case text == "stream multimodal turn":
+	case "stream multimodal turn":
 		if err := requireInputTypes(params, "text", "image", "localImage", "skill"); err != nil {
 			return err
 		}
@@ -404,12 +404,12 @@ func handleMockTurnStart(writer *bufio.Writer, id string, params map[string]any)
 		writeJSON(writer, codex.Object{"method": codex.NotificationMethodItemAgentMessageDelta, "params": codex.Object{"threadId": "thr_examples", "turnId": "turn_stream", "delta": "streamed "}})
 		writeJSON(writer, codex.Object{"method": codex.NotificationMethodItemAgentMessageDelta, "params": codex.Object{"threadId": "thr_examples", "turnId": "turn_stream", "delta": "text"}})
 		writeJSON(writer, turnCompletedNotification("thr_examples", "turn_stream", "completed", "streamed text"))
-	case text == "wait for steer":
+	case "wait for steer":
 		if err := requireInputTypes(params, "text"); err != nil {
 			return err
 		}
 		writeJSON(writer, codex.Object{"id": id, "result": codex.Object{"turn": turnPayload("turn_steer", "inProgress", nil)}})
-	case text == "wait for interrupt":
+	case "wait for interrupt":
 		if err := requireInputTypes(params, "text"); err != nil {
 			return err
 		}

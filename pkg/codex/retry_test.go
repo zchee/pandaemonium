@@ -39,7 +39,7 @@ func TestRetryRejectsBadJitter(t *testing.T) {
 
 	// JitterRatio > 1 must return a validation error without calling op.
 	called := false
-	_, err := RetryOnOverload[int](ctx, RetryConfig{JitterRatio: 1.01}, func() (int, error) {
+	_, err := RetryOnOverload(ctx, RetryConfig{JitterRatio: 1.01}, func() (int, error) {
 		called = true
 		return 0, nil
 	})
@@ -52,7 +52,7 @@ func TestRetryRejectsBadJitter(t *testing.T) {
 
 	// JitterRatio < 0 is clamped to 0 (jitter disabled) — op IS called, no error.
 	called = false
-	_, err = RetryOnOverload[int](ctx, RetryConfig{JitterRatio: -0.5}, func() (int, error) {
+	_, err = RetryOnOverload(ctx, RetryConfig{JitterRatio: -0.5}, func() (int, error) {
 		called = true
 		return 7, nil
 	})
@@ -64,13 +64,13 @@ func TestRetryRejectsBadJitter(t *testing.T) {
 	}
 
 	// JitterRatio = 0 triggers the default (0.2) — succeeds.
-	_, err = RetryOnOverload[int](ctx, RetryConfig{JitterRatio: 0}, op)
+	_, err = RetryOnOverload(ctx, RetryConfig{JitterRatio: 0}, op)
 	if err != nil {
 		t.Fatalf("RetryOnOverload(JitterRatio=0) err = %v, want nil", err)
 	}
 
 	// JitterRatio = 1 is the boundary — succeeds.
-	_, err = RetryOnOverload[int](ctx, RetryConfig{JitterRatio: 1}, op)
+	_, err = RetryOnOverload(ctx, RetryConfig{JitterRatio: 1}, op)
 	if err != nil {
 		t.Fatalf("RetryOnOverload(JitterRatio=1) err = %v, want nil", err)
 	}
@@ -89,7 +89,7 @@ func TestRetryJitterMeanAtCap(t *testing.T) {
 
 	var attempts int
 	busy := busyError()
-	_, err := RetryOnOverload[int](ctx, RetryConfig{
+	_, err := RetryOnOverload(ctx, RetryConfig{
 		MaxAttempts:  maxAttempts,
 		InitialDelay: time.Nanosecond,
 		MaxDelay:     time.Nanosecond,

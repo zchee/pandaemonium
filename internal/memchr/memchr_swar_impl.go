@@ -12,14 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// This file deliberately carries NO build tag. Plan AC-X86-4 originally
-// specified a narrower tag ("(!amd64 && !arm64) || force_swar || (amd64 &&
-// !goexperiment.simd)") that excluded the amd64-with-SIMD and arm64 slots;
-// broadening here avoids duplicating the six SWAR bodies into a second file
-// just to satisfy two non-overlapping tag sets. On SIMD/NEON slots the
-// swar* identifiers are unreferenced (memchr_amd64.go / memchr_arm64.go
-// bind the *Impl vars), and the Go linker dead-strips unreferenced
-// package-private code so there is no runtime or binary-size cost.
+//go:build (!amd64 && !arm64) || force_swar || (amd64 && !goexperiment.simd)
+
+// This file carries the same build tag as dispatch_swar_default.go, because
+// these SWAR routines are implementation details of the SWAR-dispatched
+// backend. SIMD/NEON slots bind the *Impl vars in memchr_amd64.go or
+// memchr_arm64.go instead, so excluding these bodies from those slots keeps the
+// active package free of intentionally unreferenced fallback functions.
 //
 // The classic "has-zero-byte" trick (Mycroft 1987; popularized by Hacker's
 // Delight §6-1 and Stanford bit-twiddling-hacks):
