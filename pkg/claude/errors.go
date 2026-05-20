@@ -88,3 +88,24 @@ func (e *CLIJSONDecodeError) Error() string {
 }
 
 func (*CLIJSONDecodeError) isCLIError() {}
+
+// MessageParseError is returned when a line from the claude CLI subprocess is
+// valid JSON but cannot be parsed into a known [Message] — for example, a
+// message object missing the required "type" discriminator. It is distinct from
+// [CLIJSONDecodeError], which signals malformed JSON.
+//
+// Mirrors upstream MessageParseError (claude-agent-sdk-python _errors.py): the
+// offending decoded payload is preserved in Data for inspection.
+type MessageParseError struct {
+	// Message describes why the payload could not be parsed.
+	Message string
+
+	// Data is the raw JSON bytes of the payload that failed to parse.
+	Data []byte
+}
+
+func (e *MessageParseError) Error() string {
+	return fmt.Sprintf("claude CLI message parse error: %s: %q", e.Message, e.Data)
+}
+
+func (*MessageParseError) isCLIError() {}

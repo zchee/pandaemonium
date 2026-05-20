@@ -48,7 +48,8 @@ func (b rawContentBlock) blockRaw() jsontext.Value { return b.raw }
 // should be skipped by the caller. Unknown top-level type values return a
 // [rawMessage] that preserves the original bytes for forward compatibility.
 // Malformed JSON returns a [CLIJSONDecodeError] with the offending line and
-// byte offset.
+// byte offset; a decodable payload missing the "type" field returns a
+// [MessageParseError].
 //
 // The claude CLI streams assistant and user messages with a nested "message"
 // field that contains the Anthropic Messages API object; parseMessage unwraps
@@ -67,6 +68,15 @@ func parseMessage(line []byte) (Message, error) {
 	}
 	if err := json.Unmarshal(data, &env); err != nil {
 		return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+	}
+
+	// A decodable payload with no "type" discriminator cannot be routed to a
+	// message kind. Upstream raises MessageParseError("Message missing 'type'
+	// field") here; mirror that rather than silently wrapping it as a rawMessage
+	// (an unknown but present type still becomes rawMessage below, preserving
+	// forward compatibility).
+	if env.Type == "" {
+		return nil, &MessageParseError{Message: "message missing 'type' field", Data: append([]byte(nil), data...)}
 	}
 
 	switch env.Type {

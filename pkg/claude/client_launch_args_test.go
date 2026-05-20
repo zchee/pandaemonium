@@ -111,12 +111,12 @@ func TestBuildLaunchArgs(t *testing.T) {
 		"success: max budget flag appears when positive": {
 			cliPath: fakeCLI,
 			opts:    &Options{MaxBudgetUSD: 1.5},
-			wantIn:  []string{"--max-budget", "1.5"},
+			wantIn:  []string{"--max-budget-usd", "1.5"},
 		},
 		"success: zero max budget omits flag": {
 			cliPath: fakeCLI,
 			opts:    &Options{MaxBudgetUSD: 0},
-			wantOut: []string{"--max-budget"},
+			wantOut: []string{"--max-budget-usd"},
 		},
 		"success: verbose flag always present with explicit true": {
 			cliPath: fakeCLI,
@@ -171,6 +171,32 @@ func TestBuildLaunchArgs(t *testing.T) {
 				}
 			}
 		})
+	}
+}
+
+// TestBuildLaunchArgs_SystemPromptAlwaysEmitted verifies that --system-prompt is
+// emitted even when Options.SystemPrompt is empty, with the empty string as its
+// attached value, matching upstream subprocess_cli.py:228. The check is an
+// index-pair (not substring) so a flag emitted without its value would fail.
+func TestBuildLaunchArgs_SystemPromptAlwaysEmitted(t *testing.T) {
+	t.Parallel()
+
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{}, "")
+	found := false
+	for i, a := range args {
+		if a == "--system-prompt" {
+			if i+1 >= len(args) {
+				t.Fatalf("--system-prompt is the last arg with no value: %v", args)
+			}
+			if args[i+1] != "" {
+				t.Errorf("--system-prompt value = %q, want empty string", args[i+1])
+			}
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Errorf("--system-prompt not emitted for empty SystemPrompt: %v", args)
 	}
 }
 

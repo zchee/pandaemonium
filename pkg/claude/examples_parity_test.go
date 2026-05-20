@@ -423,7 +423,8 @@ func TestExampleParity_ToolsOption_LaunchArgs(t *testing.T) {
 // ── TestExampleParity_MaxBudgetUSD_LaunchArgs ─────────────────────────────────
 
 // TestExampleParity_MaxBudgetUSD_LaunchArgs verifies that Options.MaxBudgetUSD
-// round-trips into the --max-budget flag. Mirrors examples/max_budget_usd.py.
+// round-trips into the --max-budget-usd flag. Mirrors examples/max_budget_usd.py
+// and upstream subprocess_cli.py:263.
 func TestExampleParity_MaxBudgetUSD_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
@@ -432,13 +433,13 @@ func TestExampleParity_MaxBudgetUSD_LaunchArgs(t *testing.T) {
 
 	found := false
 	for i, a := range args {
-		if a == "--max-budget" && i+1 < len(args) && args[i+1] == "0.01" {
+		if a == "--max-budget-usd" && i+1 < len(args) && args[i+1] == "0.01" {
 			found = true
 			break
 		}
 	}
 	if !found {
-		t.Errorf("buildLaunchArgs args = %v; want --max-budget 0.01", args)
+		t.Errorf("buildLaunchArgs args = %v; want --max-budget-usd 0.01", args)
 	}
 }
 

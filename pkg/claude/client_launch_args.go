@@ -82,10 +82,10 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--model", opts.Model)
 	}
 
-	// System prompt.
-	if opts.SystemPrompt != "" {
-		args = append(args, "--system-prompt", opts.SystemPrompt)
-	}
+	// System prompt — always emitted, even when empty, matching upstream
+	// subprocess_cli.py:228 (which sends --system-prompt "" when unset). The
+	// SystemPrompt Preset/File variants are added in a later milestone.
+	args = append(args, "--system-prompt", opts.SystemPrompt)
 
 	// Allowed tools.
 	for _, tool := range opts.AllowedTools {
@@ -109,7 +109,7 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 
 	// Max spend budget.
 	if opts.MaxBudgetUSD > 0 {
-		args = append(args, "--max-budget", strconv.FormatFloat(opts.MaxBudgetUSD, 'f', -1, 64))
+		args = append(args, "--max-budget-usd", strconv.FormatFloat(opts.MaxBudgetUSD, 'f', -1, 64))
 	}
 
 	// MCP servers — encoded as a single --mcp-config JSON object keyed by

@@ -112,6 +112,38 @@ func TestParseMessage_InvalidJSON_ReturnsCLIJSONDecodeError(t *testing.T) {
 	}
 }
 
+// TestParseMessage_MissingType_ReturnsMessageParseError verifies that a valid
+// JSON object lacking a "type" discriminator yields a *MessageParseError (not a
+// rawMessage and not a decode error), mirroring upstream's "Message missing
+// 'type' field". An unknown-but-present type still becomes a rawMessage (covered
+// by TestParseMessage_TypeDiscrimination).
+func TestParseMessage_MissingType_ReturnsMessageParseError(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"error: object with no type field":     `{"session_id":"s1","data":"x"}`,
+		"error: object with empty type string": `{"type":"","session_id":"s1"}`,
+	}
+
+	for name, line := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, err := parseMessage([]byte(line + "\n"))
+			if err == nil {
+				t.Fatal("parseMessage() = nil error, want *MessageParseError")
+			}
+			var parseErr *MessageParseError
+			if !errors.As(err, &parseErr) {
+				t.Fatalf("error type = %T, want *MessageParseError", err)
+			}
+			if len(parseErr.Data) == 0 {
+				t.Error("MessageParseError.Data is empty, want the offending payload")
+			}
+		})
+	}
+}
+
 // ── AssistantMessage parsing ─────────────────────────────────────────────────
 
 func TestParseMessage_AssistantMessage_TextContent(t *testing.T) {
