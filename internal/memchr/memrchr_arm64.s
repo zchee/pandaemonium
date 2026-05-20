@@ -68,12 +68,15 @@ mr_chunk_loop:
 	VLD1  (R12), [V1.B16, V2.B16]
 	VCMEQ V0.B16, V1.B16, V3.B16
 	VCMEQ V0.B16, V2.B16, V4.B16
+	VORR  V4.B16, V3.B16, V6.B16
+	VADDP V6.D2, V6.D2, V6.D2
+	VMOV  V6.D[0], R6
+	CBZ   R6, mr_chunk_no_match
 	VAND  V5.B16, V3.B16, V3.B16
 	VAND  V5.B16, V4.B16, V4.B16
 	VADDP V4.B16, V3.B16, V6.B16
 	VADDP V6.B16, V6.B16, V6.B16
 	VMOV  V6.D[0], R6
-	CBZ   R6, mr_chunk_no_match
 
 	// LAST match: lane = (63 - CLZ) / 2.
 	CLZ  R6, R6

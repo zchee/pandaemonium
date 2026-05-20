@@ -78,12 +78,15 @@ m2_chunk_loop:
 	VCMEQ  V0.B16, V2.B16, V4.B16
 	VCMEQ  V7.B16, V2.B16, V8.B16
 	VORR   V8.B16, V4.B16, V4.B16 // V4 = (V2 == n1) | (V2 == n2)
+	VORR   V4.B16, V3.B16, V6.B16
+	VADDP  V6.D2, V6.D2, V6.D2
+	VMOV   V6.D[0], R6
+	CBZ    R6, m2_chunk_loop
 	VAND   V5.B16, V3.B16, V3.B16
 	VAND   V5.B16, V4.B16, V4.B16
 	VADDP  V4.B16, V3.B16, V6.B16
 	VADDP  V6.B16, V6.B16, V6.B16
 	VMOV   V6.D[0], R6
-	CBZ    R6, m2_chunk_loop
 
 	RBIT R6, R6
 	CLZ  R6, R6
