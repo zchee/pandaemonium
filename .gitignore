@@ -73,3 +73,6 @@ pkg/codex/*.md
 
 # benchmark result
 pkg/toml/benchmark/*.txt
+
+# binaries
+/bin

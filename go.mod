@@ -3,26 +3,33 @@ module github.com/zchee/pandaemonium
 go 1.27
 
 require (
-	github.com/BurntSushi/toml v1.6.0
 	github.com/coder/websocket v1.8.14
 	github.com/go-json-experiment/json v0.0.0-20260520185125-572e7c383686
 	github.com/google/go-cmp v0.7.0
 	github.com/google/jsonschema-go v0.4.3
-	github.com/pelletier/go-toml/v2 v2.3.1
 	mvdan.cc/gofumpt v0.10.0
 )
 
 tool (
 	github.com/klauspost/asmfmt/cmd/asmfmt
+	github.com/toml-lang/toml-test/v2/cmd/toml-test
 	golang.org/x/perf/cmd/benchstat
 )
 
 require (
 	github.com/klauspost/asmfmt v1.3.2 // indirect
+	github.com/toml-lang/toml-test/v2 v2.2.0 // indirect
 	golang.org/x/tools v0.45.0 // indirect
 )
 
 require (
+	github.com/BurntSushi/toml v1.6.0 // indirect
 	github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 // indirect
+	github.com/rivo/uniseg v0.4.7 // indirect
 	golang.org/x/perf v0.0.0-20260512194132-3cf34090a3db // indirect
+	zgo.at/jfmt v0.0.0-20250703165133-d1b6c356823b // indirect
+	zgo.at/runewidth v0.1.0 // indirect
+	zgo.at/termtext v1.5.0 // indirect
+	zgo.at/zli v0.0.0-20251226224229-7bb9a5cf3265 // indirect
+	zgo.at/zstd v0.0.0-20240531161000-9840c0c39ff5 // indirect
 )
