@@ -2,8 +2,8 @@ github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66 h1:siNQlUMcF
 github.com/aclements/go-moremath v0.0.0-20241023150245-c8bbc672ef66/go.mod h1:FDw7qicTbJ1y1SZcNnOvym2BogPdC3lY9Z1iUM4MVhw=
 github.com/coder/websocket v1.8.14 h1:9L0p0iKiNOibykf283eHkKUHHrpG7f65OE3BhhO7v9g=
 github.com/coder/websocket v1.8.14/go.mod h1:NX3SzP+inril6yawo5CQXx8+fk145lPDC6pumgx0mVg=
-github.com/go-json-experiment/json v0.0.0-20260505212615-e40f80bf6836 h1:5KGUhXZFTN1PrCY4zUZLe1J8n7uBNmPDbCLCn78EbPQ=
-github.com/go-json-experiment/json v0.0.0-20260505212615-e40f80bf6836/go.mod h1:tphK2c80bpPhMOI4v6bIc2xWywPfbqi1Z06+RcrMkDg=
+github.com/go-json-experiment/json v0.0.0-20260520185125-572e7c383686 h1:NZBJxCpbHS1gzS6xAmyxbJznosZIIPk9IB42v62UvKA=
+github.com/go-json-experiment/json v0.0.0-20260520185125-572e7c383686/go.mod h1:tphK2c80bpPhMOI4v6bIc2xWywPfbqi1Z06+RcrMkDg=
 github.com/go-quicktest/qt v1.102.0 h1:HSQxCeh5YZH3EL3W39ixjtyaEhcWSXQHtHnMBzSs474=
 github.com/go-quicktest/qt v1.102.0/go.mod h1:p4lGIVX+8Wa6ZPNDvqcxq36XpUDLh42FLetFU7odllI=
 github.com/google/go-cmp v0.7.0 h1:wk8382ETsv4JYUZwIsn6YpYiWiBsYLSJiTsyBybVuN8=
