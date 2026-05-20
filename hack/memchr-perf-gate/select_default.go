@@ -12,20 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !amd64 && !arm64 && !force_swar
+//go:build !amd64 || !goexperiment.simd
 
-package memchr
+package main
 
-import "testing"
-
-// expectedBackend on every other GOARCH (386, ppc64le, riscv64, ...):
-// SWAR via dispatch_swar_default.go's !amd64 && !arm64 disjunct.
-func expectedBackend(t *testing.T) string {
-	t.Helper()
-	return "swar"
-}
-
-func expectedFunctionBackends(t *testing.T) backendMarkers {
-	t.Helper()
-	return uniformBackendMarkers(expectedBackend(t))
+func autodetectBenchGOAMD64() string {
+	return ""
 }

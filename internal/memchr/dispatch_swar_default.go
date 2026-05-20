@@ -36,5 +36,5 @@ func init() {
 	memrchrImpl = swarMemrchr
 	memrchr2Impl = swarMemrchr2
 	memrchr3Impl = swarMemrchr3
-	boundImpl = "swar"
+	setBackendMarkers("swar", "swar", "swar", "swar", "swar", "swar", "swar")
 }

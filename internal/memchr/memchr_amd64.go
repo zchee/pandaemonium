@@ -23,37 +23,13 @@ import (
 	simd "simd/archsimd"
 )
 
-// init runs at package load and selects between the AVX2 (256-bit
-// Int8x32) and SSE2 (128-bit Int8x16) hot paths based on runtime CPU
-// detection via simd.X86.AVX2(). AVX2 is the win on Haswell-and-later
-// boxes; SSE2 is the fallback for pre-Haswell amd64. Setting
-// GODEBUG=cpu.avx2=off forces the SSE2 path — that downgrade is exactly
-// what AC-HARNESS-7's TestBackendBinding catches.
+// avx2Memchr returns the offset of the first byte equal to needle in
+// haystack, or -1 if no byte matches. The implementation lives in
+// memchr_amd64_avx2.s so the hot loop has no compiler-generated bounds
+// checks or panic edges.
 //
-// boundImpl records the actual chosen backend ("avx2" or "sse2") so the
-// AC-HARNESS-7 binding test can reject silent downgrades on CI.
-//
-// This file owns the (amd64, goexperiment.simd, !force_swar) tuple. The
-// rest of the dispatcher's tuple-coverage map is in dispatch.go.
-func init() {
-	if simd.X86.AVX2() {
-		memchrImpl = avx2Memchr
-		memchr2Impl = avx2Memchr2
-		memchr3Impl = avx2Memchr3
-		memrchrImpl = avx2Memrchr
-		memrchr2Impl = avx2Memrchr2
-		memrchr3Impl = avx2Memrchr3
-		boundImpl = "avx2"
-		return
-	}
-	memchrImpl = sse2Memchr
-	memchr2Impl = sse2Memchr2
-	memchr3Impl = sse2Memchr3
-	memrchrImpl = sse2Memrchr
-	memrchr2Impl = sse2Memrchr2
-	memrchr3Impl = sse2Memrchr3
-	boundImpl = "sse2"
-}
+//go:noescape
+func avx2Memchr(needle byte, haystack []byte) int
 
 // loadChunkSSE2 reads 16 bytes starting at haystack[i] into an Int8x16
 // vector. The caller MUST ensure `i+16 <= len(haystack)` so the load stays
@@ -272,30 +248,6 @@ func sse2Memrchr3(n1, n2, n3 byte, haystack []byte) int {
 // stays in bounds.
 func loadChunkAVX2(haystack []byte, i int) simd.Int8x32 {
 	return simd.LoadInt8x32Array((*[32]int8)(unsafe.Pointer(&haystack[i])))
-}
-
-// avx2Memchr returns the offset of the first byte equal to needle in
-// haystack, or -1 if no byte matches.
-func avx2Memchr(needle byte, haystack []byte) int {
-	n := len(haystack)
-	if n == 0 {
-		return -1
-	}
-	nv := simd.BroadcastInt8x32(int8(needle))
-	i := 0
-	for i+32 <= n {
-		mask := loadChunkAVX2(haystack, i).Equal(nv).ToBits()
-		if mask != 0 {
-			return i + bits.TrailingZeros32(mask)
-		}
-		i += 32
-	}
-	for ; i < n; i++ {
-		if haystack[i] == needle {
-			return i
-		}
-	}
-	return -1
 }
 
 // avx2Memchr2 returns the offset of the first byte equal to n1 or n2 in

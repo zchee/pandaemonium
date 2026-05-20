@@ -50,3 +50,40 @@ func TestBackendBinding(t *testing.T) {
 	}
 	t.Logf("backend binding OK: boundImpl=%q on GOARCH=%s", boundImpl, runtime.GOARCH)
 }
+
+func TestFunctionBackendBindings(t *testing.T) {
+	t.Parallel()
+	want := expectedFunctionBackends(t)
+	got := backendMarkers{
+		memchr:   boundMemchrImpl,
+		memchr2:  boundMemchr2Impl,
+		memchr3:  boundMemchr3Impl,
+		memrchr:  boundMemrchrImpl,
+		memrchr2: boundMemrchr2Impl,
+		memrchr3: boundMemrchr3Impl,
+	}
+	if got != want {
+		t.Fatalf("per-function backend mismatch: got=%+v want=%+v aggregate=%q", got, want, boundImpl)
+	}
+	t.Logf("per-function backend bindings OK: aggregate=%q markers=%+v", boundImpl, got)
+}
+
+type backendMarkers struct {
+	memchr   string
+	memchr2  string
+	memchr3  string
+	memrchr  string
+	memrchr2 string
+	memrchr3 string
+}
+
+func uniformBackendMarkers(name string) backendMarkers {
+	return backendMarkers{
+		memchr:   name,
+		memchr2:  name,
+		memchr3:  name,
+		memrchr:  name,
+		memrchr2: name,
+		memrchr3: name,
+	}
+}

@@ -29,27 +29,33 @@
 //
 // # Build-tag matrix
 //
-// Dispatch is build-tag-first, with one runtime selection on amd64:
+// Dispatch is build-tag-first. amd64 SIMD uses separate GOAMD64 artifact
+// lanes, with one legacy runtime selection for v1/v2 builds:
 //
-//	GOARCH    goexperiment.simd  force_swar  backend (file)
-//	amd64     ON                 OFF         SSE2 or AVX2 (memchr_amd64.go;  Step 4+5)
-//	amd64     OFF                OFF         SWAR        (dispatch_swar_default.go)
-//	amd64     ANY                ON          SWAR        (dispatch_swar_default.go)
-//	arm64     ANY                OFF         NEON        (memchr_arm64.go;   Step 6)
-//	arm64     ANY                ON          SWAR        (dispatch_swar_default.go)
-//	other     ANY                ANY         SWAR        (dispatch_swar_default.go)
+//	GOARCH / level       goexperiment.simd  force_swar  backend (file)
+//	amd64 GOAMD64=v4     ON                 OFF         AVX-512 Memchr + AVX2 fallback routines
+//	amd64 GOAMD64=v3     ON                 OFF         AVX2 fallback artifact
+//	amd64 GOAMD64=v1/v2  ON                 OFF         SSE2 or AVX2 via archsimd.X86.AVX2()
+//	amd64                OFF                OFF         SWAR        (dispatch_swar_default.go)
+//	amd64                ANY                ON          SWAR        (dispatch_swar_default.go)
+//	arm64                ANY                OFF         NEON        (memchr_arm64.go)
+//	arm64                ANY                ON          SWAR        (dispatch_swar_default.go)
+//	other                ANY                ANY         SWAR        (dispatch_swar_default.go)
 //
-// All per-arch backends are in place: memchr_amd64.go binds the
-// amd64-with-SIMD slot (runtime AVX2-or-SSE2), memchr_arm64.go binds the
-// arm64 slot (NEON), dispatch_swar_default.go binds everything else.
+// All per-arch backends are in place: the amd64 SIMD files bind the v4/v3/
+// legacy amd64 slots, memchr_arm64.go binds the arm64 slot (NEON), and
+// dispatch_swar_default.go binds everything else.
 //
 // # CPU detection on amd64
 //
-// On amd64-with-SIMD the chosen backend at init() time depends on
-// archsimd.X86.AVX2(). Setting GODEBUG=cpu.avx2=off downgrades the
-// dispatcher to SSE2 even on AVX2-capable hardware. AC-HARNESS-7's
-// TestBackendBinding (Step 7) fails in CI when this slip happens silently,
-// so misconfigured runners cannot quietly degrade the perf gate.
+// For local amd64 artifact selection, use simd/archsimd: AVX-512 gates the
+// GOAMD64=v4 artifact, and AVX2 gates the GOAMD64=v3 fallback. A v4 binary
+// cannot runtime-fallback on a v3-only CPU; fallback is a separate artifact.
+// Legacy amd64 v1/v2 SIMD builds still choose AVX2 or SSE2 at init() time
+// through archsimd.X86.AVX2(). Setting GODEBUG=cpu.avx2=off downgrades that
+// legacy dispatcher to SSE2 even on AVX2-capable hardware. AC-HARNESS-7's
+// TestBackendBinding fails in CI when this slip happens silently, so
+// misconfigured runners cannot quietly degrade the perf gate.
 //
 // To intentionally exercise the SWAR fallback on amd64 or arm64 hardware
 // (e.g. for parity testing or to compare backends on identical hardware),
@@ -60,6 +66,6 @@
 // Memmem (substring search), iterator types, and stateful Memchr* objects
 // from the upstream Rust crate are deliberately out of scope; see the
 // project spec deep-interview-port-burntsushi-memchr-to-go.md for the
-// rationale. AVX-512, wasm32 SIMD, AVO codegen, cgo, and a hard
-// GOAMD64=v3 floor are explicit non-goals.
+// rationale. wasm32 SIMD, AVO codegen, cgo, and expanding beyond the staged
+// AVX-512 Memchr path without a benchmark-backed plan are explicit non-goals.
 package memchr

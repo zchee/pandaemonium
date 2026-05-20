@@ -25,3 +25,8 @@ func expectedBackend(t *testing.T) string {
 	t.Helper()
 	return "swar"
 }
+
+func expectedFunctionBackends(t *testing.T) backendMarkers {
+	t.Helper()
+	return uniformBackendMarkers(expectedBackend(t))
+}

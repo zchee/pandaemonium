@@ -78,5 +78,5 @@ func init() {
 	memrchrImpl = memrchrNEON
 	memrchr2Impl = memrchr2NEON
 	memrchr3Impl = memrchr3NEON
-	boundImpl = "neon"
+	setBackendMarkers("neon", "neon", "neon", "neon", "neon", "neon", "neon")
 }

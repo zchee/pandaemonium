@@ -14,16 +14,16 @@
 
 package memchr
 
-// Each wrapper is intentionally a one-line forward to the dispatched impl so
-// the Go inliner promotes the wrapper into its caller (AC-API-5). The
-// indirect call through the *Impl funcptr is one indirect call per Memchr
-// invocation (R-INDIRECT-COST) and cannot itself be inlined because the
-// target is set at init() time, not at compile time.
+// Each wrapper is intentionally a one-line forward to the selected backend so
+// the Go inliner promotes the wrapper into its caller (AC-API-5). Memchr uses
+// a tiny package-private shim because GOAMD64=v3/v4 artifacts bind that hot
+// path directly to AVX2/AVX-512 assembly; the other wrappers still dispatch
+// through the package-level *Impl function pointers selected at init time.
 
 // Memchr returns the offset of the first byte in haystack equal to needle,
 // or -1 if no byte matches.
 func Memchr(needle byte, haystack []byte) int {
-	return memchrImpl(needle, haystack)
+	return memchr(needle, haystack)
 }
 
 // Memchr2 returns the offset of the first byte in haystack equal to n1 or
@@ -60,7 +60,7 @@ func Memrchr3(n1, n2, n3 byte, haystack []byte) int {
 // needle, or -1 if no byte matches. The argument order mirrors
 // bytes.IndexByte for drop-in idiom compatibility.
 func IndexByte(haystack []byte, needle byte) int {
-	return memchrImpl(needle, haystack)
+	return memchr(needle, haystack)
 }
 
 // IndexByte2 returns the offset of the first byte in haystack equal to n1 or

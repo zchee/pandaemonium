@@ -12,20 +12,27 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build !amd64 && !arm64 && !force_swar
+//go:build amd64 && amd64.v4 && goexperiment.simd && !force_swar
 
 package memchr
 
 import "testing"
 
-// expectedBackend on every other GOARCH (386, ppc64le, riscv64, ...):
-// SWAR via dispatch_swar_default.go's !amd64 && !arm64 disjunct.
+// expectedBackend on the GOAMD64=v4 artifact is mixed during the staged rollout:
+// Memchr is AVX-512, while unconverted routines stay on AVX2.
 func expectedBackend(t *testing.T) string {
 	t.Helper()
-	return "swar"
+	return "mixed-v4"
 }
 
 func expectedFunctionBackends(t *testing.T) backendMarkers {
 	t.Helper()
-	return uniformBackendMarkers(expectedBackend(t))
+	return backendMarkers{
+		memchr:   "avx512-v4",
+		memchr2:  "avx2-v4",
+		memchr3:  "avx2-v4",
+		memrchr:  "avx2-v4",
+		memrchr2: "avx2-v4",
+		memrchr3: "avx2-v4",
+	}
 }

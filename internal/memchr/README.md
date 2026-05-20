@@ -34,18 +34,22 @@ func findTerminator(buf []byte) int {
 }
 ```
 
-The wrappers in `api.go` are intentionally one-line calls through dispatched
-function pointers. That keeps the public call shape simple while allowing each
-platform tuple to bind the best available backend at package initialization.
+Most wrappers in `api.go` are intentionally one-line calls through dispatched
+function pointers. `Memchr` and `IndexByte` route through a package-private
+`memchr` shim so amd64 SIMD builds can call the selected single-needle assembly
+entry directly while other tuples keep the same dispatcher shape.
 
 ## Backends and build tags
 
-Dispatch is build-tag-first, with one runtime CPU decision on amd64 when the
-`goexperiment.simd` experiment is enabled.
+Dispatch is build-tag-first. amd64 SIMD uses separate `GOAMD64` artifact lanes:
+`GOAMD64=v4` binds AVX-512 `Memchr`, `GOAMD64=v3` binds the AVX2 fallback, and
+legacy v1/v2 builds keep one runtime CPU decision through `simd/archsimd`.
 
-| GOARCH | `goexperiment.simd` | `force_swar` | Backend | Binding file |
+| GOARCH / level | `goexperiment.simd` | `force_swar` | Backend | Binding file |
 | --- | --- | --- | --- | --- |
-| `amd64` | on | off | AVX2 when `archsimd.X86.AVX2()` is true, otherwise SSE2 | `memchr_amd64.go` |
+| `amd64`, `GOAMD64=v4` | on | off | AVX-512 `Memchr`; AVX2 for unconverted amd64 SIMD routines | `memchr_amd64_v4.go`, `memchr_amd64_v4.s`, `memchr_amd64_avx2.s` |
+| `amd64`, `GOAMD64=v3` | on | off | AVX2 fallback artifact | `memchr_amd64_v3.go`, `memchr_amd64_avx2.s` |
+| `amd64`, `GOAMD64=v1/v2` | on | off | AVX2 when `archsimd.X86.AVX2()` is true, otherwise SSE2 | `memchr_amd64_legacy.go`, `memchr_amd64.go`, `memchr_amd64_avx2.s` |
 | `amd64` | off | off | SWAR | `dispatch_swar_default.go` |
 | `amd64` | any | on | SWAR | `dispatch_swar_default.go` |
 | `arm64` | any | off | NEON | `memchr_arm64.go` and `*_arm64.s` |
@@ -55,12 +59,22 @@ Dispatch is build-tag-first, with one runtime CPU decision on amd64 when the
 The invariant is that every supported `(GOARCH, goexperiment.simd, force_swar)`
 tuple has exactly one file that binds each dispatched `*Impl` function pointer.
 `TestBackendBinding` checks the selected backend through the package-private
-`boundImpl` marker.
+`boundImpl` marker and per-function `boundMemchrImpl`-style markers. The
+per-function markers are required because the first amd64 v4 stage intentionally
+binds only `Memchr` to AVX-512 while the multi-needle and reverse routines keep
+the AVX2 implementation.
 
-### amd64 CPU detection
+### amd64 CPU detection and artifact selection
 
-On amd64 with SIMD enabled, `memchr_amd64.go` chooses AVX2 or SSE2 at `init`
-time through `archsimd.X86.AVX2()`. If a runner sets
+Use `simd/archsimd` for local artifact preflight: `archsimd.X86.AVX512()` gates
+execution or recommendation of the `GOAMD64=v4` artifact, and
+`archsimd.X86.AVX2()` gates the `GOAMD64=v3` fallback on local hardware. Do not
+use `golang.org/x/sys/cpu` for this package decision. A `GOAMD64=v4` binary
+cannot runtime-fallback on a v3-only CPU; fallback means building a separate
+`GOAMD64=v3` artifact.
+
+For legacy amd64 v1/v2 SIMD builds, `memchr_amd64_legacy.go` chooses AVX2 or
+SSE2 at `init` time through `archsimd.X86.AVX2()`. If a runner sets
 `GODEBUG=cpu.avx2=off`, AVX2-capable hardware is deliberately downgraded to
 SSE2. `TestBackendBinding` exists to catch accidental silent downgrades in CI
 before performance-gate results are trusted.
@@ -79,7 +93,8 @@ Do not add these without a new plan and benchmark evidence:
 - substring search / `memmem`;
 - upstream Rust iterator or stateful `Memchr*` types;
 - Rabin-Karp, Two-Way, Shift-Or, packed-pair, or other `arch::all` algorithms;
-- cgo, AVO code generation, AVX-512, wasm32 SIMD, or a hard `GOAMD64=v3` floor;
+- cgo, AVO code generation, wasm32 SIMD, or expanding beyond the staged AVX-512
+  `Memchr` path without a new benchmark-backed plan;
 - production behavior gated behind the test-only `force_swar` tag.
 
 ## Correctness tests
@@ -105,11 +120,11 @@ The suite layers multiple oracles:
 - `naive_scan_test.go`, `property_test.go`, `exhaustive_test.go`, and fuzz
   targets compare public functions against byte-by-byte same-package oracles.
 - `allocs_test.go` asserts zero allocations across representative sizes.
-- `dispatch_binding_*_test.go` plus `dispatch_test.go` verify the backend bound
-  for each build-tag tuple.
-- `sse2_test.go`, `avx2_test.go`, and the arm64 assembly bindings exercise
-  backend-specific edge cases when those files compile and the CPU supports the
-  instructions.
+- `dispatch_binding_*_test.go` plus `dispatch_test.go` verify the aggregate and
+  per-function backend markers bound for each build-tag tuple.
+- `sse2_test.go`, `avx2_test.go`, `avx512_test.go`, and the arm64 assembly
+  bindings exercise backend-specific edge cases when those files compile and the
+  CPU supports the instructions.
 
 ## Golden corpus maintenance
 
@@ -141,7 +156,8 @@ committed JSON fixture.
 Run the benchmark suite directly when investigating local changes:
 
 ```sh
-go test -bench=. -benchmem -run=^$ ./internal/memchr
+GOAMD64=v4 go test -bench=. -benchmem -run=^$ ./internal/memchr
+GOAMD64=v3 go test -bench=. -benchmem -run=^$ ./internal/memchr
 ```
 
 The standard-library baseline is `BenchmarkIndexByteStd`; the package benchmarks
@@ -154,10 +170,11 @@ go run ./hack/memchr-perf-gate
 ```
 
 It compares `BenchmarkMemchr` against `BenchmarkIndexByteStd` with `benchstat`
-using the U-test at `alpha=0.05`. On amd64, statistically significant slowdowns
-at gated sizes `n >= 64` fail the gate. On arm64 and other architectures, the
-gate currently reports the tuple as untested and exits successfully until a
-matching CI runner is provisioned.
+at `alpha=0.05`. On amd64, it uses `simd/archsimd` to benchmark the v4 artifact
+when AVX-512 is available and the v3 fallback when AVX2 is the widest local
+feature. Statistically significant slowdowns at gated sizes `n >= 64` fail the
+gate. On arm64 and other architectures, the gate currently reports the tuple as
+untested and exits successfully until a matching CI runner is provisioned.
 
 Before changing arm64 assembly files, format them with:
 

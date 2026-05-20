@@ -66,6 +66,11 @@ var gatedSizes = []int{64, 256, 1024, 4096, 65536}
 // $PATH lookup but can be overridden via --benchstat for local hacking.
 var benchstatPath = flag.String("benchstat", "benchstat", "path to benchstat binary")
 
+// goamd64Level overrides the automatically selected amd64 artifact level. The
+// default follows the package plan: prefer GOAMD64=v4 when simd/archsimd reports
+// AVX-512 support, otherwise use the GOAMD64=v3 AVX2 fallback when available.
+var goamd64Level = flag.String("goamd64", "", "amd64 artifact level for benchmark subprocesses (default: archsimd-selected v4 or v3)")
+
 func main() {
 	flag.Parse()
 
@@ -80,17 +85,24 @@ func main() {
 		os.Exit(0)
 	}
 
+	benchGOAMD64 := selectBenchGOAMD64()
+	if benchGOAMD64 == "" {
+		fmt.Println("memchr-perf-gate: amd64 SIMD artifact is UNTESTED — simd/archsimd reports neither AVX-512 nor AVX2; exiting 0")
+		os.Exit(0)
+	}
+	fmt.Printf("memchr-perf-gate: benchmarking GOAMD64=%s artifact selected via simd/archsimd\n", benchGOAMD64)
+
 	tmp, err := os.MkdirTemp("", "memchr-perf-gate-*")
 	if err != nil {
 		die("mktemp: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
-	baseFile, err := runBench(tmp, "BenchmarkIndexByteStd", "base")
+	baseFile, err := runBench(tmp, "BenchmarkIndexByteStd", "base", benchGOAMD64)
 	if err != nil {
 		die("run baseline bench: %v", err)
 	}
-	treatFile, err := runBench(tmp, "BenchmarkMemchr$", "treat")
+	treatFile, err := runBench(tmp, "BenchmarkMemchr$", "treat", benchGOAMD64)
 	if err != nil {
 		die("run treatment bench: %v", err)
 	}
@@ -126,10 +138,17 @@ func main() {
 	os.Exit(1)
 }
 
+func selectBenchGOAMD64() string {
+	if *goamd64Level != "" {
+		return *goamd64Level
+	}
+	return autodetectBenchGOAMD64()
+}
+
 // runBench runs `go test -bench=<pattern> -benchmem -count=N -run=^$
 // ./internal/memchr/` and writes the output to <dir>/<label>.txt. It
 // returns the path of the written file.
-func runBench(dir, pattern, label string) (string, error) {
+func runBench(dir, pattern, label, goamd64 string) (string, error) {
 	repoRoot, err := findRepoRoot()
 	if err != nil {
 		return "", err
@@ -145,6 +164,7 @@ func runBench(dir, pattern, label string) (string, error) {
 	}
 	cmd := exec.Command("go", args...)
 	cmd.Dir = repoRoot
+	cmd.Env = append(os.Environ(), "GOAMD64="+goamd64)
 	var stderr bytes.Buffer
 	cmd.Stderr = &stderr
 	out, err := cmd.Output()
@@ -170,16 +190,30 @@ func renameInPlace(path, from, to string) error {
 	return os.WriteFile(path, b, 0o644)
 }
 
-// runBenchstat shells out to the benchstat binary with the
-// project-locked -delta-test=utest -alpha=0.05 flags. AC-HARNESS-6
-// pins those flags inline.
+// runBenchstat shells out to the benchstat binary. Older benchstat builds
+// accept the project-locked -delta-test=utest flag; newer x/perf releases
+// removed that flag and use their built-in comparison test. Prefer the locked
+// invocation when available, but fall back to -alpha=0.05 so the gate remains
+// runnable with the module's current toolchain.
 func runBenchstat(bin, baseFile, treatFile string) (string, error) {
-	cmd := exec.Command(bin, "-delta-test=utest", "-alpha=0.05", baseFile, treatFile)
-	out, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", bin, err, string(out))
+	out, err := runBenchstatArgs(bin, []string{"-delta-test=utest", "-alpha=0.05", baseFile, treatFile})
+	if err == nil {
+		return out, nil
 	}
-	return string(out), nil
+	if !strings.Contains(out, "flag provided but not defined: -delta-test") {
+		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", bin, err, out)
+	}
+	out, err = runBenchstatArgs(bin, []string{"-alpha=0.05", baseFile, treatFile})
+	if err != nil {
+		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", bin, err, out)
+	}
+	return out, nil
+}
+
+func runBenchstatArgs(bin string, args []string) (string, error) {
+	cmd := exec.Command(bin, args...)
+	out, err := cmd.CombinedOutput()
+	return string(out), err
 }
 
 // regressionLine captures a benchstat row that flagged the treatment as
@@ -191,7 +225,7 @@ func runBenchstat(bin, baseFile, treatFile string) (string, error) {
 //	BenchmarkScan/n=64       42.0n ± 2%   55.0n ± 3%   +30.95% (p=0.000 n=10)
 //
 // A `+X.XX% (p=<0.05 ...)` cell on a gatedSizes row is a regression.
-var regressionRowRe = regexp.MustCompile(`BenchmarkScan/n=(\d+).*?\+([\d.]+)%\s+\(p=([\d.]+)\s+n=\d+\)`)
+var regressionRowRe = regexp.MustCompile(`(?:Benchmark)?Scan/n=(\d+)(?:-\d+)?.*?\+([\d.]+)%\s+\(p=([\d.]+)\s+n=\d+\)`)
 
 // findRegressions scans benchstat output for any gated Memchr size
 // whose treatment ns/op is statistically slower than the baseline at
@@ -202,7 +236,19 @@ func findRegressions(bsOut string) []string {
 	for _, n := range gatedSizes {
 		gated[n] = true
 	}
+	inSecPerOp := false
 	for line := range strings.SplitSeq(bsOut, "\n") {
+		trimmed := strings.TrimSpace(line)
+		if strings.Contains(line, "sec/op") {
+			inSecPerOp = true
+			continue
+		}
+		if inSecPerOp && trimmed == "" {
+			break
+		}
+		if !inSecPerOp {
+			continue
+		}
 		m := regressionRowRe.FindStringSubmatch(line)
 		if m == nil {
 			continue

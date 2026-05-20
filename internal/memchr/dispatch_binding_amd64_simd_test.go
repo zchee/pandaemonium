@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build amd64 && goexperiment.simd && !force_swar
+//go:build amd64 && !amd64.v3 && goexperiment.simd && !force_swar
 
 package memchr
 
@@ -31,4 +31,9 @@ func expectedBackend(t *testing.T) string {
 		return "avx2"
 	}
 	return "sse2"
+}
+
+func expectedFunctionBackends(t *testing.T) backendMarkers {
+	t.Helper()
+	return uniformBackendMarkers(expectedBackend(t))
 }
