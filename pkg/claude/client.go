@@ -333,6 +333,7 @@ func (c *ClaudeSDKClient) Close() error {
 	tr := c.transport
 	readDone := c.readDone
 	stderrDone := c.stderrDone
+	cp := c.cp
 	c.cmd = nil
 	c.cmdDone = nil
 
@@ -346,6 +347,14 @@ func (c *ClaudeSDKClient) Close() error {
 	}
 	c.writeMu.Unlock()
 	c.closeMu.Unlock()
+
+	// Cancel any in-flight inbound control-request handlers so they don't
+	// outlive the session: the read loop that would route their responses is
+	// shutting down with the transport. Done after releasing closeMu since the
+	// cancel funcs are independent of the locks above.
+	if cp != nil {
+		cp.closeInflight()
+	}
 
 	// Signal and wait for the subprocess.
 	if cmd != nil && cmd.Process != nil {

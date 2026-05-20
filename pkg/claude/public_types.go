@@ -248,8 +248,12 @@ const (
 	// PermissionDeny blocks the tool call unconditionally.
 	PermissionDeny PermissionDecision = "deny"
 
-	// PermissionAsk is the zero value; the CLI falls through to its
-	// configured permission_mode for the final decision.
+	// PermissionAsk is the zero value, meaning the SDK expresses no opinion.
+	// The control protocol has no third "ask" behavior: a can_use_tool
+	// response is either allow or deny. PermissionAsk is therefore sent on the
+	// wire as allow with the original tool input unchanged, so the call
+	// proceeds and the CLI's configured permission_mode still governs it. Use
+	// PermissionDeny to actively block a call.
 	PermissionAsk PermissionDecision = ""
 )
 

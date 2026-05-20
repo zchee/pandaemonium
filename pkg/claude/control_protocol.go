@@ -57,8 +57,15 @@ type controlProtocol struct {
 	counter atomic.Uint64
 
 	// hookCallbacks maps a callback ID (assigned at initialize time) to its Go
-	// hook. Populated in M4; allocated now so the map is never nil.
+	// hook. Populated in M4; allocated now so the map is never nil. It is
+	// written once during initialize (before any hook_callback request can
+	// arrive) and read-only thereafter, so it needs no mutex.
 	hookCallbacks map[string]Hook
+
+	// nextCallbackID is the monotonic counter for hook callback IDs of the form
+	// "hook_<n>", mirroring upstream Query.next_callback_id. It lives for the
+	// controlProtocol's lifetime so IDs never collide across re-initialize.
+	nextCallbackID int
 
 	// mcpServers maps a server name to its in-process MCP bridge. Populated in
 	// M5; allocated now so the map is never nil.
@@ -136,11 +143,15 @@ func (cp *controlProtocol) route(ctx context.Context, line []byte) (consumed boo
 		return true, nil
 
 	case "control_request":
-		// M1 stub: consume and do nothing. M4 dispatches inbound requests.
+		// Spawn the handler in its own goroutine so a slow hook/permission
+		// callback never stalls the read loop (and thus never blocks the
+		// control_response of an in-flight outbound request). Mirrors upstream
+		// Query._spawn_control_request_handler.
+		cp.spawnControlRequest(ctx, line)
 		return true, nil
 
 	case "control_cancel_request":
-		// M1 stub: consume and do nothing. M4 cancels the matching handler.
+		cp.cancelControlRequest(line)
 		return true, nil
 
 	case "transcript_mirror":
@@ -291,14 +302,22 @@ func initializeTimeout() time.Duration {
 // agent definitions, waits for the CLI's response, stores it for later access
 // via GetServerInfo, and returns the inner response object.
 //
-// For M2 the hooks field is sent as null (full hook callback-id wiring is M4).
+// The hooks field carries the per-event matcher configuration with callback
+// IDs that the CLI uses to invoke individual Go hooks via hook_callback control
+// requests; it is JSON null when no hooks are registered (matching upstream).
 // Agent definitions from opts.Agents are converted to the upstream wire shape
 // (keyed by agent name) and included when present.
+//
+// Callback IDs are assigned and recorded in cp.hookCallbacks BEFORE the request
+// is written, since the CLI may fire hook_callback against an ID as soon as it
+// receives the initialize request.
 func (cp *controlProtocol) initialize(ctx context.Context) (jsontext.Value, error) {
-	payload := map[string]any{
-		// Upstream sends "hooks": null when there are no hook matchers. M4 will
-		// populate this with {event: [{matcher, hookCallbackIds, timeout?}]}.
-		"hooks": nil,
+	// Upstream sends "hooks": null (not {}) when there are no hook matchers. A
+	// typed-nil map would marshal to {}, so leave the value as untyped nil in
+	// that case and only set the concrete map when matchers exist.
+	payload := map[string]any{"hooks": nil}
+	if hooks := cp.hooksWire(); hooks != nil {
+		payload["hooks"] = hooks
 	}
 	if agents := cp.agentsWire(); agents != nil {
 		payload["agents"] = agents
@@ -343,4 +362,301 @@ func (cp *controlProtocol) agentsWire() map[string]any {
 		out[a.Name] = def
 	}
 	return out
+}
+
+// hooksWire converts opts.Hooks into the upstream initialize "hooks" wire shape
+// and registers each hook callback under a "hook_<n>" ID in cp.hookCallbacks.
+//
+// The wire shape is a map keyed by event name (the HookEventKind string) whose
+// value is a list of matcher objects {matcher, hookCallbackIds, timeout?},
+// mirroring upstream Query.initialize. Each Go HookRegistration maps to exactly
+// one matcher with exactly one callback ID: registration order is preserved per
+// event, which matters because the CLI merges the per-callback outputs itself.
+//
+// It returns nil (serialized as JSON null) when there are no registrations, so
+// the initialize request matches upstream byte-for-byte in the no-hooks case.
+//
+// NOTE: in wire mode the CLI decides which matchers fire and invokes each
+// callback individually via a hook_callback request; the local-evaluation
+// merge in dispatchHooks/applyPermissions is NOT used on this path.
+func (cp *controlProtocol) hooksWire() map[string][]map[string]any {
+	if cp.opts == nil || len(cp.opts.Hooks) == 0 {
+		return nil
+	}
+	out := make(map[string][]map[string]any)
+	for _, reg := range cp.opts.Hooks {
+		if reg.Fn == nil {
+			continue
+		}
+		id := "hook_" + strconv.Itoa(cp.nextCallbackID)
+		cp.nextCallbackID++
+		cp.hookCallbacks[id] = reg.Fn
+
+		matcher := map[string]any{
+			// Upstream sends matcher.get("matcher"), which is None when unset; an
+			// empty ToolGlob means "match all", so emit null in that case.
+			"matcher":         nil,
+			"hookCallbackIds": []string{id},
+		}
+		if reg.ToolGlob != "" {
+			matcher["matcher"] = reg.ToolGlob
+		}
+		event := string(reg.Kind)
+		out[event] = append(out[event], matcher)
+	}
+	if len(out) == 0 {
+		return nil
+	}
+	return out
+}
+
+// spawnControlRequest parses an inbound control_request, registers a
+// cancellable context under its request_id, and dispatches the handler in a new
+// goroutine so the read loop is never blocked by a callback.
+//
+// A malformed envelope or one missing request_id is dropped: it cannot be
+// answered or cancelled, mirroring upstream which only acts on a present
+// request_id.
+func (cp *controlProtocol) spawnControlRequest(parent context.Context, line []byte) {
+	var env struct {
+		RequestID string         `json:"request_id"`
+		Request   jsontext.Value `json:"request"`
+	}
+	if err := json.Unmarshal(line, &env); err != nil || env.RequestID == "" {
+		return
+	}
+
+	// Register the cancel func BEFORE spawning so a control_cancel_request that
+	// arrives while the handler runs always finds it.
+	ctx, cancel := context.WithCancel(parent)
+	cp.inflightMu.Lock()
+	cp.inflight[env.RequestID] = cancel
+	cp.inflightMu.Unlock()
+
+	go func() {
+		defer func() {
+			cp.inflightMu.Lock()
+			delete(cp.inflight, env.RequestID)
+			cp.inflightMu.Unlock()
+			cancel()
+		}()
+		cp.handleControlRequest(ctx, env.RequestID, env.Request)
+	}()
+}
+
+// closeInflight cancels every in-flight inbound control-request handler. It is
+// called from ClaudeSDKClient.Close so handler goroutines blocked in a slow
+// user callback do not outlive the session (the read loop that would route
+// their responses has already exited). Each handler removes its own inflight
+// entry on return, so this is idempotent and safe to call once at close time.
+func (cp *controlProtocol) closeInflight() {
+	cp.inflightMu.Lock()
+	cancels := make([]context.CancelFunc, 0, len(cp.inflight))
+	for _, cancel := range cp.inflight {
+		cancels = append(cancels, cancel)
+	}
+	cp.inflightMu.Unlock()
+	for _, cancel := range cancels {
+		cancel()
+	}
+}
+
+// cancelControlRequest cancels the inflight handler matching the cancel
+// request's request_id, if any. The cancelled handler writes no response,
+// matching upstream's CancelledError re-raise.
+func (cp *controlProtocol) cancelControlRequest(line []byte) {
+	var env struct {
+		RequestID string `json:"request_id"`
+	}
+	if err := json.Unmarshal(line, &env); err != nil || env.RequestID == "" {
+		return
+	}
+	cp.inflightMu.Lock()
+	cancel, ok := cp.inflight[env.RequestID]
+	delete(cp.inflight, env.RequestID)
+	cp.inflightMu.Unlock()
+	if ok {
+		cancel()
+	}
+}
+
+// handleControlRequest dispatches a single inbound control request by subtype
+// and writes the control_response. It mirrors upstream
+// Query._handle_control_request: can_use_tool invokes the CanUseTool callback
+// and replies with a permission-result object; hook_callback invokes the Go
+// hook registered under the request's callback_id and replies with that hook's
+// output; any other subtype (including mcp_message until M5) replies with an
+// error.
+//
+// If ctx is cancelled (via control_cancel_request) at any await point, no
+// response is written: the CLI has already abandoned the request.
+func (cp *controlProtocol) handleControlRequest(ctx context.Context, requestID string, reqBody jsontext.Value) {
+	var head struct {
+		Subtype string `json:"subtype"`
+	}
+	if err := json.Unmarshal(reqBody, &head); err != nil {
+		cp.writeControlError(ctx, requestID, fmt.Sprintf("malformed control request: %v", err))
+		return
+	}
+
+	responseData, err := cp.dispatchControlSubtype(ctx, head.Subtype, reqBody)
+	if ctx.Err() != nil {
+		// Cancelled while handling: the CLI abandoned this request; stay silent.
+		return
+	}
+	if err != nil {
+		cp.writeControlError(ctx, requestID, err.Error())
+		return
+	}
+	cp.writeControlSuccess(ctx, requestID, responseData)
+}
+
+// dispatchControlSubtype runs the subtype-specific handler and returns the
+// inner response object (the "response" field of a success control_response).
+func (cp *controlProtocol) dispatchControlSubtype(ctx context.Context, subtype string, reqBody jsontext.Value) (map[string]any, error) {
+	switch subtype {
+	case "can_use_tool":
+		return cp.handleCanUseTool(ctx, reqBody)
+	case "hook_callback":
+		return cp.handleHookCallback(ctx, reqBody)
+	default:
+		// Includes mcp_message, which is wired in M5. Until then, an unsupported
+		// subtype is an error response, matching upstream.
+		return nil, fmt.Errorf("unsupported control request subtype: %s", subtype)
+	}
+}
+
+// handleCanUseTool invokes the CanUseTool permission callback for a
+// can_use_tool request and converts the verdict into the permission-result wire
+// shape the CLI expects: {"behavior":"allow","updatedInput":<input>} or
+// {"behavior":"deny","message":<reason>}.
+//
+// PermissionAsk (the zero value, "no opinion from the SDK") maps to allow with
+// the original input unchanged, so the CLI's configured permission_mode makes
+// the final call — there is no third "ask" behavior on this wire.
+func (cp *controlProtocol) handleCanUseTool(ctx context.Context, reqBody jsontext.Value) (map[string]any, error) {
+	if cp.opts == nil || cp.opts.CanUseTool == nil {
+		return nil, errors.New("CanUseTool callback is not provided")
+	}
+	var req struct {
+		ToolName string         `json:"tool_name"`
+		Input    jsontext.Value `json:"input"`
+	}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		return nil, fmt.Errorf("decode can_use_tool request: %w", err)
+	}
+
+	decision, err := cp.opts.CanUseTool(ctx, req.ToolName, req.Input)
+	if err != nil {
+		return nil, err
+	}
+
+	if decision == PermissionDeny {
+		return map[string]any{"behavior": "deny", "message": ""}, nil
+	}
+	// Allow and Ask both permit the call; preserve the original input.
+	input := req.Input
+	if len(input) == 0 {
+		input = jsontext.Value("{}")
+	}
+	return map[string]any{"behavior": "allow", "updatedInput": input}, nil
+}
+
+// handleHookCallback invokes the Go hook registered under the request's
+// callback_id and returns its decision in the hookSpecificOutput envelope shape
+// the CLI expects. The full hook event payload is delivered in the request's
+// "input" field; unknown fields survive via HookEvent.Raw.
+func (cp *controlProtocol) handleHookCallback(ctx context.Context, reqBody jsontext.Value) (map[string]any, error) {
+	var req struct {
+		CallbackID string         `json:"callback_id"`
+		Input      jsontext.Value `json:"input"`
+	}
+	if err := json.Unmarshal(reqBody, &req); err != nil {
+		return nil, fmt.Errorf("decode hook_callback request: %w", err)
+	}
+
+	hook := cp.hookCallbacks[req.CallbackID]
+	if hook == nil {
+		return nil, fmt.Errorf("no hook callback found for ID: %s", req.CallbackID)
+	}
+
+	var event HookEvent
+	if len(req.Input) > 0 {
+		if err := json.Unmarshal(req.Input, &event); err != nil {
+			return nil, fmt.Errorf("decode hook input: %w", err)
+		}
+	}
+
+	decision, err := hook(ctx, event)
+	if err != nil {
+		return nil, err
+	}
+	return hookDecisionWire(decision), nil
+}
+
+// hookDecisionWire converts a HookDecision into the CLI-expected output map,
+// omitting empty fields so a zero decision serializes to {} (proceed
+// unchanged). Only the fields the Go HookDecision models are emitted.
+func hookDecisionWire(d HookDecision) map[string]any {
+	out := make(map[string]any, 3)
+	if d.SystemMessage != "" {
+		out["systemMessage"] = d.SystemMessage
+	}
+	if d.AdditionalContext != "" {
+		out["additionalContext"] = d.AdditionalContext
+	}
+	hso := make(map[string]any, 3)
+	if d.HookSpecificOutput.HookEventName != "" {
+		hso["hookEventName"] = string(d.HookSpecificOutput.HookEventName)
+	}
+	if d.HookSpecificOutput.PermissionDecision != PermissionAsk {
+		hso["permissionDecision"] = string(d.HookSpecificOutput.PermissionDecision)
+	}
+	if d.HookSpecificOutput.PermissionDecisionReason != "" {
+		hso["permissionDecisionReason"] = d.HookSpecificOutput.PermissionDecisionReason
+	}
+	if len(hso) > 0 {
+		out["hookSpecificOutput"] = hso
+	}
+	return out
+}
+
+// writeControlSuccess writes a success control_response carrying responseData
+// as its inner response object. A nil responseData serializes as {}.
+func (cp *controlProtocol) writeControlSuccess(ctx context.Context, requestID string, responseData map[string]any) {
+	if responseData == nil {
+		responseData = map[string]any{}
+	}
+	cp.writeControlResponse(ctx, map[string]any{
+		"type": "control_response",
+		"response": map[string]any{
+			"subtype":    "success",
+			"request_id": requestID,
+			"response":   responseData,
+		},
+	})
+}
+
+// writeControlError writes an error control_response carrying msg.
+func (cp *controlProtocol) writeControlError(ctx context.Context, requestID, msg string) {
+	cp.writeControlResponse(ctx, map[string]any{
+		"type": "control_response",
+		"response": map[string]any{
+			"subtype":    "error",
+			"request_id": requestID,
+			"error":      msg,
+		},
+	})
+}
+
+// writeControlResponse marshals and writes a control_response envelope through
+// the writeMu-guarded writeFn. A marshal or transport failure is dropped: the
+// read loop must not block, and a failed response will surface as a downstream
+// transport error on the next read/write.
+func (cp *controlProtocol) writeControlResponse(ctx context.Context, envelope map[string]any) {
+	body, err := json.Marshal(envelope)
+	if err != nil {
+		return
+	}
+	_ = cp.writeFn(ctx, body)
 }
