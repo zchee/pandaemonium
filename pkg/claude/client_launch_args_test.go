@@ -26,111 +26,110 @@ func TestBuildLaunchArgs(t *testing.T) {
 
 	tests := map[string]struct {
 		cliPath string
-		prompt  string
 		opts    *Options
 		wantIn  []string // substrings / tokens that MUST appear in joined args
 		wantOut []string // substrings / tokens that MUST NOT appear in joined args
 	}{
-		"success: nil opts uses stream-json output format": {
+		"success: minimal nil opts is streaming with no --print": {
 			cliPath: fakeCLI,
-			prompt:  "hello",
 			opts:    nil,
-			wantIn:  []string{fakeCLI, "--output-format", "stream-json", "--print", "hello"},
+			wantIn:  []string{fakeCLI, "--output-format", "stream-json", "--input-format", "--verbose"},
+			wantOut: []string{"--print"},
 		},
 		"success: empty opts uses stream-json output format": {
 			cliPath: fakeCLI,
-			prompt:  "hi",
 			opts:    &Options{},
 			wantIn:  []string{"--output-format", "stream-json"},
+			wantOut: []string{"--print"},
 		},
 		"success: custom output format is used": {
 			cliPath: fakeCLI,
-			prompt:  "",
 			opts:    &Options{OutputFormat: "json"},
+			// stream-json must not appear as the output format. The input format
+			// still defaults to stream-json, so assert --output-format json and
+			// that --print is never present.
 			wantIn:  []string{"--output-format", "json"},
-			wantOut: []string{"stream-json"},
+			wantOut: []string{"--print"},
+		},
+		"success: input format always defaults to stream-json": {
+			cliPath: fakeCLI,
+			opts:    &Options{},
+			wantIn:  []string{"--input-format", "stream-json"},
+		},
+		"success: custom input format overrides stream-json default": {
+			cliPath: fakeCLI,
+			opts:    &Options{InputFormat: "text"},
+			wantIn:  []string{"--input-format", "text"},
 		},
 		"success: model flag appears when set": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{Model: "claude-opus-4-5"},
 			wantIn:  []string{"--model", "claude-opus-4-5"},
 		},
 		"success: system prompt flag appears when set": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{SystemPrompt: "Be concise."},
 			wantIn:  []string{"--system-prompt", "Be concise."},
 		},
 		"success: multiple allowed tools each get their own flag": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{AllowedTools: []string{"Bash", "Write"}},
 			wantIn:  []string{"--allowedTools", "Bash", "--allowedTools", "Write"},
 		},
 		"success: max turns flag appears when positive": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{MaxTurns: 5},
 			wantIn:  []string{"--max-turns", "5"},
 		},
 		"success: zero max turns omits the flag": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{MaxTurns: 0},
 			wantOut: []string{"--max-turns"},
 		},
 		"success: permission mode flag appears when set": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{PermissionMode: "bypassPermissions"},
 			wantIn:  []string{"--permission-mode", "bypassPermissions"},
 		},
 		"success: api key helper flag appears when set": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{APIKeyHelper: "/usr/local/bin/apikey"},
 			wantIn:  []string{"--api-key-helper", "/usr/local/bin/apikey"},
 		},
 		"success: max budget flag appears when positive": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{MaxBudgetUSD: 1.5},
 			wantIn:  []string{"--max-budget", "1.5"},
 		},
 		"success: zero max budget omits flag": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{MaxBudgetUSD: 0},
 			wantOut: []string{"--max-budget"},
 		},
-		"success: verbose flag appears when true": {
+		"success: verbose flag always present with explicit true": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{Verbose: true},
 			wantIn:  []string{"--verbose"},
 		},
-		"success: verbose flag absent when false": {
+		"success: verbose flag always present even when Verbose is false": {
 			cliPath: fakeCLI,
-			prompt:  "x",
-			opts:    &Options{Verbose: false},
-			wantOut: []string{"--verbose"},
+			// --verbose is now emitted unconditionally to match upstream
+			// subprocess_cli.py:225, regardless of opts.Verbose.
+			opts:   &Options{Verbose: false},
+			wantIn: []string{"--verbose"},
 		},
 		"success: include partial messages flag appears when true": {
 			cliPath: fakeCLI,
-			prompt:  "x",
 			opts:    &Options{IncludePartialMessages: true},
 			wantIn:  []string{"--include-partial-messages"},
 		},
-		"success: empty prompt omits print flag": {
+		"success: print flag is never emitted": {
 			cliPath: fakeCLI,
-			prompt:  "",
-			opts:    nil,
+			opts:    &Options{Model: "claude-opus-4-5", SystemPrompt: "hi"},
 			wantOut: []string{"--print"},
 		},
 		"success: first arg is always the cli path": {
 			cliPath: fakeCLI,
-			prompt:  "test",
 			opts:    nil,
 			wantIn:  []string{fakeCLI},
 		},
@@ -140,7 +139,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			got := buildLaunchArgs(tt.cliPath, tt.prompt, tt.opts, "")
+			got := buildLaunchArgs(tt.cliPath, tt.opts, "")
 			if len(got) == 0 {
 				t.Fatal("buildLaunchArgs() returned empty slice")
 			}
@@ -165,7 +164,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 
 func TestBuildLaunchArgs_CLIPathIsFirst(t *testing.T) {
 	t.Parallel()
-	args := buildLaunchArgs("/path/to/claude", "prompt", nil, "")
+	args := buildLaunchArgs("/path/to/claude", nil, "")
 	if args[0] != "/path/to/claude" {
 		t.Fatalf("args[0] = %q, want /path/to/claude", args[0])
 	}
@@ -205,7 +204,7 @@ func TestBuildLaunchArgs_Plugins(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			got := buildLaunchArgs(fakeCLI, "x", tt.opts, "")
+			got := buildLaunchArgs(fakeCLI, tt.opts, "")
 			joined := strings.Join(got, " ")
 			for _, want := range tt.wantIn {
 				if !strings.Contains(joined, want) {
@@ -266,7 +265,7 @@ func TestBuildLaunchArgs_SettingSources(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			got := buildLaunchArgs(fakeCLI, "x", tt.opts, "")
+			got := buildLaunchArgs(fakeCLI, tt.opts, "")
 			joined := strings.Join(got, " ")
 			for _, want := range tt.wantIn {
 				if !strings.Contains(joined, want) {
@@ -288,7 +287,7 @@ func TestBuildLaunchArgs_Agents(t *testing.T) {
 	// Agents are sent via the streaming initialize request (not CLI flags).
 	// Verify that no --agent flag (or similar) appears in the launch args
 	// regardless of how many AgentDefinitions are configured.
-	got := buildLaunchArgs("/usr/local/bin/claude", "x", &Options{
+	got := buildLaunchArgs("/usr/local/bin/claude", &Options{
 		Agents: []AgentDefinition{
 			{Name: "helper", Description: "A helper agent", SystemPrompt: "You help."},
 			{Name: "coder", Description: "A coding agent", AllowedTools: []string{"Bash"}},
@@ -325,7 +324,7 @@ func TestBuildLaunchArgs_Resume(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			got := buildLaunchArgs(fakeCLI, "x", nil, tt.resumeID)
+			got := buildLaunchArgs(fakeCLI, nil, tt.resumeID)
 			joined := strings.Join(got, " ")
 			for _, want := range tt.wantIn {
 				if !strings.Contains(joined, want) {

@@ -23,7 +23,6 @@ import (
 // subprocess. The resulting slice is suitable for exec.Command(args[0], args[1:]...).
 //
 // cliPath is the resolved binary path (from discoverCLI).
-// prompt is the initial user prompt; passed via --print.
 // opts configures additional CLI flags; nil opts uses defaults.
 // resumeSessionID, when non-empty, adds --resume <id> so the CLI subprocess
 // resumes from that session (used by [ClaudeSDKClient.Fork]).
@@ -33,9 +32,14 @@ import (
 // request (same pattern as the TypeScript and Python SDKs). No --agents flag
 // exists in the claude CLI.
 //
+// Prompts are NOT passed as flags: the CLI is always launched in streaming
+// stdin mode, and the user prompt is sent as a JSON envelope on stdin after
+// the initialize handshake completes (see [ClaudeSDKClient.Query]). There is
+// no --print flag.
+//
 // Mirrors the structure of pkg/codex/client.go:563 buildAppServerArgs.
 // Round-trip parity is tested in client_launch_args_test.go (AC13).
-func buildLaunchArgs(cliPath, prompt string, opts *Options, resumeSessionID string) []string {
+func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) []string {
 	args := []string{cliPath}
 
 	if opts == nil {
@@ -49,15 +53,17 @@ func buildLaunchArgs(cliPath, prompt string, opts *Options, resumeSessionID stri
 	}
 	args = append(args, "--output-format", outputFmt)
 
-	// Input format.
+	// Input format — always stream-json for SDK use unless overridden.
+	// Upstream subprocess_cli.py always sends --input-format stream-json.
+	inputFmt := "stream-json"
 	if opts.InputFormat != "" {
-		args = append(args, "--input-format", opts.InputFormat)
+		inputFmt = opts.InputFormat
 	}
+	args = append(args, "--input-format", inputFmt)
 
-	// Verbose mode.
-	if opts.Verbose {
-		args = append(args, "--verbose")
-	}
+	// Verbose mode — emitted unconditionally to match upstream
+	// subprocess_cli.py:225 (the CLI always runs verbose for SDK streaming).
+	args = append(args, "--verbose")
 
 	// Include partial messages.
 	if opts.IncludePartialMessages {
@@ -130,11 +136,6 @@ func buildLaunchArgs(cliPath, prompt string, opts *Options, resumeSessionID stri
 	// subprocess. Mirrors upstream Python: cmd.extend(["--resume", options.resume]).
 	if resumeSessionID != "" {
 		args = append(args, "--resume", resumeSessionID)
-	}
-
-	// Prompt — passed as the --print flag so the CLI runs in non-interactive mode.
-	if prompt != "" {
-		args = append(args, "--print", prompt)
 	}
 
 	return args

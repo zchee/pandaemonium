@@ -382,7 +382,7 @@ func TestExampleParity_SystemPrompt_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
 	const prompt = "You respond only in haiku."
-	args := buildLaunchArgs("/usr/local/bin/claude", "", &Options{SystemPrompt: prompt}, "")
+	args := buildLaunchArgs("/usr/local/bin/claude", &Options{SystemPrompt: prompt}, "")
 
 	found := false
 	for i, a := range args {
@@ -404,7 +404,7 @@ func TestExampleParity_ToolsOption_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
 	opts := &Options{AllowedTools: []string{"Read", "Bash"}}
-	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
+	args := buildLaunchArgs("/usr/local/bin/claude", opts, "")
 
 	var gotTools []string
 	for i, a := range args {
@@ -428,7 +428,7 @@ func TestExampleParity_MaxBudgetUSD_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
 	opts := &Options{MaxBudgetUSD: 0.01}
-	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
+	args := buildLaunchArgs("/usr/local/bin/claude", opts, "")
 
 	found := false
 	for i, a := range args {
@@ -451,7 +451,7 @@ func TestExampleParity_IncludePartialMessages_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
 	opts := &Options{IncludePartialMessages: true}
-	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
+	args := buildLaunchArgs("/usr/local/bin/claude", opts, "")
 
 	found := slices.Contains(args, "--include-partial-messages")
 	if !found {
@@ -459,7 +459,7 @@ func TestExampleParity_IncludePartialMessages_LaunchArgs(t *testing.T) {
 	}
 
 	// Without the flag, --include-partial-messages must be absent.
-	argsOff := buildLaunchArgs("/usr/local/bin/claude", "", &Options{}, "")
+	argsOff := buildLaunchArgs("/usr/local/bin/claude", &Options{}, "")
 	if slices.Contains(argsOff, "--include-partial-messages") {
 		t.Errorf("buildLaunchArgs: --include-partial-messages present when IncludePartialMessages=false")
 	}
@@ -477,7 +477,7 @@ func TestExampleParity_Plugins_LaunchArgs(t *testing.T) {
 			{Name: "my-plugin", Path: "/usr/local/lib/my-plugin"},
 		},
 	}
-	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
+	args := buildLaunchArgs("/usr/local/bin/claude", opts, "")
 
 	found := false
 	for i, a := range args {
@@ -505,7 +505,7 @@ func TestExampleParity_SettingSources_LaunchArgs(t *testing.T) {
 			{Path: "/home/user/.claude/settings.json"},
 		},
 	}
-	args := buildLaunchArgs("/usr/local/bin/claude", "", opts, "")
+	args := buildLaunchArgs("/usr/local/bin/claude", opts, "")
 
 	want := "--setting-sources=/etc/claude/settings.json,/home/user/.claude/settings.json"
 	found := slices.Contains(args, want)

@@ -26,6 +26,8 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/go-json-experiment/json"
 )
 
 // rawMessageQueueSize is the capacity of the rawMessages channel. Sized to
@@ -103,9 +105,12 @@ type ClaudeSDKClient struct {
 // delivered. Call [ClaudeSDKClient.ReceiveResponse] to iterate the resulting
 // messages.
 //
-// On the first call the subprocess is launched in interactive stdin mode
-// (without --print); subsequent calls write the next prompt to its stdin for
-// multi-turn conversation. The subprocess remains alive between calls.
+// On the first call the subprocess is launched in streaming stdin mode and the
+// initialize handshake is performed (see [ClaudeSDKClient.launchSubprocess]).
+// Every prompt — including the first — is then sent as a JSON envelope on the
+// subprocess stdin (never as a CLI flag). The subprocess remains alive between
+// calls so subsequent calls write the next envelope for multi-turn
+// conversation.
 //
 // This is the interactive counterpart to the package-level [Query] function.
 func (c *ClaudeSDKClient) Query(ctx context.Context, prompt string) error {
@@ -113,16 +118,48 @@ func (c *ClaudeSDKClient) Query(ctx context.Context, prompt string) error {
 	defer c.closeMu.Unlock()
 
 	if c.transport == nil {
-		// First call: start the subprocess in interactive stdin mode.
-		// Empty prompt omits --print so the CLI reads input from stdin.
-		if err := c.launchSubprocess(ctx, ""); err != nil {
+		// First call: launch the subprocess in streaming stdin mode and run
+		// the initialize handshake before any prompt is sent.
+		if err := c.launchSubprocess(ctx); err != nil {
 			return err
 		}
 	}
-	// Write the prompt to stdin. writeMessage acquires writeMu internally.
-	// Calling writeMessage while holding closeMu is safe: both Close and
-	// writeMessage acquire closeMu→writeMu in the same order.
-	return c.writeMessage(ctx, []byte(prompt))
+
+	// Encode the prompt as a stream-JSON user envelope and write it to stdin.
+	// writeMessage acquires writeMu internally. Calling writeMessage while
+	// holding closeMu is safe: both Close and writeMessage acquire
+	// closeMu→writeMu in the same order.
+	envelope, err := userEnvelope(c.sessionID, prompt)
+	if err != nil {
+		return err
+	}
+	return c.writeMessage(ctx, envelope)
+}
+
+// userEnvelope marshals a single user-turn stream-JSON envelope for the claude
+// CLI stdin, mirroring the upstream Python SDK client.py wire shape:
+//
+//	{"type":"user","session_id":"<id>","message":{"role":"user","content":"<prompt>"},"parent_tool_use_id":null}
+//
+// sessionID is emitted as-is (the empty string when no session is active).
+// parent_tool_use_id always serializes as JSON null at the top of a user turn.
+func userEnvelope(sessionID, prompt string) ([]byte, error) {
+	type userMessage struct {
+		Role    string `json:"role"`
+		Content string `json:"content"`
+	}
+	envelope := struct {
+		Type            string      `json:"type"`
+		SessionID       string      `json:"session_id"`
+		Message         userMessage `json:"message"`
+		ParentToolUseID *string     `json:"parent_tool_use_id"`
+	}{
+		Type:            "user",
+		SessionID:       sessionID,
+		Message:         userMessage{Role: "user", Content: prompt},
+		ParentToolUseID: nil,
+	}
+	return json.Marshal(envelope)
 }
 
 // ReceiveResponse returns an iterator over the [Message] values streamed by the
@@ -380,17 +417,28 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 }
 
 // launchSubprocess resolves the CLI binary, builds launch args, starts the
-// subprocess, and calls start under closeMu. Returns with closeMu still held
-// so the caller can check c.transport atomically.
+// subprocess, and calls start under closeMu. After start wires up the readLoop
+// goroutine and control protocol, it performs the initialize handshake so the
+// CLI is ready to receive prompt envelopes on stdin.
 //
-// Called by Phase C's Query implementation. Not used in Phase A tests (which
-// inject a FakeCLI transport via start directly).
-func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context, prompt string) error {
+// Ordering is connect → start (read loop running) → initialize: the
+// control_response for initialize is routed by readLoop, so readLoop MUST be
+// running before initialize sends its request. initialize writes via
+// cp.writeFn (= c.writeMessage, guarded by writeMu), so it interleaves safely
+// with the running read goroutine.
+//
+// If initialize fails the subprocess is up but unusable; the error is returned
+// and the caller should Close the client to release the subprocess and
+// goroutines (start has already set c.transport, c.cp, and launched readLoop).
+//
+// Called by Query. Not used in Phase A tests (which inject a FakeCLI transport
+// via start directly and never call Query, so they never hit initialize).
+func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 	cliPath, err := discoverCLI(c.opts)
 	if err != nil {
 		return err
 	}
-	args := buildLaunchArgs(cliPath, prompt, c.opts, c.sessionID)
+	args := buildLaunchArgs(cliPath, c.opts, c.sessionID)
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	if c.opts != nil && c.opts.Cwd != "" {
 		cmd.Dir = c.opts.Cwd
@@ -425,6 +473,13 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context, prompt string) e
 		stdout: bufio.NewReader(stdout),
 	}
 	c.start(ctx, t, cmd, cmdDone, stderr)
+
+	// Perform the initialize handshake now that readLoop is running and c.cp
+	// is set. initialize writes the control request via c.writeMessage and
+	// blocks until readLoop routes the matching control_response.
+	if _, err := c.cp.initialize(ctx); err != nil {
+		return err
+	}
 	return nil
 }
 

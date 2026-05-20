@@ -102,7 +102,7 @@ func TestAgentDefinition_NotInCLIArgs(t *testing.T) {
 			{Name: "myagent", Description: "test agent", SystemPrompt: "help"},
 		},
 	}
-	args := buildLaunchArgs("/bin/claude", "prompt", opts, "")
+	args := buildLaunchArgs("/bin/claude", opts, "")
 	for _, a := range args {
 		if a == "--agent" || a == "--agents" || a == "myagent" {
 			t.Errorf("buildLaunchArgs unexpectedly contains agent-related arg %q; agents must be sent via streaming initialize", a)

@@ -196,7 +196,7 @@ func TestClientFork_ResumeFlagInLaunchArgs(t *testing.T) {
 
 	// The child's launch args must include --resume <forkedID> so the CLI
 	// subprocess loads the forked session history on start.
-	args := buildLaunchArgs("/bin/claude", "", child.opts, child.sessionID)
+	args := buildLaunchArgs("/bin/claude", child.opts, child.sessionID)
 	joined := strings.Join(args, " ")
 	wantFlag := "--resume " + child.sessionID
 	if !strings.Contains(joined, wantFlag) {
