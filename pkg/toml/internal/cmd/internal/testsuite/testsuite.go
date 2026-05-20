@@ -60,10 +60,6 @@ func DecodeStdin() error {
 
 	j := json.NewEncoder(os.Stdout)
 	j.SetIndent("", "  ")
-	tagged, err := addTag(decoded)
-	if err != nil {
-		return fmt.Errorf("error tagging JSON: %w", err)
-	}
 	if err := j.Encode(tagged); err != nil {
 		return fmt.Errorf("error encoding JSON: %w", err)
 	}

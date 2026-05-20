@@ -254,11 +254,7 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 			dst.Set(reflect.Zero(dst.Type()))
 			return nil
 		}
-		v := reflect.ValueOf(public)
-		if !v.Type().AssignableTo(dst.Type()) {
-			return mismatch(dst.Type(), src)
-		}
-		dst.Set(v)
+		dst.Set(reflect.ValueOf(public))
 		return nil
 	case reflect.Struct:
 		m, ok := asDocumentMap(src)
@@ -374,31 +370,6 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	}
 }
 
-func publicValue(v any) any {
-	switch x := v.(type) {
-	case documentMap:
-		out := make(map[string]any, len(x))
-		for k, child := range x {
-			out[k] = publicValue(child)
-		}
-		return out
-	case map[string]any:
-		out := make(map[string]any, len(x))
-		for k, child := range x {
-			out[k] = publicValue(child)
-		}
-		return out
-	case []any:
-		out := make([]any, len(x))
-		for i, child := range x {
-			out[i] = publicValue(child)
-		}
-		return out
-	default:
-		return v
-	}
-}
-
 func asDocumentMap(v any) (documentMap, bool) {
 	switch m := v.(type) {
 	case documentMap:
@@ -408,12 +379,6 @@ func asDocumentMap(v any) (documentMap, bool) {
 	default:
 		return nil, false
 	}
-}
-
-// PublicValue returns v converted to the public TOML container shapes used by
-// the facade and testsuite helpers.
-func PublicValue(v any) any {
-	return publicValue(v)
 }
 
 func int64Value(v any) (int64, bool) {

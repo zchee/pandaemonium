@@ -19,6 +19,7 @@ import (
 	"errors"
 	"io"
 	"math"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -562,23 +563,6 @@ name = "granny smith"
 			}
 			assertNoDocumentMap(t, "iface", iface)
 		})
-	}
-}
-
-func assertNoDocumentMap(t *testing.T, path string, v any) {
-	t.Helper()
-
-	switch x := v.(type) {
-	case documentMap:
-		t.Fatalf("%s has internal documentMap type", path)
-	case map[string]any:
-		for k, item := range x {
-			assertNoDocumentMap(t, path+"."+k, item)
-		}
-	case []any:
-		for i, item := range x {
-			assertNoDocumentMap(t, path+indexPath(i), item)
-		}
 	}
 }
 

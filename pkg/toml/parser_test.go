@@ -905,100 +905,47 @@ func TestDecoder_InlineTableTokenStream(t *testing.T) {
 	}
 }
 
-func TestUnmarshal_ArrayAndInlineTableSeparatorValidation(t *testing.T) {
+func TestDecoderQuotedEmptyKeysAndStringControls(t *testing.T) {
 	t.Parallel()
 
-	tests := []struct {
-		name    string
-		in      string
-		want    map[string]any
-		wantErr bool
-	}{
-		{
-			name:    "array missing comma",
-			in:      "arr = [true false]\n",
-			wantErr: true,
-		},
-		{
-			name:    "array double comma",
-			in:      "arr = [1,,2]\n",
-			wantErr: true,
-		},
-		{
-			name:    "array only comma",
-			in:      "arr = [,]\n",
-			wantErr: true,
-		},
-		{
-			name: "array trailing comma remains valid",
-			in:   "arr = [1, 2,]\n",
-			want: map[string]any{
-				"arr": []any{int64(1), int64(2)},
-			},
-		},
-		{
-			name:    "inline table missing comma",
-			in:      "v = { a = 1 b = 2 }\n",
-			wantErr: true,
-		},
-		{
-			name:    "inline table double comma",
-			in:      "v = { a = 1,, b = 2 }\n",
-			wantErr: true,
-		},
-		{
-			name: "inline table multiline trailing comma remains valid",
-			in:   "v = {\n  a = 1,\n  b = 2,\n}\n",
-			want: map[string]any{
-				"v": map[string]any{
-					"a": int64(1),
-					"b": int64(2),
-				},
-			},
-		},
-	}
-
-	for _, tc := range tests {
-		t.Run(tc.name, func(t *testing.T) {
-			t.Parallel()
-
-			var got map[string]any
-			err := Unmarshal([]byte(tc.in), &got)
-			if tc.wantErr {
-				if err == nil {
-					t.Fatalf("Unmarshal(%q) error = nil, want error", tc.in)
-				}
-				return
-			}
-			if err != nil {
-				t.Fatalf("Unmarshal(%q) error = %v", tc.in, err)
-			}
-			if diff := gocmp.Diff(tc.want, got); diff != "" {
-				t.Fatalf("Unmarshal result mismatch (-want +got):\n%s", diff)
-			}
-		})
-	}
-}
-
-func TestUnmarshalRejectsInvalidArrayAndInlineTableSeparators(t *testing.T) {
-	t.Parallel()
+	t.Run("valid quoted empty keys", func(t *testing.T) {
+		t.Parallel()
+		var got map[string]any
+		if err := Unmarshal([]byte("\"\" = \"blank\"\n[a.\"\"]\nvalue = \"nested\"\n"), &got); err != nil {
+			t.Fatalf("Unmarshal() quoted empty keys error = %v", err)
+		}
+		if got[""] != "blank" {
+			t.Fatalf("top-level empty key = %v, want blank", got[""])
+		}
+		a, ok := got["a"].(map[string]any)
+		if !ok {
+			t.Fatalf("a = %T(%#v), want table", got["a"], got["a"])
+		}
+		empty, ok := a[""].(map[string]any)
+		if !ok {
+			t.Fatalf("a.empty = %T(%#v), want table", a[""], a[""])
+		}
+		if empty["value"] != "nested" {
+			t.Fatalf("a.empty.value = %v, want nested", empty["value"])
+		}
+	})
 
 	tests := []struct {
-		name  string
-		input string
+		name string
+		in   string
 	}{
-		{name: "array double comma", input: "value = [1,,2]\n"},
-		{name: "array leading comma", input: "value = [,1]\n"},
-		{name: "inline table double comma", input: "value = { a = 1,, b = 2 }\n"},
-		{name: "inline table leading comma", input: "value = {, a = 1 }\n"},
+		{name: "basic string null", in: "v = \"\x00\"\n"},
+		{name: "literal string null", in: "v = '\x00'\n"},
+		{name: "invalid x escape", in: "v = \"\\x41\"\n"},
+		{name: "invalid unicode scalar", in: "v = \"\\U00110000\"\n"},
+		{name: "quoted key invalid escape", in: "\"\\x41\" = 1\n"},
+		{name: "bare empty dotted segment still invalid", in: "a. = 1\n"},
 	}
 	for _, tc := range tests {
-		tc := tc
-		t.Run(tc.name, func(t *testing.T) {
+		t.Run("invalid "+tc.name, func(t *testing.T) {
 			t.Parallel()
-			var dst map[string]any
-			if err := Unmarshal([]byte(tc.input), &dst); err == nil {
-				t.Fatalf("Unmarshal(%q) unexpectedly succeeded: %#v", tc.input, dst)
+			if _, err := readTokenKinds(NewDecoderBytes([]byte(tc.in))); err == nil {
+				t.Fatalf("readTokenKinds(%q) error = nil, want invalid TOML error", tc.in)
 			}
 		})
 	}

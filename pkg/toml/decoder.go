@@ -396,6 +396,12 @@ func (d *Decoder) scanKeyToken() (Token, error) {
 	}
 
 	key := d.buf[start:i]
+	if !isSimpleBareKey(key) {
+		if _, err := parseDottedKey(key); err != nil {
+			d.setErr(err)
+			return Token{}, err
+		}
+	}
 	if len(key) > d.limits.MaxKeyLength {
 		err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start, i}}
 		d.setErr(err)
@@ -691,7 +697,11 @@ func (d *Decoder) scanQuoted(quote byte, off int) (int, error) {
 			continue
 		}
 		if d.buf[i+idx] == quote {
-			return i + idx + 1, nil
+			end := i + idx + 1
+			if _, err := parseStringValue(d.buf[off:end]); err != nil {
+				return 0, err
+			}
+			return end, nil
 		}
 	}
 	return 0, d.syntaxError("unterminated quoted key", off)
@@ -703,7 +713,11 @@ func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 		end := off + 3
 		for end+2 < len(d.buf) {
 			if d.buf[end] == '"' && d.buf[end+1] == '"' && d.buf[end+2] == '"' {
-				return end + 3, TokenKindValueString, nil
+				tokenEnd := end + 3
+				if _, err := parseStringValue(d.buf[off:tokenEnd]); err != nil {
+					return 0, TokenKindInvalid, err
+				}
+				return tokenEnd, TokenKindValueString, nil
 			}
 			end++
 		}
@@ -713,7 +727,11 @@ func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 		end := off + 3
 		for end+2 < len(d.buf) {
 			if d.buf[end] == '\'' && d.buf[end+1] == '\'' && d.buf[end+2] == '\'' {
-				return end + 3, TokenKindValueString, nil
+				tokenEnd := end + 3
+				if _, err := parseStringValue(d.buf[off:tokenEnd]); err != nil {
+					return 0, TokenKindInvalid, err
+				}
+				return tokenEnd, TokenKindValueString, nil
 			}
 			end++
 		}
@@ -741,7 +759,11 @@ func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 			i += idx + 2
 			continue
 		}
-		return i + idx + 1, TokenKindValueString, nil
+		end := i + idx + 1
+		if _, err := parseStringValue(d.buf[off:end]); err != nil {
+			return 0, TokenKindInvalid, err
+		}
+		return end, TokenKindValueString, nil
 	}
 	return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
 }

@@ -17,10 +17,13 @@ package toml
 import (
 	"bytes"
 	"errors"
+	"fmt"
 	"io"
 	"math"
 	"strconv"
+	"strings"
 	"sync"
+	"unicode/utf8"
 )
 
 type documentMap map[string]any
@@ -313,19 +316,189 @@ func skipLayoutAndComments(dec *Decoder) error {
 func parseStringValue(raw []byte) (string, error) {
 	if len(raw) >= 6 && raw[0] == '\'' && raw[1] == '\'' && raw[2] == '\'' &&
 		raw[len(raw)-1] == '\'' && raw[len(raw)-2] == '\'' && raw[len(raw)-3] == '\'' {
-		return string(raw[3 : len(raw)-3]), nil
+		body := trimInitialMultilineStringNewline(raw[3 : len(raw)-3])
+		if idx := prohibitedStringControlIndex(body, true); idx >= 0 {
+			return "", stringControlError(body, idx)
+		}
+		return string(body), nil
 	}
 	if len(raw) >= 6 && raw[0] == '"' && raw[1] == '"' && raw[2] == '"' &&
 		raw[len(raw)-1] == '"' && raw[len(raw)-2] == '"' && raw[len(raw)-3] == '"' {
-		return string(raw[3 : len(raw)-3]), nil
+		return parseBasicStringBody(trimInitialMultilineStringNewline(raw[3:len(raw)-3]), true)
 	}
 	if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
-		return string(raw[1 : len(raw)-1]), nil
+		body := raw[1 : len(raw)-1]
+		if idx := prohibitedStringControlIndex(body, false); idx >= 0 {
+			return "", stringControlError(body, idx)
+		}
+		return string(body), nil
 	}
-	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' && bytes.IndexByte(raw[1:len(raw)-1], '\\') < 0 {
-		return string(raw[1 : len(raw)-1]), nil
+	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' {
+		return parseBasicStringBody(raw[1:len(raw)-1], false)
 	}
-	return strconv.Unquote(string(raw))
+	return "", &SyntaxError{Line: 1, Col: 1, Msg: "malformed string", Span: [2]int{0, len(raw)}}
+}
+
+func trimInitialMultilineStringNewline(raw []byte) []byte {
+	if len(raw) >= 2 && raw[0] == '\r' && raw[1] == '\n' {
+		return raw[2:]
+	}
+	if len(raw) >= 1 && raw[0] == '\n' {
+		return raw[1:]
+	}
+	return raw
+}
+
+func parseBasicStringBody(raw []byte, multiline bool) (string, error) {
+	if bytes.IndexByte(raw, '\\') < 0 {
+		if idx := prohibitedStringControlIndex(raw, multiline); idx >= 0 {
+			return "", stringControlError(raw, idx)
+		}
+		return string(raw), nil
+	}
+	var b strings.Builder
+	b.Grow(len(raw))
+	for i := 0; i < len(raw); {
+		c := raw[i]
+		if c != '\\' {
+			if prohibitedStringControl(c, multiline) {
+				return "", stringControlError(raw, i)
+			}
+			b.WriteByte(c)
+			i++
+			continue
+		}
+		if multiline {
+			if next, ok := skipEscapedMultilineStringWhitespace(raw, i+1); ok {
+				i = next
+				continue
+			}
+		}
+		if i+1 >= len(raw) {
+			return "", &SyntaxError{Line: 1, Col: i + 1, Msg: "unterminated string escape", Span: [2]int{i, len(raw)}}
+		}
+		next := raw[i+1]
+		switch next {
+		case 'b':
+			b.WriteByte('\b')
+			i += 2
+		case 't':
+			b.WriteByte('\t')
+			i += 2
+		case 'n':
+			b.WriteByte('\n')
+			i += 2
+		case 'f':
+			b.WriteByte('\f')
+			i += 2
+		case 'r':
+			b.WriteByte('\r')
+			i += 2
+		case '"':
+			b.WriteByte('"')
+			i += 2
+		case '\\':
+			b.WriteByte('\\')
+			i += 2
+		case 'u', 'U':
+			digits := 4
+			if next == 'U' {
+				digits = 8
+			}
+			r, err := parseUnicodeEscape(raw, i+2, digits)
+			if err != nil {
+				return "", err
+			}
+			b.WriteRune(r)
+			i += 2 + digits
+		default:
+			return "", &SyntaxError{Line: 1, Col: i + 1, Msg: "invalid string escape", Span: [2]int{i, min(i+2, len(raw))}}
+		}
+	}
+	return b.String(), nil
+}
+
+func skipEscapedMultilineStringWhitespace(raw []byte, i int) (int, bool) {
+	j := i
+	for j < len(raw) && (raw[j] == ' ' || raw[j] == '\t') {
+		j++
+	}
+	switch {
+	case j < len(raw) && raw[j] == '\n':
+		j++
+	case j+1 < len(raw) && raw[j] == '\r' && raw[j+1] == '\n':
+		j += 2
+	default:
+		return i, false
+	}
+	for j < len(raw) {
+		switch raw[j] {
+		case ' ', '\t', '\n':
+			j++
+		case '\r':
+			if j+1 < len(raw) && raw[j+1] == '\n' {
+				j += 2
+				continue
+			}
+			return j, true
+		default:
+			return j, true
+		}
+	}
+	return j, true
+}
+
+func parseUnicodeEscape(raw []byte, start, digits int) (rune, error) {
+	end := start + digits
+	if end > len(raw) {
+		return 0, &SyntaxError{Line: 1, Col: start + 1, Msg: "short unicode escape", Span: [2]int{start - 2, len(raw)}}
+	}
+	for _, c := range raw[start:end] {
+		if !isHexDigit(c) {
+			return 0, &SyntaxError{Line: 1, Col: start + 1, Msg: "invalid unicode escape", Span: [2]int{start - 2, end}}
+		}
+	}
+	v, err := strconv.ParseInt(string(raw[start:end]), 16, 32)
+	if err != nil {
+		return 0, err
+	}
+	r := rune(v)
+	if !utf8.ValidRune(r) {
+		return 0, &SyntaxError{Line: 1, Col: start + 1, Msg: "invalid unicode scalar", Span: [2]int{start - 2, end}}
+	}
+	return r, nil
+}
+
+func isHexDigit(c byte) bool {
+	return c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'
+}
+
+func prohibitedStringControlIndex(raw []byte, multiline bool) int {
+	for i, c := range raw {
+		if prohibitedStringControl(c, multiline) {
+			return i
+		}
+	}
+	return -1
+}
+
+func prohibitedStringControl(c byte, multiline bool) bool {
+	if c == '\t' {
+		return false
+	}
+	if multiline && (c == '\n' || c == '\r') {
+		return false
+	}
+	return c < 0x20 || c == 0x7f
+}
+
+func stringControlError(raw []byte, idx int) error {
+	return &SyntaxError{
+		Line: 1,
+		Col:  idx + 1,
+		Msg:  fmt.Sprintf("unescaped control character 0x%02x in string", raw[idx]),
+		Span: [2]int{idx, idx + 1},
+	}
 }
 
 func parseHeaderKey(raw []byte, array bool) ([]string, error) {
@@ -404,9 +577,9 @@ func parseDottedKey(raw []byte) ([]string, error) {
 				part = string(raw[:end])
 				raw = raw[end:]
 			}
-		}
-		if part == "" {
-			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
+			if part == "" {
+				return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
+			}
 		}
 		parts = append(parts, part)
 		raw = bytes.TrimLeft(raw, " \t")
@@ -417,6 +590,9 @@ func parseDottedKey(raw []byte) ([]string, error) {
 			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "unexpected token in dotted key", Span: [2]int{0, origLen}}
 		}
 		raw = raw[1:]
+		if len(bytes.TrimLeft(raw, " \t")) == 0 {
+			return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
+		}
 	}
 	if len(parts) == 0 {
 		return nil, &SyntaxError{Line: 1, Col: 1, Msg: "empty key", Span: [2]int{0, origLen}}

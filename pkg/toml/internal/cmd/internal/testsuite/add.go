@@ -27,25 +27,37 @@ import (
 
 // addTag adds JSON tags to a data structure as expected by toml-test.
 func addTag(tomlData any) (any, error) {
+	return addTagAt("$", tomlData)
+}
+
+func addTagAt(path string, tomlData any) (any, error) {
 	// Switch on the data type.
 	switch orig := tomlData.(type) {
 	// A table: we don't need to add any tags, just recurse for every table
 	// entry.
 	case map[string]any:
-		return addTagMap(orig)
+		typed := make(map[string]any, len(orig))
+		for k, v := range orig {
+			child, err := addTagAt(path+"."+k, v)
+			if err != nil {
+				return nil, err
+			}
+			typed[k] = child
+		}
+		return typed, nil
 
 	// An array: we don't need to add any tags, just recurse for every table
 	// entry.
 	case []map[string]any:
 		typed := make([]map[string]any, len(orig))
 		for i, v := range orig {
-			child, err := addTag(v)
+			child, err := addTagAt(fmt.Sprintf("%s[%d]", path, i), v)
 			if err != nil {
-				return nil, fmt.Errorf("[%d]: %w", i, err)
+				return nil, err
 			}
 			childMap, ok := child.(map[string]any)
 			if !ok {
-				return nil, fmt.Errorf("[%d]: tagged table has type %T", i, child)
+				return nil, fmt.Errorf("tagged TOML table at %s[%d] has type %T", path, i, child)
 			}
 			typed[i] = childMap
 		}
@@ -54,9 +66,9 @@ func addTag(tomlData any) (any, error) {
 	case []any:
 		typed := make([]any, len(orig))
 		for i, v := range orig {
-			child, err := addTag(v)
+			child, err := addTagAt(fmt.Sprintf("%s[%d]", path, i), v)
 			if err != nil {
-				return nil, fmt.Errorf("[%d]: %w", i, err)
+				return nil, err
 			}
 			typed[i] = child
 		}
@@ -95,56 +107,7 @@ func addTag(tomlData any) (any, error) {
 		}
 		return tag("float", fmt.Sprintf("%v", orig)), nil
 	default:
-		return addTagReflect(tomlData)
-	}
-}
-
-func addTagMap(orig map[string]any) (map[string]any, error) {
-	typed := make(map[string]any, len(orig))
-	for k, v := range orig {
-		child, err := addTag(v)
-		if err != nil {
-			return nil, fmt.Errorf("%s: %w", k, err)
-		}
-		typed[k] = child
-	}
-	return typed, nil
-}
-
-func addTagReflect(v any) (any, error) {
-	rv := reflect.ValueOf(v)
-	if !rv.IsValid() {
-		return nil, nil
-	}
-
-	switch rv.Kind() {
-	case reflect.Map:
-		if rv.Type().Key().Kind() != reflect.String {
-			return nil, fmt.Errorf("unsupported TOML map key type %s", rv.Type().Key())
-		}
-		typed := make(map[string]any, rv.Len())
-		iter := rv.MapRange()
-		for iter.Next() {
-			key := iter.Key().String()
-			child, err := addTag(iter.Value().Interface())
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", key, err)
-			}
-			typed[key] = child
-		}
-		return typed, nil
-	case reflect.Slice, reflect.Array:
-		typed := make([]any, rv.Len())
-		for i := 0; i < rv.Len(); i++ {
-			child, err := addTag(rv.Index(i).Interface())
-			if err != nil {
-				return nil, fmt.Errorf("[%d]: %w", i, err)
-			}
-			typed[i] = child
-		}
-		return typed, nil
-	default:
-		return nil, fmt.Errorf("unsupported TOML value type %T", v)
+		return nil, fmt.Errorf("unsupported TOML value at %s: %T", path, tomlData)
 	}
 }
 

@@ -36,7 +36,11 @@ func TestParseStringValueHotPaths(t *testing.T) {
 		{name: "basic", input: "\"demo\"", want: "demo"},
 		{name: "literal multiline", input: "'''demo'''", want: "demo"},
 		{name: "basic multiline", input: "\"\"\"demo\"\"\"", want: "demo"},
+		{name: "literal multiline trims initial newline", input: "'''\nfirst\n'''", want: "first\n"},
+		{name: "basic multiline trims initial newline", input: "\"\"\"\nfirst\n\"\"\"", want: "first\n"},
+		{name: "basic multiline line ending backslash", input: "\"\"\"first\\\n  second\"\"\"", want: "firstsecond"},
 		{name: "escaped", input: "\"demo\\nline\"", want: "demo\nline"},
+		{name: "unicode escape", input: "\"caf\\u00e9\"", want: "café"},
 	}
 
 	for _, tc := range tests {
@@ -53,6 +57,31 @@ func TestParseStringValueHotPaths(t *testing.T) {
 	}
 }
 
+func TestParseStringValueRejectsInvalidTOMLStrings(t *testing.T) {
+	t.Parallel()
+
+	tests := []struct {
+		name  string
+		input string
+	}{
+		{name: "basic null", input: "\"\x00\""},
+		{name: "literal null", input: "'\x00'"},
+		{name: "multiline basic vertical tab", input: "\"\"\"\v\"\"\""},
+		{name: "invalid x escape", input: "\"\\x41\""},
+		{name: "invalid unicode escape hex", input: "\"\\u00xz\""},
+		{name: "invalid unicode scalar", input: "\"\\U00110000\""},
+	}
+
+	for _, tc := range tests {
+		t.Run(tc.name, func(t *testing.T) {
+			t.Parallel()
+			if got, err := parseStringValue([]byte(tc.input)); err == nil {
+				t.Fatalf("parseStringValue(%q) = %q, nil error; want error", tc.input, got)
+			}
+		})
+	}
+}
+
 func TestParseDottedKeyHotPaths(t *testing.T) {
 	t.Parallel()
 
@@ -64,6 +93,8 @@ func TestParseDottedKeyHotPaths(t *testing.T) {
 		{name: "bare segments", input: "fruit.apple.taste", want: []string{"fruit", "apple", "taste"}},
 		{name: "quoted segment", input: "fruit.\"apple pie\".taste", want: []string{"fruit", "apple pie", "taste"}},
 		{name: "literal segment", input: "fruit.'apple pie'.taste", want: []string{"fruit", "apple pie", "taste"}},
+		{name: "quoted empty segment", input: `fruit.""`, want: []string{"fruit", ""}},
+		{name: "literal empty segment", input: `fruit.''`, want: []string{"fruit", ""}},
 		{name: "spaced", input: "  fruit . apple  ", want: []string{"fruit", "apple"}},
 	}
 
