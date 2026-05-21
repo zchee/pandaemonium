@@ -85,11 +85,7 @@ func parseMessage(line []byte) (Message, error) {
 	case "user":
 		return parseUserMessage(data, line)
 	case "system":
-		var m SystemMessage
-		if err := json.Unmarshal(data, &m); err != nil {
-			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
-		}
-		return m, nil
+		return parseSystemMessage(data, line)
 	case "result":
 		var m ResultMessage
 		if err := json.Unmarshal(data, &m); err != nil {
@@ -99,6 +95,53 @@ func parseMessage(line []byte) (Message, error) {
 	default:
 		// Unknown type — preserve raw bytes for forward compatibility.
 		return rawMessage{raw: jsontext.Value(data)}, nil
+	}
+}
+
+// parseSystemMessage routes a {"type":"system",...} envelope to the right
+// concrete [Message] type based on its subtype. Mirrors upstream's
+// match-on-subtype dispatch (message_parser.py:188-240): task_started /
+// task_progress / task_notification get their own typed structs; every other
+// subtype (or no subtype at all) falls back to generic [SystemMessage].
+//
+// Note on parity: upstream's TaskStartedMessage / TaskProgressMessage /
+// TaskNotificationMessage are Python subclasses of SystemMessage, so existing
+// isinstance(msg, SystemMessage) checks continue to match. Go has no
+// inheritance, so the typed variants are siblings: a callers' type switch
+// must list each kind explicitly. The SystemMessage fallback case is
+// preserved for unknown subtypes so forward compatibility is unaffected.
+func parseSystemMessage(data, line []byte) (Message, error) {
+	var env struct {
+		Subtype string `json:"subtype"`
+	}
+	if err := json.Unmarshal(data, &env); err != nil {
+		return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+	}
+	switch env.Subtype {
+	case "task_started":
+		var m TaskStartedMessage
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return m, nil
+	case "task_progress":
+		var m TaskProgressMessage
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return m, nil
+	case "task_notification":
+		var m TaskNotificationMessage
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return m, nil
+	default:
+		var m SystemMessage
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return m, nil
 	}
 }
 

@@ -105,12 +105,181 @@ type ResultMessage struct {
 	// Usage contains raw token-usage statistics as emitted by the CLI.
 	Usage jsontext.Value `json:"usage,omitzero"`
 
+	// DeferredToolUse, when non-nil, carries the tool call a PreToolUse hook
+	// returned "defer" on. The run stops with this populated so the caller
+	// can inspect the deferred call and decide whether to resume.
+	DeferredToolUse *DeferredToolUse `json:"deferred_tool_use,omitzero"`
+
 	// Raw preserves unknown top-level fields for forward compatibility.
 	Raw jsontext.Value `json:",inline"`
 }
 
 func (ResultMessage) isMessage()                {}
 func (m ResultMessage) jsonRaw() jsontext.Value { return m.Raw }
+
+// DeferredToolUse describes a tool call that was deferred by a PreToolUse
+// hook returning permissionDecision="defer". Carried as
+// [ResultMessage.DeferredToolUse]. Mirrors upstream DeferredToolUse
+// (types.py:1131).
+type DeferredToolUse struct {
+	// ID is the unique tool-use identifier of the deferred call, correlated
+	// with the originating [ToolUseBlock.ID].
+	ID string `json:"id,omitzero"`
+
+	// Name is the name of the tool that was deferred.
+	Name string `json:"name,omitzero"`
+
+	// Input is the raw JSON input payload that would have been passed to
+	// the tool had the call gone through.
+	Input jsontext.Value `json:"input,omitzero"`
+}
+
+// ─── Task system messages ────────────────────────────────────────────────────
+
+// TaskUsage is the usage breakdown reported in [TaskProgressMessage] and
+// [TaskNotificationMessage]. Mirrors upstream TaskUsage (types.py:1045-1052).
+type TaskUsage struct {
+	// TotalTokens is the cumulative number of tokens consumed by the task.
+	TotalTokens int `json:"total_tokens,omitzero"`
+
+	// ToolUses is the count of tool invocations the task has issued.
+	ToolUses int `json:"tool_uses,omitzero"`
+
+	// DurationMs is the wall-clock duration of the task in milliseconds.
+	DurationMs int `json:"duration_ms,omitzero"`
+}
+
+// TaskNotificationStatus is the terminal status carried by a
+// [TaskNotificationMessage]. Mirrors upstream TaskNotificationStatus
+// (types.py:1056).
+type TaskNotificationStatus string
+
+const (
+	// TaskNotificationStatusCompleted indicates the task finished
+	// successfully.
+	TaskNotificationStatusCompleted TaskNotificationStatus = "completed"
+
+	// TaskNotificationStatusFailed indicates the task errored out.
+	TaskNotificationStatusFailed TaskNotificationStatus = "failed"
+
+	// TaskNotificationStatusStopped indicates the task was cancelled or
+	// stopped before completing.
+	TaskNotificationStatusStopped TaskNotificationStatus = "stopped"
+)
+
+// TaskStartedMessage is the system message emitted when a Task begins.
+//
+// Upstream Python defines TaskStartedMessage as a subclass of SystemMessage so
+// existing isinstance(msg, SystemMessage) checks continue to match. Go has no
+// inheritance, so this is a sibling [Message] type: a parser-side dispatch on
+// (type="system", subtype="task_started") returns [TaskStartedMessage] instead
+// of [SystemMessage]. Callers branch on the specific type in a type switch.
+//
+// Mirrors upstream TaskStartedMessage (types.py:1060).
+type TaskStartedMessage struct {
+	// Subtype is always "task_started" but is carried for symmetry with the
+	// SystemMessage envelope.
+	Subtype string `json:"subtype,omitzero"`
+
+	// TaskID is the unique identifier for this task.
+	TaskID string `json:"task_id,omitzero"`
+
+	// Description is the task's human-readable description.
+	Description string `json:"description,omitzero"`
+
+	// UUID is the message UUID.
+	UUID string `json:"uuid,omitzero"`
+
+	// SessionID identifies the CLI session.
+	SessionID string `json:"session_id,omitzero"`
+
+	// ToolUseID is the originating tool-use ID, when the task was spawned
+	// by a tool call. Empty when the task was started by some other means.
+	ToolUseID string `json:"tool_use_id,omitzero"`
+
+	// TaskType is the task's type label, when set by the CLI.
+	TaskType string `json:"task_type,omitzero"`
+
+	// Raw preserves unknown top-level fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (TaskStartedMessage) isMessage()                {}
+func (m TaskStartedMessage) jsonRaw() jsontext.Value { return m.Raw }
+
+// TaskProgressMessage is the system message emitted while a Task is running.
+// See [TaskStartedMessage]'s godoc for the Python-subclass / Go-sibling note.
+// Mirrors upstream TaskProgressMessage (types.py:1077).
+type TaskProgressMessage struct {
+	// Subtype is always "task_progress".
+	Subtype string `json:"subtype,omitzero"`
+
+	// TaskID is the unique identifier for this task.
+	TaskID string `json:"task_id,omitzero"`
+
+	// Description is the task's human-readable description.
+	Description string `json:"description,omitzero"`
+
+	// Usage is the running usage breakdown for the task.
+	Usage TaskUsage `json:"usage,omitzero"`
+
+	// UUID is the message UUID.
+	UUID string `json:"uuid,omitzero"`
+
+	// SessionID identifies the CLI session.
+	SessionID string `json:"session_id,omitzero"`
+
+	// ToolUseID is the originating tool-use ID, when applicable.
+	ToolUseID string `json:"tool_use_id,omitzero"`
+
+	// LastToolName is the name of the most-recently-invoked tool, when set.
+	LastToolName string `json:"last_tool_name,omitzero"`
+
+	// Raw preserves unknown top-level fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (TaskProgressMessage) isMessage()                {}
+func (m TaskProgressMessage) jsonRaw() jsontext.Value { return m.Raw }
+
+// TaskNotificationMessage is the system message emitted when a Task completes,
+// fails, or is stopped. See [TaskStartedMessage]'s godoc for the
+// Python-subclass / Go-sibling note. Mirrors upstream TaskNotificationMessage
+// (types.py:1095).
+type TaskNotificationMessage struct {
+	// Subtype is always "task_notification".
+	Subtype string `json:"subtype,omitzero"`
+
+	// TaskID is the unique identifier for this task.
+	TaskID string `json:"task_id,omitzero"`
+
+	// Status is the terminal state — completed, failed, or stopped.
+	Status TaskNotificationStatus `json:"status,omitzero"`
+
+	// OutputFile is the path the task wrote its output to, when applicable.
+	OutputFile string `json:"output_file,omitzero"`
+
+	// Summary is the human-readable summary of the task outcome.
+	Summary string `json:"summary,omitzero"`
+
+	// UUID is the message UUID.
+	UUID string `json:"uuid,omitzero"`
+
+	// SessionID identifies the CLI session.
+	SessionID string `json:"session_id,omitzero"`
+
+	// ToolUseID is the originating tool-use ID, when applicable.
+	ToolUseID string `json:"tool_use_id,omitzero"`
+
+	// Usage is the final usage breakdown for the task, when reported.
+	Usage *TaskUsage `json:"usage,omitzero"`
+
+	// Raw preserves unknown top-level fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (TaskNotificationMessage) isMessage()                {}
+func (m TaskNotificationMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // ─── ContentBlock sealed interface ──────────────────────────────────────────
 
