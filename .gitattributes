@@ -5,3 +5,5 @@
 
 go.sum       linguist-vendored
 go.work.sum  linguist-vendored
+
+hack/extract-memchr-corpus/*  linguist-vendored
