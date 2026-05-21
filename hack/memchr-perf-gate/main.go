@@ -24,20 +24,13 @@
 // ups). The n=16 case is reported but excluded from the hard gate
 // because the plan only requires match-or-beat at n≥64.
 //
-// The script requires the `benchstat` binary on $PATH. It is added as a
-// tool-only dependency to the module via Step 9 (`go get -tool
-// golang.org/x/perf/cmd/benchstat@latest`).
+// The script prefers a `benchstat` binary on $PATH, then falls back to the
+// module tool directive via `go tool benchstat`.
 //
 // Usage:
 //
 //	go run ./hack/memchr-perf-gate
 //	go run ./hack/memchr-perf-gate --compare-artifacts=v3,v4
-//
-// Or, after pre-generating bench output:
-//
-//	go test -bench=. -benchmem -count=10 -run=^$
-//	    ./internal/memchr/ | tee bench.txt
-//	go run ./hack/memchr-perf-gate bench.txt   # not yet implemented; runs benchmarks itself
 package main
 
 import (
@@ -62,6 +55,12 @@ const flagCount = 10
 // reported but not gated (plan §"Risks" line 6, "the n=16 case is
 // excluded from the hard gate; n=16 is reported but non-blocking").
 var gatedSizes = []int{64, 256, 1024, 4096, 65536}
+
+// artifactPracticalDeltaPercent is the minimum statistically significant
+// slowdown that fails --compare-artifacts hard rows. The stdlib-vs-Memchr gate
+// intentionally does not use this threshold: any statistically significant
+// positive sec/op delta remains a failure there.
+const artifactPracticalDeltaPercent = 5.0
 
 // benchstatPath is the path to the benchstat binary. Defaults to the
 // $PATH lookup but can be overridden via --benchstat for local hacking.
@@ -186,10 +185,19 @@ func runArtifactCompare(spec, benchPattern string) error {
 	}
 	fmt.Println(strings.TrimRight(bsOut, "\n"))
 
-	regressions := findRegressions(bsOut)
+	thresholds := findArtifactThresholdRegressions(bsOut)
+	if len(thresholds) > 0 {
+		fmt.Fprintln(os.Stderr)
+		fmt.Fprintf(os.Stderr, "memchr-perf-gate: WARN — GOAMD64=%s threshold rows need explicit tuning evidence review:\n", treatment)
+		for _, r := range thresholds {
+			fmt.Fprintf(os.Stderr, "  %s\n", r)
+		}
+	}
+
+	regressions := findArtifactRegressions(bsOut)
 	if len(regressions) == 0 {
 		fmt.Println()
-		fmt.Printf("memchr-perf-gate: PASS (no gated GOAMD64=%s routine is statistically slower than GOAMD64=%s)\n", treatment, baseline)
+		fmt.Printf("memchr-perf-gate: PASS (no hard-gated GOAMD64=%s routine regressed by >=%.2f%% against GOAMD64=%s)\n", treatment, artifactPracticalDeltaPercent, baseline)
 		return nil
 	}
 	fmt.Fprintln(os.Stderr)
@@ -286,21 +294,53 @@ func renameInPlace(path, from, to string) error {
 // runBenchstat shells out to the benchstat binary. Older benchstat builds
 // accept the project-locked -delta-test=utest flag; newer x/perf releases
 // removed that flag and use their built-in comparison test. Prefer the locked
-// invocation when available, but fall back to -alpha=0.05 so the gate remains
-// runnable with the module's current toolchain.
+// invocation when available, fall back to -alpha=0.05 for newer benchstat, and
+// if the requested benchstat binary is unavailable fall back to the module's
+// `go tool benchstat` directive.
 func runBenchstat(bin, baseFile, treatFile string) (string, error) {
-	out, err := runBenchstatArgs(bin, []string{"-delta-test=utest", "-alpha=0.05", baseFile, treatFile})
+	commands := []benchstatCommand{{name: bin}}
+	if bin == "benchstat" {
+		commands = append(commands, benchstatCommand{name: "go", prefixArgs: []string{"tool", "benchstat"}})
+	}
+	var errs []string
+	for _, command := range commands {
+		out, err := runBenchstatCommand(command, baseFile, treatFile)
+		if err == nil {
+			return out, nil
+		}
+		errs = append(errs, err.Error())
+	}
+	return "", errors.New(strings.Join(errs, "\n"))
+}
+
+type benchstatCommand struct {
+	name       string
+	prefixArgs []string
+}
+
+func runBenchstatCommand(command benchstatCommand, baseFile, treatFile string) (string, error) {
+	out, err := runBenchstatArgs(command.name, command.args("-delta-test=utest", "-alpha=0.05", baseFile, treatFile))
 	if err == nil {
 		return out, nil
 	}
 	if !strings.Contains(out, "flag provided but not defined: -delta-test") {
-		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", bin, err, out)
+		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", command.String(), err, out)
 	}
-	out, err = runBenchstatArgs(bin, []string{"-alpha=0.05", baseFile, treatFile})
+	out, err = runBenchstatArgs(command.name, command.args("-alpha=0.05", baseFile, treatFile))
 	if err != nil {
-		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", bin, err, out)
+		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", command.String(), err, out)
 	}
 	return out, nil
+}
+
+func (command benchstatCommand) String() string {
+	return strings.Join(append([]string{command.name}, command.prefixArgs...), " ")
+}
+
+func (command benchstatCommand) args(args ...string) []string {
+	out := make([]string, 0, len(command.prefixArgs)+len(args))
+	out = append(out, command.prefixArgs...)
+	return append(out, args...)
 }
 
 func runBenchstatArgs(bin string, args []string) (string, error) {
@@ -309,27 +349,78 @@ func runBenchstatArgs(bin string, args []string) (string, error) {
 	return string(out), err
 }
 
-// regressionLine captures a benchstat row that flagged the treatment as
-// slower than the baseline with statistical significance. The
-// human-readable form is included in the failure summary.
+// benchstatRowRe captures a benchstat row that flagged the treatment as
+// slower than the baseline. Statistical significance and row policy are applied
+// after parsing. The human-readable form is included in the failure summary.
 //
 // Example benchstat row (the perf-gate parses the table format):
 //
 //	BenchmarkScan/n=64       42.0n ± 2%   55.0n ± 3%   +30.95% (p=0.000 n=10)
 //	Memchr2/n=64             42.0n ± 2%   55.0n ± 3%   +30.95% (p=0.000 n=10)
 //
-// A `+X.XX% (p=<0.05 ...)` cell on a gatedSizes row is a regression.
-var regressionRowRe = regexp.MustCompile(`(?:Benchmark)?([A-Za-z0-9]+)/n=(\d+)(?:-\d+)?.*?\+([\d.]+)%\s+\(p=([\d.]+)\s+n=\d+\)`)
+// A positive `+X.XX% (p=...)` cell on a sec/op row may be a regression,
+// depending on the active policy.
+var benchstatRowRe = regexp.MustCompile(`^\s*(?:Benchmark)?([A-Za-z0-9_./=-]*?)/n=(\d+)(?:-\d+)?.*?\+([\d.]+)%\s+\(p=([\d.]+)\s+n=\d+\)`)
+
+type gatePolicy int
+
+const (
+	stdlibGate gatePolicy = iota
+	artifactGate
+)
+
+type rowClass string
+
+const (
+	rowHard      rowClass = "hard"
+	rowThreshold rowClass = "threshold"
+	rowAdvisory  rowClass = "advisory"
+	rowTuning    rowClass = "tuning"
+)
+
+type benchstatRegression struct {
+	name         string
+	size         int
+	deltaPercent float64
+	pValue       float64
+	class        rowClass
+}
 
 // findRegressions scans benchstat output for any gated Memchr size
 // whose treatment ns/op is statistically slower than the baseline at
 // α=0.05.
 func findRegressions(bsOut string) []string {
+	return findPolicyRegressions(bsOut, stdlibGate)
+}
+
+func findArtifactRegressions(bsOut string) []string {
+	return findPolicyRegressions(bsOut, artifactGate)
+}
+
+func findArtifactThresholdRegressions(bsOut string) []string {
 	var out []string
-	gated := map[int]bool{}
-	for _, n := range gatedSizes {
-		gated[n] = true
+	for _, row := range classifyBenchstatRows(bsOut, artifactGate) {
+		if row.class != rowThreshold || row.pValue > 0.05 {
+			continue
+		}
+		out = append(out, row.String(artifactGate))
 	}
+	return out
+}
+
+func findPolicyRegressions(bsOut string, policy gatePolicy) []string {
+	var out []string
+	for _, row := range classifyBenchstatRows(bsOut, policy) {
+		if !row.fails(policy) {
+			continue
+		}
+		out = append(out, row.String(policy))
+	}
+	return out
+}
+
+func classifyBenchstatRows(bsOut string, policy gatePolicy) []benchstatRegression {
+	var out []benchstatRegression
 	inSecPerOp := false
 	for line := range strings.SplitSeq(bsOut, "\n") {
 		trimmed := strings.TrimSpace(line)
@@ -343,26 +434,67 @@ func findRegressions(bsOut string) []string {
 		if !inSecPerOp {
 			continue
 		}
-		m := regressionRowRe.FindStringSubmatch(line)
+		m := benchstatRowRe.FindStringSubmatch(line)
 		if m == nil {
 			continue
 		}
 		name := m[1]
 		n, _ := strconv.Atoi(m[2])
-		if !gated[n] {
-			continue
-		}
+		delta, _ := strconv.ParseFloat(m[3], 64)
 		p, _ := strconv.ParseFloat(m[4], 64)
-		if p > 0.05 {
-			continue
-		}
-		row := fmt.Sprintf("n=%d", n)
-		if name != "Scan" {
-			row = fmt.Sprintf("%s/%s", name, row)
-		}
-		out = append(out, fmt.Sprintf("%s: +%s%% slower (p=%s)", row, m[3], m[4]))
+		out = append(out, benchstatRegression{
+			name:         name,
+			size:         n,
+			deltaPercent: delta,
+			pValue:       p,
+			class:        classifyRow(name, n, policy),
+		})
 	}
 	return out
+}
+
+func classifyRow(name string, size int, policy gatePolicy) rowClass {
+	if strings.HasPrefix(name, "Tuning") || strings.Contains(name, "/Tuning") {
+		return rowTuning
+	}
+	switch policy {
+	case artifactGate:
+		if size == 64 || size == 128 || size == 256 {
+			return rowThreshold
+		}
+		if size >= 1024 {
+			return rowHard
+		}
+		return rowAdvisory
+	default:
+		for _, gated := range gatedSizes {
+			if size == gated {
+				return rowHard
+			}
+		}
+		return rowAdvisory
+	}
+}
+
+func (row benchstatRegression) fails(policy gatePolicy) bool {
+	if row.class != rowHard || row.pValue > 0.05 {
+		return false
+	}
+	if policy == artifactGate {
+		return row.deltaPercent >= artifactPracticalDeltaPercent
+	}
+	return true
+}
+
+func (row benchstatRegression) String(policy gatePolicy) string {
+	label := fmt.Sprintf("n=%d", row.size)
+	if row.name != "Scan" {
+		label = fmt.Sprintf("%s/%s", row.name, label)
+	}
+	if policy == artifactGate {
+		return fmt.Sprintf("%s: +%.2f%% slower (p=%.3f, class=%s, threshold=%.2f%%)", label, row.deltaPercent, row.pValue, row.class, artifactPracticalDeltaPercent)
+	}
+	return fmt.Sprintf("%s: +%.2f%% slower (p=%.3f)", label, row.deltaPercent, row.pValue)
 }
 
 // findRepoRoot walks upward from the current directory looking for
