@@ -106,6 +106,31 @@ func (o *Options) clone() *Options {
 			c.ExtraArgs[k] = v
 		}
 	}
+	if o.Sandbox != nil {
+		sb := *o.Sandbox
+		if o.Sandbox.ExcludedCommands != nil {
+			sb.ExcludedCommands = append([]string(nil), o.Sandbox.ExcludedCommands...)
+		}
+		if o.Sandbox.Network.AllowedDomains != nil {
+			sb.Network.AllowedDomains = append([]string(nil), o.Sandbox.Network.AllowedDomains...)
+		}
+		if o.Sandbox.Network.DeniedDomains != nil {
+			sb.Network.DeniedDomains = append([]string(nil), o.Sandbox.Network.DeniedDomains...)
+		}
+		if o.Sandbox.Network.AllowUnixSockets != nil {
+			sb.Network.AllowUnixSockets = append([]string(nil), o.Sandbox.Network.AllowUnixSockets...)
+		}
+		if o.Sandbox.Network.AllowMachLookup != nil {
+			sb.Network.AllowMachLookup = append([]string(nil), o.Sandbox.Network.AllowMachLookup...)
+		}
+		if o.Sandbox.IgnoreViolations.File != nil {
+			sb.IgnoreViolations.File = append([]string(nil), o.Sandbox.IgnoreViolations.File...)
+		}
+		if o.Sandbox.IgnoreViolations.Network != nil {
+			sb.IgnoreViolations.Network = append([]string(nil), o.Sandbox.IgnoreViolations.Network...)
+		}
+		c.Sandbox = &sb
+	}
 	return &c
 }
 
@@ -252,10 +277,18 @@ type Options struct {
 	// prompt for tool permissions. Corresponds to --permission-prompt-tool.
 	PermissionPromptToolName string
 
-	// Settings is a settings JSON string or a path to a settings file passed
-	// verbatim to the CLI. Corresponds to --settings. (Sandbox merging into
-	// settings is added with the Sandbox type group.)
+	// Settings is a settings JSON string or a path to a settings file. When
+	// [Options.Sandbox] is also set, Settings is parsed (or read from disk
+	// when it is a path) and [Options.Sandbox] is merged into the resulting
+	// JSON object under the "sandbox" key before being passed to the CLI as
+	// --settings. With no Sandbox, the value is passed through verbatim.
 	Settings string
+
+	// Sandbox configures bash-command sandboxing. When set it is merged into
+	// --settings as the "sandbox" key (see [Options.Settings]); a nil pointer
+	// leaves the CLI to its configured default. Mirrors upstream
+	// _build_settings_value (subprocess_cli.py:129-181).
+	Sandbox *SandboxSettings
 
 	// AddDirs is the list of additional directories the CLI may access.
 	// Corresponds to one --add-dir flag per entry.

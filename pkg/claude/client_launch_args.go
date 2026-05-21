@@ -57,7 +57,11 @@ import (
 // through unchanged. The receiver is never mutated.
 func effectiveToolsAndSources(opts *Options) (tools []string, sources []SettingSource) {
 	tools = append([]string(nil), opts.AllowedTools...)
-	sources = opts.SettingSources
+	// Copy SettingSources too: the Skills-default branch below may append to
+	// `sources`, which would otherwise mutate the caller's
+	// opts.SettingSources slice if it has spare capacity. This guards against
+	// any future code path that appends to `sources`, not only Skills.
+	sources = append([]SettingSource(nil), opts.SettingSources...)
 
 	if len(opts.Skills) == 0 {
 		return tools, sources
@@ -190,10 +194,12 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--session-id", opts.SessionID)
 	}
 
-	// Settings JSON or file path (subprocess_cli.py:300). Sandbox merging into
-	// settings is added with the Sandbox type group.
-	if opts.Settings != "" {
-		args = append(args, "--settings", opts.Settings)
+	// Settings JSON or file path, with Sandbox merged in. Mirrors upstream
+	// _build_settings_value (subprocess_cli.py:129-181).
+	if v, err := buildSettingsValue(opts); err != nil {
+		return nil, err
+	} else if v != "" {
+		args = append(args, "--settings", v)
 	}
 
 	// Additional accessible directories — one flag per entry (subprocess_cli.py:305).
