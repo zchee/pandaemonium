@@ -163,6 +163,38 @@ BenchmarkTuningMemchr/miss/n=128-44 4.0n ± 0% 8.0n ± 0% +100.00% (p=0.001 n=10
 	}
 }
 
+func TestArtifactScopedFamilyPolicy(t *testing.T) {
+	t.Parallel()
+
+	benchstat := `│ sec/op │
+BenchmarkMemchr2/n=64-44 3.0n ± 0% 6.0n ± 0% +100.00% (p=0.001 n=10)
+BenchmarkMemchr3/n=256-44 5.0n ± 0% 10.0n ± 0% +100.00% (p=0.001 n=10)
+BenchmarkMemrchr2/n=512-44 9.0n ± 0% 18.0n ± 0% +100.00% (p=0.001 n=10)
+BenchmarkMemrchr3/n=1024-44 17.0n ± 0% 17.8n ± 0% +4.71% (p=0.001 n=10)
+BenchmarkMemrchr/n=4096-44 70.0n ± 0% 73.5n ± 0% +5.00% (p=0.001 n=10)
+BenchmarkTuningMemrchr3/hit_last/n=4096-44 70.0n ± 0% 140.0n ± 0% +100.00% (p=0.001 n=10)`
+
+	wantThresholds := []string{
+		"Memchr2/n=64: +100.00% slower (p=0.001, class=threshold, threshold=5.00%)",
+		"Memchr3/n=256: +100.00% slower (p=0.001, class=threshold, threshold=5.00%)",
+	}
+	if got := findArtifactThresholdRegressions(benchstat); !reflect.DeepEqual(got, wantThresholds) {
+		t.Fatalf("findArtifactThresholdRegressions() got %#v, want %#v", got, wantThresholds)
+	}
+
+	wantHard := []string{
+		"Memrchr/n=4096: +5.00% slower (p=0.001, class=hard, threshold=5.00%)",
+	}
+	if got := findArtifactRegressions(benchstat); !reflect.DeepEqual(got, wantHard) {
+		t.Fatalf("findArtifactRegressions() got %#v, want %#v", got, wantHard)
+	}
+
+	rows := classifyBenchstatRows(benchstat, artifactGate)
+	if got, want := rowClasses(rows), []rowClass{rowThreshold, rowThreshold, rowAdvisory, rowHard, rowHard, rowTuning}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("artifact scoped row classes got %#v, want %#v", got, want)
+	}
+}
+
 func TestClassifyBenchstatRows(t *testing.T) {
 	t.Parallel()
 

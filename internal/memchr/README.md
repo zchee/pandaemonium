@@ -199,6 +199,39 @@ module tool directive through `go tool benchstat` when needed. On arm64 and
 other architectures, the gate currently reports the tuple as untested and exits
 successfully until a matching CI runner is provisioned.
 
+Treat perf-gate rows as separate policy classes:
+
+- **stdlib hard rows:** `BenchmarkMemchr` versus `BenchmarkIndexByteStd` at
+  stable benchmark sizes `n >= 64`; any statistically significant positive
+  `sec/op` delta fails the default gate.
+- **artifact hard rows:** `--compare-artifacts=v3,v4` rows at `n >= 1024`; a
+  statistically significant slowdown fails only when it also reaches the
+  practical delta threshold configured in `hack/memchr-perf-gate`.
+- **artifact threshold rows:** `n=64`, `n=128`, and `n=256` in artifact mode.
+  These rows are warnings/review inputs for scalar-vector threshold tuning, not
+  hard failures.
+- **advisory rows:** `n=16`, non-policy intermediate sizes such as `n=512`, and
+  mixed-workload or downclock probes. Keep these rows in evidence, not in the
+  hard gate, unless a later benchmark-backed plan promotes them.
+- **tuning rows:** `BenchmarkTuning...` rows behind `-tags=memchr_tuning`. These
+  are opt-in evaluator/local experiments and must not enter default CI or
+  artifact hard-fail policy by accident.
+
+For OMX performance-goal runs, keep the raw evidence directory durable enough to
+survive goal archival. Capture at least `git rev-parse HEAD`, `git status
+--short`, `go version`, `go env GOOS GOARCH GOAMD64 GOEXPERIMENT`, each command
+transcript, and each exit code under `.omx/goals/performance/<slug>/evidence/`.
+If a stop hook requires Codex goal reconciliation, copy a fresh `get_goal`
+snapshot into that evidence directory before running `omx performance-goal
+complete`. Hooks must not mutate Codex goal state. If the Codex goal objective is
+stale or mismatched, preserve the passing evaluator evidence and archive the OMX
+performance-goal directory instead of fabricating a matching Codex goal.
+
+Current benchmark evidence keeps the public `GOAMD64=v4` routes unchanged:
+single-needle `Memchr`/`Memrchr` use direct AVX-512 assembly, while
+multi-needle `Memchr2`/`Memchr3`/`Memrchr2`/`Memrchr3` stay on the `simd/archsimd`
+Int8x64 helpers. `GOAMD64=v3` remains the separate AVX2 fallback artifact.
+
 Before changing assembly files, format them with:
 
 ```sh
