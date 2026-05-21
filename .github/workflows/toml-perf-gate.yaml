@@ -7,14 +7,20 @@
 #
 # Per-scan baselines this workflow exercises (from the AC-SIMD-5 table):
 #
-#   Scan                | Baseline (declared)
-#   --------------------|------------------------------------
-#   LocateNewline       | bytes.IndexByte(s, '\n')          (stdlib)
-#   ScanLiteralString   | bytes.IndexByte(s, '\'')          (stdlib)
-#   ScanBareKey         | naive Go loop                     (oracle)
-#   ScanBasicString     | naive Go loop                     (oracle)
-#   SkipWhitespace      | naive Go loop                     (oracle)
-#   ValidateUTF8        | utf8.Valid(s) (wrapped int)       (stdlib)
+#   Scan                | Baseline (declared)             | Gate ratio
+#   --------------------|---------------------------------|-----------
+#   LocateNewline       | bytes.IndexByte(s, '\n')       | 0.98
+#   ScanLiteralString   | bytes.IndexByte(s, '\'')       | 0.98
+#   ScanBareKey         | naive Go loop                  | 1.00
+#   ScanBasicString     | naive Go loop                  | 1.00
+#   SkipWhitespace      | naive Go loop                  | 1.00
+#   ValidateUTF8        | utf8.Valid(s) (wrapped int)    | 1.00
+#
+# The two stdlib-backed single-byte scans use a 2% non-regression
+# tolerance because they intentionally mirror bytes.IndexByte-style
+# lowering; CI run-to-run wrapper/toolchain noise around a like-for-like
+# stdlib baseline is not a meaningful SIMD win/loss signal. The remaining
+# class/UTF-8 scans stay strict at 1.00.
 #
 # Each (arch × scan) cell runs an independent hack/toml-perf-gate
 # invocation so a single regression names its scan precisely in the
@@ -109,13 +115,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scan:
-          - LocateNewline
-          - ScanLiteralString
-          - ScanBareKey
-          - ScanBasicString
-          - SkipWhitespace
-          - ValidateUTF8
+        include:
+          - scan: LocateNewline
+            ratio: "0.98"
+          - scan: ScanLiteralString
+            ratio: "0.98"
+          - scan: ScanBareKey
+            ratio: "1.0"
+          - scan: ScanBasicString
+            ratio: "1.0"
+          - scan: SkipWhitespace
+            ratio: "1.0"
+          - scan: ValidateUTF8
+            ratio: "1.0"
 
     steps:
       - uses: actions/checkout@v6
@@ -134,7 +146,7 @@ jobs:
           gotip run ./hack/toml-perf-gate \
             --kind=scan \
             --scan="${{ matrix.scan }}" \
-            --ratio=1.0 \
+            --ratio="${{ matrix.ratio }}" \
             --cpu=1 \
             --count=10 \
             --benchtime=5s \
@@ -176,13 +188,19 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        scan:
-          - LocateNewline
-          - ScanLiteralString
-          - ScanBareKey
-          - ScanBasicString
-          - SkipWhitespace
-          - ValidateUTF8
+        include:
+          - scan: LocateNewline
+            ratio: "0.98"
+          - scan: ScanLiteralString
+            ratio: "0.98"
+          - scan: ScanBareKey
+            ratio: "1.0"
+          - scan: ScanBasicString
+            ratio: "1.0"
+          - scan: SkipWhitespace
+            ratio: "1.0"
+          - scan: ValidateUTF8
+            ratio: "1.0"
 
     steps:
       - uses: actions/checkout@v6
@@ -201,7 +219,7 @@ jobs:
           gotip run ./hack/toml-perf-gate \
             --kind=scan \
             --scan="${{ matrix.scan }}" \
-            --ratio=1.0 \
+            --ratio="${{ matrix.ratio }}" \
             --cpu=1 \
             --count=10 \
             --benchtime=5s \

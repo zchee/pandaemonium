@@ -17,6 +17,10 @@ package main
 import (
 	"bytes"
 	"math"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -408,6 +412,80 @@ func TestBenchmarkArgs_EditHarness(t *testing.T) {
 			t.Fatalf("benchmarkArgs[%d] = %q, want %q", i, got[i], want[i])
 		}
 	}
+}
+
+func TestTOMLPerfGateWorkflowScanRatios(t *testing.T) {
+	t.Parallel()
+
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("findRepoRoot: %v", err)
+	}
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "toml-perf-gate.yaml")
+	workflowBytes, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("read workflow %s: %v", workflowPath, err)
+	}
+	workflow := string(workflowBytes)
+
+	want := map[string]string{
+		"LocateNewline":     "0.98",
+		"ScanLiteralString": "0.98",
+		"ScanBareKey":       "1.0",
+		"ScanBasicString":   "1.0",
+		"SkipWhitespace":    "1.0",
+		"ValidateUTF8":      "1.0",
+	}
+
+	for _, job := range []string{"amd64-perf", "arm64-perf"} {
+		t.Run(job, func(t *testing.T) {
+			t.Parallel()
+
+			block := workflowJobBlock(t, workflow, job)
+			got := workflowScanRatios(block)
+			if len(got) != len(want) {
+				t.Fatalf("job %s: got %d scan ratios, want %d: %#v", job, len(got), len(want), got)
+			}
+			for scan, wantRatio := range want {
+				gotRatio, ok := got[scan]
+				if !ok {
+					t.Fatalf("job %s: missing scan %s in matrix ratios %#v", job, scan, got)
+				}
+				if gotRatio != wantRatio {
+					t.Fatalf("job %s scan %s: ratio=%s, want %s", job, scan, gotRatio, wantRatio)
+				}
+			}
+			if gotCount := strings.Count(block, `--ratio="${{ matrix.ratio }}"`); gotCount != 1 {
+				t.Fatalf("job %s: got %d matrix ratio command uses, want 1", job, gotCount)
+			}
+		})
+	}
+}
+
+func workflowJobBlock(t *testing.T, workflow, job string) string {
+	t.Helper()
+
+	startMarker := "\n  " + job + ":\n"
+	start := strings.Index(workflow, startMarker)
+	if start < 0 {
+		t.Fatalf("workflow missing job %s", job)
+	}
+	rest := workflow[start+len(startMarker):]
+	nextJob := regexp.MustCompile(`(?m)^  [A-Za-z0-9_-]+:$`).FindStringIndex(rest)
+	if nextJob == nil {
+		return rest
+	}
+	return rest[:nextJob[0]]
+}
+
+func workflowScanRatios(jobBlock string) map[string]string {
+	re := regexp.MustCompile(`(?m)^\s+- scan: ([A-Za-z0-9_]+)\n\s+ratio: "([0-9.]+)"$`)
+	matches := re.FindAllStringSubmatch(jobBlock, -1)
+	ratios := make(map[string]string, len(matches))
+	for _, match := range matches {
+		ratios[match[1]] = match[2]
+	}
+	return ratios
 }
 
 func contains(s, sub string) bool {

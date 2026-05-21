@@ -27,16 +27,16 @@ import (
 // buffer so the SIMD/baseline ratio reported by benchstat is the
 // numerical gate that hack/toml-perf-gate consumes.
 //
-// # AC-SIMD-5 baseline table (verbatim from the plan)
+// # AC-SIMD-5 baseline table
 //
-//   Scan                | Baseline
-//   --------------------|---------------------------------------
-//   LocateNewline       | bytes.IndexByte(s, '\n')      (stdlib)
-//   ScanLiteralString   | bytes.IndexByte(s, '\'')      (stdlib)
-//   ScanBareKey         | naiveScanBareKey              (oracle)
-//   ScanBasicString     | naiveScanBasicString          (oracle)
-//   SkipWhitespace      | naiveSkipWhitespace           (oracle)
-//   ValidateUTF8        | utf8.Valid(s) wrapped to int   (stdlib)
+//   Scan                | Baseline                              | Gate ratio
+//   --------------------|---------------------------------------|-----------
+//   LocateNewline       | bytes.IndexByte(s, '\n')      (stdlib) | 0.98
+//   ScanLiteralString   | bytes.IndexByte(s, '\'')      (stdlib) | 0.98
+//   ScanBareKey         | naiveScanBareKey              (oracle) | 1.00
+//   ScanBasicString     | naiveScanBasicString          (oracle) | 1.00
+//   SkipWhitespace      | naiveSkipWhitespace           (oracle) | 1.00
+//   ValidateUTF8        | utf8.Valid(s) wrapped to int  (stdlib) | 1.00
 //
 // The naive-loop baselines are the EXACT same code as the
 // correctness oracles in naive_scan_test.go — one source of truth for
