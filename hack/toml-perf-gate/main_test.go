@@ -580,6 +580,15 @@ func TestTOMLPerfGateWorkflowScanRatios(t *testing.T) {
 			if gotCount := strings.Count(block, `--ratio="${{ matrix.ratio }}"`); gotCount != 1 {
 				t.Fatalf("job %s: got %d matrix ratio command uses, want 1", job, gotCount)
 			}
+			if gotCount := strings.Count(block, "add-gotip-bin-to-path: true"); gotCount != 1 {
+				t.Fatalf("job %s: got %d gotip PATH enables, want 1", job, gotCount)
+			}
+			if gotCount := strings.Count(block, "go run -a ./hack/toml-perf-gate"); gotCount != 1 {
+				t.Fatalf("job %s: got %d fresh harness run commands, want 1", job, gotCount)
+			}
+			if strings.Contains(block, "gotip run ./hack/toml-perf-gate") {
+				t.Fatalf("job %s: stale gotip run harness command is still present", job)
+			}
 		})
 	}
 }

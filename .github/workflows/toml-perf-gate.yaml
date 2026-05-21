@@ -136,6 +136,7 @@ jobs:
         uses: ./.github/actions/setup-gotip
         with:
           install-tools: golang.org/x/perf/cmd/benchstat@latest
+          add-gotip-bin-to-path: true
 
       - name: Run perf-gate (${{ matrix.scan }})
         env:
@@ -143,7 +144,7 @@ jobs:
           GOMAXPROCS: "1"
           GODEBUG: ""
         run: |
-          gotip run ./hack/toml-perf-gate \
+          go run -a ./hack/toml-perf-gate \
             --kind=scan \
             --scan="${{ matrix.scan }}" \
             --ratio="${{ matrix.ratio }}" \
@@ -209,6 +210,7 @@ jobs:
         uses: ./.github/actions/setup-gotip
         with:
           install-tools: golang.org/x/perf/cmd/benchstat@latest
+          add-gotip-bin-to-path: true
 
       - name: Run perf-gate (${{ matrix.scan }})
         env:
@@ -216,7 +218,7 @@ jobs:
           GOMAXPROCS: "1"
           GODEBUG: ""
         run: |
-          gotip run ./hack/toml-perf-gate \
+          go run -a ./hack/toml-perf-gate \
             --kind=scan \
             --scan="${{ matrix.scan }}" \
             --ratio="${{ matrix.ratio }}" \
