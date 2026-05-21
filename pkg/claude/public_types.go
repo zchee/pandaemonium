@@ -281,6 +281,135 @@ type TaskNotificationMessage struct {
 func (TaskNotificationMessage) isMessage()                {}
 func (m TaskNotificationMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+// ─── StreamEvent ─────────────────────────────────────────────────────────────
+
+// StreamEvent is a partial-message update emitted during streaming when
+// [Options.IncludePartialMessages] is enabled. Mirrors upstream StreamEvent
+// (types.py:1171).
+//
+// Event is the raw Anthropic API stream event, kept opaque to this layer
+// because the shape varies per Anthropic stream-event type
+// (message_start, content_block_start, content_block_delta, etc.). Callers
+// that need to discriminate decode it themselves.
+type StreamEvent struct {
+	// UUID is the event UUID.
+	UUID string `json:"uuid,omitzero"`
+
+	// SessionID identifies the CLI session.
+	SessionID string `json:"session_id,omitzero"`
+
+	// Event is the raw Anthropic API stream event payload, opaque to this
+	// layer.
+	Event jsontext.Value `json:"event,omitzero"`
+
+	// ParentToolUseID, when non-empty, identifies the originating tool call.
+	ParentToolUseID string `json:"parent_tool_use_id,omitzero"`
+
+	// Raw preserves unknown top-level fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (StreamEvent) isMessage()                {}
+func (m StreamEvent) jsonRaw() jsontext.Value { return m.Raw }
+
+// ─── Rate limit types ────────────────────────────────────────────────────────
+
+// RateLimitStatus is the current allow/reject state of a rate-limit window.
+// Mirrors upstream RateLimitStatus (types.py:1181).
+type RateLimitStatus string
+
+const (
+	// RateLimitStatusAllowed indicates the request is within the limit.
+	RateLimitStatusAllowed RateLimitStatus = "allowed"
+
+	// RateLimitStatusAllowedWarning indicates the limit is being
+	// approached — useful as a "back off soon" signal.
+	RateLimitStatusAllowedWarning RateLimitStatus = "allowed_warning"
+
+	// RateLimitStatusRejected indicates the limit has been hit and the
+	// request was rejected.
+	RateLimitStatusRejected RateLimitStatus = "rejected"
+)
+
+// RateLimitType identifies which rate-limit window applies. Mirrors upstream
+// RateLimitType (types.py:1182-1184).
+type RateLimitType string
+
+const (
+	// RateLimitTypeFiveHour is the 5-hour rolling-window limit.
+	RateLimitTypeFiveHour RateLimitType = "five_hour"
+
+	// RateLimitTypeSevenDay is the 7-day rolling-window limit.
+	RateLimitTypeSevenDay RateLimitType = "seven_day"
+
+	// RateLimitTypeSevenDayOpus is the Opus-specific 7-day limit.
+	RateLimitTypeSevenDayOpus RateLimitType = "seven_day_opus"
+
+	// RateLimitTypeSevenDaySonnet is the Sonnet-specific 7-day limit.
+	RateLimitTypeSevenDaySonnet RateLimitType = "seven_day_sonnet"
+
+	// RateLimitTypeOverage is the overage / pay-as-you-go window.
+	RateLimitTypeOverage RateLimitType = "overage"
+)
+
+// RateLimitInfo describes a rate-limit window's current state. Carried inside
+// [RateLimitEvent.RateLimitInfo]. Mirrors upstream RateLimitInfo
+// (types.py:1188).
+//
+// Wire-tag trap: upstream Python attrs are snake_case (resets_at,
+// rate_limit_type) but the CLI sends camelCase on the wire (resetsAt,
+// rateLimitType). The JSON tags below carry the camelCase wire names; the
+// Go field names follow Go conventions.
+type RateLimitInfo struct {
+	// Status is the current rate-limit verdict.
+	Status RateLimitStatus `json:"status,omitzero"`
+
+	// ResetsAt is the Unix-seconds timestamp when the limit window resets.
+	// Zero means unknown.
+	ResetsAt int64 `json:"resetsAt,omitzero"`
+
+	// RateLimitType identifies which window applies.
+	RateLimitType RateLimitType `json:"rateLimitType,omitzero"`
+
+	// Utilization is the fraction of the rate limit consumed (0.0–1.0).
+	// Zero means unknown.
+	Utilization float64 `json:"utilization,omitzero"`
+
+	// OverageStatus is the overage / pay-as-you-go status when applicable.
+	OverageStatus RateLimitStatus `json:"overageStatus,omitzero"`
+
+	// OverageResetsAt is when the overage window resets, in Unix seconds.
+	OverageResetsAt int64 `json:"overageResetsAt,omitzero"`
+
+	// OverageDisabledReason explains why overage is unavailable when
+	// applicable.
+	OverageDisabledReason string `json:"overageDisabledReason,omitzero"`
+
+	// Raw preserves the full wire payload, including any fields not yet
+	// modeled above, for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+// RateLimitEvent is the top-level message the CLI emits when a rate-limit
+// status transitions (e.g. from allowed to allowed_warning). Mirrors upstream
+// RateLimitEvent (types.py:1214).
+type RateLimitEvent struct {
+	// RateLimitInfo is the current rate-limit state.
+	RateLimitInfo RateLimitInfo `json:"rate_limit_info,omitzero"`
+
+	// UUID is the event UUID.
+	UUID string `json:"uuid,omitzero"`
+
+	// SessionID identifies the CLI session.
+	SessionID string `json:"session_id,omitzero"`
+
+	// Raw preserves unknown top-level fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (RateLimitEvent) isMessage()                {}
+func (m RateLimitEvent) jsonRaw() jsontext.Value { return m.Raw }
+
 // ─── ContentBlock sealed interface ──────────────────────────────────────────
 
 // ContentBlock is the sealed interface implemented by every content block

@@ -92,6 +92,18 @@ func parseMessage(line []byte) (Message, error) {
 			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 		}
 		return m, nil
+	case "stream_event":
+		var m StreamEvent
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return m, nil
+	case "rate_limit_event":
+		var m RateLimitEvent
+		if err := json.Unmarshal(data, &m); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return m, nil
 	default:
 		// Unknown type — preserve raw bytes for forward compatibility.
 		return rawMessage{raw: jsontext.Value(data)}, nil
