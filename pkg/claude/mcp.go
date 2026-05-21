@@ -56,8 +56,9 @@ type ToolDefinition struct {
 	name        string
 	description string
 	schema      *jsonschema.Schema
-	fn          any               // original typed func stored for inspection
-	mcpHandler  gomcp.ToolHandler // pre-built go-sdk handler adapter
+	annotations *gomcp.ToolAnnotations // registration-side hints; surfaced through tools/list
+	fn          any                    // original typed func stored for inspection
+	mcpHandler  gomcp.ToolHandler      // pre-built go-sdk handler adapter
 }
 
 // Name returns the tool's registered name.
@@ -82,6 +83,34 @@ func (d ToolDefinition) Schema() *jsonschema.Schema { return d.schema }
 //	    },
 //	)
 func Tool[I any](name, description string, schema *jsonschema.Schema, fn func(context.Context, I) (ToolResult, error)) ToolDefinition {
+	return ToolWithAnnotations(name, description, schema, nil, fn)
+}
+
+// ToolWithAnnotations is like [Tool] but also attaches MCP tool annotations
+// (registration-side hints such as readOnlyHint / destructiveHint /
+// openWorldHint / idempotentHint, defined by gomcp.ToolAnnotations). The
+// annotations are surfaced through this server's tools/list response so the
+// CLI — and downstream callers reading [MCPServerStatus.Tools] — see them.
+//
+// Note the distinction between two annotation types in this package:
+//   - [gomcp.ToolAnnotations] is the registration-side type used here; it
+//     uses the official MCP wire-format field names (destructiveHint,
+//     openWorldHint, etc.).
+//   - [MCPToolAnnotations] is the status-side type decoded from the CLI's
+//     mcp_status response; it uses upstream's status-shape names (readOnly,
+//     destructive, openWorld).
+//
+// The two flow in opposite directions and carry different fields; do not
+// conflate them.
+//
+//	greetTool := claude.ToolWithAnnotations("greet", "Greets the named person",
+//	    mySchema,
+//	    &gomcp.ToolAnnotations{ReadOnlyHint: true},
+//	    func(ctx context.Context, in GreetInput) (claude.ToolResult, error) {
+//	        return claude.ToolResult{Content: "Hello, " + in.Name}, nil
+//	    },
+//	)
+func ToolWithAnnotations[I any](name, description string, schema *jsonschema.Schema, annotations *gomcp.ToolAnnotations, fn func(context.Context, I) (ToolResult, error)) ToolDefinition {
 	// Pre-build the go-sdk ToolHandler that unmarshals arguments into I.
 	handler := gomcp.ToolHandler(func(ctx context.Context, req *gomcp.CallToolRequest) (*gomcp.CallToolResult, error) {
 		var input I
@@ -109,6 +138,7 @@ func Tool[I any](name, description string, schema *jsonschema.Schema, fn func(co
 		name:        name,
 		description: description,
 		schema:      schema,
+		annotations: annotations,
 		fn:          fn,
 		mcpHandler:  handler,
 	}
@@ -214,11 +244,15 @@ func (s *inProcessMCPServer) listTools() (map[string]any, error) {
 			}
 			schema = stdjson.RawMessage(raw)
 		}
-		tools = append(tools, map[string]any{
+		entry := map[string]any{
 			"name":        def.name,
 			"description": def.description,
 			"inputSchema": schema,
-		})
+		}
+		if def.annotations != nil {
+			entry["annotations"] = def.annotations
+		}
+		tools = append(tools, entry)
 	}
 	return map[string]any{"tools": tools}, nil
 }

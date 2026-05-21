@@ -18,6 +18,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 )
 
@@ -116,11 +117,28 @@ func (c *ClaudeSDKClient) GetServerInfo(ctx context.Context) (jsontext.Value, er
 }
 
 // GetMCPStatus returns the CLI's MCP server connection status as raw JSON.
-// The shape is not modelled as a Go type (forward compatibility); decode it
-// into your own shape. Returns a [CLIConnectionError] on a not-running client,
-// a CLI error response, or timeout.
+// The shape is not modelled as a Go type at this entrypoint (forward
+// compatibility); use [ClaudeSDKClient.GetMCPStatusTyped] for the decoded
+// view, or decode this into your own shape. Returns a [CLIConnectionError]
+// on a not-running client, a CLI error response, or timeout.
 func (c *ClaudeSDKClient) GetMCPStatus(ctx context.Context) (jsontext.Value, error) {
 	return c.controlRequest(ctx, "mcp_status", nil)
+}
+
+// GetMCPStatusTyped is the typed accessor over [ClaudeSDKClient.GetMCPStatus]:
+// it issues the same control request and decodes the JSON payload into an
+// [MCPStatusResponse]. Unknown fields are silently dropped; callers needing
+// forward-compat passthrough should use the raw accessor.
+func (c *ClaudeSDKClient) GetMCPStatusTyped(ctx context.Context) (*MCPStatusResponse, error) {
+	raw, err := c.GetMCPStatus(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out := &MCPStatusResponse{}
+	if err := json.Unmarshal(raw, out); err != nil {
+		return nil, &CLIConnectionError{Message: "decode mcp_status response: " + err.Error()}
+	}
+	return out, nil
 }
 
 // GetContextUsage returns a breakdown of the current context-window usage by
