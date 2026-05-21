@@ -43,12 +43,30 @@ type Session struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-// SessionStore is the pluggable persistence interface for claude sessions.
+// SessionStore is the pluggable, Go-native message-history store consumed by
+// [ClaudeSDKClient.Fork] to snapshot a parent session's transcript into a
+// new branch. Implementations must be safe for concurrent use.
 //
-// Implementations must be safe for concurrent use. The package ships an
-// in-memory implementation ([NewInMemorySessionStore]) and a conformance
-// harness at pkg/claude/testing/sessionstoreconformance.
+// # Architectural note: intentional divergence from the Python SDK
 //
+// SessionStore is an SDK-side concept. It is NOT wired to the claude CLI in
+// any way: no launch flag, no initialize-payload field, no control-protocol
+// traffic carries SessionStore data, and the CLI never reads from or writes
+// to it. CLI-side session lifetime is governed by [Options.SessionID] and
+// [Options.Resume] (mapped to `--session-id` / `--resume`) and is independent
+// of whether a SessionStore is configured.
+//
+// The upstream Python SDK exposes a parallel "session store Protocol" backed
+// by a composite SessionKey (project_key, session_id, subpath), async I/O
+// variants, transcript-mirroring, and keychain-credential copy — machinery
+// designed to mirror CLI transcripts. This Go SDK deliberately does NOT port
+// that surface: the Go SessionStore exists solely to back Fork's history
+// snapshot, which is a Go-side concern. Diverging here is by design — the
+// abstraction maps cleanly to its single consumer and avoids speculative
+// machinery for a Protocol that has no Go consumer.
+//
+// The package ships an in-memory implementation ([NewInMemorySessionStore])
+// and a conformance harness at pkg/claude/testing/sessionstoreconformance.
 // No built-in database backends (Postgres, Redis, S3) are provided; example
 // adapters under pkg/claude/examples/sessionstores/ are separate Go modules.
 type SessionStore interface {

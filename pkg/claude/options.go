@@ -206,8 +206,15 @@ type Options struct {
 	// SettingSources is the list of external settings sources for the CLI.
 	SettingSources []SettingSource
 
-	// SessionStore is the persistent store for conversation sessions.
-	// A nil SessionStore disables session persistence.
+	// SessionStore is a Go-side message-history store consumed only by
+	// [ClaudeSDKClient.Fork] to snapshot the parent session's history into a
+	// new branch. It is NOT wired to the CLI: no `--session-store` flag, no
+	// initialize-payload field, no control-protocol traffic. CLI-side session
+	// management uses [Options.SessionID] and [Options.Resume] (which drive
+	// `--session-id` and `--resume`) and is independent of this store.
+	//
+	// A nil SessionStore disables Fork but does not affect any other client
+	// behavior. See [SessionStore]'s godoc for the architectural rationale.
 	SessionStore SessionStore
 
 	// Model overrides the default model. Empty uses the CLI's configured

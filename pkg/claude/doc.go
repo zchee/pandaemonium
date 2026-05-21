@@ -50,9 +50,16 @@
 //
 // # Session store
 //
-// [SessionStore] is a pluggable persistence interface. The package ships an
-// in-memory implementation ([NewInMemorySessionStore]) and a conformance
-// harness at pkg/claude/testing/sessionstoreconformance.
+// [SessionStore] is a Go-native, pluggable message-history store consumed
+// only by [ClaudeSDKClient.Fork] to branch a session's transcript. It is
+// NOT wired to the claude CLI — no flag, no initialize field, no
+// control-protocol traffic. CLI-side session lifetime is driven by
+// [Options.SessionID] and [Options.Resume] independently. This is a
+// deliberate divergence from the upstream Python SDK's transcript-mirror
+// Protocol; see [SessionStore]'s godoc for the rationale.
+//
+// The package ships an in-memory implementation ([NewInMemorySessionStore])
+// and a conformance harness at pkg/claude/testing/sessionstoreconformance.
 //
 // # Fixture refresh
 //
