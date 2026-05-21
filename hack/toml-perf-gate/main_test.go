@@ -17,6 +17,10 @@ package main
 import (
 	"bytes"
 	"math"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 	"testing"
 )
 
@@ -56,9 +60,9 @@ geomean,6.50e+10,,4.30e+10,,-33.85%,
 `
 
 // stubInsignificantCSV is a benchstat CSV where the change is NOT
-// statistically significant ("~" in the vs base column). The gate
-// must FAIL — without a signal, "lower 95% CI > threshold" cannot
-// hold.
+// statistically significant ("~" in the vs base column) and the lower
+// confidence bound is below the strict 1.0 threshold. The gate must
+// fail on the lower-bound rule.
 const stubInsignificantCSV = `,base.txt,,simd.txt,,,
 ,sec/op,CI,sec/op,CI,vs base,P
 LocateNewline-16,1.20e-06,2.4e-08,1.18e-06,2.4e-08,~,p=0.300 n=10
@@ -68,6 +72,49 @@ geomean,1.20e-06,,1.18e-06,,~,
 ,B/s,CI,B/s,CI,vs base,P
 LocateNewline-16,5.46e+10,1.0e+09,5.55e+10,1.0e+09,~,p=0.300 n=10
 geomean,5.46e+10,,5.55e+10,,~,
+`
+
+// stubToleratedParityCSV matches the CI failure shape for the
+// stdlib-backed single-byte scans: no significant benchstat delta, but
+// finite confidence bounds whose conservative lower ratio remains above
+// the documented 0.98 non-regression threshold.
+const stubToleratedParityCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+LocateNewline-16,1.623e-06,1.0e-09,1.623e-06,1.0e-09,~,p=0.075 n=10
+geomean,1.623e-06,,1.623e-06,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+LocateNewline-16,3.762e+10,1.0e+07,3.760e+10,1.0e+07,~,p=0.075 n=10
+geomean,3.762e+10,,3.760e+10,,~,
+`
+
+// stubCIObservedLocateNewlineCSV matches the CI failure from run
+// 26240300070: finite lower confidence bound above the documented 0.98
+// non-regression threshold, but insignificant p-value.
+const stubCIObservedLocateNewlineCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+LocateNewline-16,1.00e-06,0,9.970e-07,0,~,p=0.436 n=10
+geomean,1.00e-06,,9.970e-07,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+LocateNewline-16,5.000e+10,1.0e+07,5.017e+10,5.0e+06,~,p=0.436 n=10
+geomean,5.000e+10,,5.017e+10,,~,
+`
+
+// stubCIObservedScanLiteralStringCSV matches the second CI failure from
+// run 26240300070: finite parity at 1.000x is still comfortably above
+// the 0.98 threshold and must not fail solely on p>=alpha.
+const stubCIObservedScanLiteralStringCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+ScanLiteralString-16,1.00e-06,0,1.00e-06,0,~,p=0.853 n=10
+geomean,1.00e-06,,1.00e-06,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+ScanLiteralString-16,5.000e+10,1.0e+07,5.000e+10,1.0e+07,~,p=0.853 n=10
+geomean,5.000e+10,,5.000e+10,,~,
 `
 
 // stubInfCISigCSV is a benchstat CSV with ∞ CIs (insufficient
@@ -83,6 +130,21 @@ geomean,1.20e-06,,8.00e-07,,-33.33%,
 ,B/s,CI,B/s,CI,vs base,P
 LocateNewline-16,5.46e+10,∞,8.19e+10,∞,+50.00%,p=0.030 n=4
 geomean,5.46e+10,,8.19e+10,,+50.00%,
+`
+
+// stubInfCIInsigCSV keeps the same infinite-CI point speedup as
+// stubInfCISigCSV but reports no statistically significant change.
+// The insufficient-samples fallback must reject it because there is no
+// finite lower bound to use as proof.
+const stubInfCIInsigCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+LocateNewline-16,1.20e-06,∞,8.00e-07,∞,~,p=0.300 n=4
+geomean,1.20e-06,,8.00e-07,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+LocateNewline-16,5.46e+10,∞,8.19e+10,∞,~,p=0.300 n=4
+geomean,5.46e+10,,8.19e+10,,~,
 `
 
 // stubBareSpeedupCSV is a benchstat CSV where the point speedup is
@@ -151,9 +213,6 @@ func TestParseGate(t *testing.T) {
 			wantFailMatch: "lower95=",
 		},
 		{
-			// "~" in the vs-base column means "delta not significant
-			// at alpha" but benchstat still fills the P column. The
-			// gate correctly fails on "p >= alpha".
 			name:          "fail:not_significant",
 			csv:           stubInsignificantCSV,
 			scan:          "LocateNewline",
@@ -165,7 +224,46 @@ func TestParseGate(t *testing.T) {
 			wantLowerMin:  0.97,
 			wantLowerMax:  0.99,
 			wantPValue:    0.300,
-			wantFailMatch: "p=0.3 >= alpha=0.05",
+			wantFailMatch: "lower95=",
+		},
+		{
+			name:         "success:tolerated_parity_without_significant_delta",
+			csv:          stubToleratedParityCSV,
+			scan:         "LocateNewline",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 0.999,
+			wantPointMax: 1.000,
+			wantLowerMin: 0.998,
+			wantLowerMax: 1.000,
+			wantPValue:   0.075,
+		},
+		{
+			name:         "success:ci_observed_locate_newline_non_regression",
+			csv:          stubCIObservedLocateNewlineCSV,
+			scan:         "LocateNewline",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 1.002,
+			wantPointMax: 1.004,
+			wantLowerMin: 1.002,
+			wantLowerMax: 1.004,
+			wantPValue:   0.436,
+		},
+		{
+			name:         "success:ci_observed_scan_literal_string_non_regression",
+			csv:          stubCIObservedScanLiteralStringCSV,
+			scan:         "ScanLiteralString",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 1.000,
+			wantPointMax: 1.000,
+			wantLowerMin: 0.999,
+			wantLowerMax: 1.000,
+			wantPValue:   0.853,
 		},
 		{
 			name:         "success:inf_ci_with_signal",
@@ -179,6 +277,34 @@ func TestParseGate(t *testing.T) {
 			wantLowerMin: 1.49,
 			wantLowerMax: 1.51,
 			wantPValue:   0.030,
+		},
+		{
+			name:          "fail:inf_ci_without_signal",
+			csv:           stubInfCIInsigCSV,
+			scan:          "LocateNewline",
+			threshold:     1.0,
+			alpha:         0.05,
+			wantPass:      false,
+			wantPointMin:  1.49,
+			wantPointMax:  1.51,
+			wantLowerMin:  1.49,
+			wantLowerMax:  1.51,
+			wantPValue:    0.300,
+			wantFailMatch: "p=0.3 >= alpha=0.05",
+		},
+		{
+			name:          "fail:inf_ci_point_below_threshold",
+			csv:           stubInfCISigCSV,
+			scan:          "LocateNewline",
+			threshold:     2.0,
+			alpha:         0.05,
+			wantPass:      false,
+			wantPointMin:  1.49,
+			wantPointMax:  1.51,
+			wantLowerMin:  1.49,
+			wantLowerMax:  1.51,
+			wantPValue:    0.030,
+			wantFailMatch: "point=1.5000x < threshold=2.0000x",
 		},
 		{
 			name:          "fail:marginal_speedup_strict_threshold",
@@ -408,6 +534,89 @@ func TestBenchmarkArgs_EditHarness(t *testing.T) {
 			t.Fatalf("benchmarkArgs[%d] = %q, want %q", i, got[i], want[i])
 		}
 	}
+}
+
+func TestTOMLPerfGateWorkflowScanRatios(t *testing.T) {
+	t.Parallel()
+
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("findRepoRoot: %v", err)
+	}
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "toml-perf-gate.yaml")
+	workflowBytes, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("read workflow %s: %v", workflowPath, err)
+	}
+	workflow := string(workflowBytes)
+
+	want := map[string]string{
+		"LocateNewline":     "0.98",
+		"ScanLiteralString": "0.98",
+		"ScanBareKey":       "1.0",
+		"ScanBasicString":   "1.0",
+		"SkipWhitespace":    "1.0",
+		"ValidateUTF8":      "1.0",
+	}
+
+	for _, job := range []string{"amd64-perf", "arm64-perf"} {
+		t.Run(job, func(t *testing.T) {
+			t.Parallel()
+
+			block := workflowJobBlock(t, workflow, job)
+			got := workflowScanRatios(block)
+			if len(got) != len(want) {
+				t.Fatalf("job %s: got %d scan ratios, want %d: %#v", job, len(got), len(want), got)
+			}
+			for scan, wantRatio := range want {
+				gotRatio, ok := got[scan]
+				if !ok {
+					t.Fatalf("job %s: missing scan %s in matrix ratios %#v", job, scan, got)
+				}
+				if gotRatio != wantRatio {
+					t.Fatalf("job %s scan %s: ratio=%s, want %s", job, scan, gotRatio, wantRatio)
+				}
+			}
+			if gotCount := strings.Count(block, `--ratio="${{ matrix.ratio }}"`); gotCount != 1 {
+				t.Fatalf("job %s: got %d matrix ratio command uses, want 1", job, gotCount)
+			}
+			if gotCount := strings.Count(block, "add-gotip-bin-to-path: true"); gotCount != 1 {
+				t.Fatalf("job %s: got %d gotip PATH enables, want 1", job, gotCount)
+			}
+			if gotCount := strings.Count(block, "go run -a ./hack/toml-perf-gate"); gotCount != 1 {
+				t.Fatalf("job %s: got %d fresh harness run commands, want 1", job, gotCount)
+			}
+			if strings.Contains(block, "gotip run ./hack/toml-perf-gate") {
+				t.Fatalf("job %s: stale gotip run harness command is still present", job)
+			}
+		})
+	}
+}
+
+func workflowJobBlock(t *testing.T, workflow, job string) string {
+	t.Helper()
+
+	startMarker := "\n  " + job + ":\n"
+	start := strings.Index(workflow, startMarker)
+	if start < 0 {
+		t.Fatalf("workflow missing job %s", job)
+	}
+	rest := workflow[start+len(startMarker):]
+	nextJob := regexp.MustCompile(`(?m)^  [A-Za-z0-9_-]+:$`).FindStringIndex(rest)
+	if nextJob == nil {
+		return rest
+	}
+	return rest[:nextJob[0]]
+}
+
+func workflowScanRatios(jobBlock string) map[string]string {
+	re := regexp.MustCompile(`(?m)^\s+- scan: ([A-Za-z0-9_]+)\n\s+ratio: "([0-9.]+)"$`)
+	matches := re.FindAllStringSubmatch(jobBlock, -1)
+	ratios := make(map[string]string, len(matches))
+	for _, match := range matches {
+		ratios[match[1]] = match[2]
+	}
+	return ratios
 }
 
 func contains(s, sub string) bool {

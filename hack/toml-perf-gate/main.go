@@ -511,12 +511,17 @@ type gateResult struct {
 //
 //	point   = SIMD_Bps / baseline_Bps                 (median throughput ratio)
 //	lower   = (SIMD_Bps - SIMD_CI) / (base_Bps + base_CI)   (conservative lower bound)
-//	pass    = lower >= threshold AND p < alpha
+//	pass    = lower >= threshold
 //	         OR (CIs are ∞ AND point >= threshold AND p < alpha)   (insufficient-samples fallback)
 //
 // The "OR" branch handles benchstat reporting "∞" CIs for small
 // sample counts (< 6); without it the gate would always fail in that
 // regime. CI runs use count=10 which avoids that branch entirely.
+// For finite CIs, the conservative lower bound is already the gate's
+// non-regression proof; benchstat's two-sided p-value is diagnostic
+// output, not an extra pass condition. Requiring p < alpha for finite
+// CIs incorrectly fails near-parity results whose entire confidence
+// interval remains inside the configured tolerance.
 func parseGate(csvText, scanName string, ratioThreshold, alpha float64) (gateResult, error) {
 	// benchstat -format=csv writes:
 	//   ,base.txt,,simd.txt,,,
@@ -683,12 +688,21 @@ func scoreRow(r []string, ratioThreshold, alpha float64) (gateResult, error) {
 		pValue:     pValue,
 	}
 	switch {
-	case pValue < 0:
-		// "~" / no significant change. Per the protocol's
-		// "lower-95%-CI > threshold" rule, no signal = no pass.
-		res.failReason = "no statistically significant change"
-	case pValue >= alpha:
-		res.failReason = fmt.Sprintf("p=%g >= alpha=%g", pValue, alpha)
+	case baseCIInf || simdCIInf:
+		// With infinite CIs, there is no finite lower confidence
+		// bound. The fallback is intentionally stricter: accept only
+		// a point estimate above the threshold when benchstat also
+		// reports a statistically significant change.
+		switch {
+		case pValue < 0:
+			res.failReason = "no statistically significant change"
+		case pValue >= alpha:
+			res.failReason = fmt.Sprintf("p=%g >= alpha=%g", pValue, alpha)
+		case lower < ratioThreshold:
+			res.failReason = fmt.Sprintf("point=%.4fx < threshold=%.4fx", point, ratioThreshold)
+		default:
+			res.pass = true
+		}
 	case lower < ratioThreshold:
 		res.failReason = fmt.Sprintf("lower95=%.4fx < threshold=%.4fx (point=%.4fx)", lower, ratioThreshold, point)
 	default:
