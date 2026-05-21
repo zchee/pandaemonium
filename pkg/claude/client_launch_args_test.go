@@ -584,3 +584,134 @@ func argValue(args []string, flag string) string {
 	}
 	return args[i+1]
 }
+
+
+// ── M10b Thinking group ──────────────────────────────────────────────────────
+
+// TestBuildLaunchArgs_Thinking covers the Thinking-config / MaxThinkingTokens /
+// Effort wiring (subprocess_cli.py:372-393). The discriminator cases pin the
+// three wire-mapping quirks:
+//
+//  1. Enabled emits ONLY --max-thinking-tokens (no --thinking flag).
+//  2. Disabled does not emit --thinking-display even if it were carried.
+//  3. Thinking takes precedence over MaxThinkingTokens (else-if upstream).
+func TestBuildLaunchArgs_Thinking(t *testing.T) {
+	t.Parallel()
+
+	const fakeCLI = "/usr/local/bin/claude"
+
+	t.Run("adaptive emits --thinking adaptive", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{Thinking: ThinkingConfigAdaptive{}}, "")
+		if v := argValue(got, "--thinking"); v != "adaptive" {
+			t.Errorf("--thinking = %q, want adaptive", v)
+		}
+		if extraArgIndex(got, "--max-thinking-tokens") != -1 {
+			t.Errorf("adaptive must not emit --max-thinking-tokens: %v", got)
+		}
+		if extraArgIndex(got, "--thinking-display") != -1 {
+			t.Errorf("adaptive with empty Display must not emit --thinking-display: %v", got)
+		}
+	})
+
+	t.Run("adaptive with Display emits --thinking-display", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{
+			Thinking: ThinkingConfigAdaptive{Display: ThinkingDisplaySummarized},
+		}, "")
+		if v := argValue(got, "--thinking-display"); v != "summarized" {
+			t.Errorf("--thinking-display = %q, want summarized", v)
+		}
+	})
+
+	t.Run("enabled emits only --max-thinking-tokens (no --thinking flag)", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{
+			Thinking: ThinkingConfigEnabled{BudgetTokens: 4096},
+		}, "")
+		if v := argValue(got, "--max-thinking-tokens"); v != "4096" {
+			t.Errorf("--max-thinking-tokens = %q, want 4096", v)
+		}
+		if extraArgIndex(got, "--thinking") != -1 {
+			t.Errorf("enabled must NOT emit --thinking (subprocess_cli.py:378): %v", got)
+		}
+	})
+
+	t.Run("enabled with Display emits --thinking-display", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{
+			Thinking: ThinkingConfigEnabled{BudgetTokens: 2048, Display: ThinkingDisplayOmitted},
+		}, "")
+		if v := argValue(got, "--thinking-display"); v != "omitted" {
+			t.Errorf("--thinking-display = %q, want omitted", v)
+		}
+	})
+
+	t.Run("disabled emits --thinking disabled and no --thinking-display", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{Thinking: ThinkingConfigDisabled{}}, "")
+		if v := argValue(got, "--thinking"); v != "disabled" {
+			t.Errorf("--thinking = %q, want disabled", v)
+		}
+		if extraArgIndex(got, "--thinking-display") != -1 {
+			t.Errorf("disabled must not emit --thinking-display: %v", got)
+		}
+	})
+
+	t.Run("MaxThinkingTokens alone emits the flag", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{MaxThinkingTokens: 1024}, "")
+		if v := argValue(got, "--max-thinking-tokens"); v != "1024" {
+			t.Errorf("--max-thinking-tokens = %q, want 1024", v)
+		}
+		if extraArgIndex(got, "--thinking") != -1 {
+			t.Errorf("MaxThinkingTokens alone must not emit --thinking: %v", got)
+		}
+	})
+
+	t.Run("MaxThinkingTokens zero omits the flag", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{}, "")
+		if extraArgIndex(got, "--max-thinking-tokens") != -1 {
+			t.Errorf("unset MaxThinkingTokens must omit --max-thinking-tokens: %v", got)
+		}
+	})
+
+	t.Run("Thinking precedence over MaxThinkingTokens", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{
+			Thinking:          ThinkingConfigAdaptive{},
+			MaxThinkingTokens: 9999,
+		}, "")
+		if v := argValue(got, "--thinking"); v != "adaptive" {
+			t.Errorf("--thinking = %q, want adaptive", v)
+		}
+		// Adaptive does not emit --max-thinking-tokens; MaxThinkingTokens is
+		// ignored because Thinking is set (subprocess_cli.py:387 else-if).
+		if extraArgIndex(got, "--max-thinking-tokens") != -1 {
+			t.Errorf("Thinking set must ignore MaxThinkingTokens: %v", got)
+		}
+	})
+
+	t.Run("Effort emits independently of Thinking", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{
+			Thinking: ThinkingConfigAdaptive{},
+			Effort:   EffortLevelHigh,
+		}, "")
+		if v := argValue(got, "--effort"); v != "high" {
+			t.Errorf("--effort = %q, want high", v)
+		}
+		if v := argValue(got, "--thinking"); v != "adaptive" {
+			t.Errorf("--thinking = %q, want adaptive (Effort must not displace it)", v)
+		}
+	})
+
+	t.Run("Effort zero omits the flag", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{}, "")
+		if extraArgIndex(got, "--effort") != -1 {
+			t.Errorf("unset Effort must omit --effort: %v", got)
+		}
+	})
+}

@@ -271,6 +271,23 @@ type Options struct {
 	// (dict[str, str | None]).
 	ExtraArgs map[string]*string
 
+	// Thinking configures extended thinking. A nil value leaves the CLI
+	// default in effect; use [ThinkingConfigAdaptive], [ThinkingConfigEnabled],
+	// or [ThinkingConfigDisabled]. When set, Thinking takes precedence over
+	// [Options.MaxThinkingTokens] (subprocess_cli.py:372-387).
+	Thinking ThinkingConfig
+
+	// MaxThinkingTokens caps the model's thinking budget. Deprecated in favor
+	// of [Options.Thinking] (set [ThinkingConfigEnabled] with a budget
+	// instead); the field is honored only when [Options.Thinking] is nil. Zero
+	// means the CLI default. Corresponds to --max-thinking-tokens.
+	MaxThinkingTokens int
+
+	// Effort controls how much effort Claude puts into its response, working
+	// alongside adaptive thinking. The zero value (empty string) emits no
+	// --effort flag. Corresponds to --effort in the CLI.
+	Effort EffortLevel
+
 	// Skills selects agent skills to enable. The sentinel value returned by
 	// [AllSkills] enables every installed skill (injecting the bare "Skill"
 	// tool); otherwise each entry "name" injects a "Skill(name)" tool into

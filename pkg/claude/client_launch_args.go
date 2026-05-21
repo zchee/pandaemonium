@@ -211,6 +211,39 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--fork-session")
 	}
 
+	// Thinking configuration (subprocess_cli.py:372-393). The Thinking field
+	// takes precedence over the deprecated MaxThinkingTokens — they share an
+	// else-if in upstream. Wire mapping per variant:
+	//   Adaptive  → --thinking adaptive [+ --thinking-display]
+	//   Enabled   → --max-thinking-tokens <N> [+ --thinking-display]
+	//                (NOTE: no --thinking flag; subprocess_cli.py:378)
+	//   Disabled  → --thinking disabled (no --thinking-display even if set;
+	//                subprocess_cli.py:385 gates Display on type != disabled)
+	switch t := opts.Thinking.(type) {
+	case nil:
+		// Fall through to MaxThinkingTokens.
+		if opts.MaxThinkingTokens > 0 {
+			args = append(args, "--max-thinking-tokens", strconv.Itoa(opts.MaxThinkingTokens))
+		}
+	case ThinkingConfigAdaptive:
+		args = append(args, "--thinking", "adaptive")
+		if t.Display != "" {
+			args = append(args, "--thinking-display", string(t.Display))
+		}
+	case ThinkingConfigEnabled:
+		args = append(args, "--max-thinking-tokens", strconv.Itoa(t.BudgetTokens))
+		if t.Display != "" {
+			args = append(args, "--thinking-display", string(t.Display))
+		}
+	case ThinkingConfigDisabled:
+		args = append(args, "--thinking", "disabled")
+	}
+
+	// Effort level (subprocess_cli.py:392).
+	if opts.Effort != "" {
+		args = append(args, "--effort", string(opts.Effort))
+	}
+
 	// MCP servers — encoded as a single --mcp-config JSON object keyed by
 	// server name, followed by --strict-mcp-config when requested. Mirrors
 	// upstream subprocess_cli.py:307 (json.dumps({"mcpServers": servers_for_cli}))
