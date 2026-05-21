@@ -25,7 +25,7 @@ import (
 	"time"
 )
 
-const contractGenerationPinnedSchema = "https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.132.0/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json"
+const contractGenerationPinnedSchema = "https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.133.0-alpha.4/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json"
 
 func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 	repoRoot := artifactWorkflowRepoRoot(t)
@@ -40,7 +40,8 @@ func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	t.Cleanup(cancel)
-	cmd := exec.CommandContext(ctx, "go", "run", "./internal/cmd/generate-protocol-types",
+	cmd := exec.CommandContext(
+		ctx, "go", "run", "./internal/cmd/generate-protocol-types",
 		"-schema", contractGenerationPinnedSchema,
 		"-out", generatedPath,
 		"-package", "codex",
@@ -69,7 +70,8 @@ func contractGenerationDiff(t *testing.T, checkedInPath, generatedPath string) s
 
 	ctx, cancel := context.WithTimeout(t.Context(), 10*time.Second)
 	t.Cleanup(cancel)
-	cmd := exec.CommandContext(ctx, "diff", "-u",
+	cmd := exec.CommandContext(
+		ctx, "diff", "-u",
 		"--label", "pkg/codex/protocol_gen.go",
 		"--label", "regenerated protocol_gen.go",
 		checkedInPath,

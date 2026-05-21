@@ -158,6 +158,9 @@ var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodThreadGoalUpdated: func(notif Notification) (any, bool, error) {
 		return DecodeNotificationAs[ThreadGoalUpdatedNotification](notif, NotificationMethodThreadGoalUpdated)
 	},
+	NotificationMethodThreadSettingsUpdated: func(notif Notification) (any, bool, error) {
+		return DecodeNotificationAs[ThreadSettingsUpdatedNotification](notif, NotificationMethodThreadSettingsUpdated)
+	},
 	NotificationMethodThreadNameUpdated: func(notif Notification) (any, bool, error) {
 		return DecodeNotificationAs[ThreadNameUpdatedNotification](notif, NotificationMethodThreadNameUpdated)
 	},
@@ -492,6 +495,11 @@ func DecodeThreadGoalUpdatedNotification(notif Notification) (ThreadGoalUpdatedN
 	return DecodeNotificationAs[ThreadGoalUpdatedNotification](notif, NotificationMethodThreadGoalUpdated)
 }
 
+// DecodeThreadSettingsUpdatedNotification decodes the thread/settings/updated notification.
+func DecodeThreadSettingsUpdatedNotification(notif Notification) (ThreadSettingsUpdatedNotification, bool, error) {
+	return DecodeNotificationAs[ThreadSettingsUpdatedNotification](notif, NotificationMethodThreadSettingsUpdated)
+}
+
 // DecodeThreadNameUpdatedNotification decodes the thread/name/updated notification.
 func DecodeThreadNameUpdatedNotification(notif Notification) (ThreadNameUpdatedNotification, bool, error) {
 	return DecodeNotificationAs[ThreadNameUpdatedNotification](notif, NotificationMethodThreadNameUpdated)
@@ -805,6 +813,11 @@ func (notif Notification) ThreadGoalCleared() (ThreadGoalClearedNotification, bo
 // ThreadGoalUpdated decodes the thread/goal/updated notification.
 func (notif Notification) ThreadGoalUpdated() (ThreadGoalUpdatedNotification, bool, error) {
 	return DecodeThreadGoalUpdatedNotification(notif)
+}
+
+// ThreadSettingsUpdated decodes the thread/settings/updated notification.
+func (notif Notification) ThreadSettingsUpdated() (ThreadSettingsUpdatedNotification, bool, error) {
+	return DecodeThreadSettingsUpdatedNotification(notif)
 }
 
 // ThreadNameUpdated decodes the thread/name/updated notification.

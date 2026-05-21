@@ -1471,6 +1471,9 @@ var methodWrapperMethods = []string{
 	RequestMethodThreadArchive,
 	RequestMethodThreadUnsubscribe,
 	RequestMethodThreadNameSet,
+	RequestMethodThreadGoalSet,
+	RequestMethodThreadGoalGet,
+	RequestMethodThreadGoalClear,
 	RequestMethodThreadMetadataUpdate,
 	RequestMethodThreadUnarchive,
 	RequestMethodThreadCompactStart,
@@ -1514,6 +1517,7 @@ var methodWrapperMethods = []string{
 	RequestMethodModelList,
 	RequestMethodModelProviderCapabilitiesRead,
 	RequestMethodExperimentalFeatureList,
+	RequestMethodPermissionProfileList,
 	RequestMethodExperimentalFeatureEnablementSet,
 	RequestMethodMCPServerOAuthLogin,
 	RequestMethodConfigMCPServerReload,
@@ -1565,10 +1569,30 @@ func handleMethodWrappersScenario(writer *bufio.Writer, req map[string]any, meth
 	switch method {
 	case RequestMethodAccountLoginStart:
 		writeJSON(writer, Object{"id": id, "result": Object{"type": "apiKey"}})
+	case RequestMethodThreadGoalSet:
+		writeJSON(writer, Object{"id": id, "result": Object{"goal": methodWrapperThreadGoal()}})
+	case RequestMethodThreadGoalGet:
+		writeJSON(writer, Object{"id": id, "result": Object{"goal": nil}})
+	case RequestMethodThreadGoalClear:
+		writeJSON(writer, Object{"id": id, "result": Object{"cleared": true}})
+	case RequestMethodPermissionProfileList:
+		writeJSON(writer, Object{"id": id, "result": Object{"data": []Object{}}})
 	case RequestMethodFuzzyFileSearch:
 		writeJSON(writer, Object{"id": id, "result": Object{"sessionId": "fuzzy-session"}})
 	default:
 		writeJSON(writer, Object{"id": id, "result": nil})
+	}
+}
+
+func methodWrapperThreadGoal() Object {
+	return Object{
+		"createdAt":       1,
+		"objective":       "ship the schema bump",
+		"status":          "active",
+		"threadId":        "thread",
+		"timeUsedSeconds": 0,
+		"tokensUsed":      0,
+		"updatedAt":       1,
 	}
 }
 

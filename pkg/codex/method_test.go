@@ -42,6 +42,19 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			return err
 		}},
 		{name: "thread/name/set", call: func() error { _, err := client.ThreadSetName(ctx, "thread", "name"); return err }},
+		{name: "thread/goal/set", call: func() error {
+			objective := "ship the schema bump"
+			_, err := client.ThreadGoalSet(ctx, "thread", &ThreadGoalSetParams{Objective: &objective})
+			return err
+		}},
+		{name: "thread/goal/get", call: func() error {
+			_, err := client.ThreadGoalGet(ctx, "thread")
+			return err
+		}},
+		{name: "thread/goal/clear", call: func() error {
+			_, err := client.ThreadGoalClear(ctx, "thread")
+			return err
+		}},
 		{name: "thread/metadata/update", call: func() error {
 			_, err := client.ThreadMetadataUpdate(ctx, "thread", &ThreadMetadataUpdateParams{})
 			return err
@@ -152,6 +165,10 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		}},
 		{name: "experimentalFeature/list", call: func() error {
 			_, err := client.ExperimentalFeatureList(ctx, &ExperimentalFeatureListParams{})
+			return err
+		}},
+		{name: "permissionProfile/list", call: func() error {
+			_, err := client.PermissionProfileList(ctx, &PermissionProfileListParams{})
 			return err
 		}},
 		{name: "experimentalFeature/enablement/set", call: func() error {

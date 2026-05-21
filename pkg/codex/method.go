@@ -90,6 +90,25 @@ func (c *Client) ThreadSetName(ctx context.Context, threadID, name string) (Thre
 	return Request[ThreadSetNameResponse](ctx, c, RequestMethodThreadNameSet, ThreadSetNameParams{ThreadID: threadID, Name: name})
 }
 
+// ThreadGoalSet calls thread/goal/set.
+func (c *Client) ThreadGoalSet(ctx context.Context, threadID string, params *ThreadGoalSetParams) (ThreadGoalSetResponse, error) {
+	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})
+	if err != nil {
+		return ThreadGoalSetResponse{}, err
+	}
+	return Request[ThreadGoalSetResponse](ctx, c, RequestMethodThreadGoalSet, payload)
+}
+
+// ThreadGoalGet calls thread/goal/get.
+func (c *Client) ThreadGoalGet(ctx context.Context, threadID string) (ThreadGoalGetResponse, error) {
+	return Request[ThreadGoalGetResponse](ctx, c, RequestMethodThreadGoalGet, ThreadGoalGetParams{ThreadID: threadID})
+}
+
+// ThreadGoalClear calls thread/goal/clear.
+func (c *Client) ThreadGoalClear(ctx context.Context, threadID string) (ThreadGoalClearResponse, error) {
+	return Request[ThreadGoalClearResponse](ctx, c, RequestMethodThreadGoalClear, ThreadGoalClearParams{ThreadID: threadID})
+}
+
 // ThreadCompact calls thread/compact/start.
 func (c *Client) ThreadCompact(ctx context.Context, threadID string) (ThreadCompactStartResponse, error) {
 	return Request[ThreadCompactStartResponse](ctx, c, RequestMethodThreadCompactStart, ThreadCompactStartParams{ThreadID: threadID})
@@ -311,6 +330,11 @@ func (c *Client) ModelProviderCapabilitiesRead(ctx context.Context, params *Mode
 // ExperimentalFeatureList calls experimentalFeature/list.
 func (c *Client) ExperimentalFeatureList(ctx context.Context, params *ExperimentalFeatureListParams) (ExperimentalFeatureListResponse, error) {
 	return Request[ExperimentalFeatureListResponse](ctx, c, RequestMethodExperimentalFeatureList, paramsOrEmpty(params))
+}
+
+// PermissionProfileList calls permissionProfile/list.
+func (c *Client) PermissionProfileList(ctx context.Context, params *PermissionProfileListParams) (PermissionProfileListResponse, error) {
+	return Request[PermissionProfileListResponse](ctx, c, RequestMethodPermissionProfileList, paramsOrEmpty(params))
 }
 
 // ExperimentalFeatureEnablementSet calls experimentalFeature/enablement/set.
