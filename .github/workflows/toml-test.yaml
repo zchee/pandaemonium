@@ -1,0 +1,64 @@
+# pkg/toml implementation conformance tests against toml-lang/toml-test.
+#
+# The module targets Go 1.27, which actions/setup-go stable cannot resolve
+# directly yet, so this workflow follows test.yaml and toml-scan-ci.yaml:
+# bootstrap stable Go only to install gotip, then run the real checks with
+# gotip dev.simd.
+
+name: toml-test
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - 'pkg/toml/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/toml-test.yaml'
+      - '.github/actions/setup-gotip/action.yaml'
+  pull_request:
+    paths:
+      - 'pkg/toml/**'
+      - 'go.mod'
+      - 'go.sum'
+      - '.github/workflows/toml-test.yaml'
+      - '.github/actions/setup-gotip/action.yaml'
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: ${{ github.event_name != 'push' }}
+
+jobs:
+  toml-test:
+    name: toml-test 1.1 conformance
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
+        with:
+          add-gotip-bin-to-path: "true"
+
+      - name: Build toml-test adapters
+        run: |
+          go version
+          mkdir -p bin
+          go build -o ./bin/toml-test-decoder ./pkg/toml/internal/cmd/toml-test-decoder
+          go build -o ./bin/toml-test-encoder ./pkg/toml/internal/cmd/toml-test-encoder
+
+      - name: Run TOML 1.1 implementation testsuite
+        env:
+          NO_COLOR: "1"
+        run: |
+          go tool toml-test test \
+            -v \
+            -toml 1.1 \
+            -decoder=./bin/toml-test-decoder \
+            -encoder=./bin/toml-test-encoder
