@@ -60,9 +60,9 @@ geomean,6.50e+10,,4.30e+10,,-33.85%,
 `
 
 // stubInsignificantCSV is a benchstat CSV where the change is NOT
-// statistically significant ("~" in the vs base column). The gate
-// must FAIL — without a signal, "lower 95% CI > threshold" cannot
-// hold.
+// statistically significant ("~" in the vs base column) and the lower
+// confidence bound is below the strict 1.0 threshold. The gate must
+// fail on the lower-bound rule.
 const stubInsignificantCSV = `,base.txt,,simd.txt,,,
 ,sec/op,CI,sec/op,CI,vs base,P
 LocateNewline-16,1.20e-06,2.4e-08,1.18e-06,2.4e-08,~,p=0.300 n=10
@@ -72,6 +72,21 @@ geomean,1.20e-06,,1.18e-06,,~,
 ,B/s,CI,B/s,CI,vs base,P
 LocateNewline-16,5.46e+10,1.0e+09,5.55e+10,1.0e+09,~,p=0.300 n=10
 geomean,5.46e+10,,5.55e+10,,~,
+`
+
+// stubToleratedParityCSV matches the CI failure shape for the
+// stdlib-backed single-byte scans: no significant benchstat delta, but
+// finite confidence bounds whose conservative lower ratio remains above
+// the documented 0.98 non-regression threshold.
+const stubToleratedParityCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+LocateNewline-16,1.623e-06,1.0e-09,1.623e-06,1.0e-09,~,p=0.075 n=10
+geomean,1.623e-06,,1.623e-06,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+LocateNewline-16,3.762e+10,1.0e+07,3.760e+10,1.0e+07,~,p=0.075 n=10
+geomean,3.762e+10,,3.760e+10,,~,
 `
 
 // stubInfCISigCSV is a benchstat CSV with ∞ CIs (insufficient
@@ -87,6 +102,21 @@ geomean,1.20e-06,,8.00e-07,,-33.33%,
 ,B/s,CI,B/s,CI,vs base,P
 LocateNewline-16,5.46e+10,∞,8.19e+10,∞,+50.00%,p=0.030 n=4
 geomean,5.46e+10,,8.19e+10,,+50.00%,
+`
+
+// stubInfCIInsigCSV keeps the same infinite-CI point speedup as
+// stubInfCISigCSV but reports no statistically significant change.
+// The insufficient-samples fallback must reject it because there is no
+// finite lower bound to use as proof.
+const stubInfCIInsigCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+LocateNewline-16,1.20e-06,∞,8.00e-07,∞,~,p=0.300 n=4
+geomean,1.20e-06,,8.00e-07,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+LocateNewline-16,5.46e+10,∞,8.19e+10,∞,~,p=0.300 n=4
+geomean,5.46e+10,,8.19e+10,,~,
 `
 
 // stubBareSpeedupCSV is a benchstat CSV where the point speedup is
@@ -155,9 +185,6 @@ func TestParseGate(t *testing.T) {
 			wantFailMatch: "lower95=",
 		},
 		{
-			// "~" in the vs-base column means "delta not significant
-			// at alpha" but benchstat still fills the P column. The
-			// gate correctly fails on "p >= alpha".
 			name:          "fail:not_significant",
 			csv:           stubInsignificantCSV,
 			scan:          "LocateNewline",
@@ -169,7 +196,20 @@ func TestParseGate(t *testing.T) {
 			wantLowerMin:  0.97,
 			wantLowerMax:  0.99,
 			wantPValue:    0.300,
-			wantFailMatch: "p=0.3 >= alpha=0.05",
+			wantFailMatch: "lower95=",
+		},
+		{
+			name:         "success:tolerated_parity_without_significant_delta",
+			csv:          stubToleratedParityCSV,
+			scan:         "LocateNewline",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 0.999,
+			wantPointMax: 1.000,
+			wantLowerMin: 0.998,
+			wantLowerMax: 1.000,
+			wantPValue:   0.075,
 		},
 		{
 			name:         "success:inf_ci_with_signal",
@@ -183,6 +223,34 @@ func TestParseGate(t *testing.T) {
 			wantLowerMin: 1.49,
 			wantLowerMax: 1.51,
 			wantPValue:   0.030,
+		},
+		{
+			name:          "fail:inf_ci_without_signal",
+			csv:           stubInfCIInsigCSV,
+			scan:          "LocateNewline",
+			threshold:     1.0,
+			alpha:         0.05,
+			wantPass:      false,
+			wantPointMin:  1.49,
+			wantPointMax:  1.51,
+			wantLowerMin:  1.49,
+			wantLowerMax:  1.51,
+			wantPValue:    0.300,
+			wantFailMatch: "p=0.3 >= alpha=0.05",
+		},
+		{
+			name:          "fail:inf_ci_point_below_threshold",
+			csv:           stubInfCISigCSV,
+			scan:          "LocateNewline",
+			threshold:     2.0,
+			alpha:         0.05,
+			wantPass:      false,
+			wantPointMin:  1.49,
+			wantPointMax:  1.51,
+			wantLowerMin:  1.49,
+			wantLowerMax:  1.51,
+			wantPValue:    0.030,
+			wantFailMatch: "point=1.5000x < threshold=2.0000x",
 		},
 		{
 			name:          "fail:marginal_speedup_strict_threshold",
