@@ -15,10 +15,9 @@
 package claude
 
 import (
+	"context"
 	"reflect"
 	"testing"
-
-	"github.com/go-json-experiment/json"
 )
 
 func TestAgentDefinition_ZeroValue(t *testing.T) {
@@ -114,51 +113,49 @@ func TestAgentDefinition_NotInCLIArgs(t *testing.T) {
 }
 
 
-// TestAgentDefinition_JSONTagsParity locks the wire field names against
-// upstream AgentDefinition (types.py:83-101). A single hand-marshal vs
-// literal map catches every struct-tag typo at once. effort and
-// permissionMode are deferred to M11d; the mcpServers dict variant lands in
-// M11e.
-func TestAgentDefinition_JSONTagsParity(t *testing.T) {
+// TestAgentDefinition_AgentsWireParity locks the wire field names against
+// upstream AgentDefinition (types.py:83-101) by exercising the actual
+// wire-serialization path — agentsWire — rather than the struct's JSON tags.
+// Agents are NEVER passed through struct json.Marshal in production: they
+// flow through agentsWire into the initialize-payload map. A single
+// expected-map check catches every field-name and field-coverage typo at once.
+//
+// This test also pins the M11b/M11d wire-emission bug fix shipped in F3:
+// before F3, agentsWire only emitted 4 fields (description, prompt, tools,
+// model) and silently dropped every M11b/M11d addition.
+func TestAgentDefinition_AgentsWireParity(t *testing.T) {
 	t.Parallel()
 
-	in := AgentDefinition{
-		Name:            "helper",
-		Description:     "a helpful subagent",
-		SystemPrompt:    "you help",
-		AllowedTools:    []string{"Bash", "Read"},
-		DisallowedTools: []string{"WebFetch"},
-		Model:           "sonnet",
-		Skills:          []string{"plan", "search"},
-		MCPServers:      []string{"docs", "internal"},
-		InitialPrompt:   "start here",
-		MaxTurns:        7,
-		Background:      true,
-		Memory:          MemoryScopeProject,
-		PermissionMode:  PermissionModePlan,
-		Effort:          EffortLevelHigh,
-	}
-
-	data, err := json.Marshal(in)
-	if err != nil {
-		t.Fatalf("marshal: %v", err)
-	}
-	var got map[string]any
-	if err := json.Unmarshal(data, &got); err != nil {
-		t.Fatalf("unmarshal: %v", err)
-	}
+	cp := newControlProtocol(&Options{
+		Agents: []AgentDefinition{{
+			Name:            "helper",
+			Description:     "a helpful subagent",
+			SystemPrompt:    "you help",
+			AllowedTools:    []string{"Bash", "Read"},
+			DisallowedTools: []string{"WebFetch"},
+			Model:           "sonnet",
+			Skills:          []string{"plan", "search"},
+			MCPServers:      []string{"docs", "internal"},
+			InitialPrompt:   "start here",
+			MaxTurns:        7,
+			Background:      true,
+			Memory:          MemoryScopeProject,
+			PermissionMode:  PermissionModePlan,
+			Effort:          EffortLevelHigh,
+		}},
+	}, func(_ context.Context, _ []byte) error { return nil })
+	got := cp.agentsWire()["helper"].(map[string]any)
 
 	want := map[string]any{
-		"name":            "helper",
 		"description":     "a helpful subagent",
-		"systemPrompt":    "you help",
-		"allowedTools":    []any{"Bash", "Read"},
-		"disallowedTools": []any{"WebFetch"},
+		"prompt":          "you help",
+		"tools":           []string{"Bash", "Read"},
+		"disallowedTools": []string{"WebFetch"},
 		"model":           "sonnet",
-		"skills":          []any{"plan", "search"},
+		"skills":          []string{"plan", "search"},
 		"mcpServers":      []any{"docs", "internal"},
 		"initialPrompt":   "start here",
-		"maxTurns":        float64(7),
+		"maxTurns":        7,
 		"background":      true,
 		"memory":          "project",
 		"permissionMode":  "plan",
@@ -172,7 +169,7 @@ func TestAgentDefinition_JSONTagsParity(t *testing.T) {
 	}
 	for k := range got {
 		if _, ok := want[k]; !ok {
-			t.Errorf("unexpected wire key %q in AgentDefinition output: %#v", k, got[k])
+			t.Errorf("unexpected wire key %q in agentsWire output: %#v", k, got[k])
 		}
 	}
 }

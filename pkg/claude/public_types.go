@@ -281,6 +281,45 @@ type TaskNotificationMessage struct {
 func (TaskNotificationMessage) isMessage()                {}
 func (m TaskNotificationMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+// HookEventMessage is the system message the CLI emits for hook lifecycle
+// events when [Options.IncludeHookEvents] is enabled. Each event arrives on
+// the wire as {"type":"system", "subtype":"hook_started"|"hook_response", ...}
+// with a "hook_event" field naming the kind (e.g. "PreToolUse", "PostToolUse").
+//
+// See [TaskStartedMessage]'s godoc for the Python-subclass / Go-sibling note:
+// upstream's HookEventMessage is a Python subclass of SystemMessage; in Go it
+// is a sibling [Message] type returned by the parser when subtype matches
+// "hook_started" or "hook_response".
+//
+// Mirrors upstream HookEventMessage.
+type HookEventMessage struct {
+	// Subtype is "hook_started" when the hook begins executing,
+	// "hook_response" when it completes (the latter carries output,
+	// exit_code, and outcome fields in Raw).
+	Subtype string `json:"subtype,omitzero"`
+
+	// HookEventName is the name of the hook event (e.g. "PreToolUse",
+	// "PostToolUse", "Stop"). Upstream tolerates three wire-key spellings —
+	// "hook_event", "hook_name", "hook_event_name" — and the parser
+	// normalizes them into this field.
+	HookEventName string `json:"hook_event_name,omitzero"`
+
+	// SessionID identifies the CLI session.
+	SessionID string `json:"session_id,omitzero"`
+
+	// UUID is the event UUID.
+	UUID string `json:"uuid,omitzero"`
+
+	// Raw preserves the full wire payload, including every hook-event-
+	// specific field (tool_name, tool_input, output, exit_code, outcome,
+	// etc.), so callers can decode the bits they care about without
+	// requiring the SDK to model every variant ahead of time.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (HookEventMessage) isMessage()                {}
+func (m HookEventMessage) jsonRaw() jsontext.Value { return m.Raw }
+
 // ─── StreamEvent ─────────────────────────────────────────────────────────────
 
 // StreamEvent is a partial-message update emitted during streaming when

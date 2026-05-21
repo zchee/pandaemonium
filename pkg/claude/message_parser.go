@@ -148,6 +148,37 @@ func parseSystemMessage(data, line []byte) (Message, error) {
 			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 		}
 		return m, nil
+	case "hook_started", "hook_response":
+		// Upstream tolerates three wire-key spellings for the hook event name:
+		// "hook_event" (current CLI) / "hook_name" / "hook_event_name"
+		// (legacy). Decode the looser shape and copy whichever one is present
+		// into HookEventName so callers see a single normalized field.
+		var raw struct {
+			Subtype       string         `json:"subtype"`
+			HookEvent     string         `json:"hook_event"`
+			HookName      string         `json:"hook_name"`
+			HookEventName string         `json:"hook_event_name"`
+			SessionID     string         `json:"session_id"`
+			UUID          string         `json:"uuid"`
+			Raw           jsontext.Value `json:",inline"`
+		}
+		if err := json.Unmarshal(data, &raw); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		name := raw.HookEvent
+		if name == "" {
+			name = raw.HookName
+		}
+		if name == "" {
+			name = raw.HookEventName
+		}
+		return HookEventMessage{
+			Subtype:       raw.Subtype,
+			HookEventName: name,
+			SessionID:     raw.SessionID,
+			UUID:          raw.UUID,
+			Raw:           raw.Raw,
+		}, nil
 	default:
 		var m SystemMessage
 		if err := json.Unmarshal(data, &m); err != nil {

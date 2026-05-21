@@ -42,9 +42,33 @@ const (
 )
 
 // ToolResult is the return value of a [Tool] function invoked by the CLI.
+//
+// The simple case is text-only: set [ToolResult.Content] and leave
+// [ToolResult.RawContent] nil. The wrapper emits a single text content block.
+//
+// To return non-text content (image, audio, resource link, embedded resource)
+// or multiple content blocks, set [ToolResult.RawContent] with one or more
+// [gomcp.Content] values; when non-nil it takes precedence over
+// [ToolResult.Content]. Construct entries directly with the gomcp types:
+//
+//	import gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+//
+//	return claude.ToolResult{
+//	    RawContent: []gomcp.Content{
+//	        &gomcp.TextContent{Text: "here's the chart:"},
+//	        &gomcp.ImageContent{Data: pngBytes, MIMEType: "image/png"},
+//	    },
+//	}, nil
 type ToolResult struct {
-	// Content is the text content of the tool result.
+	// Content is the text content of the tool result. Used only when
+	// [ToolResult.RawContent] is nil.
 	Content string
+
+	// RawContent, when non-nil, replaces [ToolResult.Content] with one or
+	// more typed MCP content blocks (text, image, audio, resource link,
+	// embedded resource). Each entry's MarshalJSON produces the wire dict
+	// the CLI expects, so any gomcp.Content variant is supported.
+	RawContent []gomcp.Content
 
 	// IsError indicates that the tool invocation failed.
 	IsError bool
@@ -129,9 +153,13 @@ func ToolWithAnnotations[I any](name, description string, schema *jsonschema.Sch
 				Content: []gomcp.Content{&gomcp.TextContent{Text: err.Error()}},
 			}, nil
 		}
+		content := result.RawContent
+		if content == nil {
+			content = []gomcp.Content{&gomcp.TextContent{Text: result.Content}}
+		}
 		return &gomcp.CallToolResult{
 			IsError: result.IsError,
-			Content: []gomcp.Content{&gomcp.TextContent{Text: result.Content}},
+			Content: content,
 		}, nil
 	})
 	return ToolDefinition{
@@ -260,12 +288,13 @@ func (s *inProcessMCPServer) listTools() (map[string]any, error) {
 // callTool invokes the named tool with the given raw JSON arguments and returns
 // the tools/call JSONRPC result object {"content":[...], "isError"?:true}.
 //
-// Tool results are converted following upstream: text content passes through;
-// the in-process Tool constructor only ever emits TextContent, so other content
-// types are not produced here (the conversion loop is shaped to match upstream
-// so future image/resource support slots in). A missing tool is a JSONRPC
-// method-not-found style error returned to the caller as a Go error so the
-// handler can map it to the -32601/-32603 envelope.
+// Tool results are converted following upstream: each gomcp.Content value
+// produced by the wrapped handler is serialized through its own MarshalJSON
+// (which emits the wire-format {"type": "...", ...} dict for text / image /
+// audio / resource_link / resource), then decoded back into a map so the
+// result composes cleanly with the rest of the JSONRPC envelope. A missing
+// tool is a JSONRPC method-not-found style error returned to the caller as
+// a Go error so the handler can map it to the -32601/-32603 envelope.
 func (s *inProcessMCPServer) callTool(ctx context.Context, name string, arguments stdjson.RawMessage) (map[string]any, error) {
 	var def *ToolDefinition
 	for i := range s.tools {
@@ -291,11 +320,18 @@ func (s *inProcessMCPServer) callTool(ctx context.Context, name string, argument
 
 	content := make([]map[string]any, 0, len(result.Content))
 	for _, item := range result.Content {
-		if tc, ok := item.(*gomcp.TextContent); ok {
-			content = append(content, map[string]any{"type": "text", "text": tc.Text})
+		if item == nil {
+			continue
 		}
-		// Non-text content is not emitted by the in-process Tool constructor;
-		// match upstream by silently skipping unsupported content types.
+		raw, err := stdjson.Marshal(item)
+		if err != nil {
+			return nil, fmt.Errorf("marshal MCP content %T: %w", item, err)
+		}
+		var entry map[string]any
+		if err := stdjson.Unmarshal(raw, &entry); err != nil {
+			return nil, fmt.Errorf("decode MCP content %T: %w", item, err)
+		}
+		content = append(content, entry)
 	}
 
 	out := map[string]any{"content": content}

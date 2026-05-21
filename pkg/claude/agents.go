@@ -28,8 +28,13 @@ import (
 // `tools` (matching the M1-era choice that aligns the agent surface with
 // [Options]).
 //
-// The Memory and PermissionMode fields are deferred to M11d. The dict-variant
-// entries of MCPServers are deferred to M11e once McpServerConfig exists.
+// Upstream's `mcpServers` field is `list[str | dict]`, mixing server names
+// with inline {name: config} dicts. Go splits this into two fields:
+// [AgentDefinition.MCPServers] []string for the name-only form (references
+// a server already registered in [Options.MCPServers]), and
+// [AgentDefinition.MCPServerConfigs] map[string]MCPServer for the
+// inline-config form. Both fields may be set; their entries are merged
+// on the wire under one `mcpServers` array.
 type AgentDefinition struct {
 	// Name is the unique identifier for this subagent.
 	Name string `json:"name,omitzero"`
@@ -63,10 +68,25 @@ type AgentDefinition struct {
 
 	// MCPServers lists MCP server names this subagent may access. Entries
 	// are server names that resolve against the parent [Options.MCPServers].
-	// Mirrors upstream `mcpServers` (types.py:96) string-variant entries; the
-	// inline {name: config} dict-variant is added with M11e once
-	// McpServerConfig exists.
-	MCPServers []string `json:"mcpServers,omitzero"`
+	// Mirrors upstream `mcpServers` (types.py:96) string-variant entries.
+	// See [AgentDefinition.MCPServerConfigs] for the inline-config variant.
+	//
+	// Custom-marshaled (see [AgentDefinition.MarshalJSON]) — MCPServers and
+	// MCPServerConfigs entries are merged into a single `mcpServers` array
+	// on the wire matching upstream's list[str | dict].
+	MCPServers []string `json:"-"`
+
+	// MCPServerConfigs carries inline MCP server configurations keyed by
+	// server name. Each value's configForCLI() output is emitted as a
+	// {name: <config>} dict entry in the wire `mcpServers` array
+	// (alongside any string-variant entries from [AgentDefinition.MCPServers]).
+	// Iteration order is sorted by name so the wire payload is
+	// deterministic.
+	//
+	// Use this for subagents that need an MCP server distinct from the
+	// parent's [Options.MCPServers]; otherwise reference the parent's by
+	// name through MCPServers.
+	MCPServerConfigs map[string]MCPServer `json:"-"`
 
 	// InitialPrompt is the prompt the CLI sends to the subagent on
 	// activation. Mirrors upstream `initialPrompt` (types.py:97).

@@ -22,6 +22,7 @@ import (
 	"errors"
 	"fmt"
 	"os"
+	"sort"
 	"strconv"
 	"sync"
 	"sync/atomic"
@@ -348,20 +349,26 @@ func (cp *controlProtocol) serverInfoResult() (jsontext.Value, error) {
 
 // agentsWire converts opts.Agents into the upstream initialize "agents" wire
 // shape: a map keyed by agent Name whose value carries the dataclass field
-// names used by the Python SDK (description, prompt, tools, model), omitting
-// empty values. It returns nil when there are no agents.
+// names used by the Python SDK, omitting empty values. It returns nil when
+// there are no agents.
 //
 // NOTE: the wire field names are the upstream Python dataclass field names
-// (asdict), NOT the Go struct's json tags. In particular SystemPrompt maps to
-// "prompt" and AllowedTools maps to "tools". See Surprises & Discoveries in the
-// ExecPlan.
+// (asdict), NOT the Go struct's json tags. Two name divergences kept from
+// M1: SystemPrompt maps to "prompt", AllowedTools maps to "tools".
+//
+// Field coverage: every AgentDefinition field whose Go value is non-zero is
+// emitted under its upstream wire name. The mcpServers entry merges
+// [AgentDefinition.MCPServers] (string-name entries) and
+// [AgentDefinition.MCPServerConfigs] (inline {name: config} entries) into a
+// single wire array, matching upstream's list[str | dict] shape. Inline
+// entries are sorted by name so the wire payload is deterministic.
 func (cp *controlProtocol) agentsWire() map[string]any {
 	if cp.opts == nil || len(cp.opts.Agents) == 0 {
 		return nil
 	}
 	out := make(map[string]any, len(cp.opts.Agents))
 	for _, a := range cp.opts.Agents {
-		def := make(map[string]any, 4)
+		def := make(map[string]any, 14)
 		if a.Description != "" {
 			def["description"] = a.Description
 		}
@@ -371,10 +378,63 @@ func (cp *controlProtocol) agentsWire() map[string]any {
 		if len(a.AllowedTools) > 0 {
 			def["tools"] = a.AllowedTools
 		}
+		if len(a.DisallowedTools) > 0 {
+			def["disallowedTools"] = a.DisallowedTools
+		}
 		if a.Model != "" {
 			def["model"] = a.Model
 		}
+		if len(a.Skills) > 0 {
+			def["skills"] = a.Skills
+		}
+		if a.Memory != "" {
+			def["memory"] = string(a.Memory)
+		}
+		if mcp := mergeMCPServersWire(a.MCPServers, a.MCPServerConfigs); mcp != nil {
+			def["mcpServers"] = mcp
+		}
+		if a.InitialPrompt != "" {
+			def["initialPrompt"] = a.InitialPrompt
+		}
+		if a.MaxTurns > 0 {
+			def["maxTurns"] = a.MaxTurns
+		}
+		if a.Background {
+			def["background"] = true
+		}
+		if a.Effort != "" {
+			def["effort"] = string(a.Effort)
+		}
+		if a.PermissionMode != "" {
+			def["permissionMode"] = string(a.PermissionMode)
+		}
 		out[a.Name] = def
+	}
+	return out
+}
+
+// mergeMCPServersWire merges name-only and inline-config MCP server entries
+// into the upstream list[str | dict] wire shape. Returns nil when both inputs
+// are empty so the caller can omit the key entirely. String entries appear in
+// their slice order; inline-config entries are appended afterwards in sorted
+// key order so the payload is deterministic.
+func mergeMCPServersWire(names []string, configs map[string]MCPServer) []any {
+	if len(names) == 0 && len(configs) == 0 {
+		return nil
+	}
+	out := make([]any, 0, len(names)+len(configs))
+	for _, n := range names {
+		out = append(out, n)
+	}
+	if len(configs) > 0 {
+		keys := make([]string, 0, len(configs))
+		for k := range configs {
+			keys = append(keys, k)
+		}
+		sort.Strings(keys)
+		for _, k := range keys {
+			out = append(out, map[string]any{k: configs[k].configForCLI()})
+		}
 	}
 	return out
 }
