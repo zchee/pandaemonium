@@ -89,6 +89,34 @@ LocateNewline-16,3.762e+10,1.0e+07,3.760e+10,1.0e+07,~,p=0.075 n=10
 geomean,3.762e+10,,3.760e+10,,~,
 `
 
+// stubCIObservedLocateNewlineCSV matches the CI failure from run
+// 26240300070: finite lower confidence bound above the documented 0.98
+// non-regression threshold, but insignificant p-value.
+const stubCIObservedLocateNewlineCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+LocateNewline-16,1.00e-06,0,9.970e-07,0,~,p=0.436 n=10
+geomean,1.00e-06,,9.970e-07,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+LocateNewline-16,5.000e+10,1.0e+07,5.017e+10,5.0e+06,~,p=0.436 n=10
+geomean,5.000e+10,,5.017e+10,,~,
+`
+
+// stubCIObservedScanLiteralStringCSV matches the second CI failure from
+// run 26240300070: finite parity at 1.000x is still comfortably above
+// the 0.98 threshold and must not fail solely on p>=alpha.
+const stubCIObservedScanLiteralStringCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+ScanLiteralString-16,1.00e-06,0,1.00e-06,0,~,p=0.853 n=10
+geomean,1.00e-06,,1.00e-06,,~,
+
+,base.txt,,simd.txt,,,
+,B/s,CI,B/s,CI,vs base,P
+ScanLiteralString-16,5.000e+10,1.0e+07,5.000e+10,1.0e+07,~,p=0.853 n=10
+geomean,5.000e+10,,5.000e+10,,~,
+`
+
 // stubInfCISigCSV is a benchstat CSV with ∞ CIs (insufficient
 // samples) but a statistically-significant change in the SIMD-faster
 // direction. The gate's insufficient-samples fallback (use the point
@@ -210,6 +238,32 @@ func TestParseGate(t *testing.T) {
 			wantLowerMin: 0.998,
 			wantLowerMax: 1.000,
 			wantPValue:   0.075,
+		},
+		{
+			name:         "success:ci_observed_locate_newline_non_regression",
+			csv:          stubCIObservedLocateNewlineCSV,
+			scan:         "LocateNewline",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 1.002,
+			wantPointMax: 1.004,
+			wantLowerMin: 1.002,
+			wantLowerMax: 1.004,
+			wantPValue:   0.436,
+		},
+		{
+			name:         "success:ci_observed_scan_literal_string_non_regression",
+			csv:          stubCIObservedScanLiteralStringCSV,
+			scan:         "ScanLiteralString",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 1.000,
+			wantPointMax: 1.000,
+			wantLowerMin: 0.999,
+			wantLowerMax: 1.000,
+			wantPValue:   0.853,
 		},
 		{
 			name:         "success:inf_ci_with_signal",
