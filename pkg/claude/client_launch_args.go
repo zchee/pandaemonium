@@ -147,7 +147,7 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 
 	// Permission mode.
 	if opts.PermissionMode != "" {
-		args = append(args, "--permission-mode", opts.PermissionMode)
+		args = append(args, "--permission-mode", string(opts.PermissionMode))
 	}
 
 	// API key helper binary.

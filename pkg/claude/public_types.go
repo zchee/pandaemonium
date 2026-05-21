@@ -234,6 +234,41 @@ type HookEvent struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
+// ─── Permission mode ─────────────────────────────────────────────────────────
+
+// PermissionMode is the CLI's permission policy for tool calls. The zero value
+// (empty string) lets the CLI pick its configured default and emits no
+// --permission-mode flag.
+//
+// Mirrors upstream PermissionMode = Literal["default", "acceptEdits", "plan",
+// "bypassPermissions", "dontAsk", "auto"] (types.py:23-25). Used by
+// [Options.PermissionMode] at launch and [ClaudeSDKClient.SetPermissionMode]
+// at runtime; values are sent on the wire verbatim, so callers must use one of
+// the constants or convert with PermissionMode(s) to remain forward-compatible
+// with future CLI literals.
+type PermissionMode string
+
+const (
+	// PermissionModeDefault selects the CLI's standard permission behavior,
+	// prompting for dangerous operations.
+	PermissionModeDefault PermissionMode = "default"
+
+	// PermissionModeAcceptEdits auto-accepts file-edit tool calls.
+	PermissionModeAcceptEdits PermissionMode = "acceptEdits"
+
+	// PermissionModePlan restricts the session to planning (no execution).
+	PermissionModePlan PermissionMode = "plan"
+
+	// PermissionModeBypassPermissions disables every permission check.
+	PermissionModeBypassPermissions PermissionMode = "bypassPermissions"
+
+	// PermissionModeDontAsk silently allows tool calls without prompting.
+	PermissionModeDontAsk PermissionMode = "dontAsk"
+
+	// PermissionModeAuto lets the CLI decide automatically based on context.
+	PermissionModeAuto PermissionMode = "auto"
+)
+
 // ─── Hook decision types ─────────────────────────────────────────────────────
 
 // PermissionDecision is the allow/deny verdict returned by a [CanUseTool]

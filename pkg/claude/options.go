@@ -139,10 +139,12 @@ type Options struct {
 	// Empty uses the current process working directory.
 	Cwd string
 
-	// PermissionMode sets the CLI's permission mode (e.g. "default",
-	// "acceptEdits", "bypassPermissions").
+	// PermissionMode sets the CLI's permission mode. Use one of the
+	// [PermissionMode] constants (e.g. [PermissionModeAcceptEdits],
+	// [PermissionModePlan], [PermissionModeBypassPermissions]); the zero
+	// value lets the CLI pick its configured default and emits no flag.
 	// Corresponds to --permission-mode in the CLI.
-	PermissionMode string
+	PermissionMode PermissionMode
 
 	// MCPServers is the list of MCP servers to register with the CLI session.
 	// Create in-process servers with [NewSDKMCPServer]. Each server is encoded

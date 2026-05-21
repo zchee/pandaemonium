@@ -213,7 +213,7 @@ func TestClient_SetPermissionMode_Success(t *testing.T) {
 	defer c.Close()
 	autoAnswer(t, cli, "set_permission_mode", `{}`)
 
-	if err := c.SetPermissionMode(t.Context(), "plan"); err != nil {
+	if err := c.SetPermissionMode(t.Context(), PermissionModePlan); err != nil {
 		t.Fatalf("SetPermissionMode() error = %v", err)
 	}
 	req := requestBySubtype(t, cli, "set_permission_mode")

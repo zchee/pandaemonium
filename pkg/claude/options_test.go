@@ -46,7 +46,7 @@ func TestOptions_Validate(t *testing.T) {
 				SystemPrompt:           "Be concise.",
 				AllowedTools:           []string{"Bash", "Write"},
 				CLIPath:                "/usr/local/bin/claude",
-				PermissionMode:         "bypassPermissions",
+				PermissionMode:         PermissionModeBypassPermissions,
 				Model:                  "claude-opus-4-5",
 				OutputFormat:           "stream-json",
 				InputFormat:            "text",

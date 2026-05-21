@@ -100,7 +100,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 		},
 		"success: permission mode flag appears when set": {
 			cliPath: fakeCLI,
-			opts:    &Options{PermissionMode: "bypassPermissions"},
+			opts:    &Options{PermissionMode: PermissionModeBypassPermissions},
 			wantIn:  []string{"--permission-mode", "bypassPermissions"},
 		},
 		"success: api key helper flag appears when set": {

@@ -87,11 +87,12 @@ func (c *ClaudeSDKClient) SetModel(ctx context.Context, model string) error {
 	return err
 }
 
-// SetPermissionMode changes the CLI's permission mode for subsequent tool calls
-// (e.g. "default", "acceptEdits", "plan", "bypassPermissions"). The value is
-// sent verbatim; the CLI validates it.
-func (c *ClaudeSDKClient) SetPermissionMode(ctx context.Context, mode string) error {
-	_, err := c.controlRequest(ctx, "set_permission_mode", map[string]any{"mode": mode})
+// SetPermissionMode changes the CLI's permission mode for subsequent tool
+// calls. Pass one of the [PermissionMode] constants (e.g.
+// [PermissionModeAcceptEdits], [PermissionModePlan]); the value is sent
+// verbatim and the CLI validates it.
+func (c *ClaudeSDKClient) SetPermissionMode(ctx context.Context, mode PermissionMode) error {
+	_, err := c.controlRequest(ctx, "set_permission_mode", map[string]any{"mode": string(mode)})
 	return err
 }
 
