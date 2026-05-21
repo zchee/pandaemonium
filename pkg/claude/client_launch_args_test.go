@@ -715,3 +715,38 @@ func TestBuildLaunchArgs_Thinking(t *testing.T) {
 		}
 	})
 }
+
+
+// ── M10d TaskBudget ──────────────────────────────────────────────────────────
+
+// TestBuildLaunchArgs_TaskBudget covers the --task-budget wiring
+// (subprocess_cli.py:268-269). The explicit-zero case pins parity with
+// upstream's `is not None` gate: an explicit Total=0 must reach the wire.
+func TestBuildLaunchArgs_TaskBudget(t *testing.T) {
+	t.Parallel()
+	const fakeCLI = "/usr/local/bin/claude"
+
+	t.Run("nil TaskBudget omits the flag", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{}, "")
+		if extraArgIndex(got, "--task-budget") != -1 {
+			t.Errorf("nil TaskBudget must omit --task-budget: %v", got)
+		}
+	})
+
+	t.Run("positive Total emits the value", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{TaskBudget: &TaskBudget{Total: 4096}}, "")
+		if v := argValue(got, "--task-budget"); v != "4096" {
+			t.Errorf("--task-budget = %q, want 4096", v)
+		}
+	})
+
+	t.Run("explicit zero Total reaches the wire", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{TaskBudget: &TaskBudget{Total: 0}}, "")
+		if v := argValue(got, "--task-budget"); v != "0" {
+			t.Errorf("--task-budget = %q, want 0 (parity with upstream is_not_none gate)", v)
+		}
+	})
+}

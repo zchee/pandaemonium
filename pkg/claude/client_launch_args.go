@@ -169,6 +169,13 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--disallowedTools", strings.Join(opts.DisallowedTools, ","))
 	}
 
+	// Task budget (subprocess_cli.py:268-269). Gate on nil so that an
+	// explicit TaskBudget{Total: 0} is forwarded as --task-budget 0, matching
+	// upstream's `is not None` check.
+	if opts.TaskBudget != nil {
+		args = append(args, "--task-budget", strconv.Itoa(opts.TaskBudget.Total))
+	}
+
 	// Fallback model (subprocess_cli.py:275).
 	if opts.FallbackModel != "" {
 		args = append(args, "--fallback-model", opts.FallbackModel)

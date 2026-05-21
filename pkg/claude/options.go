@@ -106,6 +106,10 @@ func (o *Options) clone() *Options {
 			c.ExtraArgs[k] = v
 		}
 	}
+	if o.TaskBudget != nil {
+		tb := *o.TaskBudget
+		c.TaskBudget = &tb
+	}
 	if o.Sandbox != nil {
 		sb := *o.Sandbox
 		if o.Sandbox.ExcludedCommands != nil {
@@ -289,6 +293,12 @@ type Options struct {
 	// leaves the CLI to its configured default. Mirrors upstream
 	// _build_settings_value (subprocess_cli.py:129-181).
 	Sandbox *SandboxSettings
+
+	// TaskBudget caps the model's tool-use task in tokens. A nil pointer
+	// omits the --task-budget flag; an explicit &TaskBudget{Total: 0} is
+	// forwarded as --task-budget 0 (parity with upstream's `is not None` gate
+	// at subprocess_cli.py:268). Mirrors upstream task_budget.
+	TaskBudget *TaskBudget
 
 	// AddDirs is the list of additional directories the CLI may access.
 	// Corresponds to one --add-dir flag per entry.
