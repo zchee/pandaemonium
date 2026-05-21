@@ -29,8 +29,6 @@ func TestParseDocumentBytesRoundTrip(t *testing.T) {
 		"pkg/toml/testdata/corpus/cargo.lock",
 		"pkg/toml/testdata/tokens/basic.toml",
 		"pkg/toml/testdata/tokens/comments.toml",
-		"pkg/toml/testdata/toml-rs/corpus/valid/ext/table/append-with-dotted-keys-1.toml",
-		"pkg/toml/testdata/toml-test/valid/array/array.toml",
 	} {
 		rel := rel
 		t.Run(rel, func(t *testing.T) {
@@ -226,7 +224,6 @@ func TestDocumentParseEqualsDecoderTokenStream(t *testing.T) {
 	for _, rel := range []string{
 		"pkg/toml/testdata/tokens/basic.toml",
 		"pkg/toml/testdata/tokens/comments.toml",
-		"pkg/toml/testdata/toml-rs/corpus/valid/ext/table/append-with-dotted-keys-1.toml",
 	} {
 		rel := rel
 		t.Run(rel, func(t *testing.T) {

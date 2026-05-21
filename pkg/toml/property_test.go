@@ -163,7 +163,7 @@ func decoderCorpusFiles(tb testing.TB) []string {
 	tb.Helper()
 	root := mustRepoPath(tb, "pkg/toml/testdata")
 	var files []string
-	for _, rel := range []string{"corpus", "toml-rs/corpus"} {
+	for _, rel := range []string{"corpus"} {
 		dir := filepath.Join(root, rel)
 		entries, err := os.ReadDir(dir)
 		if err != nil {

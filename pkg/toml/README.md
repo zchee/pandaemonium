@@ -192,11 +192,9 @@ both comparator roots.
 
 ## Verification and provenance
 
-The package is grounded in pinned upstream corpora and repeatable verification
-commands:
+The package keeps repeatable verification commands for the remaining local
+fixtures and benchmark gates:
 
-- `UPSTREAM.md` records toml-rs and toml-test provenance, import procedures,
-  fuzz discipline, build tags, and final integration commands.
 - `internal/scan/VERIFICATION.md` records scanner verification and perf-gate
   policy.
 - `PHASE4_BENCHMARK_EVIDENCE.md` records facade and edit benchmark evidence.

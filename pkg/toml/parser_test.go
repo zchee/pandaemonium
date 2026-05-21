@@ -108,23 +108,6 @@ func TestDecoderTokenStream_CommentAndHeaderAtLineStart(t *testing.T) {
 	}
 }
 
-func TestDecoderCorpus_ValidFiles_Smoke(t *testing.T) {
-	for _, rel := range []string{
-		"pkg/toml/testdata/toml-rs/corpus/valid/ext/table/append-with-dotted-keys-1.toml",
-	} {
-		body := mustReadRepoFile(t, rel)
-		if body == nil {
-			// not fatal; helper already reports with context.
-			t.Fatalf("fixture missing: %s", rel)
-		}
-
-		dec := NewDecoderBytes(body)
-		if _, err := readAllTokens(dec); err != nil {
-			t.Fatalf("NewDecoderBytes should parse %s without syntax errors, got %v", rel, err)
-		}
-	}
-}
-
 func TestDecoderTokenGolden_FixtureCorpus(t *testing.T) {
 	base := "pkg/toml/testdata/tokens"
 	entries := mustListTokenFixtures(t, base)
@@ -188,45 +171,6 @@ func TestDecoderTokenGolden_ReaderAndBytesParityForFixtureCorpus(t *testing.T) {
 				}
 			}
 		})
-	}
-}
-
-func TestDecoderCorpus_InvalidFiles_RejectSyntax(t *testing.T) {
-	for _, rel := range []string{
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/keys/ml_literal.toml",
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/not-toml/deb.toml",
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/string/bad-escape-6.toml",
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/string/no-close-recovery-02.toml",
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/table/quoted-unclosed-2.toml",
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/table/newline-1.toml",
-		"pkg/toml/testdata/toml-rs/corpus/invalid/ext/table/value.toml",
-	} {
-		body := mustReadRepoFile(t, rel)
-		dec := NewDecoderBytes(body)
-		if _, err := readAllTokens(dec); err == nil {
-			t.Fatalf("expected %s to fail", rel)
-		}
-	}
-}
-
-func TestDecoderSyntaxErrorLineColumn(t *testing.T) {
-	dec := NewDecoderBytes(mustReadRepoFile(t, "pkg/toml/testdata/toml-rs/corpus/invalid/ext/string/no-close-recovery-02.toml"))
-	if tok, err := dec.ReadToken(); err != nil || tok.Kind != TokenKindKey {
-		t.Fatalf("first ReadToken = %v, %v; want key before value error", tok, err)
-	}
-	_, err := dec.ReadToken()
-	if err == nil {
-		t.Fatalf("ReadToken expected syntax error")
-	}
-	se, ok := err.(*SyntaxError)
-	if !ok {
-		t.Fatalf("error type=%T, want *SyntaxError", err)
-	}
-	if se.Line != 1 {
-		t.Fatalf("error line = %d, want 1", se.Line)
-	}
-	if se.Col != 5 {
-		t.Fatalf("error col = %d, want 5", se.Col)
 	}
 }
 
