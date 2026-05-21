@@ -165,20 +165,41 @@ GOAMD64=v3 go test -bench=. -benchmem -run=^$ ./internal/memchr
 The standard-library baseline is `BenchmarkIndexByteStd`; the package benchmarks
 cover `Memchr*` and `Memrchr*` at representative haystack sizes.
 
+Dense threshold, hit-position, public-vs-direct, and mixed-workload experiments
+live under the `BenchmarkTuning...` namespace behind the `memchr_tuning` build
+tag:
+
+```sh
+GOAMD64=v4 go test -tags=memchr_tuning -bench='BenchmarkTuning' -benchmem -run=^$ ./internal/memchr
+```
+
+Keep these exploratory rows out of default CI and perf-gate binaries: the stable
+`BenchmarkMemchr*` and `BenchmarkIndexByteStd` names remain the hard-gate
+surface, while `BenchmarkTuning...` rows are for opt-in local/evaluator
+analysis.
+
 The CI-oriented perf gate lives under `hack/memchr-perf-gate/`:
 
 ```sh
 go run ./hack/memchr-perf-gate
+go run ./hack/memchr-perf-gate --compare-artifacts=v3,v4
 ```
 
 It compares `BenchmarkMemchr` against `BenchmarkIndexByteStd` with `benchstat`
 at `alpha=0.05`. On amd64, it uses `simd/archsimd` to benchmark the v4 artifact
 when AVX-512 is available and the v3 fallback when AVX2 is the widest local
 feature. Statistically significant slowdowns at gated sizes `n >= 64` fail the
-gate. On arm64 and other architectures, the gate currently reports the tuple as
-untested and exits successfully until a matching CI runner is provisioned.
+stdlib baseline gate. Artifact comparisons use `GOAMD64=v3` as the baseline and
+`GOAMD64=v4` as the treatment; hard rows at `n >= 1024` fail only when the
+slowdown is statistically significant and at least the practical threshold
+configured in the perf-gate tool. Threshold rows (`n=64`, `n=128`, `n=256`) and
+`BenchmarkTuning...` rows are reported/classified separately from the default
+hard gate. The tool prefers a `benchstat` binary on `PATH` and falls back to the
+module tool directive through `go tool benchstat` when needed. On arm64 and
+other architectures, the gate currently reports the tuple as untested and exits
+successfully until a matching CI runner is provisioned.
 
-Before changing arm64 assembly files, format them with:
+Before changing assembly files, format them with:
 
 ```sh
 go tool asmfmt -w internal/memchr/*.s
