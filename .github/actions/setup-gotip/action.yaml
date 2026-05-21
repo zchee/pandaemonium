@@ -1,0 +1,110 @@
+name: Setup gotip
+
+description: Bootstrap stable Go, cache gotip/tools, and download gotip.
+
+inputs:
+  go-version:
+    description: Go version used only to install the gotip launcher.
+    required: false
+    default: stable
+  gotip-version:
+    description: gotip branch or revision to download.
+    required: false
+    default: dev.simd
+  cache:
+    description: Whether actions/setup-go should cache downloaded modules.
+    required: false
+    default: "true"
+  cache-dependency-path:
+    description: Dependency file path(s) for actions/setup-go cache invalidation.
+    required: false
+    default: go.sum
+  gotip-cache:
+    description: Whether actions/cache should cache the downloaded gotip tree.
+    required: false
+    default: "true"
+  tools-cache:
+    description: Whether actions/cache should cache gotip-installed tools.
+    required: false
+    default: "true"
+  add-gotip-bin-to-path:
+    description: Add the downloaded gotip GOROOT bin directory to PATH.
+    required: false
+    default: "false"
+  install-tools:
+    description: Newline-separated gotip-backed tools to install after download.
+    required: false
+    default: ""
+
+runs:
+  using: composite
+  steps:
+    - name: Bootstrap Go for gotip
+      uses: actions/setup-go@v6
+      with:
+        go-version: ${{ inputs.go-version }}
+        check-latest: true
+        cache: ${{ inputs.cache }}
+        cache-dependency-path: ${{ inputs.cache-dependency-path }}
+
+    - name: Resolve gotip cache paths
+      id: cache-paths
+      shell: bash
+      env:
+        INSTALL_TOOLS: ${{ inputs.install-tools }}
+      run: |
+        tools_hash="$(printf '%s' "$INSTALL_TOOLS" | sha256sum | awk '{print $1}')"
+        {
+          echo "gotip=$HOME/sdk/gotip"
+          echo "tools=$HOME/go/bin"
+          echo "tools-hash=$tools_hash"
+        } >> "$GITHUB_OUTPUT"
+
+    - name: Cache gotip download
+      if: ${{ inputs.gotip-cache == 'true' }}
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.cache-paths.outputs.gotip }}
+        key: ${{ runner.os }}-${{ runner.arch }}-gotip-${{ inputs.gotip-version }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-gotip-
+
+    - name: Cache gotip-installed tools
+      if: ${{ inputs.tools-cache == 'true' && inputs.install-tools != '' }}
+      uses: actions/cache@v5
+      with:
+        path: ${{ steps.cache-paths.outputs.tools }}
+        key: ${{ runner.os }}-${{ runner.arch }}-gotip-tools-${{ inputs.gotip-version }}-${{ hashFiles(inputs.cache-dependency-path) }}-${{ steps.cache-paths.outputs.tools-hash }}
+        restore-keys: |
+          ${{ runner.os }}-${{ runner.arch }}-gotip-tools-${{ inputs.gotip-version }}-
+          ${{ runner.os }}-${{ runner.arch }}-gotip-tools-
+
+    - name: Install gotip
+      shell: bash
+      env:
+        GOTIP_VERSION: ${{ inputs.gotip-version }}
+      run: |
+        go install golang.org/dl/gotip@latest
+        gotip download "$GOTIP_VERSION"
+        gotip version
+
+    - name: Add gotip GOROOT bin to PATH
+      if: ${{ inputs.add-gotip-bin-to-path == 'true' }}
+      shell: bash
+      run: |
+        gotip_goroot="$(gotip env GOROOT)"
+        echo "$gotip_goroot/bin" >> "$GITHUB_PATH"
+
+    - name: Install gotip tools
+      if: ${{ inputs.install-tools != '' }}
+      shell: bash
+      env:
+        INSTALL_TOOLS: ${{ inputs.install-tools }}
+      run: |
+        while IFS= read -r tool || [ -n "$tool" ]; do
+          tool="$(printf '%s' "$tool" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          if [ -z "$tool" ] || [[ "$tool" == \#* ]]; then
+            continue
+          fi
+          gotip install "$tool"
+        done <<< "$INSTALL_TOOLS"

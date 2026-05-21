@@ -50,13 +50,15 @@ on:
     paths:
       - 'pkg/toml/internal/scan/**'
       - 'hack/toml-perf-gate/**'
-      - '.github/workflows/toml-perf-gate.yml'
+      - '.github/workflows/toml-perf-gate.yaml'
+      - '.github/actions/setup-gotip/action.yaml'
   pull_request:
     types: [labeled, synchronize]
     paths:
       - 'pkg/toml/internal/scan/**'
       - 'hack/toml-perf-gate/**'
-      - '.github/workflows/toml-perf-gate.yml'
+      - '.github/workflows/toml-perf-gate.yaml'
+      - '.github/actions/setup-gotip/action.yaml'
   workflow_dispatch:
 
 concurrency:
@@ -114,26 +116,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
         with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
-
-      - name: Install benchstat
-        run: |
-          gotip install golang.org/x/perf/cmd/benchstat@latest
-
-      - name: gotip version
-        run: |
-          gotip version
+          install-tools: golang.org/x/perf/cmd/benchstat@latest
 
       - name: Run perf-gate (${{ matrix.scan }})
         env:
@@ -197,26 +183,10 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
         with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
-
-      - name: Install benchstat
-        run: |
-          gotip install golang.org/x/perf/cmd/benchstat@latest
-
-      - name: gotip version
-        run: |
-          gotip version
+          install-tools: golang.org/x/perf/cmd/benchstat@latest
 
       - name: Run perf-gate (${{ matrix.scan }})
         env:

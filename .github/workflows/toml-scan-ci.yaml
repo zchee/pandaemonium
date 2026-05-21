@@ -48,11 +48,13 @@ on:
       - main
     paths:
       - 'pkg/toml/**'
-      - '.github/workflows/toml-scan-ci.yml'
+      - '.github/workflows/toml-scan-ci.yaml'
+      - '.github/actions/setup-gotip/action.yaml'
   pull_request:
     paths:
       - 'pkg/toml/**'
-      - '.github/workflows/toml-scan-ci.yml'
+      - '.github/workflows/toml-scan-ci.yaml'
+      - '.github/actions/setup-gotip/action.yaml'
   workflow_dispatch:
 
 concurrency:
@@ -82,18 +84,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
 
       - name: gotip version + module identity
         run: |
@@ -143,18 +135,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
 
       - name: gotip version
         env:
@@ -206,22 +188,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
-
-      - name: gotip version
-        run: |
-          gotip version
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
 
       - name: Build scan package (gotip + GOEXPERIMENT)
         env:
@@ -268,18 +236,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
 
       - name: gotip version
         env:
@@ -319,18 +277,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
 
       - name: Build scan package for wasip1/wasm
         env:
@@ -355,18 +303,8 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - name: Bootstrap Go (for gotip installer)
-        uses: actions/setup-go@v6
-        with:
-          go-version: "stable"
-          check-latest: true
-          cache-dependency-path: |
-            go.sum
-
-      - name: Install gotip dev.simd
-        run: |
-          go install golang.org/dl/gotip@latest
-          gotip download dev.simd
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
 
       - name: Build scan package (force_swar)
         env:
