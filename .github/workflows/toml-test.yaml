@@ -4,7 +4,7 @@
 # directly yet, so this workflow follows test.yaml and toml-scan-ci.yaml:
 # bootstrap stable Go only to install gotip, then run the real checks with
 # gotip dev.simd.
-
+---
 name: toml-test
 
 on:
@@ -12,18 +12,18 @@ on:
     branches:
       - main
     paths:
-      - 'pkg/toml/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/toml-test.yaml'
-      - '.github/actions/setup-gotip/action.yaml'
+      - ".github/actions/setup-gotip/action.yaml"
+      - ".github/workflows/toml-test.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "pkg/toml/**"
   pull_request:
     paths:
-      - 'pkg/toml/**'
-      - 'go.mod'
-      - 'go.sum'
-      - '.github/workflows/toml-test.yaml'
-      - '.github/actions/setup-gotip/action.yaml'
+      - ".github/actions/setup-gotip/action.yaml"
+      - ".github/workflows/toml-test.yaml"
+      - "go.mod"
+      - "go.sum"
+      - "pkg/toml/**"
   workflow_dispatch:
 
 concurrency:
@@ -32,7 +32,6 @@ concurrency:
 
 jobs:
   toml-test:
-    name: toml-test 1.1 conformance
     runs-on: ubuntu-24.04
 
     permissions:

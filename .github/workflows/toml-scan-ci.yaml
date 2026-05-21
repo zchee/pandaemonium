@@ -39,7 +39,7 @@
 #
 # Path filter: this workflow only runs when pkg/toml/** or this YAML
 # itself changes — the existing test.yaml covers the broader module.
-
+---
 name: toml-scan
 
 on:
@@ -47,14 +47,14 @@ on:
     branches:
       - main
     paths:
-      - 'pkg/toml/**'
-      - '.github/workflows/toml-scan-ci.yaml'
-      - '.github/actions/setup-gotip/action.yaml'
+      - "pkg/toml/**"
+      - ".github/workflows/toml-scan-ci.yaml"
+      - ".github/actions/setup-gotip/action.yaml"
   pull_request:
     paths:
-      - 'pkg/toml/**'
-      - '.github/workflows/toml-scan-ci.yaml'
-      - '.github/actions/setup-gotip/action.yaml'
+      - "pkg/toml/**"
+      - ".github/workflows/toml-scan-ci.yaml"
+      - ".github/actions/setup-gotip/action.yaml"
   workflow_dispatch:
 
 concurrency:
@@ -108,17 +108,17 @@ jobs:
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
         run: |
-          gotip test -race -count=1 ./pkg/toml/internal/scan/
+          gotip test -race -count=1 -shuffle=on -run=. ./pkg/toml/internal/scan/
 
       - name: gofmt -s -d
         run: |
           diff=$("$(gotip env GOROOT)/bin/gofmt" -s -d ./pkg/toml/internal/scan/)
           test -z "$diff" || { echo "$diff"; exit 1; }
 
-      - name: gofumpt -l
+      - name: gofumpt -extra -l
         run: |
           gotip install mvdan.cc/gofumpt@latest
-          out=$(gofumpt -l ./pkg/toml/internal/scan/)
+          out=$(gofumpt -extra -l ./pkg/toml/internal/scan/)
           test -z "$out" || { echo "$out"; exit 1; }
 
   # linux/amd64 without goexperiment.simd — exercises the SWAR
@@ -126,7 +126,7 @@ jobs:
   # excluded and scan_swar.go provides the
   # dispatch vars. This is a hard gate.
   amd64-swar:
-    name: linux/amd64 (no goexperiment.simd)
+    name: linux/amd64 (without goexperiment.simd)
     runs-on: ubuntu-24.04
 
     permissions:
@@ -160,17 +160,17 @@ jobs:
         env:
           GOEXPERIMENT: nosimd
         run: |
-          gotip test -race -count=1 ./pkg/toml/internal/scan/
+          gotip test -race -count=1 -shuffle=on -run=. ./pkg/toml/internal/scan/
 
       - name: gofmt -s -d
         run: |
           diff=$("$(gotip env GOROOT)/bin/gofmt" -s -d ./pkg/toml/internal/scan/)
           test -z "$diff" || { echo "$diff"; exit 1; }
 
-      - name: gofumpt -l
+      - name: gofumpt -extra -l
         run: |
           gotip install mvdan.cc/gofumpt@latest
-          out=$(gofumpt -l ./pkg/toml/internal/scan/)
+          out=$(gofumpt -extra -l ./pkg/toml/internal/scan/)
           test -z "$out" || { echo "$out"; exit 1; }
 
   # linux/arm64 with goexperiment.simd — exercises scan_arm64.go
@@ -207,17 +207,17 @@ jobs:
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
         run: |
-          gotip test -race -count=1 ./pkg/toml/internal/scan/
+          gotip test -race -count=1 -shuffle=on -run=. ./pkg/toml/internal/scan/
 
       - name: gofmt -s -d
         run: |
           diff=$("$(gotip env GOROOT)/bin/gofmt" -s -d ./pkg/toml/internal/scan/)
           test -z "$diff" || { echo "$diff"; exit 1; }
 
-      - name: gofumpt -l
+      - name: gofumpt -extra -l
         run: |
           gotip install mvdan.cc/gofumpt@latest
-          out=$(gofumpt -l ./pkg/toml/internal/scan/)
+          out=$(gofumpt -extra -l ./pkg/toml/internal/scan/)
           test -z "$out" || { echo "$out"; exit 1; }
 
   # linux/arm64 without goexperiment.simd — verifies the build still
@@ -227,7 +227,7 @@ jobs:
   # Useful as a regression detector
   # if the NEON path ever grows a goexperiment.simd dependency.
   arm64-stable:
-    name: linux/arm64 (no goexperiment.simd)
+    name: linux/arm64 (without goexperiment.simd)
     runs-on: ubuntu-24.04-arm
 
     permissions:
@@ -261,7 +261,7 @@ jobs:
         env:
           GOEXPERIMENT: nosimd
         run: |
-          gotip test -race -count=1 ./pkg/toml/internal/scan/
+          gotip test -race -count=1 -shuffle=on -run=. ./pkg/toml/internal/scan/
 
   # wasip1/wasm build-only — verifies scan_swar.go compiles for a
   # non-amd64, non-arm64 GOARCH. Per Q9 default the SWAR-only CI
@@ -322,4 +322,4 @@ jobs:
         env:
           GOEXPERIMENT: nosimd
         run: |
-          gotip test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan/
+          gotip test -tags=force_swar -race -count=1 -shuffle=on -run=. ./pkg/toml/internal/scan/
