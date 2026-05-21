@@ -117,21 +117,23 @@ jobs:
       - name: Bootstrap Go (for gotip installer)
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
-      - name: Install gotip
+      - name: Install gotip dev.simd
         run: |
           go install golang.org/dl/gotip@latest
-          gotip download
+          gotip download dev.simd
 
       - name: Install benchstat
-        run: gotip install golang.org/x/perf/cmd/benchstat@latest
+        run: |
+          gotip install golang.org/x/perf/cmd/benchstat@latest
 
       - name: gotip version
-        run: gotip version
+        run: |
+          gotip version
 
       - name: Run perf-gate (${{ matrix.scan }})
         env:
@@ -151,7 +153,7 @@ jobs:
 
       - name: Upload perf artifact (${{ matrix.scan }})
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: perf-gate-amd64-${{ matrix.scan }}
           path: perf-gate-amd64-${{ matrix.scan }}.txt
@@ -175,7 +177,7 @@ jobs:
     name: linux/arm64 perf (${{ matrix.scan }})
     needs: guard
     if: needs.guard.outputs.should_run == 'true'
-    runs-on: ubuntu-24.04-arm   # Q6 user ruling: arm64 gate is HARD
+    runs-on: ubuntu-24.04-arm   # user ruling: arm64 gate is HARD
 
     permissions:
       contents: read
@@ -198,21 +200,23 @@ jobs:
       - name: Bootstrap Go (for gotip installer)
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
-      - name: Install gotip
+      - name: Install gotip dev.simd
         run: |
           go install golang.org/dl/gotip@latest
-          gotip download
+          gotip download dev.simd
 
       - name: Install benchstat
-        run: gotip install golang.org/x/perf/cmd/benchstat@latest
+        run: |
+          gotip install golang.org/x/perf/cmd/benchstat@latest
 
       - name: gotip version
-        run: gotip version
+        run: |
+          gotip version
 
       - name: Run perf-gate (${{ matrix.scan }})
         env:
@@ -232,7 +236,7 @@ jobs:
 
       - name: Upload perf artifact (${{ matrix.scan }})
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: perf-gate-arm64-${{ matrix.scan }}
           path: perf-gate-arm64-${{ matrix.scan }}.txt

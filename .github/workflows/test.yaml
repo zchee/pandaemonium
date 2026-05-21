@@ -23,18 +23,26 @@ jobs:
       # https://github.com/actions/checkout
       - uses: actions/checkout@v6
 
+      # actions/setup-go does not resolve the module's go 1.27
+      # directive yet; use stable Go only to install the gotip wrapper.
       # https://github.com/actions/setup-go
-      - name: Setup Go
+      - name: Bootstrap Go for gotip
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
+      - name: Install gotip dev.simd
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download dev.simd
+          gotip version
+
       - name: Run Unit tests
         run: |
-          go test -v -race -count=1 -shuffle=on -cover -covermode=atomic -coverpkg=./... -coverprofile=coverage.out -tags='osusergo,netgo,static' -ldflags='-s -w' ./...
+          gotip test -race -count=1 -shuffle=on -cover -covermode=atomic -coverpkg=./... -coverprofile=coverage.out -tags='osusergo,netgo,static' -ldflags='-s -w' ./...
 
       # https://github.com/codecov/codecov-action
       - name: Upload Coverage report to CodeCov
@@ -54,15 +62,23 @@ jobs:
       # https://github.com/actions/checkout
       - uses: actions/checkout@v6
 
+      # actions/setup-go does not resolve the module's go 1.27
+      # directive yet; use stable Go only to install the gotip wrapper.
       # https://github.com/actions/setup-go
-      - name: Setup Go
+      - name: Bootstrap Go for gotip
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
+      - name: Install gotip dev.simd
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download dev.simd
+          gotip version
+
       - name: Run go vet
         run: |
-          go vet ./...
+          gotip vet ./...

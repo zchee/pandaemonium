@@ -13,25 +13,25 @@
 # team-lead 2026-05-16: /opt/local/go.simd snapshot has a stdlib bug at
 # internal/runtime/maps/memhash_aes_simd.go passing `(*[4]uint32)` to
 # archsimd.LoadUint32x4 which expects `[]uint32`. The bug blocks ALL
-# amd64 builds from the snapshot regardless of GOEXPERIMENT, so we use
-# golang.org/dl/gotip for the goexperiment.simd jobs and the latest
-# stable Go for the no-simd jobs):
+# amd64 builds from the snapshot regardless of GOEXPERIMENT, so every
+# job bootstraps with stable Go only long enough to install gotip, then
+# downloads gotip's dev.simd branch; no-simd jobs set GOEXPERIMENT=nosimd.
 #
-#   linux/amd64 + goexperiment.simd  -> gotip       (continue-on-error
-#                                                     until snapshot
-#                                                     stdlib fix lands)
-#   linux/amd64 (no goexperiment)    -> stable Go   (SWAR fallback path)
-#   linux/arm64 + goexperiment.simd  -> gotip       (NEON path; SDK
-#                                                     drift on amd64 is
-#                                                     orthogonal)
-#   linux/arm64 (no goexperiment)    -> stable Go
-#   wasip1/wasm   build-only          -> stable Go   (SWAR-only target;
-#                                                     no test runtime
-#                                                     configured per Q9
-#                                                     default)
-#   force_swar verification          -> stable Go   (SWAR backend is
-#                                                     pure Go, no
-#                                                     toolchain features)
+#   linux/amd64 + goexperiment.simd  -> gotip dev.simd (continue-on-error
+#                                                         until snapshot
+#                                                         stdlib fix lands)
+#   linux/amd64 (no goexperiment)    -> gotip dev.simd + GOEXPERIMENT=nosimd
+#                                         (SWAR fallback path)
+#   linux/arm64 + goexperiment.simd  -> gotip dev.simd (NEON path; SDK
+#                                                         drift on amd64 is
+#                                                         orthogonal)
+#   linux/arm64 (no goexperiment)    -> gotip dev.simd + GOEXPERIMENT=nosimd
+#   wasip1/wasm   build-only         -> gotip dev.simd + GOEXPERIMENT=nosimd
+#                                        (SWAR-only target; no test runtime
+#                                        configured per Q9 default)
+#   force_swar verification          -> gotip dev.simd + GOEXPERIMENT=nosimd
+#                                        (SWAR backend is pure Go, no
+#                                        toolchain features)
 #
 # Darwin runners are intentionally omitted: per plan "optional, only if
 # free runners available; skip if cost-prohibitive" and macOS runners
@@ -85,15 +85,15 @@ jobs:
       - name: Bootstrap Go (for gotip installer)
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
-      - name: Install gotip
+      - name: Install gotip dev.simd
         run: |
           go install golang.org/dl/gotip@latest
-          gotip download
+          gotip download dev.simd
 
       - name: gotip version + module identity
         run: |
@@ -103,21 +103,24 @@ jobs:
       - name: Build scan package (gotip + GOEXPERIMENT)
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: gotip build ./pkg/toml/internal/scan/
+        run: |
+          gotip build ./pkg/toml/internal/scan/
 
       - name: Vet scan package (gotip + GOEXPERIMENT)
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: gotip vet ./pkg/toml/internal/scan/
+        run: |
+          gotip vet ./pkg/toml/internal/scan/
 
       - name: Test scan package (gotip + GOEXPERIMENT)
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: gotip test -race -count=1 ./pkg/toml/internal/scan/
+        run: |
+          gotip test -race -count=1 ./pkg/toml/internal/scan/
 
       - name: gofmt -s -d
         run: |
-          diff=$(gofmt -s -d ./pkg/toml/internal/scan/)
+          diff=$("$(gotip env GOROOT)/bin/gofmt" -s -d ./pkg/toml/internal/scan/)
           test -z "$diff" || { echo "$diff"; exit 1; }
 
       - name: gofumpt -l
@@ -127,8 +130,8 @@ jobs:
           test -z "$out" || { echo "$out"; exit 1; }
 
   # linux/amd64 without goexperiment.simd — exercises the SWAR
-  # fallback on amd64. Stable Go is sufficient; no goexperiment.simd
-  # means scan_amd64.go is excluded and scan_swar.go provides the
+  # fallback on amd64. GOEXPERIMENT=nosimd means scan_amd64.go is
+  # excluded and scan_swar.go provides the
   # dispatch vars. This is a hard gate.
   amd64-swar:
     name: linux/amd64 (no goexperiment.simd)
@@ -140,33 +143,51 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
         with:
           go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
-      - name: go version
-        run: go version
+      - name: Install gotip dev.simd
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download dev.simd
+
+      - name: gotip version
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip version
 
       - name: Build scan package
-        run: go build ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip build ./pkg/toml/internal/scan/
 
       - name: Vet scan package
-        run: go vet ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip vet ./pkg/toml/internal/scan/
 
       - name: Test scan package
-        run: go test -race -count=1 ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip test -race -count=1 ./pkg/toml/internal/scan/
 
       - name: gofmt -s -d
         run: |
-          diff=$(gofmt -s -d ./pkg/toml/internal/scan/)
+          diff=$("$(gotip env GOROOT)/bin/gofmt" -s -d ./pkg/toml/internal/scan/)
           test -z "$diff" || { echo "$diff"; exit 1; }
 
       - name: gofumpt -l
         run: |
-          go install mvdan.cc/gofumpt@latest
+          gotip install mvdan.cc/gofumpt@latest
           out=$(gofumpt -l ./pkg/toml/internal/scan/)
           test -z "$out" || { echo "$out"; exit 1; }
 
@@ -188,37 +209,41 @@ jobs:
       - name: Bootstrap Go (for gotip installer)
         uses: actions/setup-go@v6
         with:
-          go-version-file: "go.mod"
+          go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
-      - name: Install gotip
+      - name: Install gotip dev.simd
         run: |
           go install golang.org/dl/gotip@latest
-          gotip download
+          gotip download dev.simd
 
       - name: gotip version
-        run: gotip version
+        run: |
+          gotip version
 
       - name: Build scan package (gotip + GOEXPERIMENT)
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: gotip build ./pkg/toml/internal/scan/
+        run: |
+          gotip build ./pkg/toml/internal/scan/
 
       - name: Vet scan package (gotip + GOEXPERIMENT)
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: gotip vet ./pkg/toml/internal/scan/
+        run: |
+          gotip vet ./pkg/toml/internal/scan/
 
       - name: Test scan package (gotip + GOEXPERIMENT)
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: gotip test -race -count=1 ./pkg/toml/internal/scan/
+        run: |
+          gotip test -race -count=1 ./pkg/toml/internal/scan/
 
       - name: gofmt -s -d
         run: |
-          diff=$(gofmt -s -d ./pkg/toml/internal/scan/)
+          diff=$("$(gotip env GOROOT)/bin/gofmt" -s -d ./pkg/toml/internal/scan/)
           test -z "$diff" || { echo "$diff"; exit 1; }
 
       - name: gofumpt -l
@@ -228,9 +253,10 @@ jobs:
           test -z "$out" || { echo "$out"; exit 1; }
 
   # linux/arm64 without goexperiment.simd — verifies the build still
-  # works on arm64 when GOEXPERIMENT is empty. scan_arm64.go has tag
+  # works on arm64 when GOEXPERIMENT=nosimd. scan_arm64.go has tag
   # `!force_swar && arm64` (no goexperiment.simd dependency) so this
-  # exercises NEON via stable Go too. Useful as a regression detector
+  # exercises NEON via the dev.simd branch without the simd experiment.
+  # Useful as a regression detector
   # if the NEON path ever grows a goexperiment.simd dependency.
   arm64-stable:
     name: linux/arm64 (no goexperiment.simd)
@@ -242,24 +268,42 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
         with:
           go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
-      - name: go version
-        run: go version
+      - name: Install gotip dev.simd
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download dev.simd
+
+      - name: gotip version
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip version
 
       - name: Build scan package
-        run: go build ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip build ./pkg/toml/internal/scan/
 
       - name: Vet scan package
-        run: go vet ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip vet ./pkg/toml/internal/scan/
 
       - name: Test scan package
-        run: go test -race -count=1 ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip test -race -count=1 ./pkg/toml/internal/scan/
 
   # wasip1/wasm build-only — verifies scan_swar.go compiles for a
   # non-amd64, non-arm64 GOARCH. Per Q9 default the SWAR-only CI
@@ -275,18 +319,26 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
         with:
           go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
+      - name: Install gotip dev.simd
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download dev.simd
+
       - name: Build scan package for wasip1/wasm
         env:
+          GOEXPERIMENT: nosimd
           GOOS: wasip1
           GOARCH: wasm
-        run: go build ./pkg/toml/internal/scan/
+        run: |
+          gotip build ./pkg/toml/internal/scan/
 
   # force_swar verification — AC-SIMD-7 enforcement. Compiles the
   # SWAR backend on amd64 hardware via `-tags=force_swar`, which
@@ -303,18 +355,33 @@ jobs:
     steps:
       - uses: actions/checkout@v6
 
-      - uses: actions/setup-go@v6
+      - name: Bootstrap Go (for gotip installer)
+        uses: actions/setup-go@v6
         with:
           go-version: "stable"
           check-latest: true
           cache-dependency-path: |
             go.sum
 
+      - name: Install gotip dev.simd
+        run: |
+          go install golang.org/dl/gotip@latest
+          gotip download dev.simd
+
       - name: Build scan package (force_swar)
-        run: go build -tags=force_swar ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip build -tags=force_swar ./pkg/toml/internal/scan/
 
       - name: Vet scan package (force_swar)
-        run: go vet -tags=force_swar ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip vet -tags=force_swar ./pkg/toml/internal/scan/
 
       - name: Test scan package (force_swar)
-        run: go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan/
+        env:
+          GOEXPERIMENT: nosimd
+        run: |
+          gotip test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan/
