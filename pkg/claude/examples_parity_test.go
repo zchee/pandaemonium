@@ -246,10 +246,10 @@ func TestExampleParity_ToolPermissionCallback(t *testing.T) {
 	t.Parallel()
 
 	// Mirrors the permissionCallback in examples/tool_permission_callback/main.go.
-	permCb := func(_ context.Context, toolName string, input jsontext.Value) (PermissionDecision, error) {
+	permCb := func(_ context.Context, toolName string, input jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 		switch toolName {
 		case "Read":
-			return PermissionAllow, nil
+			return PermissionResultAllow{}, nil
 		case "Bash":
 			var inp struct {
 				Command string `json:"command"`
@@ -258,11 +258,11 @@ func TestExampleParity_ToolPermissionCallback(t *testing.T) {
 				_ = stdjson.Unmarshal(input, &inp)
 			}
 			if strings.HasPrefix(inp.Command, "ls") || strings.HasPrefix(inp.Command, "echo") {
-				return PermissionAllow, nil
+				return PermissionResultAllow{}, nil
 			}
-			return PermissionDeny, nil
+			return PermissionResultDeny{Message: "denied unsafe Bash command"}, nil
 		default:
-			return PermissionDeny, nil
+			return PermissionResultDeny{Message: "denied unknown tool"}, nil
 		}
 	}
 

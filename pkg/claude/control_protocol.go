@@ -577,35 +577,82 @@ func (cp *controlProtocol) dispatchControlSubtype(ctx context.Context, subtype s
 // shape the CLI expects: {"behavior":"allow","updatedInput":<input>} or
 // {"behavior":"deny","message":<reason>}.
 //
-// PermissionAsk (the zero value, "no opinion from the SDK") maps to allow with
-// the original input unchanged, so the CLI's configured permission_mode makes
-// the final call — there is no third "ask" behavior on this wire.
+// A nil PermissionResult from the callback is treated as Allow with the
+// original input — equivalent to the SDK expressing no opinion, leaving the
+// CLI's configured permission_mode to make the final call.
+//
+// Mirrors upstream Query._handle_control_request can_use_tool (query.py:381-436).
 func (cp *controlProtocol) handleCanUseTool(ctx context.Context, reqBody jsontext.Value) (map[string]any, error) {
 	if cp.opts == nil || cp.opts.CanUseTool == nil {
 		return nil, errors.New("CanUseTool callback is not provided")
 	}
 	var req struct {
-		ToolName string         `json:"tool_name"`
-		Input    jsontext.Value `json:"input"`
+		ToolName              string           `json:"tool_name"`
+		Input                 jsontext.Value   `json:"input"`
+		PermissionSuggestions []map[string]any `json:"permission_suggestions"`
+		ToolUseID             string           `json:"tool_use_id"`
+		AgentID               string           `json:"agent_id"`
+		BlockedPath           string           `json:"blocked_path"`
+		DecisionReason        string           `json:"decision_reason"`
+		Title                 string           `json:"title"`
+		DisplayName           string           `json:"display_name"`
+		Description           string           `json:"description"`
 	}
 	if err := json.Unmarshal(reqBody, &req); err != nil {
 		return nil, fmt.Errorf("decode can_use_tool request: %w", err)
 	}
 
-	decision, err := cp.opts.CanUseTool(ctx, req.ToolName, req.Input)
+	suggestions := make([]PermissionUpdate, 0, len(req.PermissionSuggestions))
+	for _, s := range req.PermissionSuggestions {
+		suggestions = append(suggestions, PermissionUpdateFromWire(s))
+	}
+	pctx := ToolPermissionContext{
+		Suggestions:    suggestions,
+		ToolUseID:      req.ToolUseID,
+		AgentID:        req.AgentID,
+		BlockedPath:    req.BlockedPath,
+		DecisionReason: req.DecisionReason,
+		Title:          req.Title,
+		DisplayName:    req.DisplayName,
+		Description:    req.Description,
+	}
+
+	result, err := cp.opts.CanUseTool(ctx, req.ToolName, req.Input, pctx)
 	if err != nil {
 		return nil, err
 	}
 
-	if decision == PermissionDeny {
-		return map[string]any{"behavior": "deny", "message": ""}, nil
+	original := req.Input
+	if len(original) == 0 {
+		original = jsontext.Value("{}")
 	}
-	// Allow and Ask both permit the call; preserve the original input.
-	input := req.Input
-	if len(input) == 0 {
-		input = jsontext.Value("{}")
+
+	switch r := result.(type) {
+	case nil:
+		return map[string]any{"behavior": "allow", "updatedInput": original}, nil
+	case PermissionResultAllow:
+		input := r.UpdatedInput
+		if len(input) == 0 {
+			input = original
+		}
+		out := map[string]any{"behavior": "allow", "updatedInput": input}
+		if r.UpdatedPermissions != nil {
+			wires := make([]map[string]any, len(r.UpdatedPermissions))
+			for i, u := range r.UpdatedPermissions {
+				wires[i] = u.ToWire()
+			}
+			out["updatedPermissions"] = wires
+		}
+		return out, nil
+	case PermissionResultDeny:
+		out := map[string]any{"behavior": "deny", "message": r.Message}
+		if r.Interrupt {
+			out["interrupt"] = true
+		}
+		return out, nil
+	default:
+		return nil, fmt.Errorf("CanUseTool returned unknown PermissionResult type %T", result)
 	}
-	return map[string]any{"behavior": "allow", "updatedInput": input}, nil
 }
 
 // handleHookCallback invokes the Go hook registered under the request's

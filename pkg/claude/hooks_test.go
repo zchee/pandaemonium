@@ -312,9 +312,9 @@ func TestApplyCanUseTool_NonPreToolUse(t *testing.T) {
 	t.Parallel()
 
 	called := false
-	fn := func(_ context.Context, _ string, _ jsontext.Value) (PermissionDecision, error) {
+	fn := func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 		called = true
-		return PermissionAllow, nil
+		return PermissionResultAllow{}, nil
 	}
 	dec, err := applyCanUseTool(t.Context(), fn, HookEvent{Kind: HookEventStop})
 	if err != nil {
@@ -332,19 +332,19 @@ func TestApplyCanUseTool_Decisions(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		returns PermissionDecision
+		returns PermissionResult
 		want    PermissionDecision
 	}{
-		"success: allow": {returns: PermissionAllow, want: PermissionAllow},
-		"success: deny":  {returns: PermissionDeny, want: PermissionDeny},
-		"success: ask":   {returns: PermissionAsk, want: PermissionAsk},
+		"success: allow": {returns: PermissionResultAllow{}, want: PermissionAllow},
+		"success: deny":  {returns: PermissionResultDeny{}, want: PermissionDeny},
+		"success: ask":   {returns: nil, want: PermissionAsk},
 	}
 
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			fn := func(_ context.Context, _ string, _ jsontext.Value) (PermissionDecision, error) {
+			fn := func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 				return tt.returns, nil
 			}
 			dec, err := applyCanUseTool(t.Context(), fn, HookEvent{Kind: HookEventPreToolUse, ToolName: "Bash"})
@@ -363,10 +363,10 @@ func TestApplyCanUseTool_PassesToolNameAndInput(t *testing.T) {
 
 	var gotTool string
 	var gotInput jsontext.Value
-	fn := func(_ context.Context, toolName string, input jsontext.Value) (PermissionDecision, error) {
+	fn := func(_ context.Context, toolName string, input jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 		gotTool = toolName
 		gotInput = input
-		return PermissionAllow, nil
+		return PermissionResultAllow{}, nil
 	}
 
 	event := HookEvent{
@@ -417,9 +417,9 @@ func TestApplyPermissions_HookDenySkipsCanUseTool(t *testing.T) {
 				},
 			},
 		},
-		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value) (PermissionDecision, error) {
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 			canUseToolCalled = true
-			return PermissionAllow, nil
+			return PermissionResultAllow{}, nil
 		},
 	}
 
@@ -452,8 +452,8 @@ func TestApplyPermissions_CanUseToolDenyOverridesHookAllow(t *testing.T) {
 				},
 			},
 		},
-		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value) (PermissionDecision, error) {
-			return PermissionDeny, nil
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultDeny{}, nil
 		},
 	}
 
@@ -481,8 +481,8 @@ func TestApplyPermissions_BothAllow(t *testing.T) {
 				},
 			},
 		},
-		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value) (PermissionDecision, error) {
-			return PermissionAllow, nil
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultAllow{}, nil
 		},
 	}
 
@@ -511,9 +511,9 @@ func TestApplyPermissions_NonPreToolUseEventSkipsCanUseTool(t *testing.T) {
 				},
 			},
 		},
-		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value) (PermissionDecision, error) {
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 			canUseToolCalled = true
-			return PermissionDeny, nil
+			return PermissionResultDeny{}, nil
 		},
 	}
 

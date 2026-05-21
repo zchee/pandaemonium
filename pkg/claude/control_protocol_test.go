@@ -542,9 +542,9 @@ func TestControlProtocol_HandleCanUseTool_Allow(t *testing.T) {
 	writeFn, out := collectWriter(1)
 	var gotTool string
 	cp := newControlProtocol(&Options{
-		CanUseTool: func(_ context.Context, tool string, _ jsontext.Value) (PermissionDecision, error) {
+		CanUseTool: func(_ context.Context, tool string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
 			gotTool = tool
-			return PermissionAllow, nil
+			return PermissionResultAllow{}, nil
 		},
 	}, writeFn)
 
@@ -579,8 +579,8 @@ func TestControlProtocol_HandleCanUseTool_Deny(t *testing.T) {
 
 	writeFn, out := collectWriter(1)
 	cp := newControlProtocol(&Options{
-		CanUseTool: func(context.Context, string, jsontext.Value) (PermissionDecision, error) {
-			return PermissionDeny, nil
+		CanUseTool: func(context.Context, string, jsontext.Value, ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultDeny{}, nil
 		},
 	}, writeFn)
 
@@ -616,6 +616,268 @@ func TestControlProtocol_HandleCanUseTool_NoCallback(t *testing.T) {
 	}
 	if !strings.Contains(errMsg, "CanUseTool") {
 		t.Errorf("error = %q, want to mention CanUseTool", errMsg)
+	}
+}
+
+// ─── M11d can_use_tool wire-format tests ─────────────────────────────────────
+
+// TestControlProtocol_HandleCanUseTool_AllowPreservesOriginalInput verifies
+// that PermissionResultAllow with no UpdatedInput sends the original input
+// byte-for-byte. Pins the contract a future refactor must not lose.
+func TestControlProtocol_HandleCanUseTool_AllowPreservesOriginalInput(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultAllow{}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Read","input":{"path":"/etc/hosts","extra":42}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	updated, ok := resp["updatedInput"].(map[string]any)
+	if !ok {
+		t.Fatalf("updatedInput not an object: %v", resp["updatedInput"])
+	}
+	if updated["path"] != "/etc/hosts" || updated["extra"] != float64(42) {
+		t.Errorf("updatedInput = %v, want original input preserved", updated)
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_AllowUpdatesInput verifies that
+// PermissionResultAllow.UpdatedInput, when non-empty, replaces the original
+// input on the wire (parity with upstream's tool-input modification path).
+func TestControlProtocol_HandleCanUseTool_AllowUpdatesInput(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultAllow{
+				UpdatedInput: jsontext.Value(`{"path":"/safe/path","sanitized":true}`),
+			}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Read","input":{"path":"/etc/hosts"}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	updated, ok := resp["updatedInput"].(map[string]any)
+	if !ok {
+		t.Fatalf("updatedInput not an object: %v", resp["updatedInput"])
+	}
+	if updated["path"] != "/safe/path" || updated["sanitized"] != true {
+		t.Errorf("updatedInput = %v, want modified", updated)
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_AllowEmitsUpdatedPermissions verifies
+// that PermissionResultAllow.UpdatedPermissions is serialized through
+// PermissionUpdate.ToWire onto the response.
+func TestControlProtocol_HandleCanUseTool_AllowEmitsUpdatedPermissions(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultAllow{
+				UpdatedPermissions: []PermissionUpdate{
+					{Type: PermissionUpdateTypeSetMode, Mode: PermissionModeAcceptEdits},
+				},
+			}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Read","input":{}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	ups, ok := resp["updatedPermissions"].([]any)
+	if !ok || len(ups) != 1 {
+		t.Fatalf("updatedPermissions = %v, want one entry", resp["updatedPermissions"])
+	}
+	first, _ := ups[0].(map[string]any)
+	if first["type"] != "setMode" || first["mode"] != "acceptEdits" {
+		t.Errorf("updatedPermissions[0] = %v, want type=setMode mode=acceptEdits", first)
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_AllowNoUpdatedPermissionsOmitsKey
+// verifies that PermissionResultAllow with nil UpdatedPermissions does NOT
+// emit the updatedPermissions key (parity with upstream conditional emission).
+func TestControlProtocol_HandleCanUseTool_AllowNoUpdatedPermissionsOmitsKey(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultAllow{}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Read","input":{}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	if _, has := resp["updatedPermissions"]; has {
+		t.Errorf("nil UpdatedPermissions must omit updatedPermissions key: %v", resp)
+	}
+	if _, has := resp["interrupt"]; has {
+		t.Errorf("Allow has no interrupt field; key must be absent: %v", resp)
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_DenyInterruptFalseOmitsKey verifies
+// that Deny with Interrupt=false omits the interrupt wire key. Pins parity
+// with upstream's `if response.interrupt` gate.
+func TestControlProtocol_HandleCanUseTool_DenyInterruptFalseOmitsKey(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultDeny{Message: "no"}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	if resp["behavior"] != "deny" {
+		t.Errorf("behavior = %v, want deny", resp["behavior"])
+	}
+	if resp["message"] != "no" {
+		t.Errorf("message = %v, want \"no\"", resp["message"])
+	}
+	if _, has := resp["interrupt"]; has {
+		t.Errorf("Interrupt=false must omit the interrupt key: %v", resp)
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_DenyInterruptTrueEmitsKey verifies
+// that Deny with Interrupt=true emits {"interrupt": true} on the wire.
+func TestControlProtocol_HandleCanUseTool_DenyInterruptTrueEmitsKey(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return PermissionResultDeny{Message: "abort", Interrupt: true}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Bash","input":{}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	if resp["interrupt"] != true {
+		t.Errorf("interrupt = %v, want true", resp["interrupt"])
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_ContextDecode verifies that every
+// ToolPermissionContext field decodes from its snake_case wire key, and that
+// permission_suggestions (snake_case rename to Go's Suggestions) goes through
+// PermissionUpdateFromWire correctly.
+func TestControlProtocol_HandleCanUseTool_ContextDecode(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	var got ToolPermissionContext
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, ctx ToolPermissionContext) (PermissionResult, error) {
+			got = ctx
+			return PermissionResultAllow{}, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{` +
+		`"subtype":"can_use_tool",` +
+		`"tool_name":"Bash",` +
+		`"input":{"command":"ls"},` +
+		`"tool_use_id":"tu_123",` +
+		`"agent_id":"agent_42",` +
+		`"blocked_path":"/restricted/x",` +
+		`"decision_reason":"path outside cwd",` +
+		`"title":"Approve Bash?",` +
+		`"display_name":"Bash",` +
+		`"description":"Run shell command",` +
+		`"permission_suggestions":[` +
+		`{"type":"addRules","behavior":"allow","rules":[{"toolName":"Bash","ruleContent":"ls *"}]}` +
+		`]}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, _ = awaitControlResponse(t, out)
+
+	if got.ToolUseID != "tu_123" {
+		t.Errorf("ToolUseID = %q, want tu_123", got.ToolUseID)
+	}
+	if got.AgentID != "agent_42" {
+		t.Errorf("AgentID = %q, want agent_42", got.AgentID)
+	}
+	if got.BlockedPath != "/restricted/x" {
+		t.Errorf("BlockedPath = %q, want /restricted/x", got.BlockedPath)
+	}
+	if got.DecisionReason != "path outside cwd" {
+		t.Errorf("DecisionReason = %q, want 'path outside cwd'", got.DecisionReason)
+	}
+	if got.Title != "Approve Bash?" {
+		t.Errorf("Title = %q, want 'Approve Bash?'", got.Title)
+	}
+	if got.DisplayName != "Bash" {
+		t.Errorf("DisplayName = %q, want Bash", got.DisplayName)
+	}
+	if got.Description != "Run shell command" {
+		t.Errorf("Description = %q, want 'Run shell command'", got.Description)
+	}
+	if len(got.Suggestions) != 1 {
+		t.Fatalf("Suggestions len = %d, want 1", len(got.Suggestions))
+	}
+	s := got.Suggestions[0]
+	if s.Type != PermissionUpdateTypeAddRules || s.Behavior != PermissionBehaviorAllow {
+		t.Errorf("suggestion type/behavior = %v/%v, want addRules/allow", s.Type, s.Behavior)
+	}
+	if len(s.Rules) != 1 || s.Rules[0].ToolName != "Bash" || s.Rules[0].RuleContent != "ls *" {
+		t.Errorf("suggestion rules = %v, want [{Bash, ls *}]", s.Rules)
+	}
+}
+
+// TestControlProtocol_HandleCanUseTool_NilResultDefaultsToAllow verifies that
+// a nil PermissionResult (the SDK expressing no opinion) maps to allow with
+// the original input preserved.
+func TestControlProtocol_HandleCanUseTool_NilResultDefaultsToAllow(t *testing.T) {
+	t.Parallel()
+
+	writeFn, out := collectWriter(1)
+	cp := newControlProtocol(&Options{
+		CanUseTool: func(_ context.Context, _ string, _ jsontext.Value, _ ToolPermissionContext) (PermissionResult, error) {
+			return nil, nil
+		},
+	}, writeFn)
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"can_use_tool","tool_name":"Read","input":{"path":"/x"}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	_, _, _, resp := awaitControlResponse(t, out)
+	if resp["behavior"] != "allow" {
+		t.Errorf("behavior = %v, want allow", resp["behavior"])
+	}
+	updated, ok := resp["updatedInput"].(map[string]any)
+	if !ok || updated["path"] != "/x" {
+		t.Errorf("updatedInput = %v, want original input preserved", resp["updatedInput"])
 	}
 }
 

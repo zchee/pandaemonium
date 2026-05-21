@@ -14,8 +14,10 @@
 
 // Command tool_permission_callback demonstrates using [claude.Options].CanUseTool
 // to gate every tool call with a typed permission callback. The callback receives
-// the tool name and its raw JSON input; it returns [claude.PermissionAllow],
-// [claude.PermissionDeny], or [claude.PermissionAsk] (fall-through to CLI mode).
+// the tool name, its raw JSON input, and a [claude.ToolPermissionContext], and
+// returns a [claude.PermissionResultAllow] (optionally modifying the input or
+// emitting permission updates) or a [claude.PermissionResultDeny] (optionally
+// with a message and an interrupt flag).
 //
 // Port of examples/tool_permission_callback.py from claude-agent-sdk-python.
 //
@@ -37,12 +39,12 @@ import (
 )
 
 // permissionCallback approves Read and Bash(ls/echo) tool calls; denies everything else.
-func permissionCallback(_ context.Context, toolName string, input jsontext.Value) (claude.PermissionDecision, error) {
+func permissionCallback(_ context.Context, toolName string, input jsontext.Value, _ claude.ToolPermissionContext) (claude.PermissionResult, error) {
 	fmt.Printf("[permission] tool=%q input=%s\n", toolName, input)
 
 	switch toolName {
 	case "Read":
-		return claude.PermissionAllow, nil
+		return claude.PermissionResultAllow{}, nil
 	case "Bash":
 		// Allow only safe read-only Bash commands.
 		var inp struct {
@@ -52,13 +54,13 @@ func permissionCallback(_ context.Context, toolName string, input jsontext.Value
 			_ = stdjson.Unmarshal(input, &inp)
 		}
 		if strings.HasPrefix(inp.Command, "ls") || strings.HasPrefix(inp.Command, "echo") {
-			return claude.PermissionAllow, nil
+			return claude.PermissionResultAllow{}, nil
 		}
 		fmt.Printf("[permission] denying Bash command: %q\n", inp.Command)
-		return claude.PermissionDeny, nil
+		return claude.PermissionResultDeny{Message: "denied unsafe Bash command"}, nil
 	default:
 		fmt.Printf("[permission] denying unknown tool: %q\n", toolName)
-		return claude.PermissionDeny, nil
+		return claude.PermissionResultDeny{Message: "denied unknown tool"}, nil
 	}
 }
 

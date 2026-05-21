@@ -80,6 +80,22 @@ type AgentDefinition struct {
 	// upstream `background` (types.py:99).
 	Background bool `json:"background,omitzero"`
 
+	// Memory selects the memory layer this subagent reads/writes. The zero
+	// value (empty string) omits the wire key and uses the CLI default.
+	// Mirrors upstream `memory` (types.py:94).
+	Memory MemoryScope `json:"memory,omitzero"`
+
+	// PermissionMode sets this subagent's permission mode independently of
+	// the parent [Options.PermissionMode]. The zero value omits the wire
+	// key and inherits from the parent. Mirrors upstream `permissionMode`
+	// (types.py:101).
+	PermissionMode PermissionMode `json:"permissionMode,omitzero"`
+
+	// Effort controls how much effort this subagent puts into responses,
+	// alongside adaptive thinking. The zero value omits the wire key.
+	// Mirrors upstream `effort` (types.py:100).
+	Effort EffortLevel `json:"effort,omitzero"`
+
 	// Raw preserves unknown fields for forward compatibility.
 	Raw jsontext.Value `json:",inline"`
 }

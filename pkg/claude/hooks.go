@@ -54,15 +54,25 @@ type HookRegistration struct {
 }
 
 // CanUseTool is a permission callback invoked before every tool call. It
-// receives the tool name and raw JSON-encoded input, and returns a
-// [PermissionDecision] with an optional error.
+// receives the tool name, raw JSON-encoded input, and a
+// [ToolPermissionContext] carrying ToolUseID, suggestions, and the other
+// contextual fields the CLI delivers with the permission request.
 //
-// Return [PermissionAllow] to permit the call, [PermissionDeny] to block it,
-// or [PermissionAsk] (the zero value) to fall through to the CLI's configured
-// permission_mode.
+// Return a [PermissionResultAllow] (optionally modifying the input or
+// emitting permission updates) to permit the call, or a
+// [PermissionResultDeny] (optionally with a message and an interrupt flag)
+// to block it. Returning a nil result is treated as Allow with the original
+// input — equivalent to the SDK expressing no opinion, so the CLI's
+// configured permission_mode makes the final call.
 //
 // The callback must not block indefinitely; respect ctx.Done().
-type CanUseTool func(ctx context.Context, toolName string, input jsontext.Value) (PermissionDecision, error)
+//
+// Signature changed in M11d to deliver ToolPermissionContext and accept a
+// structured PermissionResult, matching upstream's can_use_tool callback
+// (types.py:253-255). Migrate by returning PermissionResultAllow{} or
+// PermissionResultDeny{Message: "..."} instead of PermissionAllow/Deny, and
+// accepting the third context parameter.
+type CanUseTool func(ctx context.Context, toolName string, input jsontext.Value, ctxInfo ToolPermissionContext) (PermissionResult, error)
 
 // ── dispatcher ───────────────────────────────────────────────────────────────
 
@@ -129,19 +139,32 @@ func dispatchHooks(ctx context.Context, regs []HookRegistration, event HookEvent
 
 // applyCanUseTool wraps the [CanUseTool] callback as a [HookDecision]. It
 // returns a zero decision when fn is nil or event is not [HookEventPreToolUse].
+//
+// The structured [PermissionResult] is projected into the hook-decision shape:
+// [PermissionResultAllow] → [PermissionAllow]; [PermissionResultDeny] → [PermissionDeny]
+// (with Message carried as the PermissionDecisionReason); nil → [PermissionAsk]
+// (no opinion). UpdatedInput and UpdatedPermissions are intentionally not
+// surfaced here — they only travel down the control-protocol can_use_tool
+// response path in [controlProtocol.handleCanUseTool].
 func applyCanUseTool(ctx context.Context, fn CanUseTool, event HookEvent) (HookDecision, error) {
 	if fn == nil || event.Kind != HookEventPreToolUse {
 		return HookDecision{}, nil
 	}
-	perm, err := fn(ctx, event.ToolName, event.ToolInput)
+	result, err := fn(ctx, event.ToolName, event.ToolInput, ToolPermissionContext{})
 	if err != nil {
 		return HookDecision{}, err
 	}
-	return HookDecision{
-		HookSpecificOutput: HookSpecificOutput{
-			PermissionDecision: perm,
-		},
-	}, nil
+	hso := HookSpecificOutput{}
+	switch r := result.(type) {
+	case nil:
+		// no opinion — leave hso zero (PermissionAsk).
+	case PermissionResultAllow:
+		hso.PermissionDecision = PermissionAllow
+	case PermissionResultDeny:
+		hso.PermissionDecision = PermissionDeny
+		hso.PermissionDecisionReason = r.Message
+	}
+	return HookDecision{HookSpecificOutput: hso}, nil
 }
 
 // applyPermissions combines [dispatchHooks] and [applyCanUseTool] into a

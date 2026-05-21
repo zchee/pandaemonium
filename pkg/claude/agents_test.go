@@ -134,6 +134,9 @@ func TestAgentDefinition_JSONTagsParity(t *testing.T) {
 		InitialPrompt:   "start here",
 		MaxTurns:        7,
 		Background:      true,
+		Memory:          MemoryScopeProject,
+		PermissionMode:  PermissionModePlan,
+		Effort:          EffortLevelHigh,
 	}
 
 	data, err := json.Marshal(in)
@@ -157,6 +160,9 @@ func TestAgentDefinition_JSONTagsParity(t *testing.T) {
 		"initialPrompt":   "start here",
 		"maxTurns":        float64(7),
 		"background":      true,
+		"memory":          "project",
+		"permissionMode":  "plan",
+		"effort":          "high",
 	}
 
 	for k, w := range want {
