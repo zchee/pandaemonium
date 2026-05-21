@@ -99,11 +99,6 @@ type Decoder struct {
 	localAsUTC     bool
 }
 
-const (
-	arrayStateNeedValue uint8 = iota
-	arrayStateNeedComma
-)
-
 // containerArray and containerInline mark entries pushed onto containerStack
 // to distinguish array context (where `,` introduces a value) from inline
 // table context (where `,` introduces a key).

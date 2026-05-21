@@ -639,7 +639,11 @@ func sortedMapKeys(v reflect.Value) ([]reflect.Value, error) {
 }
 
 func sortedStringKeys(m map[string]any) []string {
-	keys, _ := stringKeysPool.Get().([]string)
+	keysp, _ := stringKeysPool.Get().(*[]string)
+	var keys []string
+	if keysp != nil {
+		keys = *keysp
+	}
 	if cap(keys) < len(m) {
 		keys = make([]string, 0, len(m))
 	} else {
@@ -657,7 +661,8 @@ func recycleStringKeys(keys []string) {
 		return
 	}
 	clear(keys)
-	stringKeysPool.Put(keys[:0])
+	keys = keys[:0]
+	stringKeysPool.Put(&keys)
 }
 
 func appendPath(path []string, key string) []string {
@@ -791,8 +796,4 @@ func formatKey(key string) string {
 		return strconv.Quote(key)
 	}
 	return key
-}
-
-func splitLines(s string) []string {
-	return strings.Split(s, "\n")
 }

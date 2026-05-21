@@ -68,30 +68,34 @@ type directPathState struct {
 	arrayIndex int
 }
 
-func directStructUnmarshalEligible(t reflect.Type) bool {
+func directStructUnmarshalEligible(t reflect.Type) (bool, error) {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
 	if t.Kind() != reflect.Struct {
-		return false
+		return false, nil
 	}
 	if t == reflect.TypeFor[time.Time]() ||
 		t == reflect.TypeFor[LocalDateTime]() ||
 		t == reflect.TypeFor[LocalDate]() ||
 		t == reflect.TypeFor[LocalTime]() {
-		return false
+		return false, nil
 	}
 	if cached, ok := directStructEligibilityCache.Load(t); ok {
-		return cached.(bool)
+		return cached.(bool), nil
 	}
-	eligible := !directTypeContainsMap(t, make(map[reflect.Type]bool))
+	containsMap, err := directTypeContainsMap(t, make(map[reflect.Type]bool))
+	if err != nil {
+		return false, err
+	}
+	eligible := !containsMap
 	if cached, loaded := directStructEligibilityCache.LoadOrStore(t, eligible); loaded {
-		return cached.(bool)
+		return cached.(bool), nil
 	}
-	return eligible
+	return eligible, nil
 }
 
-func directTypeContainsMap(t reflect.Type, seen map[reflect.Type]bool) bool {
+func directTypeContainsMap(t reflect.Type, seen map[reflect.Type]bool) (bool, error) {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
 	}
@@ -99,30 +103,34 @@ func directTypeContainsMap(t reflect.Type, seen map[reflect.Type]bool) bool {
 		t == reflect.TypeFor[LocalDateTime]() ||
 		t == reflect.TypeFor[LocalDate]() ||
 		t == reflect.TypeFor[LocalTime]() {
-		return false
+		return false, nil
 	}
 	switch t.Kind() {
 	case reflect.Map:
-		return true
+		return true, nil
 	case reflect.Struct:
 		if seen[t] {
-			return false
+			return false, nil
 		}
 		seen[t] = true
 		info, err := reflectcache.Lookup(t)
 		if err != nil {
-			return true
+			return false, normalizeReflectcacheError(err)
 		}
 		for _, field := range info.Fields {
-			if directTypeContainsMap(field.Type, seen) {
-				return true
+			containsMap, err := directTypeContainsMap(field.Type, seen)
+			if err != nil {
+				return false, err
+			}
+			if containsMap {
+				return true, nil
 			}
 		}
-		return false
+		return false, nil
 	case reflect.Slice, reflect.Array:
 		return directTypeContainsMap(t.Elem(), seen)
 	default:
-		return false
+		return false, nil
 	}
 }
 
@@ -585,11 +593,6 @@ func directTable(root reflect.Value, path []string) (reflect.Value, error) {
 	return cur, nil
 }
 
-func directCanAssignRaw(root reflect.Value, path directRawPath) (bool, error) {
-	_, _, ok, err := directDestinationRaw(root, path)
-	return ok, err
-}
-
 func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value, directValueKind, bool, error) {
 	if !root.IsValid() {
 		return reflect.Value{}, directValueGeneric, false, nil
@@ -615,11 +618,6 @@ func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value
 		}
 	}
 	return cur, directValueKindOfType(cur.Type()), true, nil
-}
-
-func directCanAssign(root reflect.Value, path []string) (bool, error) {
-	_, _, ok, err := directDestination(root, path)
-	return ok, err
 }
 
 func directDestination(root reflect.Value, path []string) (reflect.Value, directValueKind, bool, error) {
@@ -740,13 +738,6 @@ func directAssignRaw(root reflect.Value, path directRawPath, value any, cfg bind
 	return nil
 }
 
-func directBindRaw(dst reflect.Value, path directRawPath, value any, cfg bindConfig) error {
-	if err := bindValue(dst, value, cfg); err != nil {
-		return bindDirectRawErrorPath(err, path)
-	}
-	return nil
-}
-
 func directBindRawFromDecoder(dec *Decoder, dst reflect.Value, valueKind directValueKind, path directRawPath, cfg bindConfig) error {
 	if err := directBindFromDecoderNoPath(dec, dst, valueKind, cfg); err != nil {
 		return bindDirectRawErrorPath(err, path)
@@ -783,13 +774,6 @@ func directAssign(root reflect.Value, path []string, value any, cfg bindConfig) 
 	if err != nil {
 		return err
 	}
-	if err := bindValue(dst, value, cfg); err != nil {
-		return bindDirectErrorPath(err, path)
-	}
-	return nil
-}
-
-func directBind(dst reflect.Value, path []string, value any, cfg bindConfig) error {
 	if err := bindValue(dst, value, cfg); err != nil {
 		return bindDirectErrorPath(err, path)
 	}

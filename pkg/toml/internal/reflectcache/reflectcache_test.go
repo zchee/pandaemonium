@@ -24,11 +24,10 @@ func TestLookupCachesMetadataAndRejectsTypedOmitempty(t *testing.T) {
 	t.Parallel()
 
 	type sample struct {
-		Name  string
-		Zero  string `toml:"zero,omitzero"`
-		Skip  string `toml:"-"`
-		Bad   string `toml:"bad,omitempty"`
-		inner string
+		Name string
+		Zero string `toml:"zero,omitzero"`
+		Skip string `toml:"-"`
+		Bad  string `toml:"bad,omitempty"`
 	}
 
 	info, err := Lookup(reflect.TypeOf(sample{}))

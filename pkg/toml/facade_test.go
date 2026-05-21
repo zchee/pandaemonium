@@ -406,13 +406,21 @@ func TestMarshalDirectCompatibilityScalarSpecialsAndErrors(t *testing.T) {
 
 func TestFacadeRejectsOmitEmptyAsTypedError(t *testing.T) {
 	t.Parallel()
+
 	type Bad struct {
 		Name string `toml:"name,omitempty"`
 	}
+
 	_, err := Marshal(Bad{Name: "x"})
 	var tagErr *TagOptionError
 	if !errors.As(err, &tagErr) || tagErr.Option != "omitempty" {
 		t.Fatalf("Marshal error = %T(%v), want TagOptionError option=omitempty", err, err)
+	}
+
+	var dst Bad
+	err = Unmarshal([]byte("name = \"x\"\n"), &dst)
+	if !errors.As(err, &tagErr) || tagErr.Option != "omitempty" {
+		t.Fatalf("Unmarshal error = %T(%v), want TagOptionError option=omitempty", err, err)
 	}
 }
 
@@ -586,7 +594,7 @@ name = "granny smith"
 	}
 }
 
-func TestFacadeUnmarshalNestedMapFallback(t *testing.T) {
+func TestFacadeUnmarshalStructWithNestedMapUsesGenericPath(t *testing.T) {
 	t.Parallel()
 
 	type config struct {

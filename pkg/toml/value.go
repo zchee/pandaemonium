@@ -339,23 +339,6 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 	}
 }
 
-func skipLayoutAndComments(dec *Decoder) error {
-	for {
-		start := dec.off
-		dec.skipSpaces()
-		if dec.off != start {
-			continue
-		}
-		if dec.off < len(dec.buf) && dec.buf[dec.off] == '#' {
-			if _, err := dec.scanComment(); err != nil {
-				return err
-			}
-			continue
-		}
-		return nil
-	}
-}
-
 func parseStringValue(raw []byte) (string, error) {
 	if len(raw) >= 6 && raw[0] == '\'' && raw[1] == '\'' && raw[2] == '\'' &&
 		raw[len(raw)-1] == '\'' && raw[len(raw)-2] == '\'' && raw[len(raw)-3] == '\'' {
@@ -847,25 +830,6 @@ func ensureTable(root documentMap, path []string, tok Token) (documentMap, error
 	return cur, nil
 }
 
-func ensureTableKey(root documentMap, name string, tok Token) (documentMap, error) {
-	next, _ := root[name].(documentMap)
-	if next == nil {
-		if arr, ok := root[name].([]any); ok && len(arr) > 0 {
-			if last, ok := arr[len(arr)-1].(documentMap); ok {
-				next = last
-			}
-		}
-	}
-	if next == nil {
-		if _, exists := root[name]; exists {
-			return nil, semanticSyntaxError(tok, "cannot redefine value as table")
-		}
-		next = newDocumentMap()
-		root[name] = next
-	}
-	return next, nil
-}
-
 func appendArrayTable(root documentMap, path []string, tok Token) (documentMap, error) {
 	if len(path) == 0 {
 		return root, nil
@@ -923,10 +887,6 @@ func assignUnique(root documentMap, path []string, value any, tok Token) error {
 	return nil
 }
 
-func assign(root documentMap, path []string, value any) {
-	_ = assignUnique(root, path, value, Token{})
-}
-
 func newDocumentMap() documentMap {
 	m := documentMapPool.Get().(documentMap)
 	clear(m)
@@ -946,15 +906,6 @@ func recycleDocument(v any) {
 			recycleDocument(child)
 		}
 	}
-}
-
-func bytesContains(raw []byte, needle byte) bool {
-	for _, c := range raw {
-		if c == needle {
-			return true
-		}
-	}
-	return false
 }
 
 func bytesTrimSpace(raw []byte) []byte {

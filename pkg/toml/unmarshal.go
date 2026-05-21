@@ -46,7 +46,11 @@ func unmarshalWithOptions(data []byte, dst any, opts UnmarshalOptions) error {
 	if v.Kind() != reflect.Pointer || v.IsNil() {
 		return &TypeMismatchError{Want: "non-nil pointer", Got: v.Kind().String()}
 	}
-	if directStructUnmarshalEligible(v.Elem().Type()) {
+	directEligible, err := directStructUnmarshalEligible(v.Elem().Type())
+	if err != nil {
+		return err
+	}
+	if directEligible {
 		cfg := bindConfigFromOptions(opts.DecoderOptions)
 		return bindDocumentDirect(data, v.Elem(), opts.DecoderOptions, cfg)
 	}
@@ -485,12 +489,4 @@ func normalizeReflectcacheError(err error) error {
 		return &TagOptionError{Struct: tag.Struct.String(), Field: tag.Field, Option: tag.Option}
 	}
 	return err
-}
-
-func parseIntText(text string, bits int) (reflect.Value, error) {
-	i, err := strconv.ParseInt(strings.ReplaceAll(text, "_", ""), 10, bits)
-	if err != nil {
-		return reflect.Value{}, err
-	}
-	return reflect.ValueOf(i), nil
 }

@@ -112,12 +112,6 @@ func build(t reflect.Type) (*TypeInfo, error) {
 			info.ByName[lower] = field
 		}
 	}
-	for _, field := range info.Fields {
-		lower := strings.ToLower(field.Name)
-		if _, exists := info.ByName[lower]; !exists {
-			info.ByName[lower] = field
-		}
-	}
 	info.MarshalFields = slices.Clone(info.Fields)
 	slices.SortFunc(info.MarshalFields, func(x, y Field) int {
 		return cmp.Compare(x.Name, y.Name)
@@ -125,7 +119,7 @@ func build(t reflect.Type) (*TypeInfo, error) {
 	return info, nil
 }
 
-func parseTag(t reflect.Type, sf reflect.StructField) (name string, omitZero bool, skip bool, err error) {
+func parseTag(t reflect.Type, sf reflect.StructField) (name string, omitZero, skip bool, err error) {
 	tag, ok := sf.Tag.Lookup("toml")
 	if !ok {
 		return "", false, false, nil
