@@ -32,10 +32,12 @@
 //   kmovq %k1, %rdx
 //   tzcntq %rdx, %rdx
 //
-// The loop performs only in-bounds 64-byte vector loads. For len >= 64 it
-// finishes with the last in-bounds 64-byte chunk, which may overlap earlier
-// chunks but never crosses outside the slice object. This removes scalar-tail
-// overhead from the full-scan path without needing a guard-page exception.
+// The loop performs only in-bounds 64-byte vector loads. Medium inputs finish
+// with the last in-bounds 64-byte chunk, which may overlap earlier chunks but
+// never crosses outside the slice object. Large full-scan inputs use a 4x
+// unrolled full-chunk loop plus an overlapping final chunk only when len%64 !=
+// 0. This removes scalar-tail overhead from the full-scan path without needing
+// a guard-page exception.
 TEXT ·avx512Memchr(SB), NOSPLIT, $0-40
 	MOVBLZX needle+0(FP), AX
 	MOVQ    haystack_base+8(FP), SI
@@ -49,6 +51,8 @@ TEXT ·avx512Memchr(SB), NOSPLIT, $0-40
 
 	MOVD         AX, X0
 	VPBROADCASTB X0, Z1
+	CMPQ         BX, $2048
+	JGE          avx512_large
 	LEAQ         -64(SI)(BX*1), R9 // start of final in-bounds 64-byte chunk
 	JMP          avx512_loop_entry
 
@@ -85,6 +89,73 @@ avx512_fail_vzero:
 avx512_fail:
 	MOVQ $-1, ret+32(FP)
 	RET
+
+avx512_large:
+	MOVQ BX, R10
+	ANDQ $63, BX
+	MOVQ R10, CX
+	SHRQ $6, CX
+	LEAQ -64(SI)(R10*1), R9 // final chunk for non-zero tail
+
+	PCALIGN $32
+
+avx512_large_loop4:
+	CMPQ     CX, $4
+	JLT      avx512_large_remainder
+	VMOVDQU8 (SI), Z2
+	VPCMPEQB Z1, Z2, K1
+	KORTESTQ K1, K1
+	JNZ      avx512_success
+	VMOVDQU8 64(SI), Z2
+	VPCMPEQB Z1, Z2, K1
+	KORTESTQ K1, K1
+	JNZ      avx512_success_64
+	VMOVDQU8 128(SI), Z2
+	VPCMPEQB Z1, Z2, K1
+	KORTESTQ K1, K1
+	JNZ      avx512_success_128
+	VMOVDQU8 192(SI), Z2
+	VPCMPEQB Z1, Z2, K1
+	KORTESTQ K1, K1
+	JNZ      avx512_success_192
+	ADDQ     $256, SI
+	SUBQ     $4, CX
+	JMP      avx512_large_loop4
+
+avx512_large_remainder:
+	TESTQ CX, CX
+	JEQ   avx512_large_tail
+
+avx512_large_remainder_loop:
+	VMOVDQU8 (SI), Z2
+	VPCMPEQB Z1, Z2, K1
+	KORTESTQ K1, K1
+	JNZ      avx512_success
+	ADDQ     $64, SI
+	DECQ     CX
+	JNZ      avx512_large_remainder_loop
+
+avx512_large_tail:
+	TESTQ    BX, BX
+	JEQ      avx512_fail_vzero
+	MOVQ     R9, SI
+	VMOVDQU8 (SI), Z2
+	VPCMPEQB Z1, Z2, K1
+	KORTESTQ K1, K1
+	JNZ      avx512_success
+	JMP      avx512_fail_vzero
+
+avx512_success_64:
+	ADDQ $64, SI
+	JMP  avx512_success
+
+avx512_success_128:
+	ADDQ $128, SI
+	JMP  avx512_success
+
+avx512_success_192:
+	ADDQ $192, SI
+	JMP  avx512_success
 
 avx512_success:
 	KMOVQ  K1, DX
@@ -416,10 +487,10 @@ avx512_memrchr2_fail:
 
 avx512_memrchr2_success:
 	KMOVQ K1, DX
-	BSRQ DX, DX
-	SUBQ R8, SI
-	ADDQ SI, DX
-	MOVQ DX, ret+32(FP)
+	BSRQ  DX, DX
+	SUBQ  R8, SI
+	ADDQ  SI, DX
+	MOVQ  DX, ret+32(FP)
 	VZEROUPPER
 	RET
 
@@ -504,10 +575,10 @@ avx512_memrchr3_fail:
 
 avx512_memrchr3_success:
 	KMOVQ K1, DX
-	BSRQ DX, DX
-	SUBQ R8, SI
-	ADDQ SI, DX
-	MOVQ DX, ret+32(FP)
+	BSRQ  DX, DX
+	SUBQ  R8, SI
+	ADDQ  SI, DX
+	MOVQ  DX, ret+32(FP)
 	VZEROUPPER
 	RET
 
