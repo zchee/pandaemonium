@@ -191,6 +191,28 @@ func parseContentBlock(v jsontext.Value, line []byte) (ContentBlock, error) {
 		return b, nil
 	case "tool_result":
 		return parseToolResultBlock(v, line)
+	case "thinking":
+		var b ThinkingBlock
+		if err := json.Unmarshal(v, &b); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return b, nil
+	case "server_tool_use":
+		var b ServerToolUseBlock
+		if err := json.Unmarshal(v, &b); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return b, nil
+	case "server_tool_result", "web_search_tool_result", "web_fetch_tool_result", "bash_code_execution_tool_result", "text_editor_code_execution_tool_result":
+		// Server-tool result blocks ship under per-tool type discriminators on
+		// the wire (web_search_tool_result, web_fetch_tool_result, etc.); the
+		// SDK collapses them into ServerToolResultBlock with the wire type
+		// preserved in Raw for callers that need to discriminate.
+		var b ServerToolResultBlock
+		if err := json.Unmarshal(v, &b); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		return b, nil
 	default:
 		// Unknown block type — preserve raw bytes for forward compatibility.
 		return rawContentBlock{raw: v}, nil

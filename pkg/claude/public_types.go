@@ -172,6 +172,102 @@ type ToolResultBlock struct {
 func (ToolResultBlock) isContentBlock()            {}
 func (b ToolResultBlock) blockRaw() jsontext.Value { return b.Raw }
 
+// ThinkingBlock carries the model's extended-thinking output. Emitted when
+// extended thinking is enabled via [Options.Thinking] or
+// [Options.MaxThinkingTokens]. Mirrors upstream ThinkingBlock (types.py:928).
+type ThinkingBlock struct {
+	// Thinking is the model's thinking text (omitted if
+	// [Options.Thinking] is configured with
+	// [ThinkingDisplayOmitted] — the signature is still emitted).
+	Thinking string `json:"thinking,omitzero"`
+
+	// Signature is the cryptographic signature the API attaches to the
+	// thinking content for verification.
+	Signature string `json:"signature,omitzero"`
+
+	// Raw preserves unknown fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (ThinkingBlock) isContentBlock()            {}
+func (b ThinkingBlock) blockRaw() jsontext.Value { return b.Raw }
+
+// ServerToolName names a server-side tool the API runs on the model's behalf.
+// Mirrors upstream ServerToolName (types.py:954-962); the literal set is
+// closed and matches the tools the Anthropic API currently runs server-side.
+type ServerToolName string
+
+const (
+	// ServerToolNameAdvisor invokes the server-side advisor tool.
+	ServerToolNameAdvisor ServerToolName = "advisor"
+
+	// ServerToolNameWebSearch invokes the server-side web-search tool.
+	ServerToolNameWebSearch ServerToolName = "web_search"
+
+	// ServerToolNameWebFetch invokes the server-side web-fetch tool.
+	ServerToolNameWebFetch ServerToolName = "web_fetch"
+
+	// ServerToolNameBashCodeExecution invokes the server-side bash
+	// code-execution tool.
+	ServerToolNameBashCodeExecution ServerToolName = "bash_code_execution"
+
+	// ServerToolNameTextEditorCodeExecution invokes the server-side
+	// text-editor code-execution tool.
+	ServerToolNameTextEditorCodeExecution ServerToolName = "text_editor_code_execution"
+
+	// ServerToolNameToolSearchToolRegex invokes the server-side tool-search
+	// (regex variant).
+	ServerToolNameToolSearchToolRegex ServerToolName = "tool_search_tool_regex"
+
+	// ServerToolNameToolSearchToolBM25 invokes the server-side tool-search
+	// (BM25 variant).
+	ServerToolNameToolSearchToolBM25 ServerToolName = "tool_search_tool_bm25"
+)
+
+// ServerToolUseBlock records a server-side tool call. The API executes these
+// tools (advisor, web_search, web_fetch, etc.) without the caller needing to
+// return a result; they appear in the message stream alongside regular
+// [ToolUseBlock] values but the caller is informational, not actionable.
+// Mirrors upstream ServerToolUseBlock (types.py:966).
+type ServerToolUseBlock struct {
+	// ID is the unique server-tool-use identifier, correlated with
+	// [ServerToolResultBlock.ToolUseID].
+	ID string `json:"id,omitzero"`
+
+	// Name discriminates which server tool was invoked. Branch on this to
+	// know which result schema to expect.
+	Name ServerToolName `json:"name,omitzero"`
+
+	// Input is the tool's JSON input payload, opaque to this layer.
+	Input jsontext.Value `json:"input,omitzero"`
+
+	// Raw preserves unknown fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (ServerToolUseBlock) isContentBlock()            {}
+func (b ServerToolUseBlock) blockRaw() jsontext.Value { return b.Raw }
+
+// ServerToolResultBlock carries the result of a server-side tool call.
+// Mirrors upstream ServerToolResultBlock (types.py:981); the Content field is
+// kept as a raw [jsontext.Value] because the shape varies per server-tool
+// (see [ServerToolUseBlock.Name]).
+type ServerToolResultBlock struct {
+	// ToolUseID correlates this result with [ServerToolUseBlock.ID].
+	ToolUseID string `json:"tool_use_id,omitzero"`
+
+	// Content is the raw result payload; its shape depends on the originating
+	// server tool. Callers that care about a specific server-tool's result
+	// schema can decode it into the corresponding type.
+	Content jsontext.Value `json:"content,omitzero"`
+
+	// Raw preserves unknown fields for forward compatibility.
+	Raw jsontext.Value `json:",inline"`
+}
+
+func (ServerToolResultBlock) isContentBlock()            {}
+func (b ServerToolResultBlock) blockRaw() jsontext.Value { return b.Raw }
+
 // ─── Hook event types ────────────────────────────────────────────────────────
 
 // HookEventKind identifies the lifecycle event that triggered a [Hook].
