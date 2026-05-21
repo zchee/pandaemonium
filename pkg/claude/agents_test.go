@@ -15,7 +15,10 @@
 package claude
 
 import (
+	"reflect"
 	"testing"
+
+	"github.com/go-json-experiment/json"
 )
 
 func TestAgentDefinition_ZeroValue(t *testing.T) {
@@ -106,6 +109,64 @@ func TestAgentDefinition_NotInCLIArgs(t *testing.T) {
 	for _, a := range args {
 		if a == "--agent" || a == "--agents" || a == "myagent" {
 			t.Errorf("buildLaunchArgs unexpectedly contains agent-related arg %q; agents must be sent via streaming initialize", a)
+		}
+	}
+}
+
+
+// TestAgentDefinition_JSONTagsParity locks the wire field names against
+// upstream AgentDefinition (types.py:83-101). A single hand-marshal vs
+// literal map catches every struct-tag typo at once. effort and
+// permissionMode are deferred to M11d; the mcpServers dict variant lands in
+// M11e.
+func TestAgentDefinition_JSONTagsParity(t *testing.T) {
+	t.Parallel()
+
+	in := AgentDefinition{
+		Name:            "helper",
+		Description:     "a helpful subagent",
+		SystemPrompt:    "you help",
+		AllowedTools:    []string{"Bash", "Read"},
+		DisallowedTools: []string{"WebFetch"},
+		Model:           "sonnet",
+		Skills:          []string{"plan", "search"},
+		MCPServers:      []string{"docs", "internal"},
+		InitialPrompt:   "start here",
+		MaxTurns:        7,
+		Background:      true,
+	}
+
+	data, err := json.Marshal(in)
+	if err != nil {
+		t.Fatalf("marshal: %v", err)
+	}
+	var got map[string]any
+	if err := json.Unmarshal(data, &got); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	want := map[string]any{
+		"name":            "helper",
+		"description":     "a helpful subagent",
+		"systemPrompt":    "you help",
+		"allowedTools":    []any{"Bash", "Read"},
+		"disallowedTools": []any{"WebFetch"},
+		"model":           "sonnet",
+		"skills":          []any{"plan", "search"},
+		"mcpServers":      []any{"docs", "internal"},
+		"initialPrompt":   "start here",
+		"maxTurns":        float64(7),
+		"background":      true,
+	}
+
+	for k, w := range want {
+		if !reflect.DeepEqual(got[k], w) {
+			t.Errorf("key %q = %#v, want %#v", k, got[k], w)
+		}
+	}
+	for k := range got {
+		if _, ok := want[k]; !ok {
+			t.Errorf("unexpected wire key %q in AgentDefinition output: %#v", k, got[k])
 		}
 	}
 }
