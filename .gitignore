@@ -68,7 +68,7 @@ bench.txt
 omx_wiki/
 pkg/codex/*.md
 
-# stray build artifact from manual  of the perf-gate
+# stray build artifact from manual of the perf-gate
 /memchr-perf-gate
 
 # benchmark result
@@ -76,3 +76,6 @@ pkg/toml/benchmark/*.txt
 
 # binaries
 /bin
+
+# Internal ExecPlan, kept out of git
+pkg/claude/*.md
