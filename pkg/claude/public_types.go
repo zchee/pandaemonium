@@ -184,6 +184,19 @@ const (
 	// HookEventPostToolUse fires after the CLI receives a tool result.
 	HookEventPostToolUse HookEventKind = "PostToolUse"
 
+	// HookEventPostToolUseFailure fires after a tool invocation fails.
+	// Mirrors upstream PostToolUseFailure (types.py:330).
+	HookEventPostToolUseFailure HookEventKind = "PostToolUseFailure"
+
+	// HookEventSubagentStart fires when a subagent session starts. Mirrors
+	// upstream SubagentStart (types.py:382).
+	HookEventSubagentStart HookEventKind = "SubagentStart"
+
+	// HookEventPermissionRequest fires when the CLI raises a tool-permission
+	// request (e.g., for a hookSpecificOutput permissionDecision "ask"
+	// follow-up). Mirrors upstream PermissionRequest (types.py:390).
+	HookEventPermissionRequest HookEventKind = "PermissionRequest"
+
 	// HookEventUserPromptSubmit fires when a user prompt is submitted.
 	HookEventUserPromptSubmit HookEventKind = "UserPromptSubmit"
 

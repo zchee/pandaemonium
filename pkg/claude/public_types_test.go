@@ -419,3 +419,28 @@ func TestContentBlock_SentinelMethods(t *testing.T) {
 		})
 	}
 }
+
+
+// TestHookEventKind_M11aLiterals verifies the three new hook-event kinds added
+// in M11a serialize to the exact wire literals upstream uses (types.py:330,
+// 382, 390). The other kinds were already covered indirectly through
+// TestHookEvent_RoundTrip; this test pins the additive set in isolation.
+func TestHookEventKind_M11aLiterals(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		k    HookEventKind
+		want string
+	}{
+		"PostToolUseFailure": {HookEventPostToolUseFailure, "PostToolUseFailure"},
+		"SubagentStart":      {HookEventSubagentStart, "SubagentStart"},
+		"PermissionRequest":  {HookEventPermissionRequest, "PermissionRequest"},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if string(tt.k) != tt.want {
+				t.Errorf("HookEventKind = %q, want %q", string(tt.k), tt.want)
+			}
+		})
+	}
+}
