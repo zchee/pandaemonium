@@ -41,21 +41,22 @@ const rawMessageQueueSize = 256
 //
 // # Race-safety
 //
-// The transport field is a plain field (not atomic.Pointer), following the
-// snapshot-as-arg + writeMu-symmetry pattern from pkg/codex commit 8c16376:
+// The transport field is a plain field guarded by the snapshot-as-arg +
+// writeMu-symmetry pattern below. (pkg/codex uses an atomic.Pointer for the
+// equivalent field; this package instead serializes all transport access
+// through writeMu/closeMu — either discipline is sound, so switching to
+// atomic.Pointer here would be a valid refactor, not a regression.)
 //
 //   - start acquires closeMu, assigns c.transport = t, then launches
-//     go c.readLoop(ctx, c.transport, c.readDone) so the read goroutine
+//     go c.readLoop(ctx, c.transport, c.cp, c.readDone) so the read goroutine
 //     captures the transport as a goroutine argument and never touches
-//     c.transport again. (pkg/codex/client.go:244)
+//     c.transport again.
 //   - writeMessage acquires writeMu and reads c.transport under that lock;
 //     returns &CLIConnectionError if nil.
-//   - Close acquires closeMu, snapshots local copies, then acquires writeMu
-//     and sets c.transport = nil inside the critical section, symmetric with
-//     writeMessage. (pkg/codex/client.go:265-271)
-//
-// This pattern was validated across pkg/codex commits 7145a93, b56b072, and
-// 8c16376 and MUST NOT be replaced with atomic.Pointer.
+//   - Close acquires closeMu, snapshots local copies, closes the transport
+//     (before taking writeMu, so a blocked write unblocks via EPIPE — see
+//     Close), then acquires writeMu and sets c.transport = nil, symmetric with
+//     writeMessage's read.
 type ClaudeSDKClient struct {
 	opts      *Options
 	sessionID string
@@ -113,22 +114,39 @@ type ClaudeSDKClient struct {
 //
 // This is the interactive counterpart to the package-level [Query] function.
 func (c *ClaudeSDKClient) Query(ctx context.Context, prompt string) error {
+	// Hold closeMu only for the launch/start phase (which mutates c.transport,
+	// c.cp, c.cmd and must be serialized against Close), then RELEASE it before
+	// the steady-state write. writeMessage does a blocking stdin.Write that does
+	// not observe ctx; holding closeMu across it would let a hung subprocess
+	// (full stdin pipe) wedge Close — which also takes closeMu — with no way to
+	// run the kill sequence. Releasing closeMu first lets Close proceed and tear
+	// down the transport, unblocking the stuck write. writeMessage's own writeMu
+	// + nil-transport check (symmetric with Close's transport clear) preserves
+	// the Close-race safety: a Query racing a Close surfaces as a
+	// CLIConnectionError instead of a data race.
+	//
+	// NOTE: this bounds the steady-state hot path. launchSubprocess runs under
+	// closeMu and itself performs the initialize handshake via a control write,
+	// so a first-call hang during initialize is still possible — a much smaller
+	// exposure (the initialize envelope is tiny and the pipe is not yet
+	// pressured) tracked separately from this fix.
 	c.closeMu.Lock()
-	defer c.closeMu.Unlock()
-
 	if c.transport == nil {
 		// First call: launch the subprocess in streaming stdin mode and run
 		// the initialize handshake before any prompt is sent.
 		if err := c.launchSubprocess(ctx); err != nil {
+			c.closeMu.Unlock()
 			return err
 		}
 	}
+	// Snapshot the session ID under closeMu, then release it before the write.
+	sessionID := c.sessionID
+	c.closeMu.Unlock()
 
 	// Encode the prompt as a stream-JSON user envelope and write it to stdin.
-	// writeMessage acquires writeMu internally. Calling writeMessage while
-	// holding closeMu is safe: both Close and writeMessage acquire
-	// closeMu→writeMu in the same order.
-	envelope, err := userEnvelope(c.sessionID, prompt)
+	// writeMessage acquires writeMu internally; it reads c.transport under
+	// writeMu and returns a CLIConnectionError if Close has cleared it.
+	envelope, err := userEnvelope(sessionID, prompt)
 	if err != nil {
 		return err
 	}
@@ -323,14 +341,27 @@ func (c *ClaudeSDKClient) Close() error {
 	c.cmd = nil
 	c.cmdDone = nil
 
-	// Clear c.transport inside writeMu — write-symmetric clear (pkg/codex/client.go:265-271).
-	// writeMessage also reads c.transport under writeMu, so this is the only
-	// critical section where transport transitions from non-nil to nil.
-	c.writeMu.Lock()
-	c.transport = nil
+	// Close the transport BEFORE acquiring writeMu. A writeMessage in flight
+	// (e.g. a Query whose blocking stdin.Write is stuck on a full pipe to a hung
+	// subprocess) holds writeMu and does not observe ctx; if Close acquired
+	// writeMu first it would deadlock waiting for that write to finish. Closing
+	// the transport here closes stdin, so the stuck Write fails with EPIPE,
+	// returns, and releases writeMu — letting the writeMu section below proceed.
+	//
+	// Closing the transport while a concurrent writeMessage may still be calling
+	// transport.WriteJSON is safe: stdioTransport.WriteJSON tolerates a closed
+	// stdin (the Write simply errors), and transport.Close is idempotent.
 	if tr != nil {
 		_ = tr.Close()
 	}
+
+	// Clear c.transport inside writeMu — write-symmetric clear with writeMessage,
+	// which reads c.transport under writeMu. This is the only critical section
+	// where transport transitions from non-nil to nil. (We diverge from
+	// pkg/codex/client.go:265-271, which closes the transport INSIDE writeMu;
+	// closing it before the lock is what bounds Close against a hung write.)
+	c.writeMu.Lock()
+	c.transport = nil
 	c.writeMu.Unlock()
 	c.closeMu.Unlock()
 

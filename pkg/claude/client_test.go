@@ -17,11 +17,100 @@ package claude
 import (
 	"context"
 	"errors"
+	"io"
 	"os"
+	"sync"
 	"testing"
+	"time"
 
 	"github.com/zchee/pandaemonium/pkg/claude/internal/fakecli"
 )
+
+// blockingWriteTransport is a transport whose WriteJSON blocks until released,
+// simulating a subprocess that has stopped draining its stdin (a full OS pipe
+// buffer). ReadJSON blocks until Close so readLoop parks cleanly.
+type blockingWriteTransport struct {
+	writeEntered chan struct{} // closed-style signal: first WriteJSON entry
+	release      chan struct{} // closed by Close to unblock WriteJSON/ReadJSON
+	once         sync.Once
+}
+
+func newBlockingWriteTransport() *blockingWriteTransport {
+	return &blockingWriteTransport{
+		writeEntered: make(chan struct{}, 1),
+		release:      make(chan struct{}),
+	}
+}
+
+func (t *blockingWriteTransport) WriteJSON(ctx context.Context, _ []byte) error {
+	select {
+	case t.writeEntered <- struct{}{}:
+	default:
+	}
+	// Block as a full pipe would: WriteJSON does not observe ctx (mirrors
+	// stdioTransport), so only Close (which closes release) can free it.
+	<-t.release
+	return &CLIConnectionError{Message: "transport closed"}
+}
+
+func (t *blockingWriteTransport) ReadJSON(ctx context.Context) ([]byte, error) {
+	<-t.release
+	return nil, io.EOF
+}
+
+func (t *blockingWriteTransport) Close() error {
+	t.once.Do(func() { close(t.release) })
+	return nil
+}
+
+// TestClient_Close_UnblocksWhenQueryWriteHangs is the C1 regression guard:
+// when a Query is stuck in a blocking stdin write, Close must still be able to
+// run (it must not be wedged behind closeMu held across the write). Before the
+// fix, Query held closeMu across writeMessage, so Close could never acquire
+// closeMu to tear down a hung subprocess.
+func TestClient_Close_UnblocksWhenQueryWriteHangs(t *testing.T) {
+	t.Parallel()
+
+	tr := newBlockingWriteTransport()
+	c := &ClaudeSDKClient{opts: &Options{}}
+
+	ctx := context.Background()
+	c.closeMu.Lock()
+	c.start(ctx, tr, nil, nil, nil)
+	c.closeMu.Unlock()
+
+	// Drive a Query whose write will block in the transport, on its own goroutine.
+	queryDone := make(chan error, 1)
+	go func() { queryDone <- c.Query(ctx, "hello") }()
+
+	// Wait until the write is actually in progress (so closeMu, if held across
+	// the write, would already be held when Close runs).
+	select {
+	case <-tr.writeEntered:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Query never entered the blocking write")
+	}
+
+	// Close must return promptly despite the in-flight blocking write.
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- c.Close() }()
+	select {
+	case <-closeDone:
+	case <-time.After(2 * time.Second):
+		t.Fatal("Close did not return while a Query write was blocked (closeMu deadlock)")
+	}
+
+	// The hung Query unblocks once Close releases the transport, returning the
+	// transport's error.
+	select {
+	case err := <-queryDone:
+		if err == nil {
+			t.Error("Query returned nil, want a transport error after Close")
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("Query did not return after Close released the transport")
+	}
+}
 
 // ── NewClient tests ──────────────────────────────────────────────────────────
 
