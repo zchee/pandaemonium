@@ -289,11 +289,13 @@ func parseContentBlock(v jsontext.Value, line []byte) (ContentBlock, error) {
 			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 		}
 		return b, nil
-	case "server_tool_result", "web_search_tool_result", "web_fetch_tool_result", "bash_code_execution_tool_result", "text_editor_code_execution_tool_result":
-		// Server-tool result blocks ship under per-tool type discriminators on
-		// the wire (web_search_tool_result, web_fetch_tool_result, etc.); the
-		// SDK collapses them into ServerToolResultBlock with the wire type
-		// preserved in Raw for callers that need to discriminate.
+	case "advisor_tool_result", "server_tool_result", "web_search_tool_result", "web_fetch_tool_result", "bash_code_execution_tool_result", "text_editor_code_execution_tool_result":
+		// Server-tool result blocks ship under a single discriminator on current
+		// upstream main (advisor_tool_result, message_parser.py:164) and, on the
+		// revision this port originally targeted, under per-tool discriminators
+		// (web_search_tool_result, web_fetch_tool_result, etc.). All of them
+		// collapse into ServerToolResultBlock with the wire type preserved in Raw
+		// for callers that need to discriminate.
 		var b ServerToolResultBlock
 		if err := json.Unmarshal(v, &b); err != nil {
 			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}

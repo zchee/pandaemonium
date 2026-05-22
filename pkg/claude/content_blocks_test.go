@@ -107,11 +107,13 @@ func TestParseMessage_AssistantMessage_ServerToolUseBlock(t *testing.T) {
 }
 
 // TestParseMessage_AssistantMessage_ServerToolResultBlock_AllVariants verifies
-// that all five server-tool result wire types collapse into
-// ServerToolResultBlock with Content preserved.
+// that every server-tool result wire type collapses into ServerToolResultBlock
+// with Content preserved: the current-upstream advisor_tool_result discriminator
+// plus the legacy per-tool discriminators the port originally targeted.
 func TestParseMessage_AssistantMessage_ServerToolResultBlock_AllVariants(t *testing.T) {
 	t.Parallel()
 	for _, typ := range []string{
+		"advisor_tool_result",
 		"server_tool_result",
 		"web_search_tool_result",
 		"web_fetch_tool_result",
