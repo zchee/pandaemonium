@@ -87,7 +87,20 @@ type UserMessage struct {
 	// Content holds the ordered content blocks in this user turn.
 	Content []ContentBlock `json:"content,omitzero"`
 
-	// Raw preserves unknown top-level fields for forward compatibility.
+	// ParentToolUseID is the id of the tool_use this user turn responds to,
+	// from the outer envelope (mp.py:111). Empty at the top of a turn.
+	ParentToolUseID string `json:"-"`
+
+	// ToolUseResult carries the tool-injected result payload when the user turn
+	// was synthesized from a tool result (mp.py:112), as raw JSON.
+	ToolUseResult jsontext.Value `json:"-"`
+
+	// UUID is the CLI's unique identifier for this message, from the outer
+	// envelope (mp.py:113).
+	UUID string `json:"-"`
+
+	// Raw preserves unknown top-level fields for forward compatibility. Fields
+	// promoted above (and the nested message.* object) are excluded.
 	Raw jsontext.Value `json:",inline"`
 }
 

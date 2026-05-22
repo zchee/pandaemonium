@@ -237,7 +237,12 @@ func parseUserMessage(data, line []byte) (UserMessage, error) {
 		Message struct {
 			Content []jsontext.Value `json:"content,omitzero"`
 		} `json:"message,omitzero"`
-		Raw jsontext.Value `json:",inline"` // captures type, session_id, etc.
+		// Outer-envelope fields named here so json/v2 ,inline excludes them from
+		// Raw (the Raw-exclusion policy); promoted to typed fields below.
+		ParentToolUseID string         `json:"parent_tool_use_id,omitzero"`
+		ToolUseResult   jsontext.Value `json:"tool_use_result,omitzero"`
+		UUID            string         `json:"uuid,omitzero"`
+		Raw             jsontext.Value `json:",inline"` // captures type, session_id, unknown keys
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return UserMessage{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
@@ -247,8 +252,11 @@ func parseUserMessage(data, line []byte) (UserMessage, error) {
 		return UserMessage{}, err
 	}
 	return UserMessage{
-		Content: blocks,
-		Raw:     raw.Raw,
+		Content:         blocks,
+		ParentToolUseID: raw.ParentToolUseID,
+		ToolUseResult:   raw.ToolUseResult,
+		UUID:            raw.UUID,
+		Raw:             raw.Raw,
 	}, nil
 }
 

@@ -327,6 +327,53 @@ func TestParseMessage_UserMessage_ToolResult(t *testing.T) {
 	}
 }
 
+// TestParseMessage_UserMessage_PromotedFields verifies the outer-envelope
+// fields parent_tool_use_id, tool_use_result, and uuid promote to typed fields
+// and are excluded from Raw, while unknown outer keys remain.
+func TestParseMessage_UserMessage_PromotedFields(t *testing.T) {
+	t.Parallel()
+
+	line := `{"type":"user","message":{"role":"user","content":[{"type":"text","text":"hi"}]},` +
+		`"parent_tool_use_id":"tu_p","tool_use_result":{"ok":true},"uuid":"u-7","session_id":"s7",` +
+		`"future_outer":"keep"}` + "\n"
+	msg, err := parseMessage([]byte(line))
+	if err != nil {
+		t.Fatalf("parseMessage() error = %v", err)
+	}
+	um, ok := msg.(UserMessage)
+	if !ok {
+		t.Fatalf("type = %T, want UserMessage", msg)
+	}
+
+	if um.ParentToolUseID != "tu_p" {
+		t.Errorf("ParentToolUseID = %q, want tu_p", um.ParentToolUseID)
+	}
+	if !strings.Contains(string(um.ToolUseResult), "ok") {
+		t.Errorf("ToolUseResult = %q, want ok", um.ToolUseResult)
+	}
+	if um.UUID != "u-7" {
+		t.Errorf("UUID = %q, want u-7", um.UUID)
+	}
+
+	var rawKeys map[string]jsontext.Value
+	if err := json.Unmarshal(um.Raw, &rawKeys); err != nil {
+		t.Fatalf("unmarshal Raw: %v (raw=%s)", err, um.Raw)
+	}
+	for _, gone := range []string{"parent_tool_use_id", "tool_use_result", "uuid"} {
+		if _, present := rawKeys[gone]; present {
+			t.Errorf("promoted outer key %q still in Raw: %s", gone, um.Raw)
+		}
+	}
+	// session_id is NOT promoted on UserMessage (upstream doesn't expose it
+	// there), so it stays in Raw alongside the unknown key.
+	if _, present := rawKeys["session_id"]; !present {
+		t.Errorf("session_id should remain in Raw for UserMessage: %s", um.Raw)
+	}
+	if _, present := rawKeys["future_outer"]; !present {
+		t.Errorf("unknown outer key dropped from Raw: %s", um.Raw)
+	}
+}
+
 // ── rawMessage preservation ──────────────────────────────────────────────────
 
 func TestParseMessage_UnknownType_PreservesRaw(t *testing.T) {
