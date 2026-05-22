@@ -18,9 +18,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
-	stdjson "encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"os"
 	"sort"
 	"strconv"
@@ -229,9 +229,7 @@ func (cp *controlProtocol) newRequestID() string {
 func (cp *controlProtocol) sendControlRequest(ctx context.Context, subtype string, payload map[string]any, timeout time.Duration) (jsontext.Value, error) {
 	// Build the request body: payload plus the subtype.
 	req := make(map[string]any, len(payload)+1)
-	for k, v := range payload {
-		req[k] = v
-	}
+	maps.Copy(req, payload)
 	req["subtype"] = subtype
 
 	id := cp.newRequestID()
@@ -804,8 +802,8 @@ func (cp *controlProtocol) handleMCPMessage(ctx context.Context, reqBody jsontex
 			ID     jsontext.Value `json:"id"`
 			Method string         `json:"method"`
 			Params struct {
-				Name      string             `json:"name"`
-				Arguments stdjson.RawMessage `json:"arguments"`
+				Name      string         `json:"name"`
+				Arguments jsontext.Value `json:"arguments"`
 			} `json:"params"`
 		} `json:"message"`
 	}

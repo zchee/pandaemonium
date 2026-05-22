@@ -16,10 +16,10 @@ package claude
 
 import (
 	"context"
-	stdjson "encoding/json"
 	"testing"
 
-	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/go-json-experiment/json/jsontext"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // TestCallTool_TextOnlyResultStillWorks is the regression guard: the
@@ -29,14 +29,15 @@ import (
 func TestCallTool_TextOnlyResultStillWorks(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool[map[string]any]("say", "says something",
+	tool := Tool(
+		"say", "says something",
 		nil,
 		func(_ context.Context, _ map[string]any) (ToolResult, error) {
 			return ToolResult{Content: "hello world"}, nil
 		},
 	)
 	srv := NewSDKMCPServer("t", "1.0.0", tool).(*inProcessMCPServer)
-	resp, err := srv.callTool(t.Context(), "say", stdjson.RawMessage(`{}`))
+	resp, err := srv.callTool(t.Context(), "say", jsontext.Value(`{}`))
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
@@ -55,18 +56,19 @@ func TestCallTool_TextOnlyResultStillWorks(t *testing.T) {
 func TestCallTool_RawContentImage(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool[map[string]any]("chart", "returns an image",
+	tool := Tool(
+		"chart", "returns an image",
 		nil,
 		func(_ context.Context, _ map[string]any) (ToolResult, error) {
 			return ToolResult{
-				RawContent: []gomcp.Content{
-					&gomcp.ImageContent{Data: []byte("PNGDATA"), MIMEType: "image/png"},
+				RawContent: []mcp.Content{
+					&mcp.ImageContent{Data: []byte("PNGDATA"), MIMEType: "image/png"},
 				},
 			}, nil
 		},
 	)
 	srv := NewSDKMCPServer("t", "1.0.0", tool).(*inProcessMCPServer)
-	resp, err := srv.callTool(t.Context(), "chart", stdjson.RawMessage(`{}`))
+	resp, err := srv.callTool(t.Context(), "chart", jsontext.Value(`{}`))
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
@@ -89,12 +91,13 @@ func TestCallTool_RawContentImage(t *testing.T) {
 func TestCallTool_RawContentResourceLink(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool[map[string]any]("link", "returns a link",
+	tool := Tool(
+		"link", "returns a link",
 		nil,
 		func(_ context.Context, _ map[string]any) (ToolResult, error) {
 			return ToolResult{
-				RawContent: []gomcp.Content{
-					&gomcp.ResourceLink{
+				RawContent: []mcp.Content{
+					&mcp.ResourceLink{
 						URI:         "file:///tmp/x.txt",
 						Name:        "notes",
 						Description: "scratch notes",
@@ -105,7 +108,7 @@ func TestCallTool_RawContentResourceLink(t *testing.T) {
 		},
 	)
 	srv := NewSDKMCPServer("t", "1.0.0", tool).(*inProcessMCPServer)
-	resp, err := srv.callTool(t.Context(), "link", stdjson.RawMessage(`{}`))
+	resp, err := srv.callTool(t.Context(), "link", jsontext.Value(`{}`))
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
@@ -129,19 +132,20 @@ func TestCallTool_RawContentResourceLink(t *testing.T) {
 func TestCallTool_RawContentMixed(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool[map[string]any]("mixed", "returns text + image",
+	tool := Tool(
+		"mixed", "returns text + image",
 		nil,
 		func(_ context.Context, _ map[string]any) (ToolResult, error) {
 			return ToolResult{
-				RawContent: []gomcp.Content{
-					&gomcp.TextContent{Text: "see chart:"},
-					&gomcp.ImageContent{Data: []byte("X"), MIMEType: "image/png"},
+				RawContent: []mcp.Content{
+					&mcp.TextContent{Text: "see chart:"},
+					&mcp.ImageContent{Data: []byte("X"), MIMEType: "image/png"},
 				},
 			}, nil
 		},
 	)
 	srv := NewSDKMCPServer("t", "1.0.0", tool).(*inProcessMCPServer)
-	resp, err := srv.callTool(t.Context(), "mixed", stdjson.RawMessage(`{}`))
+	resp, err := srv.callTool(t.Context(), "mixed", jsontext.Value(`{}`))
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
@@ -162,19 +166,20 @@ func TestCallTool_RawContentMixed(t *testing.T) {
 func TestCallTool_RawContentTakesPrecedence(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool[map[string]any]("precedence", "Raw wins",
+	tool := Tool(
+		"precedence", "Raw wins",
 		nil,
 		func(_ context.Context, _ map[string]any) (ToolResult, error) {
 			return ToolResult{
 				Content: "this should be ignored",
-				RawContent: []gomcp.Content{
-					&gomcp.TextContent{Text: "from RawContent"},
+				RawContent: []mcp.Content{
+					&mcp.TextContent{Text: "from RawContent"},
 				},
 			}, nil
 		},
 	)
 	srv := NewSDKMCPServer("t", "1.0.0", tool).(*inProcessMCPServer)
-	resp, err := srv.callTool(t.Context(), "precedence", stdjson.RawMessage(`{}`))
+	resp, err := srv.callTool(t.Context(), "precedence", jsontext.Value(`{}`))
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
@@ -193,17 +198,18 @@ func TestCallTool_RawContentTakesPrecedence(t *testing.T) {
 func TestCallTool_RawContentEmptySlicePreservesEmpty(t *testing.T) {
 	t.Parallel()
 
-	tool := Tool[map[string]any]("empty", "empty",
+	tool := Tool(
+		"empty", "empty",
 		nil,
 		func(_ context.Context, _ map[string]any) (ToolResult, error) {
 			return ToolResult{
 				Content:    "would-fall-back-but-shouldnt",
-				RawContent: []gomcp.Content{},
+				RawContent: []mcp.Content{},
 			}, nil
 		},
 	)
 	srv := NewSDKMCPServer("t", "1.0.0", tool).(*inProcessMCPServer)
-	resp, err := srv.callTool(t.Context(), "empty", stdjson.RawMessage(`{}`))
+	resp, err := srv.callTool(t.Context(), "empty", jsontext.Value(`{}`))
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}

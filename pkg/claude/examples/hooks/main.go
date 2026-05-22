@@ -26,12 +26,12 @@ package main
 
 import (
 	"context"
-	stdjson "encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
+	"github.com/go-json-experiment/json"
 	"github.com/zchee/pandaemonium/pkg/claude"
 )
 
@@ -49,7 +49,7 @@ func bashGuard(ctx context.Context, event claude.HookEvent) (claude.HookDecision
 		Command string `json:"command"`
 	}
 	if len(event.ToolInput) > 0 {
-		_ = stdjson.Unmarshal(event.ToolInput, &input)
+		_ = json.Unmarshal(event.ToolInput, &input)
 	}
 
 	for _, pat := range dangerousPatterns {

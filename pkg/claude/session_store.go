@@ -17,13 +17,13 @@ package claude
 import (
 	"context"
 	"crypto/rand"
-	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"sort"
 	"sync"
 
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 )
 
@@ -266,8 +266,8 @@ func extractMessageID(msg Message) string {
 	if len(raw) == 0 {
 		return ""
 	}
-	var fields map[string]stdjson.RawMessage
-	if err := stdjson.Unmarshal(raw, &fields); err != nil {
+	var fields map[string]jsontext.Value
+	if err := json.Unmarshal(raw, &fields); err != nil {
 		return ""
 	}
 	idRaw, ok := fields["id"]
@@ -275,7 +275,7 @@ func extractMessageID(msg Message) string {
 		return ""
 	}
 	var id string
-	if err := stdjson.Unmarshal(idRaw, &id); err != nil {
+	if err := json.Unmarshal(idRaw, &id); err != nil {
 		return ""
 	}
 	return id

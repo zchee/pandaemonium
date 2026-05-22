@@ -21,7 +21,7 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
-	gomcp "github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // TestMCPServerConnectionStatus_Literals pins the five wire literals against
@@ -196,9 +196,10 @@ func TestToolWithAnnotations_ListToolsSurfaces(t *testing.T) {
 
 	readOnly := true
 	openWorld := false
-	tool := ToolWithAnnotations[map[string]any]("greet", "greets",
+	tool := ToolWithAnnotations(
+		"greet", "greets",
 		nil,
-		&gomcp.ToolAnnotations{ReadOnlyHint: readOnly, OpenWorldHint: &openWorld, Title: "Greet"},
+		&mcp.ToolAnnotations{ReadOnlyHint: readOnly, OpenWorldHint: &openWorld, Title: "Greet"},
 		func(ctx context.Context, in map[string]any) (ToolResult, error) {
 			return ToolResult{Content: "ok"}, nil
 		},
@@ -216,7 +217,7 @@ func TestToolWithAnnotations_ListToolsSurfaces(t *testing.T) {
 	if !ok {
 		t.Fatalf("annotations key absent: %v", tools[0])
 	}
-	ga, ok := ann.(*gomcp.ToolAnnotations)
+	ga, ok := ann.(*mcp.ToolAnnotations)
 	if !ok {
 		t.Fatalf("annotations type = %T, want *gomcp.ToolAnnotations", ann)
 	}
@@ -233,7 +234,8 @@ func TestToolWithAnnotations_ListToolsSurfaces(t *testing.T) {
 // annotations key in tools/list, so the wire payload stays minimal.
 func TestTool_NoAnnotationsListToolsOmits(t *testing.T) {
 	t.Parallel()
-	tool := Tool[map[string]any]("plain", "no annotations",
+	tool := Tool(
+		"plain", "no annotations",
 		nil,
 		func(ctx context.Context, in map[string]any) (ToolResult, error) {
 			return ToolResult{Content: "x"}, nil

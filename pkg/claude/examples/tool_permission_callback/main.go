@@ -28,12 +28,12 @@ package main
 
 import (
 	"context"
-	stdjson "encoding/json"
 	"fmt"
 	"log"
 	"os"
 	"strings"
 
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/zchee/pandaemonium/pkg/claude"
 )
@@ -51,7 +51,7 @@ func permissionCallback(_ context.Context, toolName string, input jsontext.Value
 			Command string `json:"command"`
 		}
 		if len(input) > 0 {
-			_ = stdjson.Unmarshal(input, &inp)
+			_ = json.Unmarshal(input, &inp)
 		}
 		if strings.HasPrefix(inp.Command, "ls") || strings.HasPrefix(inp.Command, "echo") {
 			return claude.PermissionResultAllow{}, nil

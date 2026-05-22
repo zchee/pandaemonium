@@ -33,7 +33,6 @@ package main
 import (
 	"bytes"
 	"context"
-	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"io"
@@ -44,6 +43,7 @@ import (
 	"github.com/aws/aws-sdk-go-v2/config"
 	"github.com/aws/aws-sdk-go-v2/service/s3"
 	"github.com/aws/aws-sdk-go-v2/service/s3/types"
+	"github.com/go-json-experiment/json"
 	"github.com/zchee/pandaemonium/pkg/claude"
 )
 
@@ -79,7 +79,7 @@ func (s *s3SessionStore) Load(ctx context.Context, id string) (*claude.Session, 
 		return nil, fmt.Errorf("read session %q: %w", id, err)
 	}
 	var rec sessionRecord
-	if err := stdjson.Unmarshal(raw, &rec); err != nil {
+	if err := json.Unmarshal(raw, &rec); err != nil {
 		return nil, fmt.Errorf("decode session %q: %w", id, err)
 	}
 	return &claude.Session{ID: rec.ID, ParentID: rec.ParentID}, nil
@@ -89,7 +89,7 @@ func (s *s3SessionStore) Save(ctx context.Context, sess *claude.Session) error {
 	if sess == nil || sess.ID == "" {
 		return errors.New("Save: session must have a non-empty ID")
 	}
-	raw, err := stdjson.Marshal(sessionRecord{ID: sess.ID, ParentID: sess.ParentID})
+	raw, err := json.Marshal(sessionRecord{ID: sess.ID, ParentID: sess.ParentID})
 	if err != nil {
 		return fmt.Errorf("marshal session: %w", err)
 	}

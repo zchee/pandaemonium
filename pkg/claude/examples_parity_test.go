@@ -24,12 +24,12 @@ package claude
 
 import (
 	"context"
-	stdjson "encoding/json"
 	"fmt"
 	"slices"
 	"strings"
 	"testing"
 
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/zchee/pandaemonium/pkg/claude/internal/fakecli"
 )
@@ -50,7 +50,7 @@ func assistantTextFrame(sessionID, text string) fakecli.Frame {
 
 // mustJSON returns the JSON encoding of v, panicking on error.
 func mustJSON(v any) string {
-	b, err := stdjson.Marshal(v)
+	b, err := json.Marshal(v)
 	if err != nil {
 		panic(err)
 	}
@@ -166,7 +166,7 @@ func TestExampleParity_Hooks(t *testing.T) {
 			Command string `json:"command"`
 		}
 		if len(event.ToolInput) > 0 {
-			_ = stdjson.Unmarshal(event.ToolInput, &inp)
+			_ = json.Unmarshal(event.ToolInput, &inp)
 		}
 		for _, pat := range dangerousPatterns {
 			if strings.Contains(inp.Command, pat) {
@@ -214,7 +214,7 @@ func TestExampleParity_Hooks(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			input, _ := stdjson.Marshal(map[string]string{"command": tt.command})
+			input, _ := json.Marshal(map[string]string{"command": tt.command})
 			event := HookEvent{
 				Kind:      HookEventPreToolUse,
 				ToolName:  "Bash",
@@ -255,7 +255,7 @@ func TestExampleParity_ToolPermissionCallback(t *testing.T) {
 				Command string `json:"command"`
 			}
 			if len(input) > 0 {
-				_ = stdjson.Unmarshal(input, &inp)
+				_ = json.Unmarshal(input, &inp)
 			}
 			if strings.HasPrefix(inp.Command, "ls") || strings.HasPrefix(inp.Command, "echo") {
 				return PermissionResultAllow{}, nil

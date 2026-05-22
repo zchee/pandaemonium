@@ -37,13 +37,14 @@ package main
 
 import (
 	"context"
-	stdjson "encoding/json"
 	"errors"
 	"fmt"
 	"log"
 	"os"
 	"sort"
 
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/zchee/pandaemonium/pkg/claude"
 )
@@ -57,8 +58,8 @@ type pgSessionStore struct {
 // Because Message is a sealed interface we store the raw JSON bytes and
 // a "type" discriminator, reconstructing the concrete value on load.
 type pgMessage struct {
-	Type string             `json:"type"`
-	Raw  stdjson.RawMessage `json:"raw"`
+	Type string         `json:"type"`
+	Raw  jsontext.Value `json:"raw"`
 }
 
 func (s *pgSessionStore) Load(ctx context.Context, id string) (*claude.Session, error) {
@@ -85,7 +86,7 @@ func (s *pgSessionStore) Save(ctx context.Context, sess *claude.Session) error {
 	if sess == nil || sess.ID == "" {
 		return errors.New("Save: session must have a non-empty ID")
 	}
-	raw, err := stdjson.Marshal([]pgMessage{}) // simplified: no message serde
+	raw, err := json.Marshal([]pgMessage{}) // simplified: no message serde
 	if err != nil {
 		return fmt.Errorf("save session: marshal messages: %w", err)
 	}
