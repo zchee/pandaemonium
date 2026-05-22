@@ -595,6 +595,20 @@ func (cp *controlProtocol) cancelControlRequest(line []byte) {
 // If ctx is cancelled (via control_cancel_request) at any await point, no
 // response is written: the CLI has already abandoned the request.
 func (cp *controlProtocol) handleControlRequest(ctx context.Context, requestID string, reqBody jsontext.Value) {
+	// Recover from a panic in any user-supplied callback (CanUseTool, a hook, or
+	// an MCP tool handler invoked via dispatchControlSubtype). A panic here runs
+	// on the per-request goroutine spawned by spawnControlRequest; without this
+	// recover it would crash the entire process, not just the session. Convert
+	// it into an error control_response (when the request was not cancelled) so
+	// the CLI sees a failure instead of a dropped connection.
+	defer func() {
+		if r := recover(); r != nil {
+			if ctx.Err() == nil {
+				cp.writeControlError(ctx, requestID, fmt.Sprintf("handler panic: %v", r))
+			}
+		}
+	}()
+
 	var head struct {
 		Subtype string `json:"subtype"`
 	}

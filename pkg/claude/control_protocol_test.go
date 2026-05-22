@@ -999,6 +999,58 @@ func TestControlProtocol_CloseInflight(t *testing.T) {
 	}
 }
 
+// TestControlProtocol_HandlerPanic_DoesNotCrash verifies that a panic in a
+// user-supplied callback is recovered on the per-request goroutine and turned
+// into an error control_response, rather than crashing the whole process. The
+// test surviving to its assertions is itself the primary signal: an unrecovered
+// panic on the spawned goroutine would take the test binary down.
+func TestControlProtocol_HandlerPanic_DoesNotCrash(t *testing.T) {
+	t.Parallel()
+
+	wrote := make(chan []byte, 1)
+	writeFn := func(_ context.Context, p []byte) error {
+		select {
+		case wrote <- append([]byte(nil), p...):
+		default:
+		}
+		return nil
+	}
+
+	cp := newControlProtocol(&Options{}, writeFn)
+	cp.hookCallbacks["hook_0"] = func(context.Context, HookEvent) (HookDecision, error) {
+		panic("boom from user hook")
+	}
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"hook_callback","callback_id":"hook_0","input":{}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+
+	select {
+	case p := <-wrote:
+		var env struct {
+			Response struct {
+				Subtype string `json:"subtype"`
+				Error   string `json:"error"`
+			} `json:"response"`
+		}
+		if err := json.Unmarshal(p, &env); err != nil {
+			t.Fatalf("unmarshal control_response: %v (raw=%s)", err, p)
+		}
+		if env.Response.Subtype != "error" {
+			t.Errorf("response subtype = %q, want error", env.Response.Subtype)
+		}
+		if !strings.Contains(env.Response.Error, "handler panic") {
+			t.Errorf("error = %q, want to contain \"handler panic\"", env.Response.Error)
+		}
+		if !strings.Contains(env.Response.Error, "boom from user hook") {
+			t.Errorf("error = %q, want to contain the recovered panic value", env.Response.Error)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("no control_response written after handler panic")
+	}
+}
+
 // ── test helpers ─────────────────────────────────────────────────────────────
 
 // lastInitializeWrite returns the most recently written payload that contains
