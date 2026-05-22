@@ -195,10 +195,19 @@ func parseSystemMessage(data, line []byte) (Message, error) {
 func parseAssistantMessage(data, line []byte) (AssistantMessage, error) {
 	var raw struct {
 		Message struct {
-			Content []jsontext.Value `json:"content,omitzero"`
-			Model   string           `json:"model,omitzero"`
+			Content    []jsontext.Value `json:"content,omitzero"`
+			Model      string           `json:"model,omitzero"`
+			ID         string           `json:"id,omitzero"`
+			StopReason string           `json:"stop_reason,omitzero"`
+			Usage      jsontext.Value   `json:"usage,omitzero"`
 		} `json:"message,omitzero"`
-		Raw jsontext.Value `json:",inline"` // captures type, session_id, etc.
+		// Outer-envelope fields are named here so json/v2 ,inline excludes them
+		// from Raw (the Raw-exclusion policy); they are promoted to typed fields.
+		ParentToolUseID string         `json:"parent_tool_use_id,omitzero"`
+		Error           jsontext.Value `json:"error,omitzero"`
+		SessionID       string         `json:"session_id,omitzero"`
+		UUID            string         `json:"uuid,omitzero"`
+		Raw             jsontext.Value `json:",inline"` // captures type and unknown keys
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
 		return AssistantMessage{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
@@ -208,9 +217,16 @@ func parseAssistantMessage(data, line []byte) (AssistantMessage, error) {
 		return AssistantMessage{}, err
 	}
 	return AssistantMessage{
-		Content: blocks,
-		Model:   raw.Message.Model,
-		Raw:     raw.Raw,
+		Content:         blocks,
+		Model:           raw.Message.Model,
+		MessageID:       raw.Message.ID,
+		StopReason:      raw.Message.StopReason,
+		Usage:           raw.Message.Usage,
+		ParentToolUseID: raw.ParentToolUseID,
+		Error:           raw.Error,
+		SessionID:       raw.SessionID,
+		UUID:            raw.UUID,
+		Raw:             raw.Raw,
 	}, nil
 }
 

@@ -174,9 +174,72 @@ func TestParseMessage_AssistantMessage_TextContent(t *testing.T) {
 	if am.Model != "claude-opus-4-5" {
 		t.Errorf("Model = %q, want claude-opus-4-5", am.Model)
 	}
-	// Outer unknown fields go into Raw.
-	if !strings.Contains(string(am.Raw), `"session_id":"s1"`) {
-		t.Errorf("Raw = %q, want session_id", am.Raw)
+	// session_id is now a promoted typed field, no longer in Raw.
+	if am.SessionID != "s1" {
+		t.Errorf("SessionID = %q, want s1", am.SessionID)
+	}
+	if am.MessageID != "msg_1" {
+		t.Errorf("MessageID = %q, want msg_1", am.MessageID)
+	}
+}
+
+// TestParseMessage_AssistantMessage_PromotedFields verifies the two-level field
+// promotion: message.{id,stop_reason,usage} and outer
+// {parent_tool_use_id,error,session_id,uuid} parse into typed fields, and the
+// promoted outer keys are excluded from Raw while unknown keys remain.
+func TestParseMessage_AssistantMessage_PromotedFields(t *testing.T) {
+	t.Parallel()
+
+	line := `{"type":"assistant","message":{"id":"msg_9","model":"m","content":[{"type":"text","text":"hi"}],` +
+		`"stop_reason":"end_turn","usage":{"input_tokens":3}},` +
+		`"parent_tool_use_id":"tu_parent","error":{"code":"e1"},"session_id":"s9","uuid":"u-9",` +
+		`"future_outer":"keep"}` + "\n"
+	msg, err := parseMessage([]byte(line))
+	if err != nil {
+		t.Fatalf("parseMessage() error = %v", err)
+	}
+	am, ok := msg.(AssistantMessage)
+	if !ok {
+		t.Fatalf("type = %T, want AssistantMessage", msg)
+	}
+
+	// message.* level
+	if am.MessageID != "msg_9" {
+		t.Errorf("MessageID = %q, want msg_9", am.MessageID)
+	}
+	if am.StopReason != "end_turn" {
+		t.Errorf("StopReason = %q, want end_turn", am.StopReason)
+	}
+	if !strings.Contains(string(am.Usage), "input_tokens") {
+		t.Errorf("Usage = %q, want input_tokens", am.Usage)
+	}
+	// outer level
+	if am.ParentToolUseID != "tu_parent" {
+		t.Errorf("ParentToolUseID = %q, want tu_parent", am.ParentToolUseID)
+	}
+	if !strings.Contains(string(am.Error), "e1") {
+		t.Errorf("Error = %q, want e1", am.Error)
+	}
+	if am.SessionID != "s9" {
+		t.Errorf("SessionID = %q, want s9", am.SessionID)
+	}
+	if am.UUID != "u-9" {
+		t.Errorf("UUID = %q, want u-9", am.UUID)
+	}
+
+	// Raw-exclusion: promoted outer keys gone; the nested message object and an
+	// unknown outer key remain.
+	var rawKeys map[string]jsontext.Value
+	if err := json.Unmarshal(am.Raw, &rawKeys); err != nil {
+		t.Fatalf("unmarshal Raw: %v (raw=%s)", err, am.Raw)
+	}
+	for _, gone := range []string{"parent_tool_use_id", "error", "session_id", "uuid"} {
+		if _, present := rawKeys[gone]; present {
+			t.Errorf("promoted outer key %q still in Raw: %s", gone, am.Raw)
+		}
+	}
+	if _, present := rawKeys["future_outer"]; !present {
+		t.Errorf("unknown outer key dropped from Raw: %s", am.Raw)
 	}
 }
 

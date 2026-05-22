@@ -46,7 +46,35 @@ type AssistantMessage struct {
 	// Model is the identifier of the model that generated this message.
 	Model string `json:"model,omitzero"`
 
-	// Raw preserves unknown top-level fields for forward compatibility.
+	// MessageID is the model message id, from the nested message.id
+	// (mp.py:177). Empty when absent.
+	MessageID string `json:"-"`
+
+	// StopReason is the model's stop reason, from message.stop_reason
+	// (mp.py:178).
+	StopReason string `json:"-"`
+
+	// Usage is the token-usage object, from message.usage (mp.py:176), as raw
+	// JSON.
+	Usage jsontext.Value `json:"-"`
+
+	// ParentToolUseID is the id of the tool_use this assistant turn responds to,
+	// from the outer envelope (mp.py:175). Empty at the top of a turn.
+	ParentToolUseID string `json:"-"`
+
+	// Error carries structured error detail from the outer envelope
+	// (mp.py:174), as raw JSON.
+	Error jsontext.Value `json:"-"`
+
+	// SessionID is the CLI session id, from the outer envelope (mp.py:180).
+	SessionID string `json:"-"`
+
+	// UUID is the CLI's unique identifier for this message, from the outer
+	// envelope (mp.py:181).
+	UUID string `json:"-"`
+
+	// Raw preserves unknown top-level fields for forward compatibility. Fields
+	// promoted above (and the nested message.* object) are excluded.
 	// Mirrors pkg/codex/public_types.go:33-37.
 	Raw jsontext.Value `json:",inline"`
 }
