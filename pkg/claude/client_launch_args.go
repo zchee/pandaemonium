@@ -104,6 +104,18 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 	}
 	args = append(args, "--output-format", outputFmt)
 
+	// Structured-output schema — emitted as --json-schema <json> when set,
+	// mirroring upstream output_format={"type":"json_schema","schema":{...}}
+	// (subprocess_cli.py:395-404). Independent of OutputFormat. jsonschema.Schema
+	// has a custom MarshalJSON, so the output is deterministic.
+	if opts.JSONSchema != nil {
+		schemaJSON, err := json.Marshal(opts.JSONSchema)
+		if err != nil {
+			return nil, &CLIConnectionError{Message: "marshal --json-schema: " + err.Error()}
+		}
+		args = append(args, "--json-schema", string(schemaJSON))
+	}
+
 	// Input format — always stream-json for SDK use unless overridden.
 	// Upstream subprocess_cli.py always sends --input-format stream-json.
 	inputFmt := "stream-json"

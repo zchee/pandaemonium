@@ -17,6 +17,9 @@ package claude
 import (
 	"strings"
 	"testing"
+
+	"github.com/go-json-experiment/json"
+	"github.com/google/jsonschema-go/jsonschema"
 )
 
 // mustLaunchArgs calls buildLaunchArgs and fails the test if it returns an
@@ -637,6 +640,46 @@ func TestBuildLaunchArgs_Tools(t *testing.T) {
 		}
 		if v := argValue(got, "--tools"); v != "Read" {
 			t.Errorf("--tools = %q, want Read", v)
+		}
+	})
+}
+
+// TestBuildLaunchArgs_JSONSchema covers the structured-output --json-schema flag
+// (subprocess_cli.py:395-404): emitted as the marshaled schema when set, absent
+// when nil, and independent of --output-format.
+func TestBuildLaunchArgs_JSONSchema(t *testing.T) {
+	t.Parallel()
+	const fakeCLI = "/usr/local/bin/claude"
+
+	t.Run("nil omits --json-schema", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{}, "")
+		if extraArgIndex(got, "--json-schema") != -1 {
+			t.Errorf("--json-schema emitted for nil JSONSchema; args = %v", got)
+		}
+	})
+
+	t.Run("non-nil emits marshaled schema", func(t *testing.T) {
+		t.Parallel()
+		schema := &jsonschema.Schema{
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{"answer": {Type: "string"}},
+		}
+		got := mustLaunchArgs(t, fakeCLI, &Options{JSONSchema: schema}, "")
+		v := argValue(got, "--json-schema")
+		if v == "" {
+			t.Fatalf("--json-schema not emitted; args = %v", got)
+		}
+		want, err := json.Marshal(schema)
+		if err != nil {
+			t.Fatalf("marshal schema: %v", err)
+		}
+		if v != string(want) {
+			t.Errorf("--json-schema = %q, want %q", v, want)
+		}
+		// Independent of --output-format (still the default stream-json).
+		if of := argValue(got, "--output-format"); of != "stream-json" {
+			t.Errorf("--output-format = %q, want stream-json", of)
 		}
 	})
 }

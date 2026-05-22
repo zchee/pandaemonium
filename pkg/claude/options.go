@@ -14,7 +14,11 @@
 
 package claude
 
-import "maps"
+import (
+	"maps"
+
+	"github.com/google/jsonschema-go/jsonschema"
+)
 
 // skillsAll is the sentinel [Options].Skills value (returned by [AllSkills])
 // that enables every installed skill, mirroring upstream skills == "all".
@@ -237,6 +241,14 @@ type Options struct {
 	// "stream-json"). Empty uses the CLI default ("stream-json").
 	// Corresponds to --output-format in the CLI.
 	OutputFormat string
+
+	// JSONSchema requests structured output constrained to this schema. When
+	// non-nil it emits --json-schema <marshaled schema>, mirroring upstream's
+	// output_format={"type":"json_schema","schema":{...}} union member
+	// (subprocess_cli.py:395-404). It is independent of OutputFormat, which
+	// continues to carry the plain string form. The schema is treated as
+	// immutable after construction (clone shares the pointer).
+	JSONSchema *jsonschema.Schema
 
 	// InputFormat overrides the CLI input format. Empty uses the CLI default.
 	// Corresponds to --input-format in the CLI.
