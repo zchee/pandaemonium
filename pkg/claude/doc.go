@@ -14,10 +14,6 @@
 
 // Package claude provides a Go port of the anthropics/claude-agent-sdk-python.
 //
-// All exported types and function signatures are frozen (Phase 0). Method
-// bodies currently return errors.ErrUnsupported; subsequent implementation
-// phases (A–I) fill the stubs without reshaping the public surface.
-//
 // # Streaming surface
 //
 // Query returns an iter.Seq2[Message, error] that streams [AssistantMessage],
