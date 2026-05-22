@@ -294,23 +294,24 @@ func renameInPlace(path, from, to string) error {
 // runBenchstat shells out to the benchstat binary. Older benchstat builds
 // accept the project-locked -delta-test=utest flag; newer x/perf releases
 // removed that flag and use their built-in comparison test. Prefer the locked
-// invocation when available, fall back to -alpha=0.05 for newer benchstat, and
-// if the requested benchstat binary is unavailable fall back to the module's
-// `go tool benchstat` directive.
+// invocation when available, fall back to -alpha=0.05 only when benchstat
+// reports that -delta-test is unsupported, and if the default benchstat binary
+// is unavailable fall back to the module's `go tool benchstat` directive.
 func runBenchstat(bin, baseFile, treatFile string) (string, error) {
-	commands := []benchstatCommand{{name: bin}}
-	if bin == "benchstat" {
-		commands = append(commands, benchstatCommand{name: "go", prefixArgs: []string{"tool", "benchstat"}})
+	command := benchstatCommand{name: bin}
+	out, err := runBenchstatCommand(command, baseFile, treatFile)
+	if err == nil {
+		return out, nil
 	}
-	var errs []string
-	for _, command := range commands {
-		out, err := runBenchstatCommand(command, baseFile, treatFile)
-		if err == nil {
-			return out, nil
-		}
-		errs = append(errs, err.Error())
+	if bin != "benchstat" || !isCommandNotFound(err) {
+		return "", err
 	}
-	return "", errors.New(strings.Join(errs, "\n"))
+	fallback := benchstatCommand{name: "go", prefixArgs: []string{"tool", "benchstat"}}
+	out, fallbackErr := runBenchstatCommand(fallback, baseFile, treatFile)
+	if fallbackErr == nil {
+		return out, nil
+	}
+	return "", errors.Join(err, fallbackErr)
 }
 
 type benchstatCommand struct {
@@ -331,6 +332,11 @@ func runBenchstatCommand(command benchstatCommand, baseFile, treatFile string) (
 		return "", fmt.Errorf("%s: %w\nbenchstat output:\n%s", command.String(), err, out)
 	}
 	return out, nil
+}
+
+func isCommandNotFound(err error) bool {
+	var execErr *exec.Error
+	return errors.As(err, &execErr) && errors.Is(execErr.Err, exec.ErrNotFound)
 }
 
 func (command benchstatCommand) String() string {

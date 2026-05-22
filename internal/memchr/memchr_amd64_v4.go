@@ -21,6 +21,13 @@ package memchr
 // the executable startup contract; host selection is still preflighted with
 // simd/archsimd before running or recommending this artifact.
 //
+// Production binds the single-needle entries directly. The package-private
+// multi-needle assembly entries stay intentionally declared for direct
+// correctness tests and memchr_tuning benchmarks; production multi-needle
+// dispatch currently uses archsimd helpers because they are the measured v4
+// path until a future benchmark proves the assembly variants should replace
+// them.
+//
 //go:noescape
 func avx512Memchr(needle byte, haystack []byte) int
 

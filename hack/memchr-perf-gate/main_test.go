@@ -250,6 +250,82 @@ func TestRunBenchstatFallsBackToGoTool(t *testing.T) {
 	}
 }
 
+func TestRunBenchstatFallsBackOnlyForUnsupportedDeltaFlag(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses POSIX shell script")
+	}
+
+	dir := t.TempDir()
+	logPath := filepath.Join(dir, "args.log")
+	benchstatPath := filepath.Join(dir, "benchstat")
+	script := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$*\" >> " + shellQuote(logPath) + "\n" +
+		"case \" $* \" in\n" +
+		"  *' -delta-test=utest '*)\n" +
+		"    printf '%s\\n' 'flag provided but not defined: -delta-test'\n" +
+		"    exit 2\n" +
+		"    ;;\n" +
+		"esac\n" +
+		"printf '%s\\n' '│ sec/op │'\n" +
+		"printf '%s\\n' 'Memchr/n=1024-44 17.0n ± 0% 18.0n ± 0% +5.88% (p=0.001 n=10)'\n"
+	if err := os.WriteFile(benchstatPath, []byte(script), 0o755); err != nil {
+		t.Fatalf("write fake benchstat: %v", err)
+	}
+
+	out, err := runBenchstat(benchstatPath, "base.txt", "treat.txt")
+	if err != nil {
+		t.Fatalf("runBenchstat() error = %v", err)
+	}
+	if !strings.Contains(out, "Memchr/n=1024") {
+		t.Fatalf("runBenchstat() output %q does not contain retry output", out)
+	}
+	args, err := os.ReadFile(logPath)
+	if err != nil {
+		t.Fatalf("read fake benchstat args: %v", err)
+	}
+	if got, want := strings.Split(strings.TrimSpace(string(args)), "\n"), []string{
+		"-delta-test=utest -alpha=0.05 base.txt treat.txt",
+		"-alpha=0.05 base.txt treat.txt",
+	}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("fake benchstat args got %#v, want %#v", got, want)
+	}
+}
+
+func TestRunBenchstatDoesNotFallbackForNonFlagError(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test uses POSIX shell script")
+	}
+
+	dir := t.TempDir()
+	goLogPath := filepath.Join(dir, "go-args.log")
+	benchstatPath := filepath.Join(dir, "benchstat")
+	benchstatScript := "#!/bin/sh\n" +
+		"printf '%s\\n' 'stat base.txt: no such file or directory'\n" +
+		"exit 2\n"
+	if err := os.WriteFile(benchstatPath, []byte(benchstatScript), 0o755); err != nil {
+		t.Fatalf("write fake benchstat: %v", err)
+	}
+	goPath := filepath.Join(dir, "go")
+	goScript := "#!/bin/sh\n" +
+		"printf '%s\\n' \"$*\" > " + shellQuote(goLogPath) + "\n" +
+		"printf '%s\\n' 'unexpected go tool benchstat fallback'\n"
+	if err := os.WriteFile(goPath, []byte(goScript), 0o755); err != nil {
+		t.Fatalf("write fake go: %v", err)
+	}
+
+	t.Setenv("PATH", dir)
+	out, err := runBenchstat("benchstat", "base.txt", "treat.txt")
+	if err == nil {
+		t.Fatalf("runBenchstat() unexpectedly succeeded with output %q", out)
+	}
+	if !strings.Contains(err.Error(), "stat base.txt: no such file or directory") {
+		t.Fatalf("runBenchstat() error %q does not include original benchstat failure", err)
+	}
+	if _, statErr := os.Stat(goLogPath); !os.IsNotExist(statErr) {
+		t.Fatalf("go tool benchstat fallback ran for non-flag error; stat error = %v", statErr)
+	}
+}
+
 func rowClasses(rows []benchstatRegression) []rowClass {
 	out := make([]rowClass, len(rows))
 	for i, row := range rows {
