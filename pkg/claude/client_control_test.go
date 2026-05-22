@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -61,9 +62,9 @@ func startConnectedClient(t *testing.T, opts *Options) (*ClaudeSDKClient, *fakec
 func lastWriteWithSubtype(cli *fakecli.FakeCLI, subtype string) []byte {
 	needle := []byte(`"subtype":"` + subtype + `"`)
 	written := cli.Written()
-	for i := len(written) - 1; i >= 0; i-- {
-		if bytes.Contains(written[i], needle) {
-			return written[i]
+	for _, w := range slices.Backward(written) {
+		if bytes.Contains(w, needle) {
+			return w
 		}
 	}
 	return nil

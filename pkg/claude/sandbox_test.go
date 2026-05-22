@@ -33,9 +33,9 @@ func TestSandboxSettings_JSONTagsParity(t *testing.T) {
 
 	in := SandboxSettings{
 		Enabled:                   true,
-		AutoAllowBashIfSandboxed:  BoolPtr(false),
+		AutoAllowBashIfSandboxed:  new(false),
 		ExcludedCommands:          []string{"git", "docker"},
-		AllowUnsandboxedCommands:  BoolPtr(false),
+		AllowUnsandboxedCommands:  new(false),
 		EnableWeakerNestedSandbox: true,
 		Network: SandboxNetworkConfig{
 			AllowedDomains:          []string{"a.example.com"},
@@ -115,8 +115,8 @@ func TestSandboxSettings_DefaultTrueBoolsOmitWhenNil(t *testing.T) {
 	}
 
 	in2 := SandboxSettings{
-		AutoAllowBashIfSandboxed: BoolPtr(false),
-		AllowUnsandboxedCommands: BoolPtr(true),
+		AutoAllowBashIfSandboxed: new(false),
+		AllowUnsandboxedCommands: new(true),
 	}
 	data2, _ := json.Marshal(in2)
 	var got2 map[string]any

@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -1005,9 +1006,9 @@ func TestControlProtocol_CloseInflight(t *testing.T) {
 // the request_id the SDK just generated.
 func lastInitializeWrite(cli *fakecli.FakeCLI) []byte {
 	written := cli.Written()
-	for i := len(written) - 1; i >= 0; i-- {
-		if bytes.Contains(written[i], []byte(`"subtype":"initialize"`)) {
-			return written[i]
+	for _, w := range slices.Backward(written) {
+		if bytes.Contains(w, []byte(`"subtype":"initialize"`)) {
+			return w
 		}
 	}
 	return nil

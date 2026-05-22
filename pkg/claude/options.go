@@ -14,12 +14,7 @@
 
 package claude
 
-// ExtraFlag returns a pointer to value for use in [Options].ExtraArgs, where a
-// non-nil pointer emits "--key value" and a nil pointer emits a bare "--key".
-// It exists only to make ExtraArgs literals readable:
-//
-//	Options{ExtraArgs: map[string]*string{"verbose-tools": nil, "log-level": ExtraFlag("debug")}}
-func ExtraFlag(value string) *string { return &value }
+import "maps"
 
 // skillsAll is the sentinel [Options].Skills value (returned by [AllSkills])
 // that enables every installed skill, mirroring upstream skills == "all".
@@ -96,15 +91,11 @@ func (o *Options) clone() *Options {
 	}
 	if o.Env != nil {
 		c.Env = make(map[string]string, len(o.Env))
-		for k, v := range o.Env {
-			c.Env[k] = v
-		}
+		maps.Copy(c.Env, o.Env)
 	}
 	if o.ExtraArgs != nil {
 		c.ExtraArgs = make(map[string]*string, len(o.ExtraArgs))
-		for k, v := range o.ExtraArgs {
-			c.ExtraArgs[k] = v
-		}
+		maps.Copy(c.ExtraArgs, o.ExtraArgs)
 	}
 	if o.TaskBudget != nil {
 		tb := *o.TaskBudget

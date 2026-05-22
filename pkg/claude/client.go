@@ -23,7 +23,6 @@ import (
 	"iter"
 	"os"
 	"os/exec"
-	"strings"
 	"sync"
 	"time"
 
@@ -596,17 +595,6 @@ func (c *ClaudeSDKClient) drainStderr(r io.Reader, done chan<- struct{}) {
 		}
 		c.stderrMu.Unlock()
 	}
-}
-
-// stderrTail returns the last limit lines from the stderr ring buffer as a
-// single string. Mirrors pkg/codex/client.go:761.
-func (c *ClaudeSDKClient) stderrTail(limit int) string {
-	c.stderrMu.Lock()
-	defer c.stderrMu.Unlock()
-	if limit > len(c.stderrLines) {
-		limit = len(c.stderrLines)
-	}
-	return strings.Join(c.stderrLines[len(c.stderrLines)-limit:], "\n")
 }
 
 // waitForCmd starts a goroutine that calls cmd.Wait and returns a channel that

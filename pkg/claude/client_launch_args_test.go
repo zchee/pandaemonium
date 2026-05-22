@@ -481,7 +481,7 @@ func TestBuildLaunchArgs_ExtraArgs(t *testing.T) {
 
 	opts := &Options{ExtraArgs: map[string]*string{
 		"zeta-flag": nil,
-		"alpha-opt": ExtraFlag("v1"),
+		"alpha-opt": new("v1"),
 	}}
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
 
@@ -584,7 +584,6 @@ func argValue(args []string, flag string) string {
 	}
 	return args[i+1]
 }
-
 
 // ── M10b Thinking group ──────────────────────────────────────────────────────
 
@@ -715,7 +714,6 @@ func TestBuildLaunchArgs_Thinking(t *testing.T) {
 		}
 	})
 }
-
 
 // ── M10d TaskBudget ──────────────────────────────────────────────────────────
 

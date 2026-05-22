@@ -183,9 +183,3 @@ type SandboxSettings struct {
 	// is false.
 	EnableWeakerNestedSandbox bool `json:"enableWeakerNestedSandbox,omitzero"`
 }
-
-// BoolPtr returns &v. It is a convenience for [SandboxSettings] fields whose
-// upstream default is true ([SandboxSettings.AutoAllowBashIfSandboxed],
-// [SandboxSettings.AllowUnsandboxedCommands]), where a nil pointer omits the
-// field and lets the CLI default apply.
-func BoolPtr(v bool) *bool { return &v }

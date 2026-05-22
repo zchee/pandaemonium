@@ -15,6 +15,7 @@
 package claude
 
 import (
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -68,12 +69,7 @@ func effectiveToolsAndSources(opts *Options) (tools []string, sources []SettingS
 	}
 
 	has := func(t string) bool {
-		for _, x := range tools {
-			if x == t {
-				return true
-			}
-		}
-		return false
+		return slices.Contains(tools, t)
 	}
 	if len(opts.Skills) == 1 && opts.Skills[0] == skillsAll {
 		if !has("Skill") {

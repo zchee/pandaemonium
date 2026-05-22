@@ -137,7 +137,7 @@ func TestMergeMCPServersWire_SortDeterministic(t *testing.T) {
 		map[string]any{"gamma": map[string]any{"type": "stdio", "command": "g"}},
 	}
 	// Run the merge many times — any single non-sorted iteration would fail.
-	for i := 0; i < 50; i++ {
+	for i := range 50 {
 		got := mergeMCPServersWire(nil, configs)
 		if !reflect.DeepEqual(got, want) {
 			t.Fatalf("iteration %d: got = %v, want sorted alpha/beta/gamma", i, got)
