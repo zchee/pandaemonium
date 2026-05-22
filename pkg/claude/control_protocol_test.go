@@ -1095,6 +1095,42 @@ func TestControlProtocol_WaitInflight_DrainsHandlers(t *testing.T) {
 	}
 }
 
+// TestControlProtocol_SpawnAfterClose_NotAdmitted is the C6 follow-up guard:
+// once closeInflight has run (Close has begun draining), a control_request that
+// readLoop routes from a pre-buffered line must NOT spawn a new handler that
+// could outlive Close. Without the closed barrier, spawnControlRequest could
+// insert into inflight and Add(1) AFTER waitInflight already observed a zero
+// count, leaking a ctx-ignoring handler past Close — the exact class the fix
+// claims to eliminate.
+func TestControlProtocol_SpawnAfterClose_NotAdmitted(t *testing.T) {
+	t.Parallel()
+
+	ran := make(chan struct{}, 1)
+	cp := newControlProtocol(&Options{}, func(context.Context, []byte) error { return nil })
+	cp.hookCallbacks["hook_0"] = func(context.Context, HookEvent) (HookDecision, error) {
+		ran <- struct{}{}
+		return HookDecision{}, nil
+	}
+
+	// Begin the Close drain: cancel + mark closed.
+	cp.closeInflight()
+
+	// A request routed after closeInflight must be dropped, not spawned.
+	line := []byte(`{"type":"control_request","request_id":"r-late","request":{"subtype":"hook_callback","callback_id":"hook_0","input":{}}}`)
+	cp.spawnControlRequest(t.Context(), line)
+
+	// waitInflight must report drained (no admitted handler), and the handler
+	// must never have run.
+	if !cp.waitInflight(500 * time.Millisecond) {
+		t.Fatal("waitInflight did not drain — a handler was admitted after closeInflight")
+	}
+	select {
+	case <-ran:
+		t.Fatal("handler ran after closeInflight; spawnControlRequest admitted it past the close barrier")
+	case <-time.After(100 * time.Millisecond):
+	}
+}
+
 // ── test helpers ─────────────────────────────────────────────────────────────
 
 // lastInitializeWrite returns the most recently written payload that contains

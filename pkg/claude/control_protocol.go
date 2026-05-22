@@ -73,17 +73,26 @@ type controlProtocol struct {
 	// M5; allocated now so the map is never nil.
 	mcpServers map[string]*inProcessMCPServer
 
-	// inflightMu guards inflight.
+	// inflightMu guards inflight, closed, and the handlerWG.Add side.
 	inflightMu sync.Mutex
 	// inflight maps an inbound (CLI→SDK) request_id to its handler's cancel
 	// function so a control_cancel_request can abort it. Populated in M4;
 	// allocated now so the map is never nil.
 	inflight map[string]context.CancelFunc
 
+	// closed is set true by closeInflight when Close begins draining. Once set,
+	// spawnControlRequest admits no new handler — this is the barrier that lets
+	// waitInflight be authoritative: readLoop may still route a pre-buffered
+	// control_request concurrently with Close, but a spawn that loses the race
+	// to the closed flag is dropped instead of leaking past Close.
+	closed bool
+
 	// handlerWG tracks every inbound-request handler goroutine spawned by
 	// spawnControlRequest so Close can WAIT for them to exit (via waitInflight)
 	// after closeInflight cancels their contexts — preventing a ctx-ignoring
-	// user callback from leaking past the session.
+	// user callback from leaking past the session. Add(1) is performed under
+	// inflightMu together with the closed-flag check so it cannot land after
+	// waitInflight has already observed a zero count.
 	handlerWG sync.WaitGroup
 
 	// initializationResult stores the CLI's response to the initialize
@@ -505,16 +514,23 @@ func (cp *controlProtocol) spawnControlRequest(parent context.Context, line []by
 		return
 	}
 
-	// Register the cancel func BEFORE spawning so a control_cancel_request that
-	// arrives while the handler runs always finds it.
+	// Register the cancel func and the handlerWG Add atomically under inflightMu,
+	// gated on the closed flag. If Close has begun draining (closed), drop this
+	// request: spawning now would let a handler outlive Close. Doing the Add
+	// inside the same critical section that sets closed/runs waitInflight means
+	// the count is visible to waitInflight before it can observe zero — closing
+	// the spawn-after-wait race.
 	ctx, cancel := context.WithCancel(parent)
 	cp.inflightMu.Lock()
+	if cp.closed {
+		cp.inflightMu.Unlock()
+		cancel()
+		return
+	}
 	cp.inflight[env.RequestID] = cancel
+	cp.handlerWG.Add(1)
 	cp.inflightMu.Unlock()
 
-	// Register with handlerWG BEFORE spawning so Close.waitInflight observes a
-	// non-zero count for this handler.
-	cp.handlerWG.Add(1)
 	go func() {
 		defer func() {
 			cp.inflightMu.Lock()
@@ -534,6 +550,11 @@ func (cp *controlProtocol) spawnControlRequest(parent context.Context, line []by
 // entry on return, so this is idempotent and safe to call once at close time.
 func (cp *controlProtocol) closeInflight() {
 	cp.inflightMu.Lock()
+	// Set the barrier so no further handler is admitted by spawnControlRequest.
+	// After this, every handler that will ever run has already done its Add(1)
+	// under this same mutex, so a subsequent waitInflight cannot observe a stale
+	// zero count and miss a still-spawning handler.
+	cp.closed = true
 	cancels := make([]context.CancelFunc, 0, len(cp.inflight))
 	for _, cancel := range cp.inflight {
 		cancels = append(cancels, cancel)
