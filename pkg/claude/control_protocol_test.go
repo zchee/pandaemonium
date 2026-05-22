@@ -1051,6 +1051,50 @@ func TestControlProtocol_HandlerPanic_DoesNotCrash(t *testing.T) {
 	}
 }
 
+// TestControlProtocol_WaitInflight_DrainsHandlers is the C6 regression guard:
+// closeInflight cancels handler contexts, but Close must also be able to WAIT
+// for the handler goroutines to actually exit so they do not leak past the
+// session. waitInflight provides that bounded wait; here a ctx-respecting hook
+// exits on cancel and waitInflight returns true (drained) within budget.
+func TestControlProtocol_WaitInflight_DrainsHandlers(t *testing.T) {
+	t.Parallel()
+
+	cp := newControlProtocol(&Options{}, func(context.Context, []byte) error { return nil })
+
+	started := make(chan struct{})
+	cp.hookCallbacks["hook_0"] = func(ctx context.Context, _ HookEvent) (HookDecision, error) {
+		close(started)
+		<-ctx.Done() // respects cancellation
+		return HookDecision{}, nil
+	}
+
+	line := []byte(`{"type":"control_request","request_id":"r1","request":{"subtype":"hook_callback","callback_id":"hook_0","input":{}}}`)
+	if _, err := cp.route(t.Context(), line); err != nil {
+		t.Fatalf("route error = %v", err)
+	}
+	<-started
+
+	// Before cancellation the handler is still running, so waitInflight times out.
+	if cp.waitInflight(100 * time.Millisecond) {
+		t.Fatal("waitInflight returned drained while a handler was still running")
+	}
+
+	// Cancel + wait: the handler unblocks and waitInflight reports drained.
+	cp.closeInflight()
+	if !cp.waitInflight(2 * time.Second) {
+		t.Fatal("waitInflight did not drain after closeInflight (handler leaked past Close)")
+	}
+
+	// With no handlers left, waitInflight reports drained promptly.
+	if !cp.waitInflight(500 * time.Millisecond) {
+		t.Error("waitInflight with no inflight handlers should report drained")
+	}
+	// A negative timeout never waits.
+	if cp.waitInflight(-1) {
+		t.Error("waitInflight(-1) should return false without waiting")
+	}
+}
+
 // ── test helpers ─────────────────────────────────────────────────────────────
 
 // lastInitializeWrite returns the most recently written payload that contains

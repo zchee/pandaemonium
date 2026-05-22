@@ -371,6 +371,11 @@ func (c *ClaudeSDKClient) Close() error {
 	// cancel funcs are independent of the locks above.
 	if cp != nil {
 		cp.closeInflight()
+		// Wait (bounded) for the cancelled handler goroutines to actually exit so
+		// a ctx-respecting handler does not leak past Close. Budget 500ms, matching
+		// the readDone/stderrDone drains below; a ctx-ignoring handler cannot stall
+		// Close beyond this.
+		cp.waitInflight(500 * time.Millisecond)
 		// Fail any outbound control requests still awaiting a response so a
 		// Close that races ahead of readLoop noticing the closed transport does
 		// not leave callers blocked until their timeout. Idempotent with the

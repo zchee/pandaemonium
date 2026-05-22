@@ -80,6 +80,12 @@ type controlProtocol struct {
 	// allocated now so the map is never nil.
 	inflight map[string]context.CancelFunc
 
+	// handlerWG tracks every inbound-request handler goroutine spawned by
+	// spawnControlRequest so Close can WAIT for them to exit (via waitInflight)
+	// after closeInflight cancels their contexts — preventing a ctx-ignoring
+	// user callback from leaking past the session.
+	handlerWG sync.WaitGroup
+
 	// initializationResult stores the CLI's response to the initialize
 	// handshake (the inner response object). Returned by GetServerInfo (M6).
 	initializationResult jsontext.Value
@@ -506,12 +512,16 @@ func (cp *controlProtocol) spawnControlRequest(parent context.Context, line []by
 	cp.inflight[env.RequestID] = cancel
 	cp.inflightMu.Unlock()
 
+	// Register with handlerWG BEFORE spawning so Close.waitInflight observes a
+	// non-zero count for this handler.
+	cp.handlerWG.Add(1)
 	go func() {
 		defer func() {
 			cp.inflightMu.Lock()
 			delete(cp.inflight, env.RequestID)
 			cp.inflightMu.Unlock()
 			cancel()
+			cp.handlerWG.Done()
 		}()
 		cp.handleControlRequest(ctx, env.RequestID, env.Request)
 	}()
@@ -531,6 +541,33 @@ func (cp *controlProtocol) closeInflight() {
 	cp.inflightMu.Unlock()
 	for _, cancel := range cancels {
 		cancel()
+	}
+}
+
+// waitInflight blocks until every inbound-request handler goroutine has exited
+// or timeout elapses, returning true if they all drained in time. It is called
+// from ClaudeSDKClient.Close after closeInflight so a handler that respects its
+// cancelled context does not leak past the session. The wait is bounded so a
+// ctx-ignoring user callback cannot stall Close indefinitely; mirrors the
+// 500ms readDone/stderrDone budgets in Close. When no handlers are running the
+// WaitGroup is already settled, so any non-negative timeout returns true
+// promptly. A negative timeout returns false without waiting.
+func (cp *controlProtocol) waitInflight(timeout time.Duration) bool {
+	if timeout < 0 {
+		return false
+	}
+	done := make(chan struct{})
+	go func() {
+		cp.handlerWG.Wait()
+		close(done)
+	}()
+	timer := time.NewTimer(timeout)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
 	}
 }
 
