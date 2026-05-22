@@ -585,6 +585,62 @@ func argValue(args []string, flag string) string {
 	return args[i+1]
 }
 
+// TestBuildLaunchArgs_Tools covers the base-tool-set --tools flag, distinct
+// from --allowedTools (subprocess_cli.py:241-250). Pins the tri-state: nil omits
+// the flag, non-nil empty emits --tools "", a list joins comma-separated, and a
+// preset takes precedence over Tools.
+func TestBuildLaunchArgs_Tools(t *testing.T) {
+	t.Parallel()
+	const fakeCLI = "/usr/local/bin/claude"
+
+	t.Run("nil omits --tools", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{}, "")
+		if extraArgIndex(got, "--tools") != -1 {
+			t.Errorf("--tools emitted for nil Tools; args = %v", got)
+		}
+	})
+
+	t.Run("non-nil empty emits --tools empty-string", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{Tools: []string{}}, "")
+		i := extraArgIndex(got, "--tools")
+		if i == -1 {
+			t.Fatalf("--tools not emitted for empty Tools; args = %v", got)
+		}
+		if i+1 >= len(got) || got[i+1] != "" {
+			t.Errorf("--tools value = %q, want empty string", argValue(got, "--tools"))
+		}
+	})
+
+	t.Run("list joins comma-separated", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{Tools: []string{"Read", "Bash"}}, "")
+		if v := argValue(got, "--tools"); v != "Read,Bash" {
+			t.Errorf("--tools = %q, want Read,Bash", v)
+		}
+	})
+
+	t.Run("preset takes precedence over Tools", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{Tools: []string{"Read"}, ToolsPreset: "default"}, "")
+		if v := argValue(got, "--tools"); v != "default" {
+			t.Errorf("--tools = %q, want default (preset wins)", v)
+		}
+	})
+
+	t.Run("tools is independent of allowedTools", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{AllowedTools: []string{"Edit"}, Tools: []string{"Read"}}, "")
+		if v := argValue(got, "--allowedTools"); v != "Edit" {
+			t.Errorf("--allowedTools = %q, want Edit", v)
+		}
+		if v := argValue(got, "--tools"); v != "Read" {
+			t.Errorf("--tools = %q, want Read", v)
+		}
+	})
+}
+
 // ── M10b Thinking group ──────────────────────────────────────────────────────
 
 // TestBuildLaunchArgs_Thinking covers the Thinking-config / MaxThinkingTokens /

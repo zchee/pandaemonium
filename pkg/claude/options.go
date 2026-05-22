@@ -62,6 +62,9 @@ func (o *Options) clone() *Options {
 	if o.AllowedTools != nil {
 		c.AllowedTools = append([]string(nil), o.AllowedTools...)
 	}
+	if o.Tools != nil {
+		c.Tools = append([]string(nil), o.Tools...)
+	}
 	if o.MCPServers != nil {
 		c.MCPServers = append([]MCPServer(nil), o.MCPServers...)
 	}
@@ -144,6 +147,18 @@ type Options struct {
 	// An empty slice allows the default tool set.
 	// Corresponds to --allowedTools in the CLI.
 	AllowedTools []string
+
+	// Tools is the base set of tools the CLI loads, DISTINCT from AllowedTools
+	// (which gates permission). It mirrors upstream's separate `tools` option
+	// (subprocess_cli.py:241-247): a nil slice omits the flag entirely; a
+	// non-nil empty slice emits --tools "" (an explicit empty set); a non-empty
+	// slice emits --tools a,b,c. ToolsPreset takes precedence over Tools.
+	Tools []string
+
+	// ToolsPreset selects a named base-tool preset (e.g. "default", upstream's
+	// 'claude_code' preset → "default"). When non-empty it emits --tools
+	// <preset> and Tools is ignored (subprocess_cli.py:248-250).
+	ToolsPreset string
 
 	// MaxTurns limits the number of agentic turns per session.
 	// Zero means the CLI default (no explicit limit passed).

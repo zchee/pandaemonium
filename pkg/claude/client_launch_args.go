@@ -140,6 +140,17 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--allowedTools", strings.Join(effTools, ","))
 	}
 
+	// Base tool set — distinct from --allowedTools (subprocess_cli.py:241-250).
+	// ToolsPreset wins over Tools; a non-nil empty Tools emits --tools "" (an
+	// explicit empty set), while a nil Tools omits the flag. The nil-vs-empty
+	// distinction is by != nil, not len(), to preserve the tri-state.
+	switch {
+	case opts.ToolsPreset != "":
+		args = append(args, "--tools", opts.ToolsPreset)
+	case opts.Tools != nil:
+		args = append(args, "--tools", strings.Join(opts.Tools, ","))
+	}
+
 	// Max turns per session.
 	if opts.MaxTurns > 0 {
 		args = append(args, "--max-turns", strconv.Itoa(opts.MaxTurns))
