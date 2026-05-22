@@ -138,10 +138,21 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--model", opts.Model)
 	}
 
-	// System prompt — always emitted, even when empty, matching upstream
-	// subprocess_cli.py:228 (which sends --system-prompt "" when unset). The
-	// SystemPrompt Preset/File variants are added in a later milestone.
-	args = append(args, "--system-prompt", opts.SystemPrompt)
+	// System prompt — type-switch the SystemPromptSource sum type
+	// (subprocess_cli.py:227-238). nil → --system-prompt "" (the unset case,
+	// :227-228); Text → --system-prompt <text> (:229-230); File →
+	// --system-prompt-file <path> (:233-234); Preset → --append-system-prompt
+	// <append> (:235-237).
+	switch sp := opts.SystemPrompt.(type) {
+	case nil:
+		args = append(args, "--system-prompt", "")
+	case SystemPromptText:
+		args = append(args, "--system-prompt", string(sp))
+	case SystemPromptFile:
+		args = append(args, "--system-prompt-file", sp.Path)
+	case SystemPromptPreset:
+		args = append(args, "--append-system-prompt", sp.Append)
+	}
 
 	// Allowed tools and setting sources are coupled through Skills (see
 	// effectiveToolsAndSources). Compute both once; emit allowedTools here as a

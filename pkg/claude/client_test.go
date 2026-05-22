@@ -131,7 +131,7 @@ func TestNewClient_Validate(t *testing.T) {
 		},
 		"success: populated opts": {
 			opts: &Options{
-				SystemPrompt: "be concise",
+				SystemPrompt: SystemPromptText("be concise"),
 				MaxTurns:     5,
 				MaxBudgetUSD: 1.0,
 				Model:        "claude-opus-4-5",

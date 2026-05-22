@@ -382,7 +382,7 @@ func TestExampleParity_SystemPrompt_LaunchArgs(t *testing.T) {
 	t.Parallel()
 
 	const prompt = "You respond only in haiku."
-	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{SystemPrompt: prompt}, "")
+	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{SystemPrompt: SystemPromptText(prompt)}, "")
 
 	found := false
 	for i, a := range args {

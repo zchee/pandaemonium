@@ -43,7 +43,7 @@ func TestOptions_Validate(t *testing.T) {
 		},
 		"success: all non-numeric fields set": {
 			opts: &Options{
-				SystemPrompt:           "Be concise.",
+				SystemPrompt:           SystemPromptText("Be concise."),
 				AllowedTools:           []string{"Bash", "Write"},
 				CLIPath:                "/usr/local/bin/claude",
 				PermissionMode:         PermissionModeBypassPermissions,

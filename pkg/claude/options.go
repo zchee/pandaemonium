@@ -143,9 +143,12 @@ func (o *Options) clone() *Options {
 // All fields are set once at construction time; modifying Options after passing
 // it to NewClient or Query has no effect.
 type Options struct {
-	// SystemPrompt is the system prompt injected at the start of every session.
-	// Corresponds to --system-prompt in the CLI.
-	SystemPrompt string
+	// SystemPrompt configures the system prompt injected at the start of every
+	// session. It is a sum type: nil emits --system-prompt ""; a
+	// [SystemPromptText] emits --system-prompt <text>; a [SystemPromptFile]
+	// emits --system-prompt-file <path>; a [SystemPromptPreset] emits
+	// --append-system-prompt <append>. See [SystemPromptSource].
+	SystemPrompt SystemPromptSource
 
 	// AllowedTools is the list of tool names the CLI is permitted to invoke.
 	// An empty slice allows the default tool set.

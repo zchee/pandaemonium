@@ -41,7 +41,7 @@ func main() {
 	ctx := context.Background()
 
 	opts := &claude.Options{
-		SystemPrompt: "You are a helpful assistant that responds only in haiku (three lines: 5, 7, 5 syllables).",
+		SystemPrompt: claude.SystemPromptText("You are a helpful assistant that responds only in haiku (three lines: 5, 7, 5 syllables)."),
 		MaxTurns:     1,
 	}
 

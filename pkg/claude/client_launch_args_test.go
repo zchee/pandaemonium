@@ -83,7 +83,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 		},
 		"success: system prompt flag appears when set": {
 			cliPath: fakeCLI,
-			opts:    &Options{SystemPrompt: "Be concise."},
+			opts:    &Options{SystemPrompt: SystemPromptText("Be concise.")},
 			wantIn:  []string{"--system-prompt", "Be concise."},
 		},
 		"success: allowed tools are comma-joined into one flag": {
@@ -140,7 +140,7 @@ func TestBuildLaunchArgs(t *testing.T) {
 		},
 		"success: print flag is never emitted": {
 			cliPath: fakeCLI,
-			opts:    &Options{Model: "claude-opus-4-5", SystemPrompt: "hi"},
+			opts:    &Options{Model: "claude-opus-4-5", SystemPrompt: SystemPromptText("hi")},
 			wantOut: []string{"--print"},
 		},
 		"success: first arg is always the cli path": {
@@ -680,6 +680,54 @@ func TestBuildLaunchArgs_JSONSchema(t *testing.T) {
 		// Independent of --output-format (still the default stream-json).
 		if of := argValue(got, "--output-format"); of != "stream-json" {
 			t.Errorf("--output-format = %q, want stream-json", of)
+		}
+	})
+}
+
+// TestBuildLaunchArgs_SystemPrompt covers the SystemPromptSource sum type
+// (subprocess_cli.py:227-238): nil → --system-prompt ""; Text → --system-prompt
+// <text>; File → --system-prompt-file <path>; Preset → --append-system-prompt
+// <append>.
+func TestBuildLaunchArgs_SystemPrompt(t *testing.T) {
+	t.Parallel()
+	const fakeCLI = "/usr/local/bin/claude"
+
+	t.Run("nil emits --system-prompt empty", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{}, "")
+		i := extraArgIndex(got, "--system-prompt")
+		if i == -1 || i+1 >= len(got) || got[i+1] != "" {
+			t.Errorf("nil SystemPrompt: want --system-prompt \"\"; args = %v", got)
+		}
+	})
+
+	t.Run("Text emits --system-prompt text", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{SystemPrompt: SystemPromptText("be brief")}, "")
+		if v := argValue(got, "--system-prompt"); v != "be brief" {
+			t.Errorf("--system-prompt = %q, want \"be brief\"", v)
+		}
+	})
+
+	t.Run("File emits --system-prompt-file", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{SystemPrompt: SystemPromptFile{Path: "/tmp/sp.txt"}}, "")
+		if v := argValue(got, "--system-prompt-file"); v != "/tmp/sp.txt" {
+			t.Errorf("--system-prompt-file = %q, want /tmp/sp.txt", v)
+		}
+		if extraArgIndex(got, "--system-prompt") != -1 {
+			t.Errorf("--system-prompt should not appear for File variant; args = %v", got)
+		}
+	})
+
+	t.Run("Preset emits --append-system-prompt", func(t *testing.T) {
+		t.Parallel()
+		got := mustLaunchArgs(t, fakeCLI, &Options{SystemPrompt: SystemPromptPreset{Append: "extra rules"}}, "")
+		if v := argValue(got, "--append-system-prompt"); v != "extra rules" {
+			t.Errorf("--append-system-prompt = %q, want \"extra rules\"", v)
+		}
+		if extraArgIndex(got, "--system-prompt") != -1 {
+			t.Errorf("--system-prompt should not appear for Preset variant; args = %v", got)
 		}
 	})
 }
