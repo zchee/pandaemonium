@@ -16,6 +16,7 @@ tool (
 	github.com/toml-lang/toml-test/v2/cmd/toml-test
 	github.com/zchee/goimports-rereviser/v4
 	golang.org/x/perf/cmd/benchstat
+	mvdan.cc/gofumpt
 )
 
 require (
