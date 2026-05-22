@@ -61,9 +61,12 @@ type ClaudeSDKClient struct {
 	opts      *Options
 	sessionID string
 
-	// transport is the live subprocess transport. Accessed only under writeMu
-	// for writes, and snapshot-captured under closeMu for the readLoop goroutine.
-	// See race-safety documentation above.
+	// transport is the live subprocess transport. Its nil→non-nil assignment
+	// happens in start, which runs under closeMu before readLoop exists and
+	// before writeMessage is reachable, so no concurrent access exists at that
+	// point. Thereafter it is read under writeMu (writes) and snapshot-captured
+	// under closeMu (the readLoop goroutine argument); its non-nil→nil clear
+	// happens under writeMu in Close. See race-safety documentation above.
 	transport transport
 
 	// cp is the control-protocol layer bound to this client's transport. It is
@@ -436,6 +439,10 @@ func (c *ClaudeSDKClient) Close() error {
 // subprocess (e.g. FakeCLI). stderrR may be nil; if so, stderrDone is
 // closed immediately.
 func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd, cmdDone chan error, stderrR io.Reader) {
+	// Assigning c.transport and c.cp here (rather than under writeMu) is safe:
+	// start runs with closeMu held, before readLoop is launched and before
+	// writeMessage can be called, so there is no concurrent reader yet. The
+	// writeMu discipline guards only the steady-state reads and the Close clear.
 	c.transport = t
 	c.cmd = cmd
 	c.cmdDone = cmdDone
