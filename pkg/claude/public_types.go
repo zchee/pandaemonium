@@ -110,7 +110,38 @@ type ResultMessage struct {
 	// can inspect the deferred call and decide whether to resume.
 	DeferredToolUse *DeferredToolUse `json:"deferred_tool_use,omitzero"`
 
-	// Raw preserves unknown top-level fields for forward compatibility.
+	// StopReason is the model's stop reason for the final turn, when present
+	// (mp.py:258). Empty when the CLI omits it.
+	StopReason string `json:"stop_reason,omitzero"`
+
+	// Result is the final result payload (mp.py:261), shape-agnostic raw JSON.
+	Result jsontext.Value `json:"result,omitzero"`
+
+	// StructuredOutput is the schema-constrained output when --json-schema was
+	// requested (mp.py:262), as raw JSON.
+	StructuredOutput jsontext.Value `json:"structured_output,omitzero"`
+
+	// ModelUsage is the per-model usage breakdown (wire key "modelUsage",
+	// mp.py:263), as raw JSON.
+	ModelUsage jsontext.Value `json:"modelUsage,omitzero"`
+
+	// PermissionDenials lists tool-permission denials recorded during the run
+	// (mp.py:264), as raw JSON.
+	PermissionDenials jsontext.Value `json:"permission_denials,omitzero"`
+
+	// Errors carries any structured error detail the CLI reports (mp.py:271),
+	// as raw JSON.
+	Errors jsontext.Value `json:"errors,omitzero"`
+
+	// APIErrorStatus is the API error status string when the result represents
+	// an API-level error (mp.py:272).
+	APIErrorStatus string `json:"api_error_status,omitzero"`
+
+	// UUID is the CLI's unique identifier for this message (mp.py:273).
+	UUID string `json:"uuid,omitzero"`
+
+	// Raw preserves unknown top-level fields for forward compatibility. Fields
+	// promoted to typed fields above no longer appear here.
 	Raw jsontext.Value `json:",inline"`
 }
 

@@ -21,6 +21,9 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
 )
 
 // ── parseMessage unit tests ──────────────────────────────────────────────────
@@ -427,6 +430,66 @@ func TestFixture_Result(t *testing.T) {
 	}
 	if rm.SessionID != "sess-003" {
 		t.Errorf("SessionID = %q, want sess-003", rm.SessionID)
+	}
+}
+
+// TestParseMessage_ResultMessage_PromotedFields verifies the typed fields
+// promoted from Raw (stop_reason, result, structured_output, modelUsage,
+// permission_denials, errors, api_error_status, uuid) parse into first-class
+// fields AND no longer appear in Raw (the Raw-exclusion policy).
+func TestParseMessage_ResultMessage_PromotedFields(t *testing.T) {
+	t.Parallel()
+
+	line := `{"type":"result","subtype":"success","duration_ms":10,"duration_api_ms":8,` +
+		`"is_error":false,"num_turns":2,"session_id":"s1","total_cost_usd":0.5,` +
+		`"stop_reason":"end_turn","result":{"answer":42},"structured_output":{"k":"v"},` +
+		`"modelUsage":{"opus":{"in":1}},"permission_denials":[{"tool":"Bash"}],` +
+		`"errors":["boom"],"api_error_status":"overloaded","uuid":"u-1",` +
+		`"some_future_field":"keep-me"}` + "\n"
+	msg, err := parseMessage([]byte(line))
+	if err != nil {
+		t.Fatalf("parseMessage() error = %v", err)
+	}
+	rm, ok := msg.(ResultMessage)
+	if !ok {
+		t.Fatalf("type = %T, want ResultMessage", msg)
+	}
+
+	if rm.StopReason != "end_turn" {
+		t.Errorf("StopReason = %q, want end_turn", rm.StopReason)
+	}
+	if rm.APIErrorStatus != "overloaded" {
+		t.Errorf("APIErrorStatus = %q, want overloaded", rm.APIErrorStatus)
+	}
+	if rm.UUID != "u-1" {
+		t.Errorf("UUID = %q, want u-1", rm.UUID)
+	}
+	for name, got := range map[string]jsontext.Value{
+		"result":             rm.Result,
+		"structured_output":  rm.StructuredOutput,
+		"modelUsage":         rm.ModelUsage,
+		"permission_denials": rm.PermissionDenials,
+		"errors":             rm.Errors,
+	} {
+		if len(got) == 0 {
+			t.Errorf("%s typed field is empty, want populated", name)
+		}
+	}
+
+	// Raw-exclusion: promoted KEYS must NOT remain in Raw; unknown ones must.
+	// Decode Raw into a key set so we match object keys precisely (a substring
+	// check would false-positive, e.g. "result" inside the value "type":"result").
+	var rawKeys map[string]jsontext.Value
+	if err := json.Unmarshal(rm.Raw, &rawKeys); err != nil {
+		t.Fatalf("unmarshal Raw: %v (raw=%s)", err, rm.Raw)
+	}
+	for _, promoted := range []string{"stop_reason", "result", "structured_output", "modelUsage", "permission_denials", "errors", "api_error_status", "uuid", "subtype", "session_id"} {
+		if _, present := rawKeys[promoted]; present {
+			t.Errorf("promoted/typed key %q still present in Raw: %s", promoted, rm.Raw)
+		}
+	}
+	if _, present := rawKeys["some_future_field"]; !present {
+		t.Errorf("unknown field dropped from Raw: %s", rm.Raw)
 	}
 }
 
