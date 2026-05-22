@@ -1131,6 +1131,55 @@ func TestControlProtocol_SpawnAfterClose_NotAdmitted(t *testing.T) {
 	}
 }
 
+// TestControlProtocol_Envelope_DeterministicKeyOrder is the C9 guard: the
+// control-response envelope is a map[string]any, whose Go iteration order is
+// non-deterministic. writeControlResponse must marshal it with
+// json.Deterministic so the bytes on the wire are stable (sorted keys) across
+// repeated writes. (The mcp.go schema/content sites are NOT covered here — they
+// use custom marshalers and are already deterministic; only the envelope
+// re-marshal of plain maps is at risk.)
+func TestControlProtocol_Envelope_DeterministicKeyOrder(t *testing.T) {
+	t.Parallel()
+
+	var last string
+	first := ""
+	writeFn := func(_ context.Context, p []byte) error {
+		last = string(p)
+		return nil
+	}
+	cp := newControlProtocol(&Options{}, writeFn)
+
+	// A response payload with several keys exercises map ordering at two nesting
+	// levels (the outer envelope and the inner response object).
+	payload := map[string]any{
+		"zulu": 1, "alpha": 2, "mike": 3, "bravo": 4, "yankee": 5, "charlie": 6,
+	}
+	for i := range 50 {
+		cp.writeControlSuccess(t.Context(), "req-1", payload)
+		if i == 0 {
+			first = last
+			continue
+		}
+		if last != first {
+			t.Fatalf("iteration %d: envelope bytes differ\n first=%s\n  got=%s", i, first, last)
+		}
+	}
+
+	// Deterministic output for Go maps is sorted key order — verify the inner
+	// payload keys come out alphabetically.
+	prev := -1
+	for _, k := range []string{"alpha", "bravo", "charlie", "mike", "yankee", "zulu"} {
+		idx := strings.Index(first, `"`+k+`"`)
+		if idx < 0 {
+			t.Fatalf("key %q missing: %s", k, first)
+		}
+		if idx <= prev {
+			t.Errorf("key %q out of sorted order (idx=%d, prev=%d): %s", k, idx, prev, first)
+		}
+		prev = idx
+	}
+}
+
 // ── test helpers ─────────────────────────────────────────────────────────────
 
 // lastInitializeWrite returns the most recently written payload that contains

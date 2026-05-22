@@ -253,7 +253,9 @@ func (cp *controlProtocol) sendControlRequest(ctx context.Context, subtype strin
 		"request_id": id,
 		"request":    req,
 	}
-	body, err := json.Marshal(envelope)
+	// Deterministic for stable (sorted) key order on the wire — same rationale as
+	// writeControlResponse (C9): this is a plain map[string]any re-marshal.
+	body, err := json.Marshal(envelope, json.Deterministic(true))
 	if err != nil {
 		return nil, &CLIConnectionError{Message: fmt.Sprintf("marshal control request %q: %v", subtype, err)}
 	}
@@ -987,7 +989,12 @@ func (cp *controlProtocol) writeControlError(ctx context.Context, requestID, msg
 // read loop must not block, and a failed response will surface as a downstream
 // transport error on the next read/write.
 func (cp *controlProtocol) writeControlResponse(ctx context.Context, envelope map[string]any) {
-	body, err := json.Marshal(envelope)
+	// Deterministic so the map[string]any envelope marshals with stable (sorted)
+	// key order; without it, Go's randomized map iteration would vary the bytes
+	// on the wire run to run (C9). Unlike the mcp.go schema/content sites — which
+	// use types with custom MarshalJSON and are already stable — this envelope is
+	// a plain map re-marshal, so it genuinely needs the option.
+	body, err := json.Marshal(envelope, json.Deterministic(true))
 	if err != nil {
 		return
 	}
