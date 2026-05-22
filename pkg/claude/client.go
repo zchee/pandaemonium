@@ -161,8 +161,16 @@ func (c *ClaudeSDKClient) Query(ctx context.Context, prompt string) error {
 //
 //	{"type":"user","session_id":"<id>","message":{"role":"user","content":"<prompt>"},"parent_tool_use_id":null}
 //
-// sessionID is emitted as-is (the empty string when no session is active).
-// parent_tool_use_id always serializes as JSON null at the top of a user turn.
+// sessionID is emitted as-is. parent_tool_use_id always serializes as JSON null
+// at the top of a user turn.
+//
+// Divergence from upstream client.py:212, which hard-codes "session_id": "":
+// here sessionID is c.sessionID, which is empty for a normal client (so the
+// envelope is byte-identical to upstream) and non-empty ONLY for a client
+// produced by Fork — where it is the forked session ID and the subprocess was
+// launched with --resume <forkedID>. Emitting the live ID on the fork path is
+// deliberate (it keeps the envelope consistent with the resumed session) and
+// must not be "corrected" to a literal "" to match upstream.
 func userEnvelope(sessionID, prompt string) ([]byte, error) {
 	type userMessage struct {
 		Role    string `json:"role"`
