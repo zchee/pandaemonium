@@ -30,7 +30,7 @@ func TestLookupCachesMetadataAndRejectsTypedOmitempty(t *testing.T) {
 		Bad  string `toml:"bad,omitempty"`
 	}
 
-	info, err := Lookup(reflect.TypeOf(sample{}))
+	info, err := Lookup(reflect.TypeFor[sample]())
 	if err == nil {
 		t.Fatalf("Lookup() error = nil, want invalid tag option error")
 	}
@@ -52,12 +52,12 @@ func TestLookupCachesFieldMetadata(t *testing.T) {
 		Skip string `toml:"-"`
 	}
 
-	info, err := Lookup(reflect.TypeOf(sample{}))
+	info, err := Lookup(reflect.TypeFor[sample]())
 	if err != nil {
 		t.Fatalf("Lookup() error = %v", err)
 	}
-	if info.Type != reflect.TypeOf(sample{}) {
-		t.Fatalf("Type = %v, want %v", info.Type, reflect.TypeOf(sample{}))
+	if info.Type != reflect.TypeFor[sample]() {
+		t.Fatalf("Type = %v, want %v", info.Type, reflect.TypeFor[sample]())
 	}
 	if got, ok := info.ByName["Name"]; !ok || got.Name != "Name" || got.OmitZero {
 		t.Fatalf("ByName[Name] = %#v, %v", got, ok)
@@ -84,7 +84,7 @@ func TestLookupCachesFieldMetadata(t *testing.T) {
 		t.Fatalf("MarshalFields order = %v, want [Name zero]", got)
 	}
 
-	again, err := Lookup(reflect.TypeOf(sample{}))
+	again, err := Lookup(reflect.TypeFor[sample]())
 	if err != nil {
 		t.Fatalf("Lookup() cached error = %v", err)
 	}
@@ -101,7 +101,7 @@ func TestLookupMarksDuplicateMarshalNames(t *testing.T) {
 		Second string `toml:"name"`
 	}
 
-	info, err := Lookup(reflect.TypeOf(sample{}))
+	info, err := Lookup(reflect.TypeFor[sample]())
 	if err != nil {
 		t.Fatalf("Lookup() error = %v", err)
 	}

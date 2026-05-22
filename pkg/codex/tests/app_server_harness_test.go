@@ -178,7 +178,7 @@ func (s *mockResponsesServer) enqueueSSE(body string, delayBetweenEvents time.Du
 	s.responses = append(s.responses, mockSSEResponse{body: body, delayBetweenEvents: delayBetweenEvents})
 }
 
-func (s *mockResponsesServer) enqueueAssistantMessage(text string, responseID string) {
+func (s *mockResponsesServer) enqueueAssistantMessage(text, responseID string) {
 	if responseID == "" {
 		responseID = "resp-1"
 	}
@@ -441,7 +441,7 @@ func evCompletedWithUsage(responseID string, inputTokens, cachedInputTokens, out
 	}
 }
 
-func evAssistantMessage(itemID string, text string) responseJSON {
+func evAssistantMessage(itemID, text string) responseJSON {
 	return responseJSON{
 		"type": "response.output_item.done",
 		"item": responseJSON{
@@ -453,7 +453,7 @@ func evAssistantMessage(itemID string, text string) responseJSON {
 	}
 }
 
-func evMessageItemAdded(itemID string, text string) responseJSON {
+func evMessageItemAdded(itemID, text string) responseJSON {
 	return responseJSON{
 		"type": "response.output_item.added",
 		"item": responseJSON{
@@ -469,7 +469,7 @@ func evOutputTextDelta(delta string) responseJSON {
 	return responseJSON{"type": "response.output_text.delta", "delta": delta}
 }
 
-func evFunctionCall(callID string, name string, arguments string) responseJSON {
+func evFunctionCall(callID, name, arguments string) responseJSON {
 	return responseJSON{
 		"type": "response.output_item.done",
 		"item": responseJSON{
@@ -481,7 +481,7 @@ func evFunctionCall(callID string, name string, arguments string) responseJSON {
 	}
 }
 
-func evFailed(responseID string, message string) responseJSON {
+func evFailed(responseID, message string) responseJSON {
 	return responseJSON{
 		"type": "response.failed",
 		"response": responseJSON{

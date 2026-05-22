@@ -107,38 +107,31 @@ func TestErrorsAsTraversal(t *testing.T) {
 			// errors.As must find the concrete type for each wrapper.
 			switch tc.name {
 			case "ParseError":
-				var target *ParseError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*ParseError](tc.err); !ok {
 					t.Fatal("errors.As(*ParseError) = false")
 				}
 			case "InvalidRequestError":
-				var target *InvalidRequestError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*InvalidRequestError](tc.err); !ok {
 					t.Fatal("errors.As(*InvalidRequestError) = false")
 				}
 			case "MethodNotFoundError":
-				var target *MethodNotFoundError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*MethodNotFoundError](tc.err); !ok {
 					t.Fatal("errors.As(*MethodNotFoundError) = false")
 				}
 			case "InvalidParamsError":
-				var target *InvalidParamsError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*InvalidParamsError](tc.err); !ok {
 					t.Fatal("errors.As(*InvalidParamsError) = false")
 				}
 			case "InternalRPCError":
-				var target *InternalRPCError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*InternalRPCError](tc.err); !ok {
 					t.Fatal("errors.As(*InternalRPCError) = false")
 				}
 			case "ServerBusyError":
-				var target *ServerBusyError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*ServerBusyError](tc.err); !ok {
 					t.Fatal("errors.As(*ServerBusyError) = false")
 				}
 			case "RetryLimitExceededError":
-				var target *RetryLimitExceededError
-				if !errors.As(tc.err, &target) {
+				if _, ok := errors.AsType[*RetryLimitExceededError](tc.err); !ok {
 					t.Fatal("errors.As(*RetryLimitExceededError) = false")
 				}
 			case "AppServerRPCError":

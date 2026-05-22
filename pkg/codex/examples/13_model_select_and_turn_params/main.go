@@ -19,10 +19,10 @@ import (
 	"log"
 	"os"
 
+	"github.com/go-json-experiment/json/jsontext"
+
 	"github.com/zchee/pandaemonium/pkg/codex"
 	"github.com/zchee/pandaemonium/pkg/codex/examples/internal/exampleutil"
-
-	"github.com/go-json-experiment/json/jsontext"
 )
 
 func main() {
@@ -57,7 +57,8 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	first, err := thread.Run(ctx,
+	first, err := thread.Run(
+		ctx,
 		codex.TextInput{Text: "Give one short sentence about reliable production releases."},
 		&codex.TurnStartParams{Model: &selectedModel.Model, Effort: &selectedEffort},
 	)
@@ -74,7 +75,8 @@ func main() {
 	personality := codex.PersonalityPragmatic
 	summary := codex.ReasoningSummary(codex.ReasoningSummaryValueConcise)
 	sandbox := exampleutil.ReadOnlySandboxPolicy()
-	second, err := thread.Run(ctx,
+	second, err := thread.Run(
+		ctx,
 		codex.TextInput{Text: "Return JSON for a safe feature-flag rollout plan."},
 		&codex.TurnStartParams{
 			Cwd:           &cwd,

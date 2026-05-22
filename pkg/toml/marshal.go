@@ -19,6 +19,7 @@ import (
 	"encoding"
 	"math"
 	"reflect"
+	"slices"
 	"sort"
 	"strconv"
 	"strings"
@@ -774,12 +775,7 @@ func hasNonEmptyTableLikeDescendantAny(v any) bool {
 		}
 		return containsNonEmptyTableLikeValueAny(map[string]any(x))
 	case []any:
-		for _, child := range x {
-			if hasNonEmptyTableLikeDescendantAny(child) {
-				return true
-			}
-		}
-		return false
+		return slices.ContainsFunc(x, hasNonEmptyTableLikeDescendantAny)
 	default:
 		return false
 	}

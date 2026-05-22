@@ -353,8 +353,7 @@ func TestDirectBindTypedTokenLocalTimeUTCOption(t *testing.T) {
 	tok := Token{Kind: TokenKindValueDatetime, Bytes: []byte("2026-05-17T03:04:05")}
 	var rejected sample
 	err := directBindTypedToken(nil, tok, reflect.ValueOf(&rejected).Elem().FieldByName("When"), directValueTime, bindConfig{})
-	var localErr *LocalTimeIntoTimeError
-	if !errors.As(err, &localErr) {
+	if _, ok := errors.AsType[*LocalTimeIntoTimeError](err); !ok {
 		t.Fatalf("directBindTypedToken(local datetime) error = %T(%v), want LocalTimeIntoTimeError", err, err)
 	}
 

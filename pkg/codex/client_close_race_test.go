@@ -170,8 +170,7 @@ func TestCloseDuringConcurrentRead(t *testing.T) {
 				t.Error("NextNotification() returned nil, want error after Close")
 				continue
 			}
-			var tcErr *TransportClosedError
-			if !errors.As(err, &tcErr) {
+			if _, ok := errors.AsType[*TransportClosedError](err); !ok {
 				t.Errorf("NextNotification() error = %v (%T), want *TransportClosedError", err, err)
 			}
 		case <-deadline.C:

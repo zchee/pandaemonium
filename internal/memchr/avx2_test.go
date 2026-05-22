@@ -18,9 +18,8 @@ package memchr
 
 import (
 	"fmt"
-	"testing"
-
 	simd "simd/archsimd"
+	"testing"
 )
 
 // TestAVX2TinyHaystacks exercises haystacks 0..95 bytes (covers tail-only,

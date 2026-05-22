@@ -144,7 +144,7 @@ func cmpJSONValues(t *testing.T, key string, want, have map[string]any) {
 	}
 }
 
-func cmpAsStrings(t *testing.T, key string, want, have string) {
+func cmpAsStrings(t *testing.T, key, want, have string) {
 	t.Helper()
 	if want != have {
 		t.Fatalf("Values for key '%s' don't match:\n"+
@@ -154,7 +154,7 @@ func cmpAsStrings(t *testing.T, key string, want, have string) {
 	}
 }
 
-func cmpFloats(t *testing.T, key string, want, have string) {
+func cmpFloats(t *testing.T, key, want, have string) {
 	t.Helper()
 	// Special case for NaN, since NaN != NaN.
 	if strings.HasSuffix(want, "nan") || strings.HasSuffix(have, "nan") {
@@ -198,7 +198,7 @@ var layouts = map[string]string{
 	"time-local":     "15:04:05",
 }
 
-func cmpAsDatetimes(t *testing.T, key string, kind, want, have string) {
+func cmpAsDatetimes(t *testing.T, key, kind, want, have string) {
 	t.Helper()
 	layout, ok := layouts[kind]
 	if !ok {
@@ -243,7 +243,7 @@ func isValue(m map[string]any) bool {
 	return true
 }
 
-func mismatch(t *testing.T, key string, wantType string, want, have any) {
+func mismatch(t *testing.T, key, wantType string, want, have any) {
 	t.Helper()
 	t.Fatalf("Key '%s' is not an %s but %[4]T:\n"+
 		"  Expected:     %#[3]v\n"+
@@ -251,7 +251,7 @@ func mismatch(t *testing.T, key string, wantType string, want, have any) {
 		key, wantType, want, have)
 }
 
-func valMismatch(t *testing.T, key string, wantType, haveType string, want, have any) {
+func valMismatch(t *testing.T, key, wantType, haveType string, want, have any) {
 	t.Helper()
 	t.Fatalf("Key '%s' is not an %s but %s:\n"+
 		"  Expected:     %#[3]v\n"+

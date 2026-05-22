@@ -16,7 +16,7 @@ package scan
 
 import (
 	"bytes"
-	"math/rand/v2"
+	rand "math/rand/v2"
 	"testing"
 	"unicode/utf8"
 )

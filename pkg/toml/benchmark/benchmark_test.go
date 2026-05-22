@@ -25,6 +25,7 @@ import (
 
 	burntsushi "github.com/BurntSushi/toml"
 	pelletier "github.com/pelletier/go-toml/v2"
+
 	simdtoml "github.com/zchee/pandaemonium/pkg/toml"
 )
 

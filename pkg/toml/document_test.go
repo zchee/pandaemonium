@@ -30,7 +30,6 @@ func TestParseDocumentBytesRoundTrip(t *testing.T) {
 		"pkg/toml/testdata/tokens/basic.toml",
 		"pkg/toml/testdata/tokens/comments.toml",
 	} {
-		rel := rel
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
 
@@ -225,7 +224,6 @@ func TestDocumentParseEqualsDecoderTokenStream(t *testing.T) {
 		"pkg/toml/testdata/tokens/basic.toml",
 		"pkg/toml/testdata/tokens/comments.toml",
 	} {
-		rel := rel
 		t.Run(rel, func(t *testing.T) {
 			t.Parallel()
 

@@ -18,10 +18,9 @@ package memchr
 
 import (
 	"fmt"
+	simd "simd/archsimd"
 	"slices"
 	"testing"
-
-	simd "simd/archsimd"
 )
 
 func TestAVX512BoundaryHaystacks(t *testing.T) {

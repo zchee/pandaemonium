@@ -18,9 +18,8 @@ package memchr
 
 import (
 	"math/bits"
-	"unsafe"
-
 	simd "simd/archsimd"
+	"unsafe"
 )
 
 // loadChunkAVX512 reads 64 bytes starting at haystack[i] into an Int8x64

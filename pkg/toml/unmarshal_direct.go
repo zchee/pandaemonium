@@ -19,6 +19,7 @@ import (
 	"errors"
 	"io"
 	"reflect"
+	"slices"
 	"strconv"
 	"strings"
 	"sync"
@@ -539,7 +540,7 @@ func directTableRaw(root reflect.Value, path directRawPath) (reflect.Value, erro
 
 func directTableRawN(root reflect.Value, path directRawPath, n int) (reflect.Value, error) {
 	cur := root
-	for i := 0; i < n; i++ {
+	for i := range n {
 		cur = directWritableValue(cur)
 		if cur.IsValid() && cur.Kind() == reflect.Slice {
 			if cur.Len() == 0 {
@@ -1034,8 +1035,8 @@ func directWritableValue(v reflect.Value) reflect.Value {
 }
 
 func bindDirectErrorPath(err error, path []string) error {
-	for i := len(path) - 1; i >= 0; i-- {
-		err = bindErrorPath(err, path[i])
+	for _, p := range slices.Backward(path) {
+		err = bindErrorPath(err, p)
 	}
 	return err
 }

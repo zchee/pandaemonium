@@ -27,6 +27,7 @@ import (
 	"testing"
 
 	"github.com/go-json-experiment/json"
+
 	"github.com/zchee/pandaemonium/pkg/codex"
 	"github.com/zchee/pandaemonium/pkg/codex/examples/internal/exampleutil"
 )

@@ -18,9 +18,8 @@ package memchr
 
 import (
 	"fmt"
-	"testing"
-
 	simd "simd/archsimd"
+	"testing"
 )
 
 // TestAVX512TinyHaystacks exercises the direct AVX-512 assembly entries across

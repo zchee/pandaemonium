@@ -74,8 +74,7 @@ func Lookup(t reflect.Type) (*TypeInfo, error) {
 func build(t reflect.Type) (*TypeInfo, error) {
 	info := &TypeInfo{Type: t, ByName: make(map[string]Field)}
 	seenNames := make(map[string]struct{})
-	for i := range t.NumField() {
-		sf := t.Field(i)
+	for sf := range t.Fields() {
 		if sf.PkgPath != "" && !sf.Anonymous {
 			continue
 		}

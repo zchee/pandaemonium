@@ -18,9 +18,8 @@ package memchr
 
 import (
 	"math/bits"
-	"unsafe"
-
 	simd "simd/archsimd"
+	"unsafe"
 )
 
 // avx2Memchr returns the offset of the first byte equal to needle in

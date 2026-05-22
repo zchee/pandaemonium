@@ -17,9 +17,8 @@
 package memchr
 
 import (
-	"testing"
-
 	simd "simd/archsimd"
+	"testing"
 )
 
 // expectedBackend on amd64-with-SIMD: AVX2 if the CPU advertises it

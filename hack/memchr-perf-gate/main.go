@@ -43,6 +43,7 @@ import (
 	"path/filepath"
 	"regexp"
 	"runtime"
+	"slices"
 	"strconv"
 	"strings"
 )
@@ -473,10 +474,8 @@ func classifyRow(name string, size int, policy gatePolicy) rowClass {
 		}
 		return rowAdvisory
 	default:
-		for _, gated := range gatedSizes {
-			if size == gated {
-				return rowHard
-			}
+		if slices.Contains(gatedSizes, size) {
+			return rowHard
 		}
 		return rowAdvisory
 	}

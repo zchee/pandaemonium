@@ -15,7 +15,7 @@
 package memchr
 
 import (
-	"math/rand/v2"
+	rand "math/rand/v2"
 	"testing"
 )
 

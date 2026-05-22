@@ -475,8 +475,7 @@ func TestClientCloseIsIdempotentAndUnblocksPendingRequest(t *testing.T) {
 
 	select {
 	case err := <-result:
-		var closed *TransportClosedError
-		if !errors.As(err, &closed) {
+		if _, ok := errors.AsType[*TransportClosedError](err); !ok {
 			t.Fatalf("RequestRaw() error = %T %v, want TransportClosedError", err, err)
 		}
 	case <-time.After(2 * time.Second):
@@ -510,8 +509,7 @@ func TestClientCloseReleasesActiveTurnConsumer(t *testing.T) {
 	}
 	select {
 	case result := <-streamResult:
-		var closed *TransportClosedError
-		if !errors.As(result.err, &closed) {
+		if _, ok := errors.AsType[*TransportClosedError](result.err); !ok {
 			t.Fatalf("stream error = %T %v, want TransportClosedError", result.err, result.err)
 		}
 		if len(result.notifications) != 0 {

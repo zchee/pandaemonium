@@ -98,8 +98,7 @@ func canRecycleDocumentFor(t reflect.Type) bool {
 	case reflect.Interface, reflect.Map:
 		return false
 	case reflect.Struct:
-		for i := range t.NumField() {
-			sf := t.Field(i)
+		for sf := range t.Fields() {
 			if sf.PkgPath != "" && !sf.Anonymous {
 				continue
 			}
@@ -454,8 +453,7 @@ func bindErrorPath(err error, prefix string) error {
 	if err == nil || prefix == "" {
 		return err
 	}
-	var tm *TypeMismatchError
-	if errors.As(err, &tm) {
+	if tm, ok := errors.AsType[*TypeMismatchError](err); ok {
 		tm.Path = joinPathComponent(prefix, tm.Path)
 	}
 	return err
@@ -484,8 +482,7 @@ func indexPath(i int) string {
 }
 
 func normalizeReflectcacheError(err error) error {
-	var tag *reflectcache.InvalidTagOptionError
-	if errors.As(err, &tag) {
+	if tag, ok := errors.AsType[*reflectcache.InvalidTagOptionError](err); ok {
 		return &TagOptionError{Struct: tag.Struct.String(), Field: tag.Field, Option: tag.Option}
 	}
 	return err

@@ -225,8 +225,7 @@ func TestRunReturnsTurnFailedError(t *testing.T) {
 	}
 
 	// The Unwrap chain must surface *ServerBusyError for "serverOverloaded".
-	var busy *ServerBusyError
-	if !errors.As(err, &busy) {
+	if _, ok := errors.AsType[*ServerBusyError](err); !ok {
 		t.Fatalf("errors.As(*ServerBusyError) = false; Unwrap chain broken for serverOverloaded CodexErrorInfo")
 	}
 }
