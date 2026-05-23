@@ -502,10 +502,10 @@ type gateResult struct {
 
 // parseGate consumes the CSV produced by `benchstat -format=csv` of a
 // baseline/candidate pair and decides whether the SIMD throughput
-// satisfies the configured threshold. It always uses the B/s table
-// (the second of the two stanzas benchstat emits when -benchmem is on
-// and SetBytes is set), because that table has the units the gate is
-// expressed in (throughput, not latency).
+// satisfies the configured threshold. It always uses the throughput
+// table (reported as B/s, MiB/s, GiB/s, ... depending on benchstat's
+// scaling), because that table has the units the gate is expressed in
+// (throughput, not latency or allocation metrics).
 //
 // Decision rule:
 //
@@ -533,7 +533,11 @@ func parseGate(csvText, scanName string, ratioThreshold, alpha float64) (gateRes
 	//   ,B/s,CI,B/s,CI,vs base,P
 	//   <BenchName>-N,<base_Bps>,<base_CI>,<simd_Bps>,<simd_CI>,<delta>,<p_n>
 	//   geomean,...
-	// The B/s table is the second one. We scan for it by header row.
+	//
+	// Newer benchstat versions may scale the throughput header (for
+	// example "GiB/s") and may express CI widths as percentages. We scan
+	// for the byte-throughput table by header row and normalize the CI
+	// cells in scoreRow.
 	rows, err := readBenchstatCSV(csvText)
 	if err != nil {
 		return gateResult{}, err
@@ -583,34 +587,36 @@ func readBenchstatCSV(text string) ([][]string, error) {
 }
 
 // findBpsRow returns the data row for the named benchmark inside the
-// B/s table. It identifies the B/s table by looking for a header row
-// whose second column equals "B/s", then takes the next row whose
-// first column starts with benchPrefix.
+// throughput table. It identifies that table by looking for a metric
+// header whose second column is a byte-throughput unit ("B/s",
+// "MiB/s", "GiB/s", ...), then takes the next row whose first column
+// starts with benchPrefix.
 func findBpsRow(rows [][]string, benchPrefix string) ([]string, error) {
 	inBps := false
 	for _, r := range rows {
 		if len(r) < 2 {
 			continue
 		}
-		if r[1] == "B/s" {
-			inBps = true
+		if isBenchstatMetricHeader(r) {
+			inBps = isThroughputUnit(r[1])
 			continue
 		}
 		if !inBps {
-			continue
-		}
-		// A new file-header row resets the table context, but B/s is
-		// the LAST table benchstat emits for our shape, so we never
-		// expect to leave it. Defensively reset on a sec/op header.
-		if r[1] == "sec/op" {
-			inBps = false
 			continue
 		}
 		if strings.HasPrefix(r[0], benchPrefix) && r[0] != "geomean" {
 			return r, nil
 		}
 	}
-	return nil, fmt.Errorf("could not find B/s row for %q", benchPrefix)
+	return nil, fmt.Errorf("could not find throughput row for %q", benchPrefix)
+}
+
+func isBenchstatMetricHeader(r []string) bool {
+	return len(r) >= 3 && strings.TrimSpace(r[0]) == "" && strings.TrimSpace(r[2]) == "CI"
+}
+
+func isThroughputUnit(unit string) bool {
+	return strings.HasSuffix(strings.TrimSpace(unit), "B/s")
 }
 
 // scoreRow turns one CSV row into a gateResult.
@@ -618,10 +624,10 @@ func findBpsRow(rows [][]string, benchPrefix string) ([]string, error) {
 // Row shape (per the comment in parseGate):
 //
 //	0: bench name (e.g. "LocateNewline-16")
-//	1: base B/s (median, in B/s — e.g., "5.52e+10")
-//	2: base CI  (absolute width in B/s — e.g., "∞" or "1.2e+08")
-//	3: simd B/s (median)
-//	4: simd CI  (absolute width)
+//	1: base throughput (median, e.g., "5.52e+10" or "69.1")
+//	2: base CI  (absolute width or percent, e.g., "∞", "1.2e+08", "0.5%")
+//	3: simd throughput (median, same unit as base)
+//	4: simd CI  (absolute width or percent)
 //	5: vs base  (e.g., "-27.95%", "~", or empty)
 //	6: P        (e.g., "p=0.001 n=10" or empty)
 //
@@ -644,17 +650,20 @@ func scoreRow(r []string, ratioThreshold, alpha float64) (gateResult, error) {
 	}
 	baseBps, err := strconv.ParseFloat(strings.TrimSpace(r[1]), 64)
 	if err != nil {
-		return gateResult{}, fmt.Errorf("parse base B/s %q: %w", r[1], err)
+		return gateResult{}, fmt.Errorf("parse base throughput %q: %w", r[1], err)
 	}
 	simdBps, err := strconv.ParseFloat(strings.TrimSpace(r[3]), 64)
 	if err != nil {
-		return gateResult{}, fmt.Errorf("parse simd B/s %q: %w", r[3], err)
+		return gateResult{}, fmt.Errorf("parse simd throughput %q: %w", r[3], err)
 	}
 	if baseBps <= 0 {
-		return gateResult{}, fmt.Errorf("base B/s is non-positive: %g", baseBps)
+		return gateResult{}, fmt.Errorf("base throughput is non-positive: %g", baseBps)
 	}
-	baseCI, baseCIInf := parseCI(r[2])
-	simdCI, simdCIInf := parseCI(r[4])
+	if simdBps <= 0 {
+		return gateResult{}, fmt.Errorf("simd throughput is non-positive: %g", simdBps)
+	}
+	baseCI, baseCIInf := parseCI(r[2], baseBps)
+	simdCI, simdCIInf := parseCI(r[4], simdBps)
 	pStr := strings.TrimSpace(r[6])
 	pValue := parseP(pStr)
 
@@ -712,13 +721,22 @@ func scoreRow(r []string, ratioThreshold, alpha float64) (gateResult, error) {
 }
 
 // parseCI parses the CI column. benchstat writes "∞" when there are
-// not enough samples to compute a CI at the requested level. Numeric
-// values are absolute widths in the same units as the metric column
-// to their left.
-func parseCI(s string) (width float64, infinite bool) {
+// not enough samples to compute a CI at the requested level. Modern
+// benchstat CSV writes percentage widths (for example "0.5%"), while
+// older CSV snapshots used absolute widths in the same units as the
+// metric column to their left. The metric argument is the row's median
+// value and is used only for percentage CIs.
+func parseCI(s string, metric float64) (width float64, infinite bool) {
 	s = strings.TrimSpace(s)
 	if s == "" || s == "∞" || s == "inf" || s == "Inf" {
 		return 0, true
+	}
+	if pctText, ok := strings.CutSuffix(s, "%"); ok {
+		pct, err := strconv.ParseFloat(strings.TrimSpace(pctText), 64)
+		if err != nil || pct < 0 || math.IsNaN(pct) || math.IsInf(pct, 0) || math.IsNaN(metric) || math.IsInf(metric, 0) {
+			return 0, true
+		}
+		return math.Abs(metric) * pct / 100, false
 	}
 	w, err := strconv.ParseFloat(s, 64)
 	if err != nil {
@@ -729,7 +747,7 @@ func parseCI(s string) (width float64, infinite bool) {
 	// strconv.ParseFloat accepts "NaN" / "Inf" without error; both
 	// indicate benchstat couldn't compute a usable CI for this row.
 	// Force them onto the infinite-fallback path.
-	if math.IsNaN(w) || math.IsInf(w, 0) {
+	if w < 0 || math.IsNaN(w) || math.IsInf(w, 0) {
 		return 0, true
 	}
 	return w, false

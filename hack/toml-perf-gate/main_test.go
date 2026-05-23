@@ -117,6 +117,22 @@ ScanLiteralString-16,5.000e+10,1.0e+07,5.000e+10,1.0e+07,~,p=0.853 n=10
 geomean,5.000e+10,,5.000e+10,,~,
 `
 
+// stubCIObservedScanLiteralStringPercentCSV matches the CI failure
+// from run 26337671779 / job 77534045204: benchstat emits a scaled
+// throughput unit and percent CI cells. The lower bound is above the
+// 0.98 threshold, so the row must not be routed to the infinite-CI
+// p-value fallback just because the p-value is insignificant.
+const stubCIObservedScanLiteralStringPercentCSV = `,base.txt,,simd.txt,,,
+,sec/op,CI,sec/op,CI,vs base,P
+ScanLiteralString-1,1.000e-09,0%,1.000e-09,0%,~,p=0.529 n=10
+geomean,1.000e-09,,1.000e-09,,~,
+
+,base.txt,,simd.txt,,,
+,GiB/s,CI,GiB/s,CI,vs base,P
+ScanLiteralString-1,69.10,0%,69.23,0%,~,p=0.529 n=10
+geomean,69.10,,69.23,,+0.19%,
+`
+
 // stubInfCISigCSV is a benchstat CSV with ∞ CIs (insufficient
 // samples) but a statistically-significant change in the SIMD-faster
 // direction. The gate's insufficient-samples fallback (use the point
@@ -266,6 +282,19 @@ func TestParseGate(t *testing.T) {
 			wantPValue:   0.853,
 		},
 		{
+			name:         "success:ci_observed_scan_literal_string_percent_ci_non_regression",
+			csv:          stubCIObservedScanLiteralStringPercentCSV,
+			scan:         "ScanLiteralString",
+			threshold:    0.98,
+			alpha:        0.05,
+			wantPass:     true,
+			wantPointMin: 1.001,
+			wantPointMax: 1.003,
+			wantLowerMin: 1.001,
+			wantLowerMax: 1.003,
+			wantPValue:   0.529,
+		},
+		{
 			name:         "success:inf_ci_with_signal",
 			csv:          stubInfCISigCSV,
 			scan:         "LocateNewline",
@@ -381,24 +410,30 @@ func TestWriteBenchmarkOutputWritesRawText(t *testing.T) {
 func TestParseCI(t *testing.T) {
 	t.Parallel()
 	tests := map[string]struct {
+		metric   float64
 		in       string
 		wantW    float64
 		wantInf  bool
 		wantSkip bool // when true, the test asserts wantInf only
 	}{
-		"success:empty":       {"", 0, true, false},
-		"success:inf_unicode": {"∞", 0, true, false},
-		"success:inf_text":    {"inf", 0, true, false},
-		"success:inf_cap":     {"Inf", 0, true, false},
-		"success:numeric":     {"1.5e+09", 1.5e+09, false, false},
-		"success:whitespace":  {"  2.4e-08  ", 2.4e-08, false, false},
-		"success:nan_falls":   {"NaN", 0, true, true},
-		"success:malformed":   {"hello", 0, true, false},
+		"success:empty":              {100, "", 0, true, false},
+		"success:inf_unicode":        {100, "∞", 0, true, false},
+		"success:inf_text":           {100, "inf", 0, true, false},
+		"success:inf_cap":            {100, "Inf", 0, true, false},
+		"success:numeric":            {100, "1.5e+09", 1.5e+09, false, false},
+		"success:whitespace":         {100, "  2.4e-08  ", 2.4e-08, false, false},
+		"success:percent_zero":       {69.10, "0%", 0, false, false},
+		"success:percent_fraction":   {100, "0.5%", 0.5, false, false},
+		"success:percent_whitespace": {200, " 1.25% ", 2.5, false, false},
+		"success:nan_falls":          {100, "NaN", 0, true, true},
+		"success:malformed":          {100, "hello", 0, true, false},
+		"success:malformed_percent":  {100, "hello%", 0, true, false},
+		"success:negative_percent":   {100, "-1%", 0, true, false},
 	}
 	for name, tc := range tests {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
-			w, inf := parseCI(tc.in)
+			w, inf := parseCI(tc.in, tc.metric)
 			if inf != tc.wantInf {
 				t.Errorf("infinite = %v, want %v", inf, tc.wantInf)
 			}
@@ -436,27 +471,44 @@ func TestParseP(t *testing.T) {
 
 func TestFindBpsRow(t *testing.T) {
 	t.Parallel()
-	rows := [][]string{
-		{"", "base.txt", "", "simd.txt", "", "", ""},
-		{"", "sec/op", "CI", "sec/op", "CI", "vs base", "P"},
-		{"LocateNewline-16", "1.20e-06", "2.4e-08", "6.00e-07", "1.5e-08", "-50.00%", "p=0.001 n=10"},
-		{"geomean", "1.20e-06", "", "6.00e-07", "", "-50.00%", ""},
-		{},
-		{"", "base.txt", "", "simd.txt", "", "", ""},
-		{"", "B/s", "CI", "B/s", "CI", "vs base", "P"},
-		{"LocateNewline-16", "5.46e+10", "1.0e+09", "1.09e+11", "2.5e+09", "+99.81%", "p=0.001 n=10"},
-		{"geomean", "5.46e+10", "", "1.09e+11", "", "+99.81%", ""},
+	tests := map[string]struct {
+		unit     string
+		base     string
+		wantBase string
+	}{
+		"success:raw_bytes_per_second": {"B/s", "5.46e+10", "5.46e+10"},
+		"success:gibibytes_per_second": {"GiB/s", "50.8", "50.8"},
 	}
-	// benchstat -format=csv strips the "Benchmark" prefix from the
-	// row name (it presents just the suffix: "LocateNewline-16"). The
-	// gate's parseGate looks up by scan name only, not the
-	// "Benchmark"-prefixed form.
-	row, err := findBpsRow(rows, "LocateNewline")
-	if err != nil {
-		t.Fatalf("findBpsRow: %v", err)
-	}
-	if got, want := row[1], "5.46e+10"; got != want {
-		t.Errorf("returned row[1] = %q, want %q (wrong table — got sec/op row?)", got, want)
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			rows := [][]string{
+				{"", "base.txt", "", "simd.txt", "", "", ""},
+				{"", "sec/op", "CI", "sec/op", "CI", "vs base", "P"},
+				{"LocateNewline-16", "1.20e-06", "2.4e-08", "6.00e-07", "1.5e-08", "-50.00%", "p=0.001 n=10"},
+				{"geomean", "1.20e-06", "", "6.00e-07", "", "-50.00%", ""},
+				{},
+				{"", "base.txt", "", "simd.txt", "", "", ""},
+				{"", tc.unit, "CI", tc.unit, "CI", "vs base", "P"},
+				{"LocateNewline-16", tc.base, "1.0e+09", "1.09e+11", "2.5e+09", "+99.81%", "p=0.001 n=10"},
+				{"geomean", tc.base, "", "1.09e+11", "", "+99.81%", ""},
+				{},
+				{"", "base.txt", "", "simd.txt", "", "", ""},
+				{"", "B/op", "CI", "B/op", "CI", "vs base", "P"},
+				{"LocateNewline-16", "0", "0%", "0", "0%", "~", "p=1.000 n=10"},
+			}
+			// benchstat -format=csv strips the "Benchmark" prefix from the
+			// row name (it presents just the suffix: "LocateNewline-16"). The
+			// gate's parseGate looks up by scan name only, not the
+			// "Benchmark"-prefixed form.
+			row, err := findBpsRow(rows, "LocateNewline")
+			if err != nil {
+				t.Fatalf("findBpsRow: %v", err)
+			}
+			if got := row[1]; got != tc.wantBase {
+				t.Errorf("returned row[1] = %q, want %q (wrong table — got non-throughput row?)", got, tc.wantBase)
+			}
+		})
 	}
 }
 
