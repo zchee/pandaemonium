@@ -47,16 +47,16 @@ jobs:
 
       - name: Build toml-test adapters
         run: |
-          go version
+          gotip version
           mkdir -p bin
-          go build -o ./bin/toml-test-decoder ./pkg/toml/internal/cmd/toml-test-decoder
-          go build -o ./bin/toml-test-encoder ./pkg/toml/internal/cmd/toml-test-encoder
+          gotip build -o ./bin/toml-test-decoder ./pkg/toml/internal/cmd/toml-test-decoder
+          gotip build -o ./bin/toml-test-encoder ./pkg/toml/internal/cmd/toml-test-encoder
 
       - name: Run TOML 1.1 implementation testsuite
         env:
           NO_COLOR: "1"
         run: |
-          go tool toml-test test \
+          gotip tool toml-test test \
             -v \
             -toml 1.1 \
             -decoder=./bin/toml-test-decoder \

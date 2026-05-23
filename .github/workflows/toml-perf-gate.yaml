@@ -92,12 +92,12 @@ jobs:
           EVENT: ${{ github.event_name }}
           LABELS: ${{ toJson(github.event.pull_request.labels.*.name) }}
         run: |
-          if [ "$EVENT" = "push" ] || [ "$EVENT" = "workflow_dispatch" ]; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
-          elif echo "$LABELS" | grep -q '"perf-gate"'; then
-            echo "should_run=true" >> "$GITHUB_OUTPUT"
+          if [ "${EVENT}" = "push" ] || [ "${EVENT}" = "workflow_dispatch" ]; then
+            echo "should_run=true" >> "${GITHUB_OUTPUT}"
+          elif echo "${LABELS}" | grep -q '"perf-gate"'; then
+            echo "should_run=true" >> "${GITHUB_OUTPUT}"
           else
-            echo "should_run=false" >> "$GITHUB_OUTPUT"
+            echo "should_run=false" >> "${GITHUB_OUTPUT}"
             echo "PR not labeled 'perf-gate'; skipping perf run."
           fi
 

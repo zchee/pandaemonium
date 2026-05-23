@@ -55,9 +55,9 @@ runs:
       run: |
         tools_hash="$(printf '%s' "$INSTALL_TOOLS" | sha256sum | awk '{print $1}')"
         {
-          echo "gotip=$HOME/sdk/gotip"
-          echo "tools=$HOME/go/bin"
-          echo "tools-hash=$tools_hash"
+          echo "gotip=${HOME}/sdk/gotip"
+          echo "tools=${HOME}/go/bin"
+          echo "tools-hash=${tools_hash}"
         } >> "$GITHUB_OUTPUT"
 
     - name: Cache gotip download
@@ -85,26 +85,29 @@ runs:
         GOTIP_VERSION: ${{ inputs.gotip-version }}
       run: |
         go install golang.org/dl/gotip@latest
-        gotip download "$GOTIP_VERSION"
+        gotip download "${GOTIP_VERSION}"
         gotip version
 
     - name: Add gotip GOROOT bin to PATH
       if: ${{ inputs.add-gotip-bin-to-path == 'true' }}
       shell: bash
+      env:
+        GOEXPERIMENT: 'loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup'
       run: |
         gotip_goroot="$(gotip env GOROOT)"
-        echo "$gotip_goroot/bin" >> "$GITHUB_PATH"
+        echo "${gotip_goroot}/bin" >> "${GITHUB_PATH}"
 
     - name: Install gotip tools
       if: ${{ inputs.install-tools != '' }}
       shell: bash
       env:
+        GOEXPERIMENT: 'loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup'
         INSTALL_TOOLS: ${{ inputs.install-tools }}
       run: |
-        while IFS= read -r tool || [ -n "$tool" ]; do
-          tool="$(printf '%s' "$tool" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
-          if [ -z "$tool" ] || [[ "$tool" == \#* ]]; then
+        while IFS= read -r tool || [ -n "${tool}" ]; do
+          tool="$(printf '%s' "${tool}" | sed 's/^[[:space:]]*//; s/[[:space:]]*$//')"
+          if [ -z "${tool}" ] || [[ "${tool}" == \#* ]]; then
             continue
           fi
-          gotip install "$tool"
-        done <<< "$INSTALL_TOOLS"
+          gotip install "${tool}"
+        done <<< "${INSTALL_TOOLS}"

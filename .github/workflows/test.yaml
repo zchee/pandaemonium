@@ -11,6 +11,12 @@ concurrency:
   group: ${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: ${{ github.event_name != 'push' }}
 
+# GOEXPERIMENT cocktail mandated by .envrc and plan line 904.
+# When the snapshot stdlib bug is fixed upstream, the amd64-with-simd
+# job can flip continue-on-error to false.
+env:
+  GOEXPERIMENT_SIMD: "loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup"
+
 jobs:
   test:
     runs-on: ubuntu-24.04
@@ -28,8 +34,10 @@ jobs:
         uses: ./.github/actions/setup-gotip
 
       - name: Run Unit tests
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
         run: |
-          gotip test -race -count=1 -shuffle=on -cover -covermode=atomic -coverpkg=./... -coverprofile=coverage.out -tags='osusergo,netgo,static' -ldflags='-s -w' ./...
+          gotip test -race -count=1 -shuffle=on -cover -covermode=atomic -coverpkg=./... -coverprofile=coverage.out -tags='osusergo,netgo,static' -ldflags='-s -w -buildid=' ./...
 
       # https://github.com/codecov/codecov-action
       - name: Upload Coverage report to CodeCov
@@ -54,5 +62,7 @@ jobs:
         uses: ./.github/actions/setup-gotip
 
       - name: Run go vet
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
         run: |
           gotip vet ./...
