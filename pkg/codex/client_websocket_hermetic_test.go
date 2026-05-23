@@ -29,7 +29,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 )
@@ -140,6 +139,8 @@ func TestCodexTransportHelperProcess(t *testing.T) {
 	switch os.Getenv("CODEX_PORT_HELPER_SCENARIO") {
 	case "websocket_roundtrip":
 		runTransportHelperWebSocket()
+	case "unix_websocket_roundtrip":
+		runTransportHelperUnixWebSocket()
 	case "exit_without_websocket":
 		fmt.Fprintln(os.Stderr, "helper exited before websocket readiness")
 		os.Exit(7)
@@ -194,48 +195,7 @@ func runTransportHelperWebSocket() {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
 	}
-	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if expectedBearer != "" && r.Header.Get("Authorization") != "Bearer "+expectedBearer {
-			http.Error(w, "unauthorized", http.StatusUnauthorized)
-			return
-		}
-		conn, err := websocket.Accept(w, r, nil)
-		if err != nil {
-			fmt.Fprintln(os.Stderr, err)
-			return
-		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
-		for {
-			typ, data, err := conn.Read(context.Background())
-			if err != nil {
-				return
-			}
-			if typ != websocket.MessageText {
-				continue
-			}
-			var req rpcMessage
-			if err := json.Unmarshal(data, &req); err != nil {
-				fmt.Fprintln(os.Stderr, err)
-				return
-			}
-			switch req.Method {
-			case RequestMethodInitialize:
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
-					ID: req.ID,
-					Result: mustJSONValueForHelper(InitializeResponse{
-						UserAgent:  "codex-bench/1.0",
-						ServerInfo: &ServerInfo{Name: "codex-bench", Version: "1.0"},
-					}),
-				}))
-			case "initialized":
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{Method: "custom/global", Params: mustJSONValueForHelper(Object{"scope": "global"})}))
-			case "helper/echo":
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{ID: req.ID, Result: mustJSONValueForHelper(Object{"ok": true})}))
-			default:
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{ID: req.ID, Error: &rpcErrorBody{Code: -32601, Message: "unexpected method"}}))
-			}
-		}
-	})}
+	srv := &http.Server{Handler: newTransportHelperWebSocketHandler(expectedBearer)}
 	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)

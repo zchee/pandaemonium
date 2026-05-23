@@ -85,6 +85,34 @@ func TestClientBuildAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
 	}
 }
 
+func TestClientBuildAppServerArgsUnixWebSocketHonorsListenAndAuth(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "capability.token")
+	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", tokenFile, err)
+	}
+
+	client := &Client{config: Config{CodexBin: os.Args[0]}}
+	args, err := client.buildAppServerArgs(ListenConfig{
+		URL: "unix:///tmp/codex.sock",
+		WebSocket: &WebSocketConfig{
+			AuthMode:          WebSocketAuthCapabilityToken,
+			TokenFile:         tokenFile,
+			ClientBearerToken: "jwt-from-env",
+		},
+	})
+	if err != nil {
+		t.Fatalf("buildAppServerArgs() error = %v", err)
+	}
+	want := []string{
+		os.Args[0], "app-server", "--listen", "unix:///tmp/codex.sock",
+		"--ws-auth", "capability-token",
+		"--ws-token-file", tokenFile,
+	}
+	if diff := compareStringSlice(args, want); diff != "" {
+		t.Fatalf("buildAppServerArgs() mismatch: %s", diff)
+	}
+}
+
 func TestClientBuildAppServerArgsRejectsInsecureRemoteWebSocket(t *testing.T) {
 	client := &Client{config: Config{CodexBin: os.Args[0]}}
 	_, err := client.buildAppServerArgs(ListenConfig{URL: "ws://codex.example.test:49815"})
@@ -338,6 +366,71 @@ func TestClientBuildAppServerArgsSkipsBearerMaterialInErrors(t *testing.T) {
 	}
 	if strings.Contains(err.Error(), "jwt-token-should-not-leak") {
 		t.Fatal("error leaks client bearer token")
+	}
+}
+
+func TestClientBuildAppServerArgsRejectsMalformedUnixListenURL(t *testing.T) {
+	client := &Client{config: Config{CodexBin: os.Args[0]}}
+	for _, listenURL := range []string{"unix:relative.sock", "unix://%2Ftmp%2Fcodex.sock"} {
+		_, err := client.buildAppServerArgs(ListenConfig{URL: listenURL})
+		if err == nil {
+			t.Fatalf("buildAppServerArgs(%q) error = nil, want unix URL rejection", listenURL)
+		}
+	}
+}
+
+func TestUnixSocketPathFromListenURL(t *testing.T) {
+	cwd := filepath.Join(t.TempDir(), "workspace")
+	if err := os.MkdirAll(cwd, 0o755); err != nil {
+		t.Fatalf("os.MkdirAll(%s) error = %v", cwd, err)
+	}
+	codeXHome := filepath.Join(t.TempDir(), "codex-home")
+	tests := []struct {
+		name    string
+		listen  string
+		env     map[string]string
+		want    string
+		wantErr bool
+	}{
+		{
+			name:   "default path uses CODEX_HOME",
+			listen: "unix://",
+			env:    map[string]string{"CODEX_HOME": codeXHome},
+			want:   filepath.Join(codeXHome, "app-server-control", "app-server-control.sock"),
+		},
+		{
+			name:   "absolute path is preserved",
+			listen: "unix:///tmp/codex.sock",
+			want:   filepath.Clean("/tmp/codex.sock"),
+		},
+		{
+			name:   "relative path resolves against cwd",
+			listen: "unix://localhost/tmp/codex.sock",
+			want:   filepath.Join(cwd, "localhost", "tmp", "codex.sock"),
+		},
+		{
+			name:    "rejects encoded path",
+			listen:  "unix://%2Ftmp%2Fcodex.sock",
+			wantErr: true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := unixSocketPathFromListenURL(tt.listen, tt.env, cwd)
+			if tt.wantErr {
+				if err == nil {
+					t.Fatalf("unixSocketPathFromListenURL(%q) error = nil, want error", tt.listen)
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("unixSocketPathFromListenURL(%q) error = %v", tt.listen, err)
+			}
+			if got != tt.want {
+				t.Fatalf("unixSocketPathFromListenURL(%q) = %q, want %q", tt.listen, got, tt.want)
+			}
+		})
 	}
 }
 

@@ -16,7 +16,9 @@ package codex
 
 import (
 	"os"
+	"path/filepath"
 	"regexp"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -67,7 +69,11 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 func TestGeneratedProtocolTypesDoNotCollapseConcretePayloadsToRawJSON(t *testing.T) {
 	t.Parallel()
 
-	sourceBytes, err := os.ReadFile("protocol_gen.go")
+	_, file, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("runtime.Caller(0) failed")
+	}
+	sourceBytes, err := os.ReadFile(filepath.Join(filepath.Dir(file), "protocol_gen.go"))
 	if err != nil {
 		t.Fatalf("os.ReadFile(protocol_gen.go) error = %v", err)
 	}
