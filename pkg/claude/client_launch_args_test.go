@@ -22,6 +22,8 @@ import (
 	"github.com/google/jsonschema-go/jsonschema"
 )
 
+const fakeCLI = "/usr/local/bin/claude"
+
 // mustLaunchArgs calls buildLaunchArgs and fails the test if it returns an
 // error. buildLaunchArgs only errors when the --mcp-config payload fails to
 // marshal, which the well-formed test inputs never trigger.
@@ -36,8 +38,6 @@ func mustLaunchArgs(t *testing.T, cliPath string, opts *Options, resumeSessionID
 
 func TestBuildLaunchArgs(t *testing.T) {
 	t.Parallel()
-
-	const fakeCLI = "/usr/local/bin/claude"
 
 	tests := map[string]struct {
 		cliPath string
@@ -177,44 +177,8 @@ func TestBuildLaunchArgs(t *testing.T) {
 	}
 }
 
-// TestBuildLaunchArgs_SystemPromptAlwaysEmitted verifies that --system-prompt is
-// emitted even when Options.SystemPrompt is empty, with the empty string as its
-// attached value, matching upstream subprocess_cli.py:228. The check is an
-// index-pair (not substring) so a flag emitted without its value would fail.
-func TestBuildLaunchArgs_SystemPromptAlwaysEmitted(t *testing.T) {
-	t.Parallel()
-
-	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{}, "")
-	found := false
-	for i, a := range args {
-		if a == "--system-prompt" {
-			if i+1 >= len(args) {
-				t.Fatalf("--system-prompt is the last arg with no value: %v", args)
-			}
-			if args[i+1] != "" {
-				t.Errorf("--system-prompt value = %q, want empty string", args[i+1])
-			}
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("--system-prompt not emitted for empty SystemPrompt: %v", args)
-	}
-}
-
-func TestBuildLaunchArgs_CLIPathIsFirst(t *testing.T) {
-	t.Parallel()
-	args := mustLaunchArgs(t, "/path/to/claude", nil, "")
-	if args[0] != "/path/to/claude" {
-		t.Fatalf("args[0] = %q, want /path/to/claude", args[0])
-	}
-}
-
 func TestBuildLaunchArgs_Plugins(t *testing.T) {
 	t.Parallel()
-
-	const fakeCLI = "/usr/local/bin/claude"
 
 	tests := map[string]struct {
 		opts    *Options
@@ -263,8 +227,6 @@ func TestBuildLaunchArgs_Plugins(t *testing.T) {
 
 func TestBuildLaunchArgs_SettingSources(t *testing.T) {
 	t.Parallel()
-
-	const fakeCLI = "/usr/local/bin/claude"
 
 	tests := map[string]struct {
 		opts    *Options
@@ -342,8 +304,6 @@ func TestBuildLaunchArgs_Agents(t *testing.T) {
 func TestBuildLaunchArgs_Resume(t *testing.T) {
 	t.Parallel()
 
-	const fakeCLI = "/usr/local/bin/claude"
-
 	tests := map[string]struct {
 		resumeID string
 		wantIn   []string
@@ -382,8 +342,6 @@ func TestBuildLaunchArgs_Resume(t *testing.T) {
 // Options fields added in M9a, each mapping to a single CLI flag.
 func TestBuildLaunchArgs_M9PassthroughFlags(t *testing.T) {
 	t.Parallel()
-
-	const fakeCLI = "/usr/local/bin/claude"
 
 	tests := map[string]struct {
 		opts    *Options
@@ -517,8 +475,6 @@ func extraArgIndex(s []string, v string) int {
 func TestBuildLaunchArgs_Skills(t *testing.T) {
 	t.Parallel()
 
-	const fakeCLI = "/usr/local/bin/claude"
-
 	tests := map[string]struct {
 		opts        *Options
 		wantAllowed string // expected --allowedTools value, "" to skip
@@ -594,7 +550,6 @@ func argValue(args []string, flag string) string {
 // preset takes precedence over Tools.
 func TestBuildLaunchArgs_Tools(t *testing.T) {
 	t.Parallel()
-	const fakeCLI = "/usr/local/bin/claude"
 
 	t.Run("nil omits --tools", func(t *testing.T) {
 		t.Parallel()
@@ -649,7 +604,6 @@ func TestBuildLaunchArgs_Tools(t *testing.T) {
 // when nil, and independent of --output-format.
 func TestBuildLaunchArgs_JSONSchema(t *testing.T) {
 	t.Parallel()
-	const fakeCLI = "/usr/local/bin/claude"
 
 	t.Run("nil omits --json-schema", func(t *testing.T) {
 		t.Parallel()
@@ -690,7 +644,6 @@ func TestBuildLaunchArgs_JSONSchema(t *testing.T) {
 // <append>.
 func TestBuildLaunchArgs_SystemPrompt(t *testing.T) {
 	t.Parallel()
-	const fakeCLI = "/usr/local/bin/claude"
 
 	t.Run("nil emits --system-prompt empty", func(t *testing.T) {
 		t.Parallel()
@@ -743,8 +696,6 @@ func TestBuildLaunchArgs_SystemPrompt(t *testing.T) {
 //  3. Thinking takes precedence over MaxThinkingTokens (else-if upstream).
 func TestBuildLaunchArgs_Thinking(t *testing.T) {
 	t.Parallel()
-
-	const fakeCLI = "/usr/local/bin/claude"
 
 	t.Run("adaptive emits --thinking adaptive", func(t *testing.T) {
 		t.Parallel()
@@ -869,7 +820,6 @@ func TestBuildLaunchArgs_Thinking(t *testing.T) {
 // upstream's `is not None` gate: an explicit Total=0 must reach the wire.
 func TestBuildLaunchArgs_TaskBudget(t *testing.T) {
 	t.Parallel()
-	const fakeCLI = "/usr/local/bin/claude"
 
 	t.Run("nil TaskBudget omits the flag", func(t *testing.T) {
 		t.Parallel()

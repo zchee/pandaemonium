@@ -278,7 +278,6 @@ func TestBuildSettingsValue(t *testing.T) {
 // JSON when Options.Sandbox is set.
 func TestBuildLaunchArgs_Sandbox(t *testing.T) {
 	t.Parallel()
-	const fakeCLI = "/usr/local/bin/claude"
 
 	t.Run("sandbox alone emits merged --settings", func(t *testing.T) {
 		t.Parallel()
@@ -332,8 +331,15 @@ func TestEffectiveToolsAndSources_CarryoverCopies(t *testing.T) {
 	caller[0] = SettingSourceUser
 	opts := &Options{SettingSources: caller}
 	_, sources := effectiveToolsAndSources(opts)
+	sources[0] = SettingSourceLocal
 	sources = append(sources, SettingSourceProject)
-	if len(caller) != 1 || caller[0] != SettingSourceUser {
-		t.Errorf("caller's SettingSources mutated by effectiveToolsAndSources append: %v", caller)
+	if len(sources) != 2 || sources[0] != SettingSourceLocal || sources[1] != SettingSourceProject {
+		t.Fatalf("returned sources after append = %v, want [local project]", sources)
+	}
+	if caller[0] != SettingSourceUser {
+		t.Errorf("caller's visible SettingSources entry mutated by returned-slice write: %v", caller)
+	}
+	if backing := caller[:cap(caller)]; backing[1] != "" {
+		t.Errorf("caller's spare SettingSources capacity mutated by returned-slice append: %v", backing)
 	}
 }

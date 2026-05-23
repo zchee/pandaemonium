@@ -418,19 +418,6 @@ func TestClaudeSDKClient_ReceiveResponse_NilRawMessages(t *testing.T) {
 	}
 }
 
-// ── Interrupt tests ──────────────────────────────────────────────────────────
-
-func TestClaudeSDKClient_Interrupt_NoSubprocess(t *testing.T) {
-	t.Parallel()
-
-	c := &ClaudeSDKClient{}
-	err := c.Interrupt(t.Context())
-
-	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
-		t.Errorf("Interrupt() error = %T(%v), want *CLIConnectionError", err, err)
-	}
-}
-
 // ── Multi-turn Query via FakeCLI ─────────────────────────────────────────────
 
 func TestClaudeSDKClient_MultiTurn(t *testing.T) {
