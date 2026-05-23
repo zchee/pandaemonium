@@ -18,6 +18,7 @@ import (
 	"bytes"
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 	"strings"
 	"testing"
@@ -158,6 +159,32 @@ func TestClient_Interrupt_CLIError(t *testing.T) {
 	}
 	if connErr.Message != "nothing to interrupt" {
 		t.Errorf("error message = %q, want %q", connErr.Message, "nothing to interrupt")
+	}
+}
+
+func TestClient_ControlResponseRoutesWhenDataConsumerIsBackedUp(t *testing.T) {
+	t.Parallel()
+
+	cli := fakecli.New(t, nil)
+	c := &ClaudeSDKClient{opts: &Options{}}
+
+	ctx := t.Context()
+	c.closeMu.Lock()
+	c.start(ctx, cli, nil, nil, nil)
+	c.closeMu.Unlock()
+	defer c.Close()
+
+	lines := make([]string, 0, 320)
+	for i := range 320 {
+		lines = append(lines, fmt.Sprintf(`{"type":"assistant","message":{"content":[{"type":"text","text":"msg-%03d"}]}}`, i))
+	}
+	cli.Inject(lines...)
+	autoAnswer(t, cli, "set_model", `{}`)
+
+	controlCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	if err := c.SetModel(controlCtx, "claude-opus-4-7"); err != nil {
+		t.Fatalf("SetModel() while data messages are unconsumed = %v", err)
 	}
 }
 

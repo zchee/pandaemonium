@@ -29,9 +29,95 @@ import (
 	"github.com/go-json-experiment/json"
 )
 
-// rawMessageQueueSize is the capacity of the rawMessages channel. Sized to
-// accommodate a typical burst of stream-JSON lines without blocking readLoop.
-const rawMessageQueueSize = 256
+// rawMessageBuffer is a single-consumer, unbounded FIFO for stream-JSON data
+// messages. It deliberately decouples readLoop from ReceiveResponse: the read
+// loop must keep reading so it can route control_response traffic even when the
+// application is slow to consume ordinary assistant/user/result messages.
+type rawMessageBuffer struct {
+	mu       sync.Mutex
+	notify   chan struct{}
+	signaled bool
+	closed   bool
+	queue    [][]byte
+	head     int
+}
+
+func newRawMessageBuffer() *rawMessageBuffer {
+	return &rawMessageBuffer{notify: make(chan struct{})}
+}
+
+func (b *rawMessageBuffer) push(ctx context.Context, line []byte) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	cp := append([]byte(nil), line...)
+	b.mu.Lock()
+	defer b.mu.Unlock()
+	if b.closed {
+		return io.ErrClosedPipe
+	}
+	b.queue = append(b.queue, cp)
+	b.signalLocked()
+	return nil
+}
+
+func (b *rawMessageBuffer) close() {
+	b.mu.Lock()
+	b.closed = true
+	b.signalLocked()
+	b.mu.Unlock()
+}
+
+func (b *rawMessageBuffer) next(ctx context.Context) ([]byte, error) {
+	for {
+		b.mu.Lock()
+		if b.head < len(b.queue) {
+			line := b.queue[b.head]
+			b.queue[b.head] = nil
+			b.head++
+			if b.head == len(b.queue) {
+				b.queue = b.queue[:0]
+				b.head = 0
+			} else if b.head > 1024 && b.head*2 >= len(b.queue) {
+				copy(b.queue, b.queue[b.head:])
+				for i := len(b.queue) - b.head; i < len(b.queue); i++ {
+					b.queue[i] = nil
+				}
+				b.queue = b.queue[:len(b.queue)-b.head]
+				b.head = 0
+			}
+			if b.head == len(b.queue) && b.signaled && !b.closed {
+				b.notify = make(chan struct{})
+				b.signaled = false
+			}
+			b.mu.Unlock()
+			return line, nil
+		}
+		if b.closed {
+			b.mu.Unlock()
+			return nil, nil
+		}
+		if b.signaled {
+			b.notify = make(chan struct{})
+			b.signaled = false
+		}
+		notify := b.notify
+		b.mu.Unlock()
+
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case <-notify:
+		}
+	}
+}
+
+func (b *rawMessageBuffer) signalLocked() {
+	if !b.signaled {
+		close(b.notify)
+		b.signaled = true
+	}
+}
 
 // ClaudeSDKClient is a bidirectional interactive client for the claude CLI
 // subprocess. It supports multi-turn conversation, hook dispatch, in-process
@@ -84,9 +170,11 @@ type ClaudeSDKClient struct {
 	// cmdDone receives the subprocess exit error once cmd.Wait returns.
 	cmdDone chan error
 
-	// rawMessages receives raw stream-JSON lines from readLoop.
-	// Consumed by Phase C's ReceiveResponse.
-	rawMessages chan []byte
+	// rawMessages receives raw stream-JSON lines from readLoop through an
+	// unbounded in-process queue. Keeping the read loop off the consumer
+	// channel prevents data-message backpressure from delaying control
+	// responses such as initialize, interrupt, or set_model.
+	rawMessages *rawMessageBuffer
 
 	// readErr is set by readLoop before it closes readDone.
 	readErr   error
@@ -199,7 +287,6 @@ func userEnvelope(sessionID, prompt string) ([]byte, error) {
 func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message, error] {
 	c.closeMu.Lock()
 	rawMessages := c.rawMessages
-	readDone := c.readDone
 	c.closeMu.Unlock()
 
 	return func(yield func(Message, error) bool) {
@@ -209,72 +296,35 @@ func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message
 		}
 
 		for {
-			select {
-			case <-ctx.Done():
-				yield(nil, ctx.Err())
+			line, err := rawMessages.next(ctx)
+			if err != nil {
+				yield(nil, err)
 				return
-
-			case line := <-rawMessages:
-				if line == nil {
-					// nil sentinel: readLoop hit EOF or error before ResultMessage.
-					c.readErrMu.Lock()
-					err := c.readErr
-					c.readErrMu.Unlock()
-					if err != nil && !errors.Is(err, io.EOF) {
-						yield(nil, err)
-					}
-					return
-				}
-				msg, parseErr := parseMessage(append(line, '\n'))
-				if parseErr != nil {
-					if !yield(nil, parseErr) {
-						return
-					}
-					continue
-				}
-				if msg == nil {
-					continue // blank line
-				}
-				if !yield(msg, nil) {
-					return
-				}
-				if _, ok := msg.(ResultMessage); ok {
-					return
-				}
-
-			case <-readDone:
-				// readLoop exited — drain any lines already buffered in the channel.
-			drain:
-				for {
-					select {
-					case line := <-rawMessages:
-						if line == nil {
-							break drain
-						}
-						msg, parseErr := parseMessage(append(line, '\n'))
-						if parseErr != nil {
-							yield(nil, parseErr)
-							return
-						}
-						if msg == nil {
-							continue
-						}
-						if !yield(msg, nil) {
-							return
-						}
-						if _, ok := msg.(ResultMessage); ok {
-							return
-						}
-					default:
-						break drain
-					}
-				}
+			}
+			if line == nil {
+				// readLoop hit EOF or error after all queued data was delivered.
 				c.readErrMu.Lock()
 				err := c.readErr
 				c.readErrMu.Unlock()
 				if err != nil && !errors.Is(err, io.EOF) {
 					yield(nil, err)
 				}
+				return
+			}
+			msg, parseErr := parseMessage(append(line, '\n'))
+			if parseErr != nil {
+				if !yield(nil, parseErr) {
+					return
+				}
+				continue
+			}
+			if msg == nil {
+				continue // blank line
+			}
+			if !yield(msg, nil) {
+				return
+			}
+			if _, ok := msg.(ResultMessage); ok {
 				return
 			}
 		}
@@ -454,7 +504,7 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 	c.transport = t
 	c.cmd = cmd
 	c.cmdDone = cmdDone
-	c.rawMessages = make(chan []byte, rawMessageQueueSize)
+	c.rawMessages = newRawMessageBuffer()
 	c.readDone = make(chan struct{})
 	c.stderrDone = make(chan struct{})
 
@@ -477,7 +527,7 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 	// closeMu. The goroutine receives both as arguments and never reads
 	// c.transport or c.cp directly — this is the snapshot-as-arg discipline that
 	// prevents the Close/readMessage data race fixed in pkg/codex commit 8c16376.
-	go c.readLoop(ctx, c.transport, c.cp, c.readDone) // snapshot under closeMu
+	go c.readLoop(ctx, c.transport, c.cp, c.rawMessages, c.readDone) // snapshot under closeMu
 }
 
 // launchSubprocess resolves the CLI binary, builds launch args, starts the
@@ -573,7 +623,7 @@ func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 // The goroutine argument t MUST be the snapshot captured under closeMu — it
 // never reads c.transport directly. This is the core of the race-safety
 // discipline from pkg/codex commit 8c16376 (pkg/codex/client.go:244).
-func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *controlProtocol, done chan<- struct{}) {
+func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *controlProtocol, rawMessages *rawMessageBuffer, done chan<- struct{}) {
 	defer close(done)
 	for {
 		line, err := t.ReadJSON(ctx)
@@ -590,12 +640,9 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *control
 			if cp != nil {
 				cp.failPending(err)
 			}
-			// Drain the rawMessages channel to unblock any pending ReceiveResponse.
-			// A nil sentinel signals EOF/error to the consumer.
-			select {
-			case c.rawMessages <- nil:
-			default:
-			}
+			// Closing the unbounded buffer unblocks any pending ReceiveResponse after
+			// queued data messages have been delivered.
+			rawMessages.close()
 			return
 		}
 		// Intercept control-protocol messages before the regular message path.
@@ -607,12 +654,11 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *control
 				continue
 			}
 		}
-		select {
-		case c.rawMessages <- line:
-		case <-ctx.Done():
+		if err := rawMessages.push(ctx, line); err != nil {
 			c.readErrMu.Lock()
-			c.readErr = ctx.Err()
+			c.readErr = err
 			c.readErrMu.Unlock()
+			rawMessages.close()
 			return
 		}
 	}
@@ -630,22 +676,26 @@ func (c *ClaudeSDKClient) drainStderr(r io.Reader, done chan<- struct{}) {
 	for scanner.Scan() {
 		line := scanner.Text()
 		c.stderrMu.Lock()
-		c.stderrLines = append(c.stderrLines, line)
-		if len(c.stderrLines) > 400 {
-			copy(c.stderrLines, c.stderrLines[len(c.stderrLines)-400:])
-			c.stderrLines = c.stderrLines[:400]
-		}
+		c.appendStderrLineLocked(line)
 		c.stderrMu.Unlock()
 	}
 	if err := scanner.Err(); err != nil {
 		c.stderrMu.Lock()
-		c.stderrLines = append(c.stderrLines, "stderr read error: "+err.Error())
-		if len(c.stderrLines) > 400 {
-			copy(c.stderrLines, c.stderrLines[len(c.stderrLines)-400:])
-			c.stderrLines = c.stderrLines[:400]
-		}
+		c.appendStderrLineLocked("stderr read error: " + err.Error())
 		c.stderrMu.Unlock()
 	}
+}
+
+// appendStderrLineLocked appends line to the fixed-size stderr tail.
+// c.stderrMu must be held by the caller.
+func (c *ClaudeSDKClient) appendStderrLineLocked(line string) {
+	const maxStderrLines = 400
+	if len(c.stderrLines) < maxStderrLines {
+		c.stderrLines = append(c.stderrLines, line)
+		return
+	}
+	copy(c.stderrLines, c.stderrLines[1:])
+	c.stderrLines[maxStderrLines-1] = line
 }
 
 // waitForCmd starts a goroutine that calls cmd.Wait and returns a channel that

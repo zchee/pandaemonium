@@ -17,8 +17,10 @@ package claude
 import (
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -61,6 +63,29 @@ func (t *blockingWriteTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 func (t *blockingWriteTransport) Close() error {
 	t.once.Do(func() { close(t.release) })
 	return nil
+}
+
+func TestClient_DrainStderrKeepsLast400Lines(t *testing.T) {
+	t.Parallel()
+
+	var b strings.Builder
+	for i := range 405 {
+		fmt.Fprintf(&b, "line-%03d\n", i)
+	}
+	c := &ClaudeSDKClient{}
+	done := make(chan struct{})
+	c.drainStderr(strings.NewReader(b.String()), done)
+	<-done
+
+	c.stderrMu.Lock()
+	got := append([]string(nil), c.stderrLines...)
+	c.stderrMu.Unlock()
+	if len(got) != 400 {
+		t.Fatalf("stderrLines len = %d, want 400", len(got))
+	}
+	if got[0] != "line-005" || got[len(got)-1] != "line-404" {
+		t.Fatalf("stderr tail bounds = %q..%q, want line-005..line-404", got[0], got[len(got)-1])
+	}
 }
 
 // TestClient_Close_UnblocksWhenQueryWriteHangs is the C1 regression guard:
@@ -170,6 +195,44 @@ func TestNewClient_Validate(t *testing.T) {
 				t.Error("NewClient() started transport at construction time, want nil")
 			}
 		})
+	}
+}
+
+func TestClaudeSDKClient_ReadLoopRoutesControlWhenConsumerIsSlow(t *testing.T) {
+	t.Parallel()
+
+	cli := fakecli.New(t, nil)
+	c := &ClaudeSDKClient{opts: &Options{}}
+	ctx := t.Context()
+	c.closeMu.Lock()
+	c.start(ctx, cli, nil, nil, nil)
+	cp := c.cp
+	c.closeMu.Unlock()
+	defer c.Close()
+
+	const requestID = "slow-consumer-control"
+	ch := make(chan controlResult, 1)
+	cp.pendingMu.Lock()
+	cp.pending[requestID] = ch
+	cp.pendingMu.Unlock()
+
+	lines := make([]string, 0, 513)
+	for i := 0; i < 512; i++ {
+		lines = append(lines, `{"type":"assistant","message":{"content":[{"type":"text","text":"queued"}],"model":"m"}}`)
+	}
+	lines = append(lines, `{"type":"control_response","response":{"subtype":"success","request_id":"`+requestID+`","response":{"ok":true}}}`)
+	cli.Inject(lines...)
+
+	select {
+	case res := <-ch:
+		if res.err != nil {
+			t.Fatalf("control result error = %v", res.err)
+		}
+		if string(res.response) != `{"ok":true}` {
+			t.Fatalf("control response = %s, want {\"ok\":true}", res.response)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("control response was not routed while raw message consumer was idle")
 	}
 }
 
