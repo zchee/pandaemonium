@@ -206,6 +206,33 @@ func Run(t *testing.T, newStore func() claude.SessionStore) {
 		}
 	})
 
+	t.Run("Fork_cuts_at_promoted_message_id", func(t *testing.T) {
+		t.Parallel()
+		store := newStore()
+		msgs := []claude.Message{
+			claude.AssistantMessage{MessageID: "msg-1", Content: []claude.ContentBlock{claude.TextBlock{Text: "one"}}},
+			claude.AssistantMessage{MessageID: "msg-2", Content: []claude.ContentBlock{claude.TextBlock{Text: "two"}}},
+			claude.AssistantMessage{MessageID: "msg-3", Content: []claude.ContentBlock{claude.TextBlock{Text: "three"}}},
+		}
+		if err := store.Save(t.Context(), &claude.Session{ID: "branch-src", Messages: msgs}); err != nil {
+			t.Fatalf("Save() error = %v", err)
+		}
+		forked, err := store.Fork(t.Context(), "branch-src", "msg-2")
+		if err != nil {
+			t.Fatalf("Fork() error = %v", err)
+		}
+		if len(forked.Messages) != 2 {
+			t.Fatalf("Fork().Messages len = %d, want 2", len(forked.Messages))
+		}
+		last, ok := forked.Messages[1].(claude.AssistantMessage)
+		if !ok {
+			t.Fatalf("forked.Messages[1] = %T, want AssistantMessage", forked.Messages[1])
+		}
+		if last.MessageID != "msg-2" {
+			t.Fatalf("last MessageID = %q, want msg-2", last.MessageID)
+		}
+	})
+
 	t.Run("Fork_NotFound", func(t *testing.T) {
 		t.Parallel()
 		store := newStore()

@@ -27,11 +27,16 @@ import (
 // rawMessage wraps an unknown stream-JSON message type. The raw bytes of the
 // original line are preserved so callers can decode future message kinds
 // without requiring a library update.
-type rawMessage struct{ raw jsontext.Value }
+type rawMessage struct {
+	raw jsontext.Value
+	id  string
+}
 
 func (rawMessage) isMessage() {}
 
 func (m rawMessage) jsonRaw() jsontext.Value { return m.raw }
+
+func (m rawMessage) messageID() string { return m.id }
 
 // rawContentBlock wraps an unknown content block type. Unknown block kinds are
 // preserved so callers can round-trip them without data loss.
@@ -67,6 +72,7 @@ func parseMessage(line []byte) (Message, error) {
 	// Peek the type discriminator without a full decode.
 	var env struct {
 		Type string `json:"type"`
+		ID   string `json:"id"`
 	}
 	if err := json.Unmarshal(data, &env); err != nil {
 		return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
@@ -108,7 +114,7 @@ func parseMessage(line []byte) (Message, error) {
 		return m, nil
 	default:
 		// Unknown type — preserve raw bytes for forward compatibility.
-		return rawMessage{raw: jsontext.Value(data)}, nil
+		return rawMessage{raw: jsontext.Value(data), id: env.ID}, nil
 	}
 }
 

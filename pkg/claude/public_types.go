@@ -36,6 +36,7 @@ import (
 type Message interface {
 	isMessage()
 	jsonRaw() jsontext.Value // returns the message's Raw inline catchall
+	messageID() string       // returns the promoted message identifier, if any
 }
 
 // AssistantMessage carries one or more content blocks produced by the model.
@@ -83,6 +84,8 @@ func (AssistantMessage) isMessage() {}
 
 func (m AssistantMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+func (m AssistantMessage) messageID() string { return m.MessageID }
+
 // UserMessage carries content submitted by the user (or injected by a tool).
 type UserMessage struct {
 	// Content holds the ordered content blocks in this user turn.
@@ -109,6 +112,8 @@ func (UserMessage) isMessage() {}
 
 func (m UserMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+func (m UserMessage) messageID() string { return m.UUID }
+
 // SystemMessage carries a system-level notification from the CLI subprocess.
 type SystemMessage struct {
 	// Subtype discriminates system message variants (e.g. "init").
@@ -121,6 +126,8 @@ type SystemMessage struct {
 func (SystemMessage) isMessage() {}
 
 func (m SystemMessage) jsonRaw() jsontext.Value { return m.Raw }
+
+func (SystemMessage) messageID() string { return "" }
 
 // ResultMessage is the final message in a stream. It carries session and usage
 // metadata. Iterators stop cleanly after delivering this message.
@@ -192,6 +199,8 @@ type ResultMessage struct {
 func (ResultMessage) isMessage() {}
 
 func (m ResultMessage) jsonRaw() jsontext.Value { return m.Raw }
+
+func (m ResultMessage) messageID() string { return m.UUID }
 
 // DeferredToolUse describes a tool call that was deferred by a PreToolUse
 // hook returning permissionDecision="defer". Carried as
@@ -284,6 +293,8 @@ func (TaskStartedMessage) isMessage() {}
 
 func (m TaskStartedMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+func (m TaskStartedMessage) messageID() string { return m.UUID }
+
 // TaskProgressMessage is the system message emitted while a Task is running.
 // See [TaskStartedMessage]'s godoc for the Python-subclass / Go-sibling note.
 // Mirrors upstream TaskProgressMessage (types.py:1077).
@@ -319,6 +330,8 @@ type TaskProgressMessage struct {
 func (TaskProgressMessage) isMessage() {}
 
 func (m TaskProgressMessage) jsonRaw() jsontext.Value { return m.Raw }
+
+func (m TaskProgressMessage) messageID() string { return m.UUID }
 
 // TaskNotificationMessage is the system message emitted when a Task completes,
 // fails, or is stopped. See [TaskStartedMessage]'s godoc for the
@@ -360,6 +373,8 @@ func (TaskNotificationMessage) isMessage() {}
 
 func (m TaskNotificationMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+func (m TaskNotificationMessage) messageID() string { return m.UUID }
+
 // HookEventMessage is the system message the CLI emits for hook lifecycle
 // events when [Options.IncludeHookEvents] is enabled. Each event arrives on
 // the wire as {"type":"system", "subtype":"hook_started"|"hook_response", ...}
@@ -400,6 +415,8 @@ func (HookEventMessage) isMessage() {}
 
 func (m HookEventMessage) jsonRaw() jsontext.Value { return m.Raw }
 
+func (m HookEventMessage) messageID() string { return m.UUID }
+
 // ─── StreamEvent ─────────────────────────────────────────────────────────────
 
 // StreamEvent is a partial-message update emitted during streaming when
@@ -431,6 +448,8 @@ type StreamEvent struct {
 func (StreamEvent) isMessage() {}
 
 func (m StreamEvent) jsonRaw() jsontext.Value { return m.Raw }
+
+func (m StreamEvent) messageID() string { return m.UUID }
 
 // ─── Rate limit types ────────────────────────────────────────────────────────
 
@@ -530,6 +549,8 @@ type RateLimitEvent struct {
 func (RateLimitEvent) isMessage() {}
 
 func (m RateLimitEvent) jsonRaw() jsontext.Value { return m.Raw }
+
+func (m RateLimitEvent) messageID() string { return m.UUID }
 
 // ─── ContentBlock sealed interface ──────────────────────────────────────────
 

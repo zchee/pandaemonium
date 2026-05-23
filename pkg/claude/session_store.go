@@ -23,7 +23,6 @@ import (
 	"sort"
 	"sync"
 
-	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 )
 
@@ -259,24 +258,8 @@ func shallowCopySession(sess *Session) *Session {
 	return &cp
 }
 
-// extractMessageID extracts the top-level "id" string field from a message's
-// Raw inline JSON, returning "" if absent or unparseable.
+// extractMessageID returns the typed message identifier promoted during
+// parsing, avoiding repeated raw-JSON decodes while forking large transcripts.
 func extractMessageID(msg Message) string {
-	raw := msg.jsonRaw()
-	if len(raw) == 0 {
-		return ""
-	}
-	var fields map[string]jsontext.Value
-	if err := json.Unmarshal(raw, &fields); err != nil {
-		return ""
-	}
-	idRaw, ok := fields["id"]
-	if !ok {
-		return ""
-	}
-	var id string
-	if err := json.Unmarshal(idRaw, &id); err != nil {
-		return ""
-	}
-	return id
+	return msg.messageID()
 }

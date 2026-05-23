@@ -265,3 +265,32 @@ func TestClientFork_OptionsIsolation(t *testing.T) {
 		t.Error("parent Env gained CHILD key from child mutation (map aliasing)")
 	}
 }
+
+func TestClientFork_TruncatesAtAssistantMessageIDWithoutRawDecode(t *testing.T) {
+	t.Parallel()
+
+	store := NewInMemorySessionStore()
+	msgs := []Message{
+		AssistantMessage{MessageID: "msg-1", Content: []ContentBlock{TextBlock{Text: "first"}}},
+		AssistantMessage{MessageID: "msg-2", Content: []ContentBlock{TextBlock{Text: "second"}}},
+		AssistantMessage{MessageID: "msg-3", Content: []ContentBlock{TextBlock{Text: "third"}}},
+	}
+	if err := store.Save(t.Context(), &Session{ID: "parent-message-id", Messages: msgs}); err != nil {
+		t.Fatalf("Save() error = %v", err)
+	}
+
+	forked, err := store.Fork(t.Context(), "parent-message-id", "msg-2")
+	if err != nil {
+		t.Fatalf("Fork() error = %v", err)
+	}
+	if len(forked.Messages) != 2 {
+		t.Fatalf("forked.Messages len = %d, want 2", len(forked.Messages))
+	}
+	last, ok := forked.Messages[1].(AssistantMessage)
+	if !ok {
+		t.Fatalf("forked.Messages[1] type = %T, want AssistantMessage", forked.Messages[1])
+	}
+	if last.MessageID != "msg-2" {
+		t.Fatalf("last MessageID = %q, want msg-2", last.MessageID)
+	}
+}
