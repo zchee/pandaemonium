@@ -28,6 +28,7 @@ package fakecli
 import (
 	"context"
 	"io"
+	"slices"
 	"sync"
 	"testing"
 )
@@ -117,7 +118,7 @@ func (f *FakeCLI) WriteJSON(_ context.Context, p []byte) error {
 	}
 
 	f.mu.Lock()
-	payload := append([]byte(nil), p...)
+	payload := slices.Clone(p)
 	f.written = append(f.written, payload)
 	idx := f.frameIdx
 	if idx < len(f.script) {
@@ -218,7 +219,7 @@ func (f *FakeCLI) Written() [][]byte {
 	defer f.mu.Unlock()
 	out := make([][]byte, len(f.written))
 	for i, b := range f.written {
-		out[i] = append([]byte(nil), b...)
+		out[i] = slices.Clone(b)
 	}
 	return out
 }

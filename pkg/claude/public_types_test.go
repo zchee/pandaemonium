@@ -420,7 +420,6 @@ func TestContentBlock_SentinelMethods(t *testing.T) {
 	}
 }
 
-
 // TestHookEventKind_M11aLiterals verifies the three new hook-event kinds added
 // in M11a serialize to the exact wire literals upstream uses (types.py:330,
 // 382, 390). The other kinds were already covered indirectly through

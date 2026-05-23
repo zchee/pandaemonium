@@ -39,6 +39,7 @@ import (
 
 	"github.com/go-json-experiment/json"
 	goredis "github.com/redis/go-redis/v9"
+
 	"github.com/zchee/pandaemonium/pkg/claude"
 )
 

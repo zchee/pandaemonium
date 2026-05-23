@@ -135,8 +135,7 @@ func TestDispatchHooks_InvalidGlob(t *testing.T) {
 	if err == nil {
 		t.Fatal("dispatchHooks() = nil error, want error for invalid glob")
 	}
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("error type = %T, want *CLIConnectionError", err)
 	}
 }

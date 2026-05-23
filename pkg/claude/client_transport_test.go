@@ -87,8 +87,7 @@ func TestStdioTransport_WriteJSON(t *testing.T) {
 
 		tr := &stdioTransport{}
 		err := tr.WriteJSON(t.Context(), []byte(`{}`))
-		var connErr *CLIConnectionError
-		if !errors.As(err, &connErr) {
+		if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 			t.Fatalf("WriteJSON() error type = %T, want *CLIConnectionError", err)
 		}
 	})
@@ -143,8 +142,7 @@ func TestStdioTransport_ReadJSON(t *testing.T) {
 
 		tr := &stdioTransport{}
 		_, err := tr.ReadJSON(t.Context())
-		var connErr *CLIConnectionError
-		if !errors.As(err, &connErr) {
+		if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 			t.Fatalf("ReadJSON() error type = %T, want *CLIConnectionError", err)
 		}
 	})

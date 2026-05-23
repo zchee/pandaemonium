@@ -127,8 +127,8 @@ func TestPermissionUpdate_ToWire(t *testing.T) {
 			Mode:        PermissionModeAcceptEdits,
 			Destination: PermissionUpdateDestinationUserSettings,
 			Rules:       []PermissionRuleValue{{ToolName: "X"}}, // must drop
-			Behavior:    PermissionBehaviorDeny,                  // must drop
-			Directories: []string{"/x"},                          // must drop
+			Behavior:    PermissionBehaviorDeny,                 // must drop
+			Directories: []string{"/x"},                         // must drop
 		}
 		got := u.ToWire()
 		want := map[string]any{

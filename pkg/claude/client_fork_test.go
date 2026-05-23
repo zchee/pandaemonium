@@ -34,8 +34,7 @@ func TestClientFork_RequiresSessionStore(t *testing.T) {
 	if err == nil {
 		t.Fatal("Fork() with nil SessionStore expected error, got nil")
 	}
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("Fork() error = %T(%v), want *CLIConnectionError", err, err)
 	}
 }
@@ -54,8 +53,7 @@ func TestClientFork_RequiresActiveSession(t *testing.T) {
 	if err == nil {
 		t.Fatal("Fork() with empty sessionID expected error, got nil")
 	}
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("Fork() error = %T(%v), want *CLIConnectionError", err, err)
 	}
 }

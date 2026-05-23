@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// capture-fakecli-fixtures connects to the real claude CLI and captures raw
+// Command capture-fakecli-fixtures connects to the real claude CLI and captures raw
 // stream-JSON output to pkg/claude/testdata/stream/*.jsonl.
 //
 // # Usage
@@ -93,7 +93,8 @@ func main() {
 // capture runs claude with the given prompt in stream-json mode and writes
 // the raw output to outPath, one JSON object per line.
 func capture(cliPath, prompt, outPath string) error {
-	cmd := exec.Command(cliPath,
+	cmd := exec.Command(
+		cliPath,
 		"--output-format", "stream-json",
 		"--print", prompt,
 	)

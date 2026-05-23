@@ -29,14 +29,16 @@ import (
 // without requiring a library update.
 type rawMessage struct{ raw jsontext.Value }
 
-func (rawMessage) isMessage()                {}
+func (rawMessage) isMessage() {}
+
 func (m rawMessage) jsonRaw() jsontext.Value { return m.raw }
 
 // rawContentBlock wraps an unknown content block type. Unknown block kinds are
 // preserved so callers can round-trip them without data loss.
 type rawContentBlock struct{ raw jsontext.Value }
 
-func (rawContentBlock) isContentBlock()            {}
+func (rawContentBlock) isContentBlock() {}
+
 func (b rawContentBlock) blockRaw() jsontext.Value { return b.raw }
 
 // ── parser ───────────────────────────────────────────────────────────────────

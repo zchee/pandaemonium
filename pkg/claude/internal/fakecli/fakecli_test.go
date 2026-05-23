@@ -20,6 +20,7 @@ import (
 	"testing"
 
 	"github.com/google/go-cmp/cmp"
+
 	"github.com/zchee/pandaemonium/pkg/claude/internal/fakecli"
 )
 

@@ -413,8 +413,7 @@ func TestClaudeSDKClient_ReceiveResponse_NilRawMessages(t *testing.T) {
 		break
 	}
 
-	var connErr *CLIConnectionError
-	if !errors.As(gotErr, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](gotErr); !ok {
 		t.Errorf("error = %T(%v), want *CLIConnectionError", gotErr, gotErr)
 	}
 }
@@ -427,8 +426,7 @@ func TestClaudeSDKClient_Interrupt_NoSubprocess(t *testing.T) {
 	c := &ClaudeSDKClient{}
 	err := c.Interrupt(t.Context())
 
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("Interrupt() error = %T(%v), want *CLIConnectionError", err, err)
 	}
 }

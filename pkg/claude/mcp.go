@@ -232,8 +232,10 @@ func NewSDKMCPServer(name, version string, tools ...ToolDefinition) MCPServer {
 	}
 }
 
-func (s *inProcessMCPServer) Name() string        { return s.name }
-func (s *inProcessMCPServer) Version() string     { return s.version }
+func (s *inProcessMCPServer) Name() string { return s.name }
+
+func (s *inProcessMCPServer) Version() string { return s.version }
+
 func (s *inProcessMCPServer) Mode() MCPServerMode { return MCPServerModeInProcess }
 
 // configForCLI returns {"type":"sdk","name":<name>}: the wire shape an SDK

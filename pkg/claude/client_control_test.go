@@ -139,8 +139,7 @@ func TestClient_Interrupt_NotRunning(t *testing.T) {
 
 	c := &ClaudeSDKClient{}
 	err := c.Interrupt(t.Context())
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("Interrupt() error = %T(%v), want *CLIConnectionError", err, err)
 	}
 }
@@ -257,8 +256,7 @@ func TestClient_GetServerInfo_NotConnected(t *testing.T) {
 	defer c.Close()
 
 	_, err := c.GetServerInfo(ctx)
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("GetServerInfo() error = %T(%v), want *CLIConnectionError", err, err)
 	}
 }
@@ -268,8 +266,7 @@ func TestClient_GetServerInfo_NotRunning(t *testing.T) {
 
 	c := &ClaudeSDKClient{}
 	_, err := c.GetServerInfo(t.Context())
-	var connErr *CLIConnectionError
-	if !errors.As(err, &connErr) {
+	if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 		t.Errorf("GetServerInfo() error = %T(%v), want *CLIConnectionError", err, err)
 	}
 }
@@ -385,8 +382,7 @@ func TestClient_Control_CloseInFlight(t *testing.T) {
 		if err == nil {
 			t.Fatal("in-flight control request returned nil error after Close, want error")
 		}
-		var connErr *CLIConnectionError
-		if !errors.As(err, &connErr) {
+		if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 			t.Errorf("error = %T(%v), want *CLIConnectionError", err, err)
 		}
 	case <-time.After(2 * time.Second):

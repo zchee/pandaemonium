@@ -68,7 +68,7 @@ func TestThinkingDisplay_Literals(t *testing.T) {
 // variable. The unexported isThinkingConfig() method keeps the set closed.
 func TestThinkingConfig_SealedInterface(t *testing.T) {
 	t.Parallel()
-	var configs = []ThinkingConfig{
+	configs := []ThinkingConfig{
 		ThinkingConfigAdaptive{},
 		ThinkingConfigAdaptive{Display: ThinkingDisplaySummarized},
 		ThinkingConfigEnabled{BudgetTokens: 1024},

@@ -79,7 +79,8 @@ type AssistantMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (AssistantMessage) isMessage()                {}
+func (AssistantMessage) isMessage() {}
+
 func (m AssistantMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // UserMessage carries content submitted by the user (or injected by a tool).
@@ -104,7 +105,8 @@ type UserMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (UserMessage) isMessage()                {}
+func (UserMessage) isMessage() {}
+
 func (m UserMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // SystemMessage carries a system-level notification from the CLI subprocess.
@@ -116,7 +118,8 @@ type SystemMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (SystemMessage) isMessage()                {}
+func (SystemMessage) isMessage() {}
+
 func (m SystemMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // ResultMessage is the final message in a stream. It carries session and usage
@@ -186,7 +189,8 @@ type ResultMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (ResultMessage) isMessage()                {}
+func (ResultMessage) isMessage() {}
+
 func (m ResultMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // DeferredToolUse describes a tool call that was deferred by a PreToolUse
@@ -276,7 +280,8 @@ type TaskStartedMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (TaskStartedMessage) isMessage()                {}
+func (TaskStartedMessage) isMessage() {}
+
 func (m TaskStartedMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // TaskProgressMessage is the system message emitted while a Task is running.
@@ -311,7 +316,8 @@ type TaskProgressMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (TaskProgressMessage) isMessage()                {}
+func (TaskProgressMessage) isMessage() {}
+
 func (m TaskProgressMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // TaskNotificationMessage is the system message emitted when a Task completes,
@@ -350,7 +356,8 @@ type TaskNotificationMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (TaskNotificationMessage) isMessage()                {}
+func (TaskNotificationMessage) isMessage() {}
+
 func (m TaskNotificationMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // HookEventMessage is the system message the CLI emits for hook lifecycle
@@ -389,7 +396,8 @@ type HookEventMessage struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (HookEventMessage) isMessage()                {}
+func (HookEventMessage) isMessage() {}
+
 func (m HookEventMessage) jsonRaw() jsontext.Value { return m.Raw }
 
 // ─── StreamEvent ─────────────────────────────────────────────────────────────
@@ -420,7 +428,8 @@ type StreamEvent struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (StreamEvent) isMessage()                {}
+func (StreamEvent) isMessage() {}
+
 func (m StreamEvent) jsonRaw() jsontext.Value { return m.Raw }
 
 // ─── Rate limit types ────────────────────────────────────────────────────────
@@ -518,7 +527,8 @@ type RateLimitEvent struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (RateLimitEvent) isMessage()                {}
+func (RateLimitEvent) isMessage() {}
+
 func (m RateLimitEvent) jsonRaw() jsontext.Value { return m.Raw }
 
 // ─── ContentBlock sealed interface ──────────────────────────────────────────
@@ -542,7 +552,8 @@ type TextBlock struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (TextBlock) isContentBlock()            {}
+func (TextBlock) isContentBlock() {}
+
 func (b TextBlock) blockRaw() jsontext.Value { return b.Raw }
 
 // ToolUseBlock records a tool invocation requested by the model.
@@ -560,7 +571,8 @@ type ToolUseBlock struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (ToolUseBlock) isContentBlock()            {}
+func (ToolUseBlock) isContentBlock() {}
+
 func (b ToolUseBlock) blockRaw() jsontext.Value { return b.Raw }
 
 // ToolResultBlock carries the result of a tool invocation.
@@ -578,7 +590,8 @@ type ToolResultBlock struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (ToolResultBlock) isContentBlock()            {}
+func (ToolResultBlock) isContentBlock() {}
+
 func (b ToolResultBlock) blockRaw() jsontext.Value { return b.Raw }
 
 // ThinkingBlock carries the model's extended-thinking output. Emitted when
@@ -598,7 +611,8 @@ type ThinkingBlock struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (ThinkingBlock) isContentBlock()            {}
+func (ThinkingBlock) isContentBlock() {}
+
 func (b ThinkingBlock) blockRaw() jsontext.Value { return b.Raw }
 
 // ServerToolName names a server-side tool the API runs on the model's behalf.
@@ -654,7 +668,8 @@ type ServerToolUseBlock struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (ServerToolUseBlock) isContentBlock()            {}
+func (ServerToolUseBlock) isContentBlock() {}
+
 func (b ServerToolUseBlock) blockRaw() jsontext.Value { return b.Raw }
 
 // ServerToolResultBlock carries the result of a server-side tool call.
@@ -674,7 +689,8 @@ type ServerToolResultBlock struct {
 	Raw jsontext.Value `json:",inline"`
 }
 
-func (ServerToolResultBlock) isContentBlock()            {}
+func (ServerToolResultBlock) isContentBlock() {}
+
 func (b ServerToolResultBlock) blockRaw() jsontext.Value { return b.Raw }
 
 // ─── Hook event types ────────────────────────────────────────────────────────

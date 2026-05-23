@@ -112,7 +112,6 @@ func TestAgentDefinition_NotInCLIArgs(t *testing.T) {
 	}
 }
 
-
 // TestAgentDefinition_AgentsWireParity locks the wire field names against
 // upstream AgentDefinition (types.py:83-101) by exercising the actual
 // wire-serialization path — agentsWire — rather than the struct's JSON tags.
