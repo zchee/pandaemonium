@@ -46,7 +46,7 @@ func (c *ClaudeSDKClient) controlRequest(ctx context.Context, subtype string, pa
 	cp := c.cp
 	c.closeMu.Unlock()
 	if cp == nil {
-		return nil, &CLIConnectionError{Message: "CLI is not running"}
+		return nil, &CLIConnectionError{Message: "\"claude\" is not running"}
 	}
 	timeout := defaultControlTimeout
 	if deadline, ok := ctx.Deadline(); ok {
@@ -111,7 +111,7 @@ func (c *ClaudeSDKClient) GetServerInfo(ctx context.Context) (jsontext.Value, er
 	cp := c.cp
 	c.closeMu.Unlock()
 	if cp == nil {
-		return nil, &CLIConnectionError{Message: "CLI is not running"}
+		return nil, &CLIConnectionError{Message: "\"claude\" is not running"}
 	}
 	return cp.serverInfoResult()
 }

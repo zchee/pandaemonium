@@ -57,12 +57,12 @@ import (
 // skills. When Skills is nil/empty it is a no-op: tools and sources pass
 // through unchanged. The receiver is never mutated.
 func effectiveToolsAndSources(opts *Options) (tools []string, sources []SettingSource) {
-	tools = append([]string(nil), opts.AllowedTools...)
+	tools = slices.Clone(opts.AllowedTools)
 	// Copy SettingSources too: the Skills-default branch below may append to
 	// `sources`, which would otherwise mutate the caller's
 	// opts.SettingSources slice if it has spare capacity. This guards against
 	// any future code path that appends to `sources`, not only Skills.
-	sources = append([]SettingSource(nil), opts.SettingSources...)
+	sources = slices.Clone(opts.SettingSources)
 
 	if len(opts.Skills) == 0 {
 		return tools, sources
@@ -233,9 +233,11 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 
 	// Settings JSON or file path, with Sandbox merged in. Mirrors upstream
 	// _build_settings_value (subprocess_cli.py:129-181).
-	if v, err := buildSettingsValue(opts); err != nil {
+	v, err := buildSettingsValue(opts)
+	if err != nil {
 		return nil, err
-	} else if v != "" {
+	}
+	if v != "" {
 		args = append(args, "--settings", v)
 	}
 

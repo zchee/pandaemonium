@@ -65,7 +65,7 @@ func (t *stdioTransport) Close() error {
 // The data is cloned so the caller may reuse the slice immediately.
 func (t *stdioTransport) WriteJSON(_ context.Context, p []byte) error {
 	if t.stdin == nil {
-		return &CLIConnectionError{Message: "CLI is not running"}
+		return &CLIConnectionError{Message: "\"claude\" is not running"}
 	}
 	line := append(slices.Clone(p), '\n')
 	if _, err := t.stdin.Write(line); err != nil {
@@ -78,7 +78,7 @@ func (t *stdioTransport) WriteJSON(_ context.Context, p []byte) error {
 // Returns io.EOF when the subprocess closes its stdout.
 func (t *stdioTransport) ReadJSON(_ context.Context) ([]byte, error) {
 	if t.stdout == nil {
-		return nil, &CLIConnectionError{Message: "CLI is not running"}
+		return nil, &CLIConnectionError{Message: "\"claude\" is not running"}
 	}
 	line, err := t.stdout.ReadBytes('\n')
 	if err != nil {

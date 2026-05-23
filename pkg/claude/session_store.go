@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"slices"
 	"sort"
 	"sync"
 
@@ -135,10 +136,10 @@ func (s *inMemorySessionStore) Load(_ context.Context, id string) (*Session, err
 // Save persists a session, creating or replacing as needed.
 func (s *inMemorySessionStore) Save(_ context.Context, sess *Session) error {
 	if sess == nil {
-		return &CLIConnectionError{Message: "Save: session must not be nil"}
+		return &CLIConnectionError{Message: "save session must not be nil"}
 	}
 	if sess.ID == "" {
-		return &CLIConnectionError{Message: "Save: session ID must not be empty"}
+		return &CLIConnectionError{Message: "save session ID must not be empty"}
 	}
 	cp := shallowCopySession(sess)
 	s.mu.Lock()
@@ -211,7 +212,7 @@ func (s *inMemorySessionStore) Fork(_ context.Context, sessionID, fromMessageID 
 	forked := &Session{
 		ID:       newID,
 		ParentID: sessionID,
-		Messages: append([]Message(nil), src.Messages[:cutoff]...),
+		Messages: slices.Clone(src.Messages[:cutoff]),
 	}
 
 	s.mu.Lock()
@@ -253,7 +254,7 @@ func newSessionID() (string, error) {
 func shallowCopySession(sess *Session) *Session {
 	cp := *sess
 	if sess.Messages != nil {
-		cp.Messages = append([]Message(nil), sess.Messages...)
+		cp.Messages = slices.Clone(sess.Messages)
 	}
 	return &cp
 }

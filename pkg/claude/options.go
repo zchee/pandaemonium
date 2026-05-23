@@ -16,6 +16,7 @@ package claude
 
 import (
 	"maps"
+	"slices"
 
 	"github.com/google/jsonschema-go/jsonschema"
 )
@@ -39,10 +40,10 @@ func (o *Options) validate() error {
 		return nil
 	}
 	if o.MaxTurns < 0 {
-		return &CLIConnectionError{Message: "Options.MaxTurns must be >= 0"}
+		return &CLIConnectionError{Message: "\"MaxTurns\" option must be >= 0"}
 	}
 	if o.MaxBudgetUSD < 0 {
-		return &CLIConnectionError{Message: "Options.MaxBudgetUSD must be >= 0"}
+		return &CLIConnectionError{Message: "\"MaxBudgetUSD\" option must be >= 0"}
 	}
 	return nil
 }
@@ -64,37 +65,37 @@ func (o *Options) clone() *Options {
 	}
 	c := *o
 	if o.AllowedTools != nil {
-		c.AllowedTools = append([]string(nil), o.AllowedTools...)
+		c.AllowedTools = slices.Clone(o.AllowedTools)
 	}
 	if o.Tools != nil {
-		c.Tools = append([]string(nil), o.Tools...)
+		c.Tools = slices.Clone(o.Tools)
 	}
 	if o.MCPServers != nil {
-		c.MCPServers = append([]MCPServer(nil), o.MCPServers...)
+		c.MCPServers = slices.Clone(o.MCPServers)
 	}
 	if o.Hooks != nil {
-		c.Hooks = append([]HookRegistration(nil), o.Hooks...)
+		c.Hooks = slices.Clone(o.Hooks)
 	}
 	if o.Agents != nil {
-		c.Agents = append([]AgentDefinition(nil), o.Agents...)
+		c.Agents = slices.Clone(o.Agents)
 	}
 	if o.Plugins != nil {
-		c.Plugins = append([]Plugin(nil), o.Plugins...)
+		c.Plugins = slices.Clone(o.Plugins)
 	}
 	if o.SettingSources != nil {
-		c.SettingSources = append([]SettingSource(nil), o.SettingSources...)
+		c.SettingSources = slices.Clone(o.SettingSources)
 	}
 	if o.DisallowedTools != nil {
-		c.DisallowedTools = append([]string(nil), o.DisallowedTools...)
+		c.DisallowedTools = slices.Clone(o.DisallowedTools)
 	}
 	if o.Betas != nil {
-		c.Betas = append([]string(nil), o.Betas...)
+		c.Betas = slices.Clone(o.Betas)
 	}
 	if o.AddDirs != nil {
-		c.AddDirs = append([]string(nil), o.AddDirs...)
+		c.AddDirs = slices.Clone(o.AddDirs)
 	}
 	if o.Skills != nil {
-		c.Skills = append([]string(nil), o.Skills...)
+		c.Skills = slices.Clone(o.Skills)
 	}
 	if o.Env != nil {
 		c.Env = make(map[string]string, len(o.Env))
@@ -111,25 +112,25 @@ func (o *Options) clone() *Options {
 	if o.Sandbox != nil {
 		sb := *o.Sandbox
 		if o.Sandbox.ExcludedCommands != nil {
-			sb.ExcludedCommands = append([]string(nil), o.Sandbox.ExcludedCommands...)
+			sb.ExcludedCommands = slices.Clone(o.Sandbox.ExcludedCommands)
 		}
 		if o.Sandbox.Network.AllowedDomains != nil {
-			sb.Network.AllowedDomains = append([]string(nil), o.Sandbox.Network.AllowedDomains...)
+			sb.Network.AllowedDomains = slices.Clone(o.Sandbox.Network.AllowedDomains)
 		}
 		if o.Sandbox.Network.DeniedDomains != nil {
-			sb.Network.DeniedDomains = append([]string(nil), o.Sandbox.Network.DeniedDomains...)
+			sb.Network.DeniedDomains = slices.Clone(o.Sandbox.Network.DeniedDomains)
 		}
 		if o.Sandbox.Network.AllowUnixSockets != nil {
-			sb.Network.AllowUnixSockets = append([]string(nil), o.Sandbox.Network.AllowUnixSockets...)
+			sb.Network.AllowUnixSockets = slices.Clone(o.Sandbox.Network.AllowUnixSockets)
 		}
 		if o.Sandbox.Network.AllowMachLookup != nil {
-			sb.Network.AllowMachLookup = append([]string(nil), o.Sandbox.Network.AllowMachLookup...)
+			sb.Network.AllowMachLookup = slices.Clone(o.Sandbox.Network.AllowMachLookup)
 		}
 		if o.Sandbox.IgnoreViolations.File != nil {
-			sb.IgnoreViolations.File = append([]string(nil), o.Sandbox.IgnoreViolations.File...)
+			sb.IgnoreViolations.File = slices.Clone(o.Sandbox.IgnoreViolations.File)
 		}
 		if o.Sandbox.IgnoreViolations.Network != nil {
-			sb.IgnoreViolations.Network = append([]string(nil), o.Sandbox.IgnoreViolations.Network...)
+			sb.IgnoreViolations.Network = slices.Clone(o.Sandbox.IgnoreViolations.Network)
 		}
 		c.Sandbox = &sb
 	}

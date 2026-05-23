@@ -88,7 +88,7 @@ func (s *s3SessionStore) Load(ctx context.Context, id string) (*claude.Session, 
 
 func (s *s3SessionStore) Save(ctx context.Context, sess *claude.Session) error {
 	if sess == nil || sess.ID == "" {
-		return errors.New("Save: session must have a non-empty ID")
+		return errors.New("save: session must have a non-empty ID")
 	}
 	raw, err := json.Marshal(sessionRecord{ID: sess.ID, ParentID: sess.ParentID})
 	if err != nil {

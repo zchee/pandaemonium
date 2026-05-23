@@ -69,7 +69,7 @@ func (s *redisSessionStore) Load(ctx context.Context, id string) (*claude.Sessio
 
 func (s *redisSessionStore) Save(ctx context.Context, sess *claude.Session) error {
 	if sess == nil || sess.ID == "" {
-		return errors.New("Save: session must have a non-empty ID")
+		return errors.New("save: session must have a non-empty ID")
 	}
 	raw, _ := json.Marshal([]any{}) // simplified: no message serde
 	return s.client.HSet(

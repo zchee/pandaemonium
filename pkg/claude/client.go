@@ -23,6 +23,7 @@ import (
 	"iter"
 	"os"
 	"os/exec"
+	"slices"
 	"sync"
 	"time"
 
@@ -50,7 +51,7 @@ func (b *rawMessageBuffer) push(ctx context.Context, line []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	cp := append([]byte(nil), line...)
+	cp := slices.Clone(line)
 	b.mu.Lock()
 	defer b.mu.Unlock()
 	if b.closed {
@@ -344,7 +345,7 @@ func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message
 // its own subprocess on the first call to [ClaudeSDKClient.Query].
 func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*ClaudeSDKClient, error) {
 	if c.opts == nil || c.opts.SessionStore == nil {
-		return nil, &CLIConnectionError{Message: "Fork requires Options.SessionStore to be set"}
+		return nil, &CLIConnectionError{Message: "\"Fork\" requires Options.SessionStore to be set"}
 	}
 
 	c.closeMu.Lock()
@@ -352,7 +353,7 @@ func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*Clau
 	c.closeMu.Unlock()
 
 	if parentSessionID == "" {
-		return nil, &CLIConnectionError{Message: "Fork: parent client has no active session ID"}
+		return nil, &CLIConnectionError{Message: "\"Fork\" parent client has no active session ID"}
 	}
 
 	// Snapshot history up to fromMessageID in the store. The forked session
@@ -360,7 +361,7 @@ func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*Clau
 	// the one matching fromMessageID (or all messages if fromMessageID is "").
 	forked, err := c.opts.SessionStore.Fork(ctx, parentSessionID, fromMessageID)
 	if err != nil {
-		return nil, fmt.Errorf("Fork: %w", err)
+		return nil, fmt.Errorf("\"Fork\": %w", err)
 	}
 
 	// Clone the options so the forked client is independently configurable:
@@ -413,7 +414,7 @@ func (c *ClaudeSDKClient) Close() error {
 	// transport.WriteJSON is safe: stdioTransport.WriteJSON tolerates a closed
 	// stdin (the Write simply errors), and transport.Close is idempotent.
 	if tr != nil {
-		_ = tr.Close()
+		_ = tr.Close() // ignore: transport close errors are non-fatal during shutdown.
 	}
 
 	// Clear c.transport inside writeMu — write-symmetric clear with writeMessage,
@@ -449,13 +450,13 @@ func (c *ClaudeSDKClient) Close() error {
 	// without a lock is safe.
 	if c.opts != nil {
 		for _, srv := range c.opts.MCPServers {
-			_ = srv.Close()
+			_ = srv.Close() // ignore: best-effort MCP server cleanup on shutdown.
 		}
 	}
 
 	// Signal and wait for the subprocess.
 	if cmd != nil && cmd.Process != nil {
-		_ = cmd.Process.Signal(os.Interrupt)
+		_ = cmd.Process.Signal(os.Interrupt) // ignore: process may have exited before signal delivery.
 		done := cmdDone
 		if done == nil {
 			done = waitForCmd(cmd)
@@ -463,7 +464,7 @@ func (c *ClaudeSDKClient) Close() error {
 		select {
 		case <-done:
 		case <-time.After(2 * time.Second):
-			_ = cmd.Process.Kill()
+			_ = cmd.Process.Kill() // ignore: process exit path is best-effort; timed timeout.
 			<-done
 		}
 	}
@@ -612,7 +613,7 @@ func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
 	if c.transport == nil {
-		return &CLIConnectionError{Message: "CLI is not running"}
+		return &CLIConnectionError{Message: "\"claude\" is not running"}
 	}
 	return c.transport.WriteJSON(ctx, data)
 }

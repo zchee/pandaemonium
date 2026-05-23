@@ -228,7 +228,11 @@ func (cp *controlProtocol) routeControlResponse(line []byte) {
 func (cp *controlProtocol) newRequestID() string {
 	n := cp.counter.Add(1)
 	var b [4]byte
-	_, _ = rand.Read(b[:])
+	if _, err := rand.Read(b[:]); err != nil {
+		// Rand should almost never fail; fall back to a deterministic suffix to
+		// preserve uniqueness from the monotonic counter.
+		return "req_" + strconv.FormatUint(n, 10) + "_00000000"
+	}
 	return "req_" + strconv.FormatUint(n, 10) + "_" + hex.EncodeToString(b[:])
 }
 
@@ -357,7 +361,7 @@ func (cp *controlProtocol) initialize(ctx context.Context) (jsontext.Value, erro
 // initialize has not completed, which is reported as a not-connected error.
 func (cp *controlProtocol) serverInfoResult() (jsontext.Value, error) {
 	if len(cp.initializationResult) == 0 {
-		return nil, &CLIConnectionError{Message: "CLI is not connected: initialize has not completed"}
+		return nil, &CLIConnectionError{Message: "\"claude\" is not connected: initialize has not completed"}
 	}
 	return cp.initializationResult, nil
 }
@@ -612,9 +616,9 @@ func (cp *controlProtocol) failPending(cause error) {
 	}
 	cp.pendingMu.Unlock()
 
-	msg := "CLI disconnected"
+	msg := "\"claude\" disconnected"
 	if cause != nil {
-		msg = "CLI disconnected: " + cause.Error()
+		msg = "\"claude\" disconnected: " + cause.Error()
 	}
 	res := controlResult{err: &CLIConnectionError{Message: msg}}
 	for _, ch := range chans {
@@ -716,7 +720,7 @@ func (cp *controlProtocol) dispatchControlSubtype(ctx context.Context, subtype s
 // Mirrors upstream Query._handle_control_request can_use_tool (query.py:381-436).
 func (cp *controlProtocol) handleCanUseTool(ctx context.Context, reqBody jsontext.Value) (map[string]any, error) {
 	if cp.opts == nil || cp.opts.CanUseTool == nil {
-		return nil, errors.New("CanUseTool callback is not provided")
+		return nil, errors.New("\"CanUseTool\" callback is not provided")
 	}
 	var req struct {
 		ToolName              string           `json:"tool_name"`
@@ -731,7 +735,7 @@ func (cp *controlProtocol) handleCanUseTool(ctx context.Context, reqBody jsontex
 		Description           string           `json:"description"`
 	}
 	if err := json.Unmarshal(reqBody, &req); err != nil {
-		return nil, fmt.Errorf("decode can_use_tool request: %w", err)
+		return nil, fmt.Errorf("decode \"CanUseTool\" request: %w", err)
 	}
 
 	suggestions := make([]PermissionUpdate, 0, len(req.PermissionSuggestions))
@@ -783,7 +787,7 @@ func (cp *controlProtocol) handleCanUseTool(ctx context.Context, reqBody jsontex
 		}
 		return out, nil
 	default:
-		return nil, fmt.Errorf("CanUseTool returned unknown PermissionResult type %T", result)
+		return nil, fmt.Errorf("\"CanUseTool\" returned unknown PermissionResult type %T", result)
 	}
 }
 
@@ -891,7 +895,7 @@ func (cp *controlProtocol) handleMCPMessage(ctx context.Context, reqBody jsontex
 	id := jsonrpcID(req.Message.ID)
 	srv, ok := cp.mcpServers[req.ServerName]
 	if !ok {
-		return mcpResponse(jsonrpcError(id, -32601, fmt.Sprintf("Server '%s' not found", req.ServerName))), nil
+		return mcpResponse(jsonrpcError(id, -32601, fmt.Sprintf("server %q not found", req.ServerName))), nil
 	}
 
 	switch req.Message.Method {
@@ -926,7 +930,7 @@ func (cp *controlProtocol) handleMCPMessage(ctx context.Context, reqBody jsontex
 		return mcpResponse(map[string]any{"jsonrpc": "2.0", "result": map[string]any{}}), nil
 
 	default:
-		return mcpResponse(jsonrpcError(id, -32601, fmt.Sprintf("Method '%s' not found", req.Message.Method))), nil
+		return mcpResponse(jsonrpcError(id, -32601, fmt.Sprintf("method %q not found", req.Message.Method))), nil
 	}
 }
 
@@ -998,5 +1002,9 @@ func (cp *controlProtocol) writeControlResponse(ctx context.Context, envelope ma
 	if err != nil {
 		return
 	}
-	_ = cp.writeFn(ctx, body)
+	if err := cp.writeFn(ctx, body); err != nil {
+		// The read loop will surface transport failure via pending controls and
+		// transport state transitions; best-effort writes avoid blocking here.
+		return
+	}
 }

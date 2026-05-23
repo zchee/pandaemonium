@@ -217,7 +217,7 @@ func TestClaudeSDKClient_ReadLoopRoutesControlWhenConsumerIsSlow(t *testing.T) {
 	cp.pendingMu.Unlock()
 
 	lines := make([]string, 0, 513)
-	for i := 0; i < 512; i++ {
+	for range 512 {
 		lines = append(lines, `{"type":"assistant","message":{"content":[{"type":"text","text":"queued"}],"model":"m"}}`)
 	}
 	lines = append(lines, `{"type":"control_response","response":{"subtype":"success","request_id":"`+requestID+`","response":{"ok":true}}}`)

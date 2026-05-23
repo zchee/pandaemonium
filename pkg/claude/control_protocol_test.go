@@ -349,7 +349,7 @@ func TestControlProtocol_Initialize_NoAgents(t *testing.T) {
 func collectWriter(n int) (func(context.Context, []byte) error, <-chan []byte) {
 	ch := make(chan []byte, n)
 	fn := func(_ context.Context, p []byte) error {
-		ch <- append([]byte(nil), p...)
+		ch <- slices.Clone(p)
 		return nil
 	}
 	return fn, ch
@@ -551,8 +551,8 @@ func TestControlProtocol_HandleCanUseTool_NoCallback(t *testing.T) {
 	if subtype != "error" {
 		t.Fatalf("subtype = %q, want error", subtype)
 	}
-	if !strings.Contains(errMsg, "CanUseTool") {
-		t.Errorf("error = %q, want to mention CanUseTool", errMsg)
+	if !strings.Contains(errMsg, "\"CanUseTool\"") {
+		t.Errorf("error = %q, want to mention \"CanUseTool\"", errMsg)
 	}
 }
 

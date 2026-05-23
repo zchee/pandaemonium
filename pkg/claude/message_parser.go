@@ -17,6 +17,7 @@ package claude
 import (
 	"bytes"
 	"errors"
+	"slices"
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
@@ -84,7 +85,7 @@ func parseMessage(line []byte) (Message, error) {
 	// (an unknown but present type still becomes rawMessage below, preserving
 	// forward compatibility).
 	if env.Type == "" {
-		return nil, &MessageParseError{Message: "message missing 'type' field", Data: append([]byte(nil), data...)}
+		return nil, &MessageParseError{Message: "message missing 'type' field", Data: slices.Clone(data)}
 	}
 
 	switch env.Type {
