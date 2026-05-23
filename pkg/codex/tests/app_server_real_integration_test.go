@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
@@ -272,6 +273,41 @@ func TestRealAppServerIntegrationWebSocketSignedBearerTokenPort(t *testing.T) {
 	t.Cleanup(func() {
 		if err := sdk.Close(); err != nil {
 			t.Fatalf("Codex.Close() real websocket signed-bearer-token error = %v", err)
+		}
+	})
+
+	assertRealInitializedMetadata(t, sdk.Metadata())
+}
+
+func TestRealAppServerIntegrationUnixWebSocketPort(t *testing.T) {
+	codexBin := requireRealCodexBinary(t)
+	if runtime.GOOS == "windows" {
+		t.Skip("Unix-domain sockets are not supported on windows")
+	}
+
+	socketPath := filepath.Join(t.TempDir(), "codex.sock")
+	ctx, cancel := context.WithTimeout(t.Context(), 45*time.Second)
+	t.Cleanup(cancel)
+	sdk, err := codex.NewCodex(ctx, &codex.Config{
+		CodexBin: codexBin,
+		Cwd:      t.TempDir(),
+		Listen: codex.ListenConfig{
+			URL: "unix://" + socketPath,
+			WebSocket: &codex.WebSocketConfig{
+				AuthMode:    codex.WebSocketAuthNone,
+				DialTimeout: 500 * time.Millisecond,
+			},
+		},
+	})
+	if err != nil {
+		if strings.Contains(strings.ToLower(err.Error()), "unix") || strings.Contains(strings.ToLower(err.Error()), "listen") {
+			t.Skipf("real Codex binary does not support unix websocket listen: %v", err)
+		}
+		t.Fatalf("NewCodex() real unix websocket error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := sdk.Close(); err != nil {
+			t.Fatalf("Codex.Close() real unix websocket error = %v", err)
 		}
 	})
 
