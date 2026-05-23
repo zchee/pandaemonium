@@ -1,0 +1,14 @@
+repos:
+  - repo: https://github.com/gitleaks/gitleaks
+    rev: v8.30.1
+    hooks:
+      - id: gitleaks
+        language_version: system
+
+  - repo: https://github.com/zchee/pre-commit-go
+    rev: 60c32a1154f8
+    hooks:
+      - id: gofumpt
+      - id: goimports-rereviser
+
+exclude: '.*/testdata/'
