@@ -185,6 +185,34 @@ func TestMCPExternalServer_Metadata(t *testing.T) {
 	}
 }
 
+func TestBuildLaunchArgs_MCPConfigDeterministic(t *testing.T) {
+	t.Parallel()
+
+	opts := &Options{MCPServers: []MCPServer{
+		&MCPStdioServerConfig{MCPName: "zeta", Command: "z", Env: map[string]string{"B": "2", "A": "1"}},
+		&MCPStdioServerConfig{MCPName: "alpha", Command: "a", Env: map[string]string{"D": "4", "C": "3"}},
+	}}
+	var first string
+	for i := range 20 {
+		args := mustLaunchArgs(t, "/bin/claude", opts, "")
+		cfg := argValue(args, "--mcp-config")
+		if cfg == "" {
+			t.Fatalf("iteration %d: --mcp-config missing: %v", i, args)
+		}
+		if first == "" {
+			first = cfg
+			continue
+		}
+		if cfg != first {
+			t.Fatalf("iteration %d: --mcp-config changed\nfirst: %s\n  got: %s", i, first, cfg)
+		}
+	}
+	want := `{"mcpServers":{"alpha":{"command":"a","env":{"C":"3","D":"4"},"type":"stdio"},"zeta":{"command":"z","env":{"A":"1","B":"2"},"type":"stdio"}}}`
+	if first != want {
+		t.Fatalf("--mcp-config = %s\nwant %s", first, want)
+	}
+}
+
 // TestBuildLaunchArgs_MCPServersMixed verifies the launch wiring builds
 // --mcp-config with every variant alongside the existing in-process server,
 // each emitting its own wire shape under the mcpServers map.

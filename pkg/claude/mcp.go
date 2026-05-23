@@ -321,7 +321,7 @@ func (s *inProcessMCPServer) callTool(ctx context.Context, name string, argument
 		return nil, err
 	}
 
-	content := make([]map[string]any, 0, len(result.Content))
+	content := make([]any, 0, len(result.Content))
 	for _, item := range result.Content {
 		if item == nil {
 			continue
@@ -330,11 +330,7 @@ func (s *inProcessMCPServer) callTool(ctx context.Context, name string, argument
 		if err != nil {
 			return nil, fmt.Errorf("marshal MCP content %T: %w", item, err)
 		}
-		var entry map[string]any
-		if err := json.Unmarshal(raw, &entry); err != nil {
-			return nil, fmt.Errorf("decode MCP content %T: %w", item, err)
-		}
-		content = append(content, entry)
+		content = append(content, jsontext.Value(raw))
 	}
 
 	out := map[string]any{"content": content}

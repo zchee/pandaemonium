@@ -298,7 +298,7 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		for _, srv := range opts.MCPServers {
 			servers[srv.Name()] = srv.configForCLI()
 		}
-		cfg, err := json.Marshal(map[string]any{"mcpServers": servers})
+		cfg, err := json.Marshal(map[string]any{"mcpServers": servers}, json.Deterministic(true))
 		if err != nil {
 			return nil, &CLIConnectionError{Message: "marshal --mcp-config: " + err.Error()}
 		}

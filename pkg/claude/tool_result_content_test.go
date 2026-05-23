@@ -18,9 +18,41 @@ import (
 	"context"
 	"testing"
 
+	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
+
+func callToolContent(t *testing.T, resp map[string]any) []map[string]any {
+	t.Helper()
+	rawItems, ok := resp["content"].([]any)
+	if !ok {
+		t.Fatalf("content type = %T, want []any; resp=%v", resp["content"], resp)
+	}
+	content := make([]map[string]any, 0, len(rawItems))
+	for i, rawItem := range rawItems {
+		var raw jsontext.Value
+		switch item := rawItem.(type) {
+		case jsontext.Value:
+			raw = item
+		case []byte:
+			raw = jsontext.Value(item)
+		case string:
+			raw = jsontext.Value(item)
+		case map[string]any:
+			content = append(content, item)
+			continue
+		default:
+			t.Fatalf("content[%d] type = %T, want raw JSON value", i, rawItem)
+		}
+		var decoded map[string]any
+		if err := json.Unmarshal(raw, &decoded); err != nil {
+			t.Fatalf("decode content[%d] raw JSON %s: %v", i, raw, err)
+		}
+		content = append(content, decoded)
+	}
+	return content
+}
 
 // TestCallTool_TextOnlyResultStillWorks is the regression guard: the
 // pre-F2 text-only path must keep producing the exact same wire output.
@@ -41,7 +73,7 @@ func TestCallTool_TextOnlyResultStillWorks(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
-	content, _ := resp["content"].([]map[string]any)
+	content := callToolContent(t, resp)
 	if len(content) != 1 {
 		t.Fatalf("content len = %d, want 1; resp=%v", len(content), resp)
 	}
@@ -72,7 +104,7 @@ func TestCallTool_RawContentImage(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
-	content, _ := resp["content"].([]map[string]any)
+	content := callToolContent(t, resp)
 	if len(content) != 1 {
 		t.Fatalf("content len = %d, want 1; resp=%v", len(content), resp)
 	}
@@ -112,7 +144,7 @@ func TestCallTool_RawContentResourceLink(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
-	content, _ := resp["content"].([]map[string]any)
+	content := callToolContent(t, resp)
 	if len(content) != 1 {
 		t.Fatalf("content len = %d, want 1; resp=%v", len(content), resp)
 	}
@@ -149,7 +181,7 @@ func TestCallTool_RawContentMixed(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
-	content, _ := resp["content"].([]map[string]any)
+	content := callToolContent(t, resp)
 	if len(content) != 2 {
 		t.Fatalf("content len = %d, want 2", len(content))
 	}
@@ -183,7 +215,7 @@ func TestCallTool_RawContentTakesPrecedence(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
-	content, _ := resp["content"].([]map[string]any)
+	content := callToolContent(t, resp)
 	if len(content) != 1 {
 		t.Fatalf("content len = %d, want 1", len(content))
 	}
@@ -213,7 +245,7 @@ func TestCallTool_RawContentEmptySlicePreservesEmpty(t *testing.T) {
 	if err != nil {
 		t.Fatalf("callTool: %v", err)
 	}
-	content, _ := resp["content"].([]map[string]any)
+	content := callToolContent(t, resp)
 	if len(content) != 0 {
 		t.Errorf("content len = %d, want 0 (empty RawContent must NOT fall back to Content string)", len(content))
 	}

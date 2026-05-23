@@ -21,6 +21,8 @@ import (
 	"time"
 
 	"github.com/go-json-experiment/json"
+	"github.com/go-json-experiment/json/jsontext"
+	"github.com/modelcontextprotocol/go-sdk/mcp"
 )
 
 // ── NewSDKMCPServer / ToolDefinition accessors ────────────────────────────────
@@ -466,5 +468,36 @@ func TestControlProtocol_MCPMessage_Cancel(t *testing.T) {
 	case <-wrote:
 		t.Fatal("cancelled mcp_message handler wrote a response, want none")
 	case <-time.After(100 * time.Millisecond):
+	}
+}
+
+func TestInProcessMCPServer_CallToolPreservesRawContentJSON(t *testing.T) {
+	t.Parallel()
+
+	tool := Tool("raw", "returns raw content", nil, func(_ context.Context, _ struct{}) (ToolResult, error) {
+		return ToolResult{RawContent: []mcp.Content{
+			&mcp.TextContent{Text: "hello"},
+			&mcp.ImageContent{Data: []byte("png"), MIMEType: "image/png"},
+		}}, nil
+	})
+	srv := NewSDKMCPServer("test", "1.0.0", tool).(*inProcessMCPServer)
+	got, err := srv.callTool(t.Context(), "raw", jsontext.Value(`{}`))
+	if err != nil {
+		t.Fatalf("callTool() error = %v", err)
+	}
+	content, ok := got["content"].([]any)
+	if !ok || len(content) != 2 {
+		t.Fatalf("content = %#v, want two raw JSON content entries", got["content"])
+	}
+	for i, item := range content {
+		if _, ok := item.(jsontext.Value); !ok {
+			t.Fatalf("content[%d] type = %T, want jsontext.Value", i, item)
+		}
+	}
+	if string(content[0].(jsontext.Value)) != `{"type":"text","text":"hello"}` {
+		t.Fatalf("content[0] = %s", content[0].(jsontext.Value))
+	}
+	if string(content[1].(jsontext.Value)) != `{"type":"image","mimeType":"image/png","data":"cG5n"}` {
+		t.Fatalf("content[1] = %s", content[1].(jsontext.Value))
 	}
 }
