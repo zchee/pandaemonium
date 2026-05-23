@@ -35,10 +35,10 @@ require (
 	golang.org/x/mod v0.36.0 // indirect
 	golang.org/x/perf v0.0.0-20260512194132-3cf34090a3db // indirect
 	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.44.0 // indirect
-	zgo.at/jfmt v0.0.0-20250703165133-d1b6c356823b // indirect
+	golang.org/x/sys v0.45.0 // indirect
+	zgo.at/jfmt v0.0.0-20260130232205-d030781d0fbb // indirect
 	zgo.at/runewidth v0.1.0 // indirect
 	zgo.at/termtext v1.5.0 // indirect
 	zgo.at/zli v0.0.0-20251226224229-7bb9a5cf3265 // indirect
-	zgo.at/zstd v0.0.0-20240531161000-9840c0c39ff5 // indirect
+	zgo.at/zstd v0.0.0-20260423150213-85e323702691 // indirect
 )
