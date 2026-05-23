@@ -21,6 +21,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net"
 	"net/http"
 	"net/url"
 	"os"
@@ -217,6 +218,17 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 	return nil
 }
 
+func newUnixWebSocketHTTPClient(socketPath string) *http.Client {
+	transport := &http.Transport{
+		Proxy: nil,
+		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			var dialer net.Dialer
+			return dialer.DialContext(ctx, "unix", socketPath)
+		},
+	}
+	return &http.Client{Transport: transport}
+}
+
 func wsLaunchArgs(cfg *WebSocketConfig) []string {
 	if cfg == nil || cfg.AuthMode == WebSocketAuthNone {
 		return nil
@@ -275,7 +287,11 @@ func websocketHasClientBearerToken(cfg *WebSocketConfig) bool {
 	return cfg.AuthMode == WebSocketAuthCapabilityToken && strings.TrimSpace(cfg.TokenFile) != ""
 }
 
-func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen string, cfg *WebSocketConfig) (*websocket.Conn, error) {
+func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocket.Conn, error) {
+	mode, socketPath, err := websocketListenMode(listen, env, cwd)
+	if err != nil {
+		return nil, err
+	}
 	attemptLimit := 50
 	for attempt := range attemptLimit {
 		select {
@@ -283,9 +299,15 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 			return nil, ctx.Err()
 		case err := <-procDone:
 			if err != nil {
-				return nil, fmt.Errorf("app-server exited before websocket readiness (%w)", err)
+				if socketPath != "" {
+					return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s): %w", mode, socketPath, err)
+				}
+				return nil, fmt.Errorf("app-server exited before %s readiness (%w)", mode, err)
 			}
-			return nil, errors.New("app-server exited before websocket readiness")
+			if socketPath != "" {
+				return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s)", mode, socketPath)
+			}
+			return nil, fmt.Errorf("app-server exited before %s readiness", mode)
 		default:
 		}
 		dialCtx := ctx
@@ -293,7 +315,7 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 		if cfg != nil && cfg.DialTimeout > 0 {
 			dialCtx, cancel = context.WithTimeout(ctx, cfg.DialTimeout)
 		}
-		conn, err := dialWebSocket(dialCtx, listen, cfg)
+		conn, err := dialWebSocket(dialCtx, listen, cfg, env, cwd)
 		if cancel != nil {
 			cancel()
 		}
@@ -310,15 +332,57 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 		case <-time.After(backoff):
 		case err := <-procDone:
 			if err != nil {
-				return nil, fmt.Errorf("app-server exited before websocket readiness (%w)", err)
+				if socketPath != "" {
+					return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s): %w", mode, socketPath, err)
+				}
+				return nil, fmt.Errorf("app-server exited before %s readiness (%w)", mode, err)
 			}
-			return nil, errors.New("app-server exited before websocket readiness")
+			if socketPath != "" {
+				return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s)", mode, socketPath)
+			}
+			return nil, fmt.Errorf("app-server exited before %s readiness", mode)
 		}
 	}
-	return nil, fmt.Errorf("app-server websocket not ready after %d attempts", attemptLimit)
+	if socketPath != "" {
+		return nil, fmt.Errorf("app-server %s not ready after %d attempts (socket=%s)", mode, attemptLimit, socketPath)
+	}
+	return nil, fmt.Errorf("app-server %s not ready after %d attempts", mode, attemptLimit)
 }
 
-func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig) (*websocket.Conn, error) {
+func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocket.Conn, error) {
+	mode, socketPath, err := websocketListenMode(listen, env, cwd)
+	if err != nil {
+		return nil, err
+	}
+	if mode == "unix websocket" {
+		token, err := websocketBearerToken(cfg)
+		if err != nil {
+			return nil, err
+		}
+		opts := &websocket.DialOptions{}
+		if token != "" {
+			opts.HTTPHeader = http.Header{
+				"Authorization": {fmt.Sprintf("Bearer %s", token)},
+			}
+		}
+		httpClient := newUnixWebSocketHTTPClient(socketPath)
+		if transport, ok := httpClient.Transport.(*http.Transport); ok {
+			defer transport.CloseIdleConnections()
+		}
+		opts.HTTPClient = httpClient
+		conn, resp, err := websocket.Dial(ctx, "ws://localhost/", opts)
+		if err != nil {
+			return nil, fmt.Errorf("dial unix websocket %q: %w", socketPath, err)
+		}
+		if resp == nil {
+			return conn, nil
+		}
+		if resp.StatusCode != http.StatusSwitchingProtocols {
+			_ = conn.Close(websocket.StatusProtocolError, resp.Status)
+			return nil, fmt.Errorf("dial unix websocket %q failed: %s", socketPath, resp.Status)
+		}
+		return conn, nil
+	}
 	u, err := url.Parse(listen)
 	if err != nil {
 		return nil, err

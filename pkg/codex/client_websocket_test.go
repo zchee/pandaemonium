@@ -78,7 +78,7 @@ func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
 				},
 			}, nil)
 
-			conn, err := dialWebSocket(ctx, wsURL, tc.wsConfig)
+			conn, err := dialWebSocket(ctx, wsURL, tc.wsConfig, nil, "")
 			if err != nil {
 				t.Fatalf("dialWebSocket() error = %v", err)
 			}

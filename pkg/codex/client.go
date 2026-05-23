@@ -183,8 +183,9 @@ func (c *Client) Start(ctx context.Context) error {
 	if c.config.Cwd != "" {
 		cmd.Dir = c.config.Cwd
 	}
-	cmd.Env = os.Environ()
-	for key, value := range c.config.Env {
+	effectiveEnv := c.effectiveEnv()
+	cmd.Env = make([]string, 0, len(effectiveEnv))
+	for key, value := range effectiveEnv {
 		cmd.Env = append(cmd.Env, key+"="+value)
 	}
 	c.stderrDone = make(chan struct{})
@@ -198,9 +199,12 @@ func (c *Client) Start(ctx context.Context) error {
 	if listenURL == "" {
 		listenURL = defaultListenURL
 	}
-	isWebSocket := strings.HasPrefix(listenURL, "ws://") || strings.HasPrefix(listenURL, "wss://")
-	switch {
-	case isWebSocket:
+	kind, err := classifyListenTransport(listenURL)
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case listenTransportWebSocket, listenTransportUnixWebSocket:
 		stderr, err = cmd.StderrPipe()
 		if err != nil {
 			return fmt.Errorf("create app-server stderr: %w", err)
@@ -211,7 +215,7 @@ func (c *Client) Start(ctx context.Context) error {
 		cmdDone := waitForCommand(cmd)
 		go c.drainStderr(stderr, c.stderrDone)
 		c.stderr = stderr
-		conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket)
+		conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket, c.effectiveEnv(), c.config.Cwd)
 		if err != nil {
 			if cmd.Process != nil {
 				_ = cmd.Process.Kill()
@@ -608,22 +612,36 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 	}
 	clientBearerSource := websocketHasClientBearerToken(listenCfg.WebSocket)
 
-	parsed, err := url.Parse(listenURL)
-	if err != nil {
-		return nil, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
-	}
-	if parsed.Scheme == "ws" || parsed.Scheme == "wss" {
-		if parsed.Host == "" {
-			return nil, fmt.Errorf("websocket listen URL %q is missing host", listenURL)
-		}
-		if parsed.Port() == "0" {
-			return nil, fmt.Errorf("websocket listen URL %q uses unsupported :0 port", listenURL)
-		}
-		if err := ensureWebSocketListenAllowed(parsed, listenCfg); err != nil {
+	if strings.HasPrefix(listenURL, unixListenPrefix) {
+		if err := validateUnixListenURL(listenURL); err != nil {
 			return nil, err
 		}
 		if err := validateWebSocketConfig(listenCfg.WebSocket, clientBearerSource); err != nil {
 			return nil, err
+		}
+	} else {
+		parsed, err := url.Parse(listenURL)
+		if err != nil {
+			return nil, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
+		}
+		switch parsed.Scheme {
+		case "ws", "wss":
+			if parsed.Host == "" {
+				return nil, fmt.Errorf("websocket listen URL %q is missing host", listenURL)
+			}
+			if parsed.Port() == "0" {
+				return nil, fmt.Errorf("websocket listen URL %q uses unsupported :0 port", listenURL)
+			}
+			if err := ensureWebSocketListenAllowed(parsed, listenCfg); err != nil {
+				return nil, err
+			}
+			if err := validateWebSocketConfig(listenCfg.WebSocket, clientBearerSource); err != nil {
+				return nil, err
+			}
+		case "unix":
+			if err := validateUnixListenURL(listenURL); err != nil {
+				return nil, err
+			}
 		}
 	}
 
@@ -670,6 +688,21 @@ func waitForCommand(cmd *exec.Cmd) chan error {
 
 func (c *Client) effectiveListenConfig() ListenConfig {
 	return c.config.Listen
+}
+
+func (c *Client) effectiveEnv() map[string]string {
+	env := make(map[string]string, len(os.Environ())+len(c.config.Env))
+	for _, entry := range os.Environ() {
+		key, value, ok := strings.Cut(entry, "=")
+		if !ok {
+			continue
+		}
+		env[key] = value
+	}
+	for key, value := range c.config.Env {
+		env[key] = value
+	}
+	return env
 }
 
 func (c *Client) nextRequestID() string {
