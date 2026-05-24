@@ -78,16 +78,40 @@ func TestNormalizeInput(t *testing.T) {
 	}
 }
 
-func TestDefaultCodexHome(t *testing.T) {
+func TestHomeDirDefault(t *testing.T) {
+	t.Setenv("CODEX_HOME", "")
+
 	got := HomeDir()
 	if got != filepath.Clean(got) {
-		t.Fatalf("DefaultCodexHome() = %q, want clean path", got)
+		t.Fatalf("HomeDir() = %q, want clean path", got)
 	}
 	if filepath.Base(got) != ".codex" {
-		t.Fatalf("DefaultCodexHome() = %q, want .codex basename", got)
+		t.Fatalf("HomeDir() = %q, want .codex basename", got)
 	}
 	if !filepath.IsAbs(got) {
-		t.Fatalf("DefaultCodexHome() = %q, want absolute path", got)
+		t.Fatalf("HomeDir() = %q, want absolute path", got)
+	}
+}
+
+func TestHomeDirHonorsCODEXHome(t *testing.T) {
+	codexHome := filepath.Join(t.TempDir(), "codex-home")
+	t.Setenv("CODEX_HOME", codexHome)
+
+	if got := HomeDir(); got != codexHome {
+		t.Fatalf("HomeDir() = %q, want CODEX_HOME %q", got, codexHome)
+	}
+}
+
+func TestHomeDirExpandsCurrentUserCODEXHome(t *testing.T) {
+	home, err := os.UserHomeDir()
+	if err != nil || home == "" {
+		t.Skipf("os.UserHomeDir() unavailable: home=%q err=%v", home, err)
+	}
+	t.Setenv("CODEX_HOME", "~/.config/codex")
+
+	want := filepath.Join(home, ".config", "codex")
+	if got := HomeDir(); got != want {
+		t.Fatalf("HomeDir() = %q, want expanded CODEX_HOME %q", got, want)
 	}
 }
 

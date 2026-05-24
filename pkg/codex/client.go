@@ -216,7 +216,7 @@ func expandUser(path string) string {
 // user home directory cannot be determined, it falls back to a temporary directory.
 func HomeDir() string {
 	// fast path for tests and users who set CODEX_HOME explicitly
-	if codexHome, ok := os.LookupEnv("CODEX_HOME"); ok {
+	if codexHome := strings.TrimSpace(os.Getenv("CODEX_HOME")); codexHome != "" {
 		return expandUser(codexHome)
 	}
 
