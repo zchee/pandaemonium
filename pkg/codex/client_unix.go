@@ -32,7 +32,7 @@ const (
 	listenTransportUnixWebSocket
 )
 
-func classifyListenTransport(listenURL string) (listenTransportKind, error) {
+func parseListenTransport(listenURL string) (listenTransportKind, error) {
 	listenURL = strings.TrimSpace(listenURL)
 	if listenURL == "" || listenURL == defaultListenURL {
 		return listenTransportStdio, nil
@@ -59,7 +59,7 @@ func classifyListenTransport(listenURL string) (listenTransportKind, error) {
 }
 
 func websocketListenMode(listenURL string, env map[string]string, cwd string) (string, string, error) {
-	kind, err := classifyListenTransport(listenURL)
+	kind, err := parseListenTransport(listenURL)
 	if err != nil {
 		return "", "", err
 	}

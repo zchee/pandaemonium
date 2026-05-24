@@ -261,7 +261,7 @@ func (c *Client) Start(ctx context.Context) error {
 	if listenURL == "" {
 		listenURL = defaultListenURL
 	}
-	kind, err := classifyListenTransport(listenURL)
+	kind, err := parseListenTransport(listenURL)
 	if err != nil {
 		return err
 	}

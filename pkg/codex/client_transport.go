@@ -292,6 +292,7 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 	if err != nil {
 		return nil, err
 	}
+
 	attemptLimit := 50
 	for attempt := range attemptLimit {
 		select {
@@ -310,6 +311,7 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 			return nil, fmt.Errorf("app-server exited before %s readiness", mode)
 		default:
 		}
+
 		dialCtx := ctx
 		var cancel context.CancelFunc
 		if cfg != nil && cfg.DialTimeout > 0 {
@@ -326,6 +328,7 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 		if attempt >= attemptLimit-1 {
 			return nil, err
 		}
+
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
@@ -343,6 +346,7 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 			return nil, fmt.Errorf("app-server exited before %s readiness", mode)
 		}
 	}
+
 	if socketPath != "" {
 		return nil, fmt.Errorf("app-server %s not ready after %d attempts (socket=%s)", mode, attemptLimit, socketPath)
 	}
