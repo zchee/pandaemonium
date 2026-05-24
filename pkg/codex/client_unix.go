@@ -46,16 +46,23 @@ func parseListenTransport(listenURL string) (listenTransportKind, error) {
 
 	parsed, err := url.Parse(listenURL)
 	if err != nil {
-		return listenTransportStdio, err
+		return listenTransportStdio, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
 	}
 	switch parsed.Scheme {
-	case "ws", "wss":
+	case "ws":
 		return listenTransportWebSocket, nil
 	case "unix":
-		return listenTransportStdio, fmt.Errorf("invalid listen URL %q: use unix:// for unix websocket endpoints", listenURL)
+		return listenTransportStdio, invalidUnixListenURLPrefixError(listenURL)
 	default:
-		return listenTransportStdio, nil
+		return listenTransportStdio, unsupportedListenURLError(listenURL)
 	}
+}
+
+func unsupportedListenURLError(listenURL string) error {
+	if listenURL == "off" {
+		return fmt.Errorf("unsupported app-server listen URL %q: off disables the app-server transport and cannot be used with process-backed clients", listenURL)
+	}
+	return fmt.Errorf("unsupported app-server listen URL %q: expected stdio://, unix://, unix://PATH, or ws://HOST:PORT", listenURL)
 }
 
 func websocketListenMode(listenURL string, env map[string]string, cwd string) (string, string, error) {
@@ -80,18 +87,24 @@ func websocketListenMode(listenURL string, env map[string]string, cwd string) (s
 func validateUnixListenURL(listenURL string) error {
 	listenURL = strings.TrimSpace(listenURL)
 	if !strings.HasPrefix(listenURL, unixListenPrefix) {
-		return fmt.Errorf("invalid unix listen URL %q: unix listen endpoints must use unix:// prefix", listenURL)
+		return invalidUnixListenURLPrefixError(listenURL)
 	}
+	// Match Rust's raw unix://PATH convention. Percent decoding would make
+	// socket-path identity ambiguous, so reject encoded paths instead.
 	if strings.Contains(listenURL, "%") {
 		return fmt.Errorf("invalid unix listen URL %q: percent-encoded unix socket paths are not supported", listenURL)
 	}
 	return nil
 }
 
+func invalidUnixListenURLPrefixError(listenURL string) error {
+	return fmt.Errorf("invalid unix listen URL %q: unix listen endpoints must use unix:// prefix", listenURL)
+}
+
 func unixSocketPathFromListenURL(listenURL string, env map[string]string, cwd string) (string, error) {
 	listenURL = strings.TrimSpace(listenURL)
 	if !strings.HasPrefix(listenURL, unixListenPrefix) {
-		return "", fmt.Errorf("invalid unix listen URL %q: unix listen endpoints must use unix:// prefix", listenURL)
+		return "", invalidUnixListenURLPrefixError(listenURL)
 	}
 	suffix := strings.TrimPrefix(listenURL, unixListenPrefix)
 	if strings.Contains(suffix, "%") {

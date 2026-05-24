@@ -165,7 +165,7 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 		return fmt.Errorf("invalid websocket auth mode %q", cfg.AuthMode)
 	}
 	if cfg.AuthMode == WebSocketAuthNone {
-		if cfg.TokenFile != "" || cfg.TokenSHA256 != "" || cfg.SharedSecretFile != "" || cfg.Issuer != "" || cfg.Audience != "" || cfg.ClientBearerToken != "" || cfg.ClientBearerTokenFile != "" || cfg.MaxClockSkewSeconds != nil {
+		if websocketAuthFieldsSet(cfg) {
 			return fmt.Errorf("ws-auth none cannot include websocket auth fields")
 		}
 		return nil
@@ -216,6 +216,30 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 		return fmt.Errorf("ws-audience cannot be empty if set")
 	}
 	return nil
+}
+
+func validateUnixWebSocketConfig(cfg *WebSocketConfig) error {
+	if cfg == nil {
+		return nil
+	}
+	if cfg.AuthMode != WebSocketAuthNone || websocketAuthFieldsSet(cfg) {
+		return fmt.Errorf("unix websocket listen does not support websocket auth fields; use unix socket file permissions or a ws:// listen endpoint with websocket auth")
+	}
+	return nil
+}
+
+func websocketAuthFieldsSet(cfg *WebSocketConfig) bool {
+	if cfg == nil {
+		return false
+	}
+	return cfg.TokenFile != "" ||
+		cfg.TokenSHA256 != "" ||
+		cfg.SharedSecretFile != "" ||
+		cfg.Issuer != "" ||
+		cfg.Audience != "" ||
+		cfg.ClientBearerToken != "" ||
+		cfg.ClientBearerTokenFile != "" ||
+		cfg.MaxClockSkewSeconds != nil
 }
 
 func newUnixWebSocketHTTPClient(socketPath string) *http.Client {
@@ -359,20 +383,11 @@ func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env
 		return nil, err
 	}
 	if mode == "unix websocket" {
-		token, err := websocketBearerToken(cfg)
-		if err != nil {
-			return nil, err
-		}
-		opts := &websocket.DialOptions{}
-		if token != "" {
-			opts.HTTPHeader = http.Header{
-				"Authorization": {fmt.Sprintf("Bearer %s", token)},
-			}
-		}
 		httpClient := newUnixWebSocketHTTPClient(socketPath)
 		if transport, ok := httpClient.Transport.(*http.Transport); ok {
 			defer transport.CloseIdleConnections()
 		}
+		opts := &websocket.DialOptions{}
 		opts.HTTPClient = httpClient
 		conn, resp, err := websocket.Dial(ctx, "ws://localhost/", opts)
 		if err != nil {

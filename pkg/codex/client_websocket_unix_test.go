@@ -33,7 +33,6 @@ import (
 )
 
 func TestClientBuildAppServerArgsUnixWebSocket(t *testing.T) {
-	tokenFile := writeTempFile(t, "capability-token\n")
 	customSocket := filepath.Join(shortTempDir(t), "custom.sock")
 
 	tests := map[string]struct {
@@ -44,18 +43,15 @@ func TestClientBuildAppServerArgsUnixWebSocket(t *testing.T) {
 			listen: ListenConfig{URL: "unix://"},
 			want:   []string{os.Args[0], "app-server", "--listen", "unix://"},
 		},
-		"success: unix absolute path preserves listen URL and auth flags": {
+		"success: unix absolute path preserves listen URL and dial timeout only": {
 			listen: ListenConfig{
 				URL: "unix://" + customSocket,
 				WebSocket: &WebSocketConfig{
-					AuthMode:  WebSocketAuthCapabilityToken,
-					TokenFile: tokenFile,
+					AuthMode:    WebSocketAuthNone,
+					DialTimeout: 100 * time.Millisecond,
 				},
 			},
-			want: []string{
-				os.Args[0], "app-server", "--listen", "unix://" + customSocket,
-				"--ws-auth", "capability-token", "--ws-token-file", tokenFile,
-			},
+			want: []string{os.Args[0], "app-server", "--listen", "unix://" + customSocket},
 		},
 		"success: unix host-looking suffix remains literal": {
 			listen: ListenConfig{URL: "unix://localhost/tmp/codex.sock"},
@@ -116,11 +112,37 @@ func TestClientBuildAppServerArgsRejectsInvalidUnixWebSocketListenURL(t *testing
 	}
 }
 
-func TestDialWebSocketUnixRoundTripAndAuth(t *testing.T) {
+func TestClientStartRejectsUnixWebSocketAuthWithLaunchArgsOverride(t *testing.T) {
 	skipIfUnixSocketsUnsupported(t)
 
-	tokenFile := writeTempFile(t, "capability-token\n")
-	listenURL := newUnixWebSocketRoundTripServer(t, "Bearer capability-token")
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancel)
+	client := NewClient(&Config{
+		LaunchArgsOverride: []string{os.Args[0], "-test.run=TestCodexTransportHelperProcess"},
+		Listen: ListenConfig{
+			URL: "unix://" + filepath.Join(shortTempDir(t), "override.sock"),
+			WebSocket: &WebSocketConfig{
+				ClientBearerToken: "secret-token-should-not-leak",
+			},
+		},
+	}, nil)
+
+	err := client.Start(ctx)
+	if err == nil {
+		t.Fatal("Client.Start() error = nil, want unix websocket auth rejection")
+	}
+	if !strings.Contains(err.Error(), "unix websocket listen does not support websocket auth fields") {
+		t.Fatalf("Client.Start() error = %v, want unix websocket auth rejection", err)
+	}
+	if strings.Contains(err.Error(), "secret-token-should-not-leak") {
+		t.Fatal("Client.Start() error leaks bearer token")
+	}
+}
+
+func TestDialWebSocketUnixRoundTripOmitsAuthorization(t *testing.T) {
+	skipIfUnixSocketsUnsupported(t)
+
+	listenURL := newUnixWebSocketRoundTripServer(t, "")
 
 	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
 	t.Cleanup(cancel)
@@ -130,8 +152,7 @@ func TestDialWebSocketUnixRoundTripAndAuth(t *testing.T) {
 		Listen: ListenConfig{
 			URL: listenURL,
 			WebSocket: &WebSocketConfig{
-				AuthMode:  WebSocketAuthCapabilityToken,
-				TokenFile: tokenFile,
+				AuthMode: WebSocketAuthNone,
 			},
 		},
 	}, nil)
@@ -214,7 +235,6 @@ func TestClientStartUnixWebSocketHelperProcessRoundTrip(t *testing.T) {
 		t.Fatalf("os.Executable() error = %v", err)
 	}
 	codexBin := writeHelperCodexShim(t, exe)
-	tokenFile := writeTempFile(t, "capability-token\n")
 
 	tests := map[string]struct {
 		listenURL func(t *testing.T) (listenURL, socketPath string)
@@ -242,7 +262,6 @@ func TestClientStartUnixWebSocketHelperProcessRoundTrip(t *testing.T) {
 				"CODEX_PORT_HELPER_SCENARIO":         "unix_websocket_roundtrip",
 				"CODEX_UNIX_WEBSOCKET_LISTEN_PATH":   socketPath,
 				"CODEX_UNIX_WEBSOCKET_EXPECT_LISTEN": listenURL,
-				"CODEX_WEBSOCKET_EXPECT_BEARER":      "capability-token",
 			}
 			if listenURL == "unix://" {
 				env["CODEX_HOME"] = filepath.Dir(filepath.Dir(socketPath))
@@ -256,8 +275,7 @@ func TestClientStartUnixWebSocketHelperProcessRoundTrip(t *testing.T) {
 				Listen: ListenConfig{
 					URL: listenURL,
 					WebSocket: &WebSocketConfig{
-						AuthMode:    WebSocketAuthCapabilityToken,
-						TokenFile:   tokenFile,
+						AuthMode:    WebSocketAuthNone,
 						DialTimeout: 100 * time.Millisecond,
 					},
 				},
@@ -377,6 +395,10 @@ func newUnixWebSocketRoundTripServer(t *testing.T, expectedAuth string) string {
 }
 
 func runTransportHelperUnixWebSocket() {
+	if expectedListen := os.Getenv("CODEX_UNIX_WEBSOCKET_EXPECT_LISTEN"); expectedListen != "" && !helperArgsContainListen(expectedListen) {
+		fmt.Fprintf(os.Stderr, "missing --listen %s in helper args\n", expectedListen)
+		os.Exit(2)
+	}
 	socketPath := os.Getenv("CODEX_UNIX_WEBSOCKET_LISTEN_PATH")
 	if socketPath == "" {
 		fmt.Fprintln(os.Stderr, "missing CODEX_UNIX_WEBSOCKET_LISTEN_PATH")

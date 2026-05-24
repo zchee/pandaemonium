@@ -28,8 +28,8 @@ lane, and verification commits are merged.
 1. `ListenConfig.URL` classification recognizes stdio, TCP websocket, and Unix
    websocket transports without changing the stdio default.
 2. `buildAppServerArgs` preserves the exact configured `--listen` value for
-   Unix endpoints and applies websocket auth validation independently from the
-   network medium.
+   Unix endpoints and rejects websocket auth fields there; Unix socket access is
+   controlled by filesystem permissions, not bearer authentication.
 3. Unix socket path resolution handles the default `unix://` control socket,
    absolute custom paths, and relative suffixes using one shared contract that
    launch and dial tests cover.

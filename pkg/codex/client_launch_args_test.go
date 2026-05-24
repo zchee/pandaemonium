@@ -65,10 +65,6 @@ func TestClientBuildAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
 			},
 			want: []string{os.Args[0], "app-server", "--listen", "ws://127.0.0.1:49815"},
 		},
-		"success: remote wss does not require insecure ws opt-in": {
-			listen: ListenConfig{URL: "wss://codex.example.test:49815"},
-			want:   []string{os.Args[0], "app-server", "--listen", "wss://codex.example.test:49815"},
-		},
 	}
 
 	for name, tt := range tests {
@@ -85,31 +81,142 @@ func TestClientBuildAppServerArgsWebSocketNoAuthOmitsAuthFlags(t *testing.T) {
 	}
 }
 
-func TestClientBuildAppServerArgsUnixWebSocketHonorsListenAndAuth(t *testing.T) {
-	tokenFile := filepath.Join(t.TempDir(), "capability.token")
-	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
-		t.Fatalf("os.WriteFile(%s) error = %v", tokenFile, err)
-	}
-
+func TestClientBuildAppServerArgsUnixWebSocketHonorsListenAndDialTimeout(t *testing.T) {
 	client := &Client{config: Config{CodexBin: os.Args[0]}}
 	args, err := client.buildAppServerArgs(ListenConfig{
 		URL: "unix:///tmp/codex.sock",
 		WebSocket: &WebSocketConfig{
-			AuthMode:          WebSocketAuthCapabilityToken,
-			TokenFile:         tokenFile,
-			ClientBearerToken: "jwt-from-env",
+			AuthMode:    WebSocketAuthNone,
+			DialTimeout: 5 * time.Second,
 		},
 	})
 	if err != nil {
 		t.Fatalf("buildAppServerArgs() error = %v", err)
 	}
-	want := []string{
-		os.Args[0], "app-server", "--listen", "unix:///tmp/codex.sock",
-		"--ws-auth", "capability-token",
-		"--ws-token-file", tokenFile,
-	}
+	want := []string{os.Args[0], "app-server", "--listen", "unix:///tmp/codex.sock"}
 	if diff := compareStringSlice(args, want); diff != "" {
 		t.Fatalf("buildAppServerArgs() mismatch: %s", diff)
+	}
+}
+
+func TestClientBuildAppServerArgsRejectsUnsupportedListenURL(t *testing.T) {
+	tests := map[string]struct {
+		listenURL string
+		wantErr   string
+	}{
+		"error: bare off is not a process-backed transport": {
+			listenURL: "off",
+			wantErr:   "off disables the app-server transport",
+		},
+		"error: bare stdio without scheme is unsupported": {
+			listenURL: "stdio",
+			wantErr:   "unsupported app-server listen URL",
+		},
+		"error: http scheme is not an app-server listen transport": {
+			listenURL: "http://127.0.0.1:49815",
+			wantErr:   "unsupported app-server listen URL",
+		},
+		"error: wss scheme is not accepted by Rust app-server": {
+			listenURL: "wss://codex.example.test:49815",
+			wantErr:   "unsupported app-server listen URL",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &Client{config: Config{CodexBin: os.Args[0]}}
+			_, err := client.buildAppServerArgs(ListenConfig{URL: tt.listenURL})
+			if err == nil {
+				t.Fatalf("buildAppServerArgs(%q) error = nil, want unsupported listen URL rejection", tt.listenURL)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("buildAppServerArgs(%q) error = %v, want contain %q", tt.listenURL, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestClientBuildAppServerArgsUnixWebSocketRejectsAuthFields(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "capability.token")
+	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", tokenFile, err)
+	}
+	secretFile := filepath.Join(t.TempDir(), "shared-secret")
+	if err := os.WriteFile(secretFile, []byte("signed-secret\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", secretFile, err)
+	}
+	clockSkew := 15
+
+	tests := map[string]struct {
+		websocket *WebSocketConfig
+	}{
+		"error: capability token auth mode": {
+			websocket: &WebSocketConfig{
+				AuthMode: WebSocketAuthCapabilityToken,
+			},
+		},
+		"error: client bearer token": {
+			websocket: &WebSocketConfig{
+				ClientBearerToken: "jwt-token-should-not-leak",
+			},
+		},
+		"error: client bearer token file": {
+			websocket: &WebSocketConfig{
+				ClientBearerTokenFile: tokenFile,
+			},
+		},
+		"error: shared secret auth material": {
+			websocket: &WebSocketConfig{
+				SharedSecretFile: secretFile,
+			},
+		},
+		"error: signed bearer auth mode": {
+			websocket: &WebSocketConfig{
+				AuthMode:          WebSocketAuthSignedBearerToken,
+				SharedSecretFile:  secretFile,
+				ClientBearerToken: "jwt-token-should-not-leak",
+			},
+		},
+		"error: token file auth material": {
+			websocket: &WebSocketConfig{
+				TokenFile: tokenFile,
+			},
+		},
+		"error: token digest auth material": {
+			websocket: &WebSocketConfig{
+				TokenSHA256: strings.Repeat("a", 64),
+			},
+		},
+		"error: issuer audience auth material": {
+			websocket: &WebSocketConfig{
+				Issuer:   "issuer",
+				Audience: "audience",
+			},
+		},
+		"error: max clock skew auth material": {
+			websocket: &WebSocketConfig{
+				MaxClockSkewSeconds: &clockSkew,
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &Client{config: Config{CodexBin: os.Args[0]}}
+			_, err := client.buildAppServerArgs(ListenConfig{
+				URL:       "unix:///tmp/codex.sock",
+				WebSocket: tt.websocket,
+			})
+			if err == nil {
+				t.Fatal("buildAppServerArgs() error = nil, want unix websocket auth rejection")
+			}
+			if !strings.Contains(err.Error(), "unix websocket listen does not support websocket auth fields") {
+				t.Fatalf("buildAppServerArgs() error = %v, want unix websocket auth rejection", err)
+			}
+			if strings.Contains(err.Error(), "jwt-token-should-not-leak") {
+				t.Fatal("error leaks client bearer token")
+			}
+		})
 	}
 }
 
@@ -376,6 +483,86 @@ func TestClientBuildAppServerArgsRejectsMalformedUnixListenURL(t *testing.T) {
 		if err == nil {
 			t.Fatalf("buildAppServerArgs(%q) error = nil, want unix URL rejection", listenURL)
 		}
+	}
+}
+
+func TestParseListenTransport(t *testing.T) {
+	tests := map[string]struct {
+		listen string
+		want   listenTransportKind
+	}{
+		"success: empty defaults to stdio": {
+			listen: "",
+			want:   listenTransportStdio,
+		},
+		"success: stdio URL": {
+			listen: "stdio://",
+			want:   listenTransportStdio,
+		},
+		"success: unix default socket": {
+			listen: "unix://",
+			want:   listenTransportUnixWebSocket,
+		},
+		"success: unix path socket": {
+			listen: "unix:///tmp/codex.sock",
+			want:   listenTransportUnixWebSocket,
+		},
+		"success: websocket URL": {
+			listen: "ws://127.0.0.1:49815",
+			want:   listenTransportWebSocket,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			got, err := parseListenTransport(tt.listen)
+			if err != nil {
+				t.Fatalf("parseListenTransport(%q) error = %v", tt.listen, err)
+			}
+			if got != tt.want {
+				t.Fatalf("parseListenTransport(%q) = %v, want %v", tt.listen, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseListenTransportRejectsUnsupportedListenURL(t *testing.T) {
+	tests := map[string]struct {
+		listen  string
+		wantErr string
+	}{
+		"error: bare stdio": {
+			listen:  "stdio",
+			wantErr: "unsupported app-server listen URL",
+		},
+		"error: http URL": {
+			listen:  "http://codex.example.test",
+			wantErr: "unsupported app-server listen URL",
+		},
+		"error: off transport": {
+			listen:  "off",
+			wantErr: "off disables the app-server transport",
+		},
+		"error: opaque unix URL": {
+			listen:  "unix:relative.sock",
+			wantErr: "unix listen endpoints must use unix:// prefix",
+		},
+		"error: wss URL": {
+			listen:  "wss://codex.example.test:49815",
+			wantErr: "unsupported app-server listen URL",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			_, err := parseListenTransport(tt.listen)
+			if err == nil {
+				t.Fatalf("parseListenTransport(%q) error = nil, want rejection", tt.listen)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("parseListenTransport(%q) error = %v, want contain %q", tt.listen, err, tt.wantErr)
+			}
+		})
 	}
 }
 

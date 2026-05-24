@@ -62,8 +62,9 @@ type ListenConfig struct {
 	// An empty value means "stdio://".
 	URL string
 
-	// WebSocket enables websocket launch and auth configuration when URL is a ws
-	// or wss endpoint.
+	// WebSocket configures websocket launch/auth for ws:// endpoints and dial
+	// behavior for unix:// websocket endpoints. Unix sockets do not use
+	// websocket auth fields.
 	WebSocket *WebSocketConfig
 
 	// AllowInsecureRemoteWebSocket disables the explicit localhost-only guard for
@@ -71,7 +72,7 @@ type ListenConfig struct {
 	AllowInsecureRemoteWebSocket bool
 }
 
-// WebSocketConfig carries websocket authentication and bearer configuration.
+// WebSocketConfig carries TCP websocket authentication and shared dial options.
 type WebSocketConfig struct {
 	AuthMode              WebSocketAuthMode
 	TokenFile             string
@@ -86,7 +87,7 @@ type WebSocketConfig struct {
 }
 
 func (cfg WebSocketConfig) Is() bool {
-	return cfg.TokenFile != "" || cfg.TokenSHA256 != "" || cfg.SharedSecretFile != "" || cfg.Issuer != "" || cfg.Audience != "" || cfg.ClientBearerToken != "" || cfg.ClientBearerTokenFile != "" || cfg.MaxClockSkewSeconds != nil
+	return websocketAuthFieldsSet(&cfg)
 }
 
 // Config controls app-server process startup and client metadata.
@@ -263,6 +264,9 @@ func (c *Client) Start(ctx context.Context) error {
 	}
 	kind, err := parseListenTransport(listenURL)
 	if err != nil {
+		return err
+	}
+	if err := validateListenConfig(listenCfg, kind, listenURL); err != nil {
 		return err
 	}
 	switch kind {
@@ -672,39 +676,13 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 	if listenURL == "" {
 		listenURL = defaultListenURL
 	}
-	clientBearerSource := websocketHasClientBearerToken(listenCfg.WebSocket)
+	kind, err := parseListenTransport(listenURL)
+	if err != nil {
+		return nil, err
+	}
 
-	if strings.HasPrefix(listenURL, unixListenPrefix) {
-		if err := validateUnixListenURL(listenURL); err != nil {
-			return nil, err
-		}
-		if err := validateWebSocketConfig(listenCfg.WebSocket, clientBearerSource); err != nil {
-			return nil, err
-		}
-	} else {
-		parsed, err := url.Parse(listenURL)
-		if err != nil {
-			return nil, fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
-		}
-		switch parsed.Scheme {
-		case "ws", "wss":
-			if parsed.Host == "" {
-				return nil, fmt.Errorf("websocket listen URL %q is missing host", listenURL)
-			}
-			if parsed.Port() == "0" {
-				return nil, fmt.Errorf("websocket listen URL %q uses unsupported :0 port", listenURL)
-			}
-			if err := ensureWebSocketListenAllowed(parsed, listenCfg); err != nil {
-				return nil, err
-			}
-			if err := validateWebSocketConfig(listenCfg.WebSocket, clientBearerSource); err != nil {
-				return nil, err
-			}
-		case "unix":
-			if err := validateUnixListenURL(listenURL); err != nil {
-				return nil, err
-			}
-		}
+	if err := validateListenConfig(listenCfg, kind, listenURL); err != nil {
+		return nil, err
 	}
 
 	codexBin := c.config.CodexBin
@@ -735,8 +713,34 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 		return args, nil
 	}
 	args = append(args, "app-server", "--listen", listenURL)
-	args = append(args, wsLaunchArgs(listenCfg.WebSocket)...)
+	if kind == listenTransportWebSocket {
+		args = append(args, wsLaunchArgs(listenCfg.WebSocket)...)
+	}
 	return args, nil
+}
+
+func validateListenConfig(listenCfg ListenConfig, kind listenTransportKind, listenURL string) error {
+	switch kind {
+	case listenTransportUnixWebSocket:
+		return validateUnixWebSocketConfig(listenCfg.WebSocket)
+	case listenTransportWebSocket:
+		parsed, err := url.Parse(listenURL)
+		if err != nil {
+			return fmt.Errorf("invalid listen URL %q: %w", listenURL, err)
+		}
+		if parsed.Host == "" {
+			return fmt.Errorf("websocket listen URL %q is missing host", listenURL)
+		}
+		if parsed.Port() == "0" {
+			return fmt.Errorf("websocket listen URL %q uses unsupported :0 port", listenURL)
+		}
+		if err := ensureWebSocketListenAllowed(parsed, listenCfg); err != nil {
+			return err
+		}
+		return validateWebSocketConfig(listenCfg.WebSocket, websocketHasClientBearerToken(listenCfg.WebSocket))
+	default:
+		return nil
+	}
 }
 
 func waitForCommand(cmd *exec.Cmd) chan error {

@@ -16,12 +16,12 @@
 //
 // The package mirrors the practical surface of the upstream Python SDK: it can
 // launch `codex app-server --listen stdio://` by default or connect to
-// authenticated `ws://...` launch modes and local `unix://...` websocket
-// transports over a Unix-domain socket, initialize the protocol, manage
-// threads and turns, stream notifications, aggregate a turn run, map JSON-RPC
-// errors, and retry transient overload failures. Stable high-value protocol
-// fields are typed while raw JSON extension fields preserve compatibility with
-// newer app-server schema members.
+// authenticated `ws://...` launch modes and local filesystem-protected
+// `unix://...` websocket transports over a Unix-domain socket, initialize the
+// protocol, manage threads and turns, stream notifications, aggregate a turn
+// run, map JSON-RPC errors, and retry transient overload failures. Stable
+// high-value protocol fields are typed while raw JSON extension fields preserve
+// compatibility with newer app-server schema members.
 //
 // Notification routing is turn-aware: notifications that belong to an active
 // turn are consumed by that turn's stream, while low-level consumers still see
