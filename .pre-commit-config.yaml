@@ -6,7 +6,7 @@ repos:
         language_version: system
 
   - repo: https://github.com/zchee/pre-commit-go
-    rev: 60c32a1154f8
+    rev: 60c32a1154f8158bfa7652aa1540e844d1c44ac6
     hooks:
       - id: gofumpt
       - id: goimports-rereviser
