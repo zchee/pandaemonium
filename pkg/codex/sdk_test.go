@@ -79,7 +79,7 @@ func TestNormalizeInput(t *testing.T) {
 }
 
 func TestDefaultCodexHome(t *testing.T) {
-	got := DefaultCodexHome()
+	got := HomeDir()
 	if got != filepath.Clean(got) {
 		t.Fatalf("DefaultCodexHome() = %q, want clean path", got)
 	}

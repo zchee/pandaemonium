@@ -24,6 +24,7 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/user"
 	"path/filepath"
 	"slices"
 	"strings"
@@ -157,9 +158,70 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 	}
 }
 
-// DefaultCodexHome returns the default ~/.codex home directory location.
-func DefaultCodexHome() string {
-	home, err := os.UserHomeDir()
+var userHomeDir = sync.OnceValues(func() (string, error) {
+	return os.UserHomeDir()
+})
+
+// expandUser mimics Python's os.path.expanduser function.
+// It replaces "~" or "~username" at the start of a path with the corresponding user's home directory.
+// If expansion fails or the user is not found, it returns the original path unchanged.
+func expandUser(path string) string {
+	if !strings.HasPrefix(path, "~") {
+		return path
+	}
+
+	// 1: Case: path is exactly "~"
+	if path == "~" {
+		home, err := userHomeDir()
+		if err != nil {
+			return path
+		}
+		return home
+	}
+
+	// 2: path starts with "~/" or "~\" (current user's home directory)
+	if strings.HasPrefix(path, "~/") || strings.HasPrefix(path, "~\\") {
+		home, err := userHomeDir()
+		if err != nil {
+			return path
+		}
+		return filepath.Join(home, path[2:])
+	}
+
+	// 3: path starts with "~username" or "~username/path"
+	sep := strings.IndexAny(path[1:], "/\\")
+	var username string
+	var rest string
+
+	if sep == -1 {
+		username = path[1:]
+	} else {
+		username = path[1 : 1+sep]
+		rest = path[1+sep:]
+	}
+
+	u, err := user.Lookup(username)
+	if err != nil {
+		// If lookup fails, return the original path unchanged
+		return path
+	}
+
+	return filepath.Clean(u.HomeDir + rest)
+}
+
+// HomeDir returns the default path to the codex home directory,
+// which is used for config and other state by default.
+//
+// It can be overridden by setting the CODEX_HOME environment variable. If the
+// user home directory cannot be determined, it falls back to a temporary directory.
+func HomeDir() string {
+	// fast path for tests and users who set CODEX_HOME explicitly
+	if codexHome, ok := os.LookupEnv("CODEX_HOME"); ok {
+		return expandUser(codexHome)
+	}
+
+	// fall back to user home directory or temp directory
+	home, err := userHomeDir()
 	if err != nil || home == "" {
 		return filepath.Join(os.TempDir(), ".codex")
 	}

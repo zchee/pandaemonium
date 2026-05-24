@@ -103,7 +103,7 @@ func unixSocketPathFromListenURL(listenURL string, env map[string]string, cwd st
 			codexHome = strings.TrimSpace(env["CODEX_HOME"])
 		}
 		if codexHome == "" {
-			codexHome = DefaultCodexHome()
+			codexHome = HomeDir()
 		}
 		return filepath.Join(codexHome, "app-server-control", "app-server-control.sock"), nil
 	}
