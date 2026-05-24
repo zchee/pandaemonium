@@ -313,7 +313,7 @@ func (s *inProcessMCPServer) callTool(ctx context.Context, name string, argument
 	req := &mcp.CallToolRequest{
 		Params: &mcp.CallToolParamsRaw{
 			Name:      name,
-			Arguments: arguments,
+			Arguments: jsontext.Value(arguments),
 		},
 	}
 	result, err := def.mcpHandler(ctx, req)
