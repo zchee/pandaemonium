@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"iter"
+	"maps"
 	"net/url"
 	"os"
 	"os/exec"
@@ -765,9 +766,7 @@ func (c *Client) effectiveEnv() map[string]string {
 		}
 		env[key] = value
 	}
-	for key, value := range c.config.Env {
-		env[key] = value
-	}
+	maps.Copy(env, c.config.Env)
 	return env
 }
 
