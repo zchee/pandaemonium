@@ -139,8 +139,8 @@ func TestPublicAPIRuntimeBehaviorPortApprovalModesSerializeToStartParams(t *test
 			params := codex.TurnStartParams{
 				ThreadID:          "thread-1",
 				Input:             []codex.UserInput{},
-				ApprovalPolicy:    &approval,
-				ApprovalsReviewer: reviewer,
+				ApprovalPolicy:    approval,
+				ApprovalsReviewer: approvalReviewerValue(reviewer),
 			}
 			got, err := publicAPIRuntimeBehaviorApprovalSettings(params)
 			if err != nil {

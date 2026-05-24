@@ -106,14 +106,14 @@ type AccountRateLimitsUpdatedNotification struct {
 
 // AccountUpdatedNotification is generated from the AccountUpdatedNotification schema definition.
 type AccountUpdatedNotification struct {
-	AuthMode *AuthMode `json:"authMode,omitzero"`
-	PlanType *PlanType `json:"planType,omitzero"`
+	AuthMode AuthMode `json:"authMode,omitzero"`
+	PlanType PlanType `json:"planType,omitzero"`
 }
 
 func (value *AccountUpdatedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		AuthMode jsontext.Value `json:"authMode,omitzero"`
-		PlanType *PlanType      `json:"planType,omitzero"`
+		PlanType PlanType       `json:"planType,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -125,7 +125,7 @@ func (value *AccountUpdatedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder
 		if err != nil {
 			return err
 		}
-		value.AuthMode = &decodedAuthMode
+		value.AuthMode = decodedAuthMode
 	}
 	value.PlanType = raw.PlanType
 	return nil
@@ -205,23 +205,23 @@ type AppBranding struct {
 
 // AppConfig is generated from the AppConfig schema definition.
 type AppConfig struct {
-	DefaultToolsApprovalMode *AppToolApproval `json:"default_tools_approval_mode,omitzero"`
-	DefaultToolsEnabled      *bool            `json:"default_tools_enabled,omitzero"`
-	DestructiveEnabled       *bool            `json:"destructive_enabled,omitzero"`
-	Enabled                  *bool            `json:"enabled,omitzero"`
-	OpenWorldEnabled         *bool            `json:"open_world_enabled,omitzero"`
-	Tools                    *AppToolsConfig  `json:"tools,omitzero"`
+	DefaultToolsApprovalMode AppToolApproval `json:"default_tools_approval_mode,omitzero"`
+	DefaultToolsEnabled      *bool           `json:"default_tools_enabled,omitzero"`
+	DestructiveEnabled       *bool           `json:"destructive_enabled,omitzero"`
+	Enabled                  *bool           `json:"enabled,omitzero"`
+	OpenWorldEnabled         *bool           `json:"open_world_enabled,omitzero"`
+	Tools                    AppToolsConfig  `json:"tools,omitzero"`
 }
 
 // AppInfo app metadata returned by app-list APIs.
 type AppInfo struct {
-	AppMetadata         *AppMetadata `json:"appMetadata,omitzero"`
-	Branding            *AppBranding `json:"branding,omitzero"`
-	Description         *string      `json:"description,omitzero"`
-	DistributionChannel *string      `json:"distributionChannel,omitzero"`
-	ID                  string       `json:"id"`
-	InstallURL          *string      `json:"installUrl,omitzero"`
-	IsAccessible        *bool        `json:"isAccessible,omitzero"`
+	AppMetadata         AppMetadata `json:"appMetadata,omitzero"`
+	Branding            AppBranding `json:"branding,omitzero"`
+	Description         *string     `json:"description,omitzero"`
+	DistributionChannel *string     `json:"distributionChannel,omitzero"`
+	ID                  string      `json:"id"`
+	InstallURL          *string     `json:"installUrl,omitzero"`
+	IsAccessible        *bool       `json:"isAccessible,omitzero"`
 
 	// IsEnabled reports whether this app is enabled in config.toml. Example: ```toml [apps.bad_app] enabled = false ```
 	IsEnabled          *bool             `json:"isEnabled,omitzero"`
@@ -243,7 +243,7 @@ type AppMetadata struct {
 	Developer                  *string         `json:"developer,omitzero"`
 	FirstPartyRequiresInstall  *bool           `json:"firstPartyRequiresInstall,omitzero"`
 	FirstPartyType             *string         `json:"firstPartyType,omitzero"`
-	Review                     *AppReview      `json:"review,omitzero"`
+	Review                     AppReview       `json:"review,omitzero"`
 	Screenshots                []AppScreenshot `json:"screenshots,omitzero"`
 	SeoDescription             *string         `json:"seoDescription,omitzero"`
 	ShowInComposerWhenUnlinked *bool           `json:"showInComposerWhenUnlinked,omitzero"`
@@ -288,8 +288,8 @@ const (
 
 // AppToolConfig is generated from the AppToolConfig schema definition.
 type AppToolConfig struct {
-	ApprovalMode *AppToolApproval `json:"approval_mode,omitzero"`
-	Enabled      *bool            `json:"enabled,omitzero"`
+	ApprovalMode AppToolApproval `json:"approval_mode,omitzero"`
+	Enabled      *bool           `json:"enabled,omitzero"`
 }
 
 // AppToolsConfig is generated from the AppToolsConfig schema definition.
@@ -309,7 +309,7 @@ const (
 
 // AppsConfig is generated from the AppsConfig schema definition.
 type AppsConfig struct {
-	DefaultValue *AppsDefaultConfig `json:"_default,omitzero"`
+	DefaultValue AppsDefaultConfig `json:"_default,omitzero"`
 }
 
 // AppsDefaultConfig is generated from the AppsDefaultConfig schema definition.
@@ -2278,10 +2278,10 @@ type CollaborationMode struct {
 
 // CollaborationModeMask collaboration mode preset metadata for clients.
 type CollaborationModeMask struct {
-	Mode            *ModeKind        `json:"mode,omitzero"`
-	Model           *string          `json:"model,omitzero"`
-	Name            string           `json:"name"`
-	ReasoningEffort *ReasoningEffort `json:"reasoning_effort,omitzero"`
+	Mode            ModeKind        `json:"mode,omitzero"`
+	Model           *string         `json:"model,omitzero"`
+	Name            string          `json:"name"`
+	ReasoningEffort ReasoningEffort `json:"reasoning_effort,omitzero"`
 }
 
 // CommandAction is generated from the CommandAction schema definition.
@@ -2515,10 +2515,10 @@ type CommandExecParams struct {
 	// SandboxPolicy optional sandbox policy for this command.
 	//
 	// Uses the same shape as thread/turn execution sandbox configuration and defaults to the user's configured policy when omitted. Cannot be combined with `permissionProfile`.
-	SandboxPolicy *SandboxPolicy `json:"sandboxPolicy,omitzero"`
+	SandboxPolicy SandboxPolicy `json:"sandboxPolicy,omitzero"`
 
 	// Size optional initial PTY size in character cells. Only valid when `tty` is true.
-	Size *CommandExecTerminalSize `json:"size,omitzero"`
+	Size CommandExecTerminalSize `json:"size,omitzero"`
 
 	// StreamStdin allows follow-up `command/exec/write` requests to write stdin bytes.
 	//
@@ -2543,19 +2543,19 @@ type CommandExecParams struct {
 
 func (value *CommandExecParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Command            []string                 `json:"command"`
-		Cwd                *string                  `json:"cwd,omitzero"`
-		DisableOutputCap   *bool                    `json:"disableOutputCap,omitzero"`
-		DisableTimeout     *bool                    `json:"disableTimeout,omitzero"`
-		Env                map[string]*string       `json:"env,omitzero"`
-		OutputBytesCap     *uint                    `json:"outputBytesCap,omitzero"`
-		ProcessID          *string                  `json:"processId,omitzero"`
-		SandboxPolicy      jsontext.Value           `json:"sandboxPolicy,omitzero"`
-		Size               *CommandExecTerminalSize `json:"size,omitzero"`
-		StreamStdin        *bool                    `json:"streamStdin,omitzero"`
-		StreamStdoutStderr *bool                    `json:"streamStdoutStderr,omitzero"`
-		TimeoutMs          *int64                   `json:"timeoutMs,omitzero"`
-		TTY                *bool                    `json:"tty,omitzero"`
+		Command            []string                `json:"command"`
+		Cwd                *string                 `json:"cwd,omitzero"`
+		DisableOutputCap   *bool                   `json:"disableOutputCap,omitzero"`
+		DisableTimeout     *bool                   `json:"disableTimeout,omitzero"`
+		Env                map[string]*string      `json:"env,omitzero"`
+		OutputBytesCap     *uint                   `json:"outputBytesCap,omitzero"`
+		ProcessID          *string                 `json:"processId,omitzero"`
+		SandboxPolicy      jsontext.Value          `json:"sandboxPolicy,omitzero"`
+		Size               CommandExecTerminalSize `json:"size,omitzero"`
+		StreamStdin        *bool                   `json:"streamStdin,omitzero"`
+		StreamStdoutStderr *bool                   `json:"streamStdoutStderr,omitzero"`
+		TimeoutMs          *int64                  `json:"timeoutMs,omitzero"`
+		TTY                *bool                   `json:"tty,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -2574,7 +2574,7 @@ func (value *CommandExecParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.SandboxPolicy = &decodedSandboxPolicy
+		value.SandboxPolicy = decodedSandboxPolicy
 	}
 	value.Size = raw.Size
 	value.StreamStdin = raw.StreamStdin
@@ -2693,62 +2693,62 @@ type ComputerUseRequirements struct {
 
 // ConfigPayload is generated from the Config schema definition.
 type ConfigPayload struct {
-	Analytics      *AnalyticsConfig `json:"analytics,omitzero"`
-	ApprovalPolicy *AskForApproval  `json:"approval_policy,omitzero"`
+	Analytics      AnalyticsConfig `json:"analytics,omitzero"`
+	ApprovalPolicy AskForApproval  `json:"approval_policy,omitzero"`
 
 	// ApprovalsReviewer [UNSTABLE] Optional default for where approval requests are routed for review.
-	ApprovalsReviewer               *ApprovalsReviewer          `json:"approvals_reviewer,omitzero"`
-	CompactPrompt                   *string                     `json:"compact_prompt,omitzero"`
-	Desktop                         map[string]jsontext.Value   `json:"desktop,omitzero"`
-	DeveloperInstructions           *string                     `json:"developer_instructions,omitzero"`
-	ForcedChatGPTWorkspaceID        *ForcedChatGPTWorkspaceIDs  `json:"forced_chatgpt_workspace_id,omitzero"`
-	ForcedLoginMethod               *ForcedLoginMethod          `json:"forced_login_method,omitzero"`
-	Instructions                    *string                     `json:"instructions,omitzero"`
-	Model                           *string                     `json:"model,omitzero"`
-	ModelAutoCompactTokenLimit      *int64                      `json:"model_auto_compact_token_limit,omitzero"`
-	ModelAutoCompactTokenLimitScope *AutoCompactTokenLimitScope `json:"model_auto_compact_token_limit_scope,omitzero"`
-	ModelContextWindow              *int64                      `json:"model_context_window,omitzero"`
-	ModelProvider                   *string                     `json:"model_provider,omitzero"`
-	ModelReasoningEffort            *ReasoningEffort            `json:"model_reasoning_effort,omitzero"`
-	ModelReasoningSummary           *ReasoningSummary           `json:"model_reasoning_summary,omitzero"`
-	ModelVerbosity                  *Verbosity                  `json:"model_verbosity,omitzero"`
-	Profile                         *string                     `json:"profile,omitzero"`
-	Profiles                        map[string]ProfileV2        `json:"profiles,omitzero"`
-	ReviewModel                     *string                     `json:"review_model,omitzero"`
-	SandboxMode                     *SandboxMode                `json:"sandbox_mode,omitzero"`
-	SandboxWorkspaceWrite           *SandboxWorkspaceWrite      `json:"sandbox_workspace_write,omitzero"`
-	ServiceTier                     *string                     `json:"service_tier,omitzero"`
-	Tools                           *ToolsV2                    `json:"tools,omitzero"`
-	WebSearch                       *WebSearchMode              `json:"web_search,omitzero"`
+	ApprovalsReviewer               ApprovalsReviewer          `json:"approvals_reviewer,omitzero"`
+	CompactPrompt                   *string                    `json:"compact_prompt,omitzero"`
+	Desktop                         map[string]jsontext.Value  `json:"desktop,omitzero"`
+	DeveloperInstructions           *string                    `json:"developer_instructions,omitzero"`
+	ForcedChatGPTWorkspaceID        ForcedChatGPTWorkspaceIDs  `json:"forced_chatgpt_workspace_id,omitzero"`
+	ForcedLoginMethod               ForcedLoginMethod          `json:"forced_login_method,omitzero"`
+	Instructions                    *string                    `json:"instructions,omitzero"`
+	Model                           *string                    `json:"model,omitzero"`
+	ModelAutoCompactTokenLimit      *int64                     `json:"model_auto_compact_token_limit,omitzero"`
+	ModelAutoCompactTokenLimitScope AutoCompactTokenLimitScope `json:"model_auto_compact_token_limit_scope,omitzero"`
+	ModelContextWindow              *int64                     `json:"model_context_window,omitzero"`
+	ModelProvider                   *string                    `json:"model_provider,omitzero"`
+	ModelReasoningEffort            ReasoningEffort            `json:"model_reasoning_effort,omitzero"`
+	ModelReasoningSummary           ReasoningSummary           `json:"model_reasoning_summary,omitzero"`
+	ModelVerbosity                  Verbosity                  `json:"model_verbosity,omitzero"`
+	Profile                         *string                    `json:"profile,omitzero"`
+	Profiles                        map[string]ProfileV2       `json:"profiles,omitzero"`
+	ReviewModel                     *string                    `json:"review_model,omitzero"`
+	SandboxMode                     SandboxMode                `json:"sandbox_mode,omitzero"`
+	SandboxWorkspaceWrite           SandboxWorkspaceWrite      `json:"sandbox_workspace_write,omitzero"`
+	ServiceTier                     *string                    `json:"service_tier,omitzero"`
+	Tools                           ToolsV2                    `json:"tools,omitzero"`
+	WebSearch                       WebSearchMode              `json:"web_search,omitzero"`
 }
 
 func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Analytics                       *AnalyticsConfig          `json:"analytics,omitzero"`
+		Analytics                       AnalyticsConfig           `json:"analytics,omitzero"`
 		ApprovalPolicy                  jsontext.Value            `json:"approval_policy,omitzero"`
-		ApprovalsReviewer               *ApprovalsReviewer        `json:"approvals_reviewer,omitzero"`
+		ApprovalsReviewer               ApprovalsReviewer         `json:"approvals_reviewer,omitzero"`
 		CompactPrompt                   *string                   `json:"compact_prompt,omitzero"`
 		Desktop                         map[string]jsontext.Value `json:"desktop,omitzero"`
 		DeveloperInstructions           *string                   `json:"developer_instructions,omitzero"`
 		ForcedChatGPTWorkspaceID        jsontext.Value            `json:"forced_chatgpt_workspace_id,omitzero"`
-		ForcedLoginMethod               *ForcedLoginMethod        `json:"forced_login_method,omitzero"`
+		ForcedLoginMethod               ForcedLoginMethod         `json:"forced_login_method,omitzero"`
 		Instructions                    *string                   `json:"instructions,omitzero"`
 		Model                           *string                   `json:"model,omitzero"`
 		ModelAutoCompactTokenLimit      *int64                    `json:"model_auto_compact_token_limit,omitzero"`
 		ModelAutoCompactTokenLimitScope jsontext.Value            `json:"model_auto_compact_token_limit_scope,omitzero"`
 		ModelContextWindow              *int64                    `json:"model_context_window,omitzero"`
 		ModelProvider                   *string                   `json:"model_provider,omitzero"`
-		ModelReasoningEffort            *ReasoningEffort          `json:"model_reasoning_effort,omitzero"`
+		ModelReasoningEffort            ReasoningEffort           `json:"model_reasoning_effort,omitzero"`
 		ModelReasoningSummary           jsontext.Value            `json:"model_reasoning_summary,omitzero"`
-		ModelVerbosity                  *Verbosity                `json:"model_verbosity,omitzero"`
+		ModelVerbosity                  Verbosity                 `json:"model_verbosity,omitzero"`
 		Profile                         *string                   `json:"profile,omitzero"`
 		Profiles                        map[string]ProfileV2      `json:"profiles,omitzero"`
 		ReviewModel                     *string                   `json:"review_model,omitzero"`
-		SandboxMode                     *SandboxMode              `json:"sandbox_mode,omitzero"`
-		SandboxWorkspaceWrite           *SandboxWorkspaceWrite    `json:"sandbox_workspace_write,omitzero"`
+		SandboxMode                     SandboxMode               `json:"sandbox_mode,omitzero"`
+		SandboxWorkspaceWrite           SandboxWorkspaceWrite     `json:"sandbox_workspace_write,omitzero"`
 		ServiceTier                     *string                   `json:"service_tier,omitzero"`
-		Tools                           *ToolsV2                  `json:"tools,omitzero"`
-		WebSearch                       *WebSearchMode            `json:"web_search,omitzero"`
+		Tools                           ToolsV2                   `json:"tools,omitzero"`
+		WebSearch                       WebSearchMode             `json:"web_search,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -2761,7 +2761,7 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ApprovalPolicy = &decodedApprovalPolicy
+		value.ApprovalPolicy = decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.CompactPrompt = raw.CompactPrompt
@@ -2774,7 +2774,7 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ForcedChatGPTWorkspaceID = &decodedForcedChatGPTWorkspaceID
+		value.ForcedChatGPTWorkspaceID = decodedForcedChatGPTWorkspaceID
 	}
 	value.ForcedLoginMethod = raw.ForcedLoginMethod
 	value.Instructions = raw.Instructions
@@ -2787,7 +2787,7 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ModelAutoCompactTokenLimitScope = &decodedModelAutoCompactTokenLimitScope
+		value.ModelAutoCompactTokenLimitScope = decodedModelAutoCompactTokenLimitScope
 	}
 	value.ModelContextWindow = raw.ModelContextWindow
 	value.ModelProvider = raw.ModelProvider
@@ -2799,7 +2799,7 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ModelReasoningSummary = &decodedModelReasoningSummary
+		value.ModelReasoningSummary = decodedModelReasoningSummary
 	}
 	value.ModelVerbosity = raw.ModelVerbosity
 	value.Profile = raw.Profile
@@ -3048,26 +3048,26 @@ type ConfigReadResponse struct {
 
 // ConfigRequirements is generated from the ConfigRequirements schema definition.
 type ConfigRequirements struct {
-	AllowManagedHooksOnly   *bool                    `json:"allowManagedHooksOnly,omitzero"`
-	AllowedApprovalPolicies []AskForApproval         `json:"allowedApprovalPolicies,omitzero"`
-	AllowedPermissions      []string                 `json:"allowedPermissions,omitzero"`
-	AllowedSandboxModes     []SandboxMode            `json:"allowedSandboxModes,omitzero"`
-	AllowedWebSearchModes   []WebSearchMode          `json:"allowedWebSearchModes,omitzero"`
-	ComputerUse             *ComputerUseRequirements `json:"computerUse,omitzero"`
-	EnforceResidency        *ResidencyRequirement    `json:"enforceResidency,omitzero"`
-	FeatureRequirements     map[string]bool          `json:"featureRequirements,omitzero"`
+	AllowManagedHooksOnly   *bool                   `json:"allowManagedHooksOnly,omitzero"`
+	AllowedApprovalPolicies []AskForApproval        `json:"allowedApprovalPolicies,omitzero"`
+	AllowedPermissions      []string                `json:"allowedPermissions,omitzero"`
+	AllowedSandboxModes     []SandboxMode           `json:"allowedSandboxModes,omitzero"`
+	AllowedWebSearchModes   []WebSearchMode         `json:"allowedWebSearchModes,omitzero"`
+	ComputerUse             ComputerUseRequirements `json:"computerUse,omitzero"`
+	EnforceResidency        ResidencyRequirement    `json:"enforceResidency,omitzero"`
+	FeatureRequirements     map[string]bool         `json:"featureRequirements,omitzero"`
 }
 
 func (value *ConfigRequirements) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		AllowManagedHooksOnly   *bool                    `json:"allowManagedHooksOnly,omitzero"`
-		AllowedApprovalPolicies []jsontext.Value         `json:"allowedApprovalPolicies,omitzero"`
-		AllowedPermissions      []string                 `json:"allowedPermissions,omitzero"`
-		AllowedSandboxModes     []SandboxMode            `json:"allowedSandboxModes,omitzero"`
-		AllowedWebSearchModes   []WebSearchMode          `json:"allowedWebSearchModes,omitzero"`
-		ComputerUse             *ComputerUseRequirements `json:"computerUse,omitzero"`
-		EnforceResidency        *ResidencyRequirement    `json:"enforceResidency,omitzero"`
-		FeatureRequirements     map[string]bool          `json:"featureRequirements,omitzero"`
+		AllowManagedHooksOnly   *bool                   `json:"allowManagedHooksOnly,omitzero"`
+		AllowedApprovalPolicies []jsontext.Value        `json:"allowedApprovalPolicies,omitzero"`
+		AllowedPermissions      []string                `json:"allowedPermissions,omitzero"`
+		AllowedSandboxModes     []SandboxMode           `json:"allowedSandboxModes,omitzero"`
+		AllowedWebSearchModes   []WebSearchMode         `json:"allowedWebSearchModes,omitzero"`
+		ComputerUse             ComputerUseRequirements `json:"computerUse,omitzero"`
+		EnforceResidency        ResidencyRequirement    `json:"enforceResidency,omitzero"`
+		FeatureRequirements     map[string]bool         `json:"featureRequirements,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -3099,7 +3099,7 @@ func (value *ConfigRequirements) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 // ConfigRequirementsReadResponse is generated from the ConfigRequirementsReadResponse schema definition.
 type ConfigRequirementsReadResponse struct {
 	// Requirements null if no requirements are configured (e.g. no requirements.toml/MDM entries).
-	Requirements *ConfigRequirements `json:"requirements,omitzero"`
+	Requirements ConfigRequirements `json:"requirements,omitzero"`
 }
 
 // ConfigValueWriteParams is generated from the ConfigValueWriteParams schema definition.
@@ -3122,7 +3122,7 @@ type ConfigWarningNotification struct {
 	Path *string `json:"path,omitzero"`
 
 	// RangeValue optional range for the error location inside the config file.
-	RangeValue *TextRange `json:"range,omitzero"`
+	RangeValue TextRange `json:"range,omitzero"`
 
 	// Summary concise summary of the warning.
 	Summary string `json:"summary"`
@@ -3131,10 +3131,10 @@ type ConfigWarningNotification struct {
 // ConfigWriteResponse is generated from the ConfigWriteResponse schema definition.
 type ConfigWriteResponse struct {
 	// FilePath canonical path to the config file that was written.
-	FilePath           string              `json:"filePath"`
-	OverriddenMetadata *OverriddenMetadata `json:"overriddenMetadata,omitzero"`
-	Status             WriteStatus         `json:"status"`
-	Version            string              `json:"version"`
+	FilePath           string             `json:"filePath"`
+	OverriddenMetadata OverriddenMetadata `json:"overriddenMetadata,omitzero"`
+	Status             WriteStatus        `json:"status"`
+	Version            string             `json:"version"`
 }
 
 // ConfiguredHookHandler is generated from the ConfiguredHookHandler schema definition.
@@ -3284,9 +3284,9 @@ func (InputTextContentItem) isContentItem() {}
 
 // InputImageContentItem is generated from the InputImageContentItem schema definition.
 type InputImageContentItem struct {
-	Detail   *ImageDetail `json:"detail,omitzero"`
-	ImageURL string       `json:"image_url"`
-	Type     string       `json:"type"`
+	Detail   ImageDetail `json:"detail,omitzero"`
+	ImageURL string      `json:"image_url"`
+	Type     string      `json:"type"`
 }
 
 func (InputImageContentItem) isContentItem() {}
@@ -3632,7 +3632,7 @@ type ExternalAgentConfigMigrationItem struct {
 	// Cwd null or empty means home-scoped migration; non-empty means repo-scoped migration.
 	Cwd         *string                              `json:"cwd,omitzero"`
 	Description string                               `json:"description"`
-	Details     *MigrationDetails                    `json:"details,omitzero"`
+	Details     MigrationDetails                     `json:"details,omitzero"`
 	ItemType    ExternalAgentConfigMigrationItemType `json:"itemType"`
 }
 
@@ -4279,9 +4279,9 @@ func (InputTextFunctionCallOutputContentItem) isFunctionCallOutputContentItem() 
 
 // InputImageFunctionCallOutputContentItem is generated from the InputImageFunctionCallOutputContentItem schema definition.
 type InputImageFunctionCallOutputContentItem struct {
-	Detail   *ImageDetail `json:"detail,omitzero"`
-	ImageURL string       `json:"image_url"`
-	Type     string       `json:"type"`
+	Detail   ImageDetail `json:"detail,omitzero"`
+	ImageURL string      `json:"image_url"`
+	Type     string      `json:"type"`
 }
 
 func (InputImageFunctionCallOutputContentItem) isFunctionCallOutputContentItem() {}
@@ -4385,8 +4385,8 @@ type GetAccountRateLimitsResponse struct {
 
 // GetAccountResponse is generated from the GetAccountResponse schema definition.
 type GetAccountResponse struct {
-	Account            *Account `json:"account,omitzero"`
-	RequiresOpenaiAuth bool     `json:"requiresOpenaiAuth"`
+	Account            Account `json:"account,omitzero"`
+	RequiresOpenaiAuth bool    `json:"requiresOpenaiAuth"`
 }
 
 func (value *GetAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -4404,7 +4404,7 @@ func (value *GetAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 		if err != nil {
 			return err
 		}
-		value.Account = &decodedAccount
+		value.Account = decodedAccount
 	}
 	value.RequiresOpenaiAuth = raw.RequiresOpenaiAuth
 	return nil
@@ -4420,9 +4420,9 @@ type GitInfo struct {
 // GuardianApprovalReview [UNSTABLE] Temporary approval auto-review payload used by `item/autoApprovalReview/*` notifications. This shape is expected to change soon.
 type GuardianApprovalReview struct {
 	Rationale         *string                      `json:"rationale,omitzero"`
-	RiskLevel         *GuardianRiskLevel           `json:"riskLevel,omitzero"`
+	RiskLevel         GuardianRiskLevel            `json:"riskLevel,omitzero"`
 	Status            GuardianApprovalReviewStatus `json:"status"`
-	UserAuthorization *GuardianUserAuthorization   `json:"userAuthorization,omitzero"`
+	UserAuthorization GuardianUserAuthorization    `json:"userAuthorization,omitzero"`
 }
 
 // GuardianApprovalReviewAction is generated from the GuardianApprovalReviewAction schema definition.
@@ -4764,7 +4764,7 @@ type HookRunSummary struct {
 	HandlerType   HookHandlerType   `json:"handlerType"`
 	ID            string            `json:"id"`
 	Scope         HookScope         `json:"scope"`
-	Source        *HookSource       `json:"source,omitzero"`
+	Source        HookSource        `json:"source,omitzero"`
 	SourcePath    string            `json:"sourcePath"`
 	StartedAt     int64             `json:"startedAt"`
 	Status        HookRunStatus     `json:"status"`
@@ -4871,8 +4871,8 @@ type InitializeCapabilities struct {
 
 // InitializeParams is generated from the InitializeParams schema definition.
 type InitializeParams struct {
-	Capabilities *InitializeCapabilities `json:"capabilities,omitzero"`
-	ClientInfo   ClientInfo              `json:"clientInfo"`
+	Capabilities InitializeCapabilities `json:"capabilities,omitzero"`
+	ClientInfo   ClientInfo             `json:"clientInfo"`
 }
 
 // InputModality canonical user-input modality tags advertised by a model.
@@ -5114,7 +5114,7 @@ type ListMCPServerStatusParams struct {
 	Cursor *string `json:"cursor,omitzero"`
 
 	// Detail controls how much MCP inventory data to fetch for each server. Defaults to `Full` when omitted.
-	Detail *MCPServerStatusDetail `json:"detail,omitzero"`
+	Detail MCPServerStatusDetail `json:"detail,omitzero"`
 
 	// Limit optional page size; defaults to a server-defined value.
 	Limit *int32 `json:"limit,omitzero"`
@@ -5697,9 +5697,9 @@ const (
 // Model is generated from the Model schema definition.
 type Model struct {
 	// AdditionalSpeedTiers deprecated: use `serviceTiers` instead.
-	AdditionalSpeedTiers   []string              `json:"additionalSpeedTiers,omitzero"`
-	AvailabilityNux        *ModelAvailabilityNux `json:"availabilityNux,omitzero"`
-	DefaultReasoningEffort ReasoningEffort       `json:"defaultReasoningEffort"`
+	AdditionalSpeedTiers   []string             `json:"additionalSpeedTiers,omitzero"`
+	AvailabilityNux        ModelAvailabilityNux `json:"availabilityNux,omitzero"`
+	DefaultReasoningEffort ReasoningEffort      `json:"defaultReasoningEffort"`
 
 	// DefaultServiceTier catalog default service tier id for this model, when one is configured.
 	DefaultServiceTier        *string                 `json:"defaultServiceTier,omitzero"`
@@ -5714,13 +5714,13 @@ type Model struct {
 	SupportedReasoningEfforts []ReasoningEffortOption `json:"supportedReasoningEfforts"`
 	SupportsPersonality       *bool                   `json:"supportsPersonality,omitzero"`
 	Upgrade                   *string                 `json:"upgrade,omitzero"`
-	UpgradeInfo               *ModelUpgradeInfo       `json:"upgradeInfo,omitzero"`
+	UpgradeInfo               ModelUpgradeInfo        `json:"upgradeInfo,omitzero"`
 }
 
 func (value *Model) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		AdditionalSpeedTiers      []string                `json:"additionalSpeedTiers,omitzero"`
-		AvailabilityNux           *ModelAvailabilityNux   `json:"availabilityNux,omitzero"`
+		AvailabilityNux           ModelAvailabilityNux    `json:"availabilityNux,omitzero"`
 		DefaultReasoningEffort    ReasoningEffort         `json:"defaultReasoningEffort"`
 		DefaultServiceTier        *string                 `json:"defaultServiceTier,omitzero"`
 		Description               string                  `json:"description"`
@@ -5734,7 +5734,7 @@ func (value *Model) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		SupportedReasoningEfforts []ReasoningEffortOption `json:"supportedReasoningEfforts"`
 		SupportsPersonality       *bool                   `json:"supportsPersonality,omitzero"`
 		Upgrade                   *string                 `json:"upgrade,omitzero"`
-		UpgradeInfo               *ModelUpgradeInfo       `json:"upgradeInfo,omitzero"`
+		UpgradeInfo               ModelUpgradeInfo        `json:"upgradeInfo,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6301,8 +6301,8 @@ type PluginListResponse struct {
 
 // PluginMarketplaceEntry is generated from the PluginMarketplaceEntry schema definition.
 type PluginMarketplaceEntry struct {
-	InterfaceValue *MarketplaceInterface `json:"interface,omitzero"`
-	Name           string                `json:"name"`
+	InterfaceValue MarketplaceInterface `json:"interface,omitzero"`
+	Name           string               `json:"name"`
 
 	// Path local marketplace file path when the marketplace is backed by a local file. Remote-only catalog marketplaces do not have a local path.
 	Path    *string         `json:"path,omitzero"`
@@ -6339,10 +6339,10 @@ type PluginShareCheckoutResponse struct {
 
 // PluginShareContext is generated from the PluginShareContext schema definition.
 type PluginShareContext struct {
-	CreatorAccountUserID *string                     `json:"creatorAccountUserId,omitzero"`
-	CreatorName          *string                     `json:"creatorName,omitzero"`
-	Discoverability      *PluginShareDiscoverability `json:"discoverability,omitzero"`
-	RemotePluginID       string                      `json:"remotePluginId"`
+	CreatorAccountUserID *string                    `json:"creatorAccountUserId,omitzero"`
+	CreatorName          *string                    `json:"creatorName,omitzero"`
+	Discoverability      PluginShareDiscoverability `json:"discoverability,omitzero"`
+	RemotePluginID       string                     `json:"remotePluginId"`
 
 	// RemoteVersion version of the remote shared plugin release when available.
 	RemoteVersion   *string                `json:"remoteVersion,omitzero"`
@@ -6418,10 +6418,10 @@ const (
 
 // PluginShareSaveParams is generated from the PluginShareSaveParams schema definition.
 type PluginShareSaveParams struct {
-	Discoverability *PluginShareDiscoverability `json:"discoverability,omitzero"`
-	PluginPath      string                      `json:"pluginPath"`
-	RemotePluginID  *string                     `json:"remotePluginId,omitzero"`
-	ShareTargets    []PluginShareTarget         `json:"shareTargets,omitzero"`
+	Discoverability PluginShareDiscoverability `json:"discoverability,omitzero"`
+	PluginPath      string                     `json:"pluginPath"`
+	RemotePluginID  *string                    `json:"remotePluginId,omitzero"`
+	ShareTargets    []PluginShareTarget        `json:"shareTargets,omitzero"`
 }
 
 // PluginShareSaveResponse is generated from the PluginShareSaveResponse schema definition.
@@ -6569,12 +6569,12 @@ type PluginSummary struct {
 	AuthPolicy PluginAuthPolicy `json:"authPolicy"`
 
 	// Availability state for installing and using the plugin.
-	Availability   *PluginAvailability `json:"availability,omitzero"`
+	Availability   PluginAvailability  `json:"availability,omitzero"`
 	Enabled        bool                `json:"enabled"`
 	ID             string              `json:"id"`
 	InstallPolicy  PluginInstallPolicy `json:"installPolicy"`
 	Installed      bool                `json:"installed"`
-	InterfaceValue *PluginInterface    `json:"interface,omitzero"`
+	InterfaceValue PluginInterface     `json:"interface,omitzero"`
 	Keywords       []string            `json:"keywords,omitzero"`
 
 	// LocalVersion version of the locally materialized plugin package when available.
@@ -6585,8 +6585,8 @@ type PluginSummary struct {
 	RemotePluginID *string `json:"remotePluginId,omitzero"`
 
 	// ShareContext remote sharing context associated with this plugin when available.
-	ShareContext *PluginShareContext `json:"shareContext,omitzero"`
-	Source       PluginSource        `json:"source"`
+	ShareContext PluginShareContext `json:"shareContext,omitzero"`
+	Source       PluginSource       `json:"source"`
 }
 
 func (value *PluginSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -6597,12 +6597,12 @@ func (value *PluginSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		ID             string              `json:"id"`
 		InstallPolicy  PluginInstallPolicy `json:"installPolicy"`
 		Installed      bool                `json:"installed"`
-		InterfaceValue *PluginInterface    `json:"interface,omitzero"`
+		InterfaceValue PluginInterface     `json:"interface,omitzero"`
 		Keywords       []string            `json:"keywords,omitzero"`
 		LocalVersion   *string             `json:"localVersion,omitzero"`
 		Name           string              `json:"name"`
 		RemotePluginID *string             `json:"remotePluginId,omitzero"`
-		ShareContext   *PluginShareContext `json:"shareContext,omitzero"`
+		ShareContext   PluginShareContext  `json:"shareContext,omitzero"`
 		Source         jsontext.Value      `json:"source"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -6616,7 +6616,7 @@ func (value *PluginSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.Availability = &decodedAvailability
+		value.Availability = decodedAvailability
 	}
 	value.Enabled = raw.Enabled
 	value.ID = raw.ID
@@ -6786,34 +6786,34 @@ type ProcessTerminalSize struct {
 
 // ProfileV2 is generated from the ProfileV2 schema definition.
 type ProfileV2 struct {
-	ApprovalPolicy *AskForApproval `json:"approval_policy,omitzero"`
+	ApprovalPolicy AskForApproval `json:"approval_policy,omitzero"`
 
 	// ApprovalsReviewer [UNSTABLE] Optional profile-level override for where approval requests are routed for review. If omitted, the enclosing config default is used.
-	ApprovalsReviewer     *ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
-	ChatGPTBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
-	Model                 *string            `json:"model,omitzero"`
-	ModelProvider         *string            `json:"model_provider,omitzero"`
-	ModelReasoningEffort  *ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
-	ModelReasoningSummary *ReasoningSummary  `json:"model_reasoning_summary,omitzero"`
-	ModelVerbosity        *Verbosity         `json:"model_verbosity,omitzero"`
-	ServiceTier           *string            `json:"service_tier,omitzero"`
-	Tools                 *ToolsV2           `json:"tools,omitzero"`
-	WebSearch             *WebSearchMode     `json:"web_search,omitzero"`
+	ApprovalsReviewer     ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
+	ChatGPTBaseURL        *string           `json:"chatgpt_base_url,omitzero"`
+	Model                 *string           `json:"model,omitzero"`
+	ModelProvider         *string           `json:"model_provider,omitzero"`
+	ModelReasoningEffort  ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
+	ModelReasoningSummary ReasoningSummary  `json:"model_reasoning_summary,omitzero"`
+	ModelVerbosity        Verbosity         `json:"model_verbosity,omitzero"`
+	ServiceTier           *string           `json:"service_tier,omitzero"`
+	Tools                 ToolsV2           `json:"tools,omitzero"`
+	WebSearch             WebSearchMode     `json:"web_search,omitzero"`
 }
 
 func (value *ProfileV2) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		ApprovalPolicy        jsontext.Value     `json:"approval_policy,omitzero"`
-		ApprovalsReviewer     *ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
-		ChatGPTBaseURL        *string            `json:"chatgpt_base_url,omitzero"`
-		Model                 *string            `json:"model,omitzero"`
-		ModelProvider         *string            `json:"model_provider,omitzero"`
-		ModelReasoningEffort  *ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
-		ModelReasoningSummary jsontext.Value     `json:"model_reasoning_summary,omitzero"`
-		ModelVerbosity        *Verbosity         `json:"model_verbosity,omitzero"`
-		ServiceTier           *string            `json:"service_tier,omitzero"`
-		Tools                 *ToolsV2           `json:"tools,omitzero"`
-		WebSearch             *WebSearchMode     `json:"web_search,omitzero"`
+		ApprovalPolicy        jsontext.Value    `json:"approval_policy,omitzero"`
+		ApprovalsReviewer     ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
+		ChatGPTBaseURL        *string           `json:"chatgpt_base_url,omitzero"`
+		Model                 *string           `json:"model,omitzero"`
+		ModelProvider         *string           `json:"model_provider,omitzero"`
+		ModelReasoningEffort  ReasoningEffort   `json:"model_reasoning_effort,omitzero"`
+		ModelReasoningSummary jsontext.Value    `json:"model_reasoning_summary,omitzero"`
+		ModelVerbosity        Verbosity         `json:"model_verbosity,omitzero"`
+		ServiceTier           *string           `json:"service_tier,omitzero"`
+		Tools                 ToolsV2           `json:"tools,omitzero"`
+		WebSearch             WebSearchMode     `json:"web_search,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -6825,7 +6825,7 @@ func (value *ProfileV2) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ApprovalPolicy = &decodedApprovalPolicy
+		value.ApprovalPolicy = decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.ChatGPTBaseURL = raw.ChatGPTBaseURL
@@ -6839,7 +6839,7 @@ func (value *ProfileV2) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ModelReasoningSummary = &decodedModelReasoningSummary
+		value.ModelReasoningSummary = decodedModelReasoningSummary
 	}
 	value.ModelVerbosity = raw.ModelVerbosity
 	value.ServiceTier = raw.ServiceTier
@@ -6866,13 +6866,13 @@ const (
 
 // RateLimitSnapshot is generated from the RateLimitSnapshot schema definition.
 type RateLimitSnapshot struct {
-	Credits              *CreditsSnapshot      `json:"credits,omitzero"`
-	LimitID              *string               `json:"limitId,omitzero"`
-	LimitName            *string               `json:"limitName,omitzero"`
-	PlanType             *PlanType             `json:"planType,omitzero"`
-	Primary              *RateLimitWindow      `json:"primary,omitzero"`
-	RateLimitReachedType *RateLimitReachedType `json:"rateLimitReachedType,omitzero"`
-	Secondary            *RateLimitWindow      `json:"secondary,omitzero"`
+	Credits              CreditsSnapshot      `json:"credits,omitzero"`
+	LimitID              *string              `json:"limitId,omitzero"`
+	LimitName            *string              `json:"limitName,omitzero"`
+	PlanType             PlanType             `json:"planType,omitzero"`
+	Primary              RateLimitWindow      `json:"primary,omitzero"`
+	RateLimitReachedType RateLimitReachedType `json:"rateLimitReachedType,omitzero"`
+	Secondary            RateLimitWindow      `json:"secondary,omitzero"`
 }
 
 // RateLimitWindow is generated from the RateLimitWindow schema definition.
@@ -7198,8 +7198,8 @@ type RequestID = string
 
 // RequestPermissionProfile is generated from the RequestPermissionProfile schema definition.
 type RequestPermissionProfile struct {
-	FileSystem *AdditionalFileSystemPermissions `json:"fileSystem,omitzero"`
-	Network    *AdditionalNetworkPermissions    `json:"network,omitzero"`
+	FileSystem AdditionalFileSystemPermissions `json:"fileSystem,omitzero"`
+	Network    AdditionalNetworkPermissions    `json:"network,omitzero"`
 }
 
 // ResidencyRequirement is generated from the ResidencyRequirement schema definition.
@@ -7335,7 +7335,7 @@ func (value *RawResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 type MessageResponseItem struct {
 	Content []ContentItem `json:"content"`
 	ID      *string       `json:"id,omitzero"`
-	Phase   *MessagePhase `json:"phase,omitzero"`
+	Phase   MessagePhase  `json:"phase,omitzero"`
 	Role    string        `json:"role"`
 	Type    string        `json:"type"`
 }
@@ -7373,7 +7373,7 @@ func (value *MessageResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		if err != nil {
 			return err
 		}
-		value.Phase = &decodedPhase
+		value.Phase = decodedPhase
 	}
 	value.Role = raw.Role
 	value.Type = raw.Type
@@ -7553,10 +7553,10 @@ func (ToolSearchOutputResponseItem) isResponseItem() {}
 
 // WebSearchCallResponseItem is generated from the WebSearchCallResponseItem schema definition.
 type WebSearchCallResponseItem struct {
-	Action *ResponsesAPIWebSearchAction `json:"action,omitzero"`
-	ID     *string                      `json:"id,omitzero"`
-	Status *string                      `json:"status,omitzero"`
-	Type   string                       `json:"type"`
+	Action ResponsesAPIWebSearchAction `json:"action,omitzero"`
+	ID     *string                     `json:"id,omitzero"`
+	Status *string                     `json:"status,omitzero"`
+	Type   string                      `json:"type"`
 }
 
 func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -7576,7 +7576,7 @@ func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 		if err != nil {
 			return err
 		}
-		value.Action = &decodedAction
+		value.Action = decodedAction
 	}
 	value.ID = raw.ID
 	value.Status = raw.Status
@@ -7840,16 +7840,16 @@ const (
 // ReviewStartParams is generated from the ReviewStartParams schema definition.
 type ReviewStartParams struct {
 	// Delivery where to run the review: inline (default) on the current thread or detached on a new thread (returned in `reviewThreadId`).
-	Delivery *ReviewDelivery `json:"delivery,omitzero"`
-	Target   ReviewTarget    `json:"target"`
-	ThreadID string          `json:"threadId"`
+	Delivery ReviewDelivery `json:"delivery,omitzero"`
+	Target   ReviewTarget   `json:"target"`
+	ThreadID string         `json:"threadId"`
 }
 
 func (value *ReviewStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Delivery *ReviewDelivery `json:"delivery,omitzero"`
-		Target   jsontext.Value  `json:"target"`
-		ThreadID string          `json:"threadId"`
+		Delivery ReviewDelivery `json:"delivery,omitzero"`
+		Target   jsontext.Value `json:"target"`
+		ThreadID string         `json:"threadId"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -8025,8 +8025,8 @@ func (ReadOnlySandboxPolicy) isSandboxPolicy() {}
 
 // ExternalSandboxSandboxPolicy is generated from the ExternalSandboxSandboxPolicy schema definition.
 type ExternalSandboxSandboxPolicy struct {
-	NetworkAccess *NetworkAccess `json:"networkAccess,omitzero"`
-	Type          string         `json:"type"`
+	NetworkAccess NetworkAccess `json:"networkAccess,omitzero"`
+	Type          string        `json:"type"`
 }
 
 func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
@@ -9265,9 +9265,9 @@ func decodeGeneratedSessionSource(raw jsontext.Value) (SessionSource, error) {
 
 // Settings for a collaboration mode.
 type Settings struct {
-	DeveloperInstructions *string          `json:"developer_instructions,omitzero"`
-	Model                 string           `json:"model"`
-	ReasoningEffort       *ReasoningEffort `json:"reasoning_effort,omitzero"`
+	DeveloperInstructions *string         `json:"developer_instructions,omitzero"`
+	Model                 string          `json:"model"`
+	ReasoningEffort       ReasoningEffort `json:"reasoning_effort,omitzero"`
 }
 
 // SkillDependencies is generated from the SkillDependencies schema definition.
@@ -9293,13 +9293,13 @@ type SkillInterface struct {
 
 // SkillMetadata is generated from the SkillMetadata schema definition.
 type SkillMetadata struct {
-	Dependencies   *SkillDependencies `json:"dependencies,omitzero"`
-	Description    string             `json:"description"`
-	Enabled        bool               `json:"enabled"`
-	InterfaceValue *SkillInterface    `json:"interface,omitzero"`
-	Name           string             `json:"name"`
-	Path           string             `json:"path"`
-	Scope          SkillScope         `json:"scope"`
+	Dependencies   SkillDependencies `json:"dependencies,omitzero"`
+	Description    string            `json:"description"`
+	Enabled        bool              `json:"enabled"`
+	InterfaceValue SkillInterface    `json:"interface,omitzero"`
+	Name           string            `json:"name"`
+	Path           string            `json:"path"`
+	Scope          SkillScope        `json:"scope"`
 
 	// ShortDescription legacy short_description from SKILL.md. Prefer SKILL.json interface.short_description.
 	ShortDescription *string `json:"shortDescription,omitzero"`
@@ -9321,12 +9321,12 @@ const (
 
 // SkillSummary is generated from the SkillSummary schema definition.
 type SkillSummary struct {
-	Description      string          `json:"description"`
-	Enabled          bool            `json:"enabled"`
-	InterfaceValue   *SkillInterface `json:"interface,omitzero"`
-	Name             string          `json:"name"`
-	Path             *string         `json:"path,omitzero"`
-	ShortDescription *string         `json:"shortDescription,omitzero"`
+	Description      string         `json:"description"`
+	Enabled          bool           `json:"enabled"`
+	InterfaceValue   SkillInterface `json:"interface,omitzero"`
+	Name             string         `json:"name"`
+	Path             *string        `json:"path,omitzero"`
+	ShortDescription *string        `json:"shortDescription,omitzero"`
 }
 
 // SkillToolDependency is generated from the SkillToolDependency schema definition.
@@ -9553,8 +9553,8 @@ type ThreadPayload struct {
 	ForkedFromID *string `json:"forkedFromId,omitzero"`
 
 	// GitInfo optional Git metadata captured when the thread was created.
-	GitInfo *GitInfo `json:"gitInfo,omitzero"`
-	ID      string   `json:"id"`
+	GitInfo GitInfo `json:"gitInfo,omitzero"`
+	ID      string  `json:"id"`
 
 	// ModelProvider model provider used for this thread (for example, 'openai').
 	ModelProvider string `json:"modelProvider"`
@@ -9578,7 +9578,7 @@ type ThreadPayload struct {
 	Status ThreadStatus `json:"status"`
 
 	// ThreadSource optional analytics source classification for this thread.
-	ThreadSource *ThreadSource `json:"threadSource,omitzero"`
+	ThreadSource ThreadSource `json:"threadSource,omitzero"`
 
 	// Turns only populated on `thread/resume`, `thread/rollback`, `thread/fork`, and `thread/read` (when `includeTurns` is true) responses. For all other responses and notifications returning a Thread, the turns field will be an empty list.
 	Turns []Turn `json:"turns"`
@@ -9596,7 +9596,7 @@ func (value *ThreadPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Cwd           string         `json:"cwd"`
 		Ephemeral     bool           `json:"ephemeral"`
 		ForkedFromID  *string        `json:"forkedFromId,omitzero"`
-		GitInfo       *GitInfo       `json:"gitInfo,omitzero"`
+		GitInfo       GitInfo        `json:"gitInfo,omitzero"`
 		ID            string         `json:"id"`
 		ModelProvider string         `json:"modelProvider"`
 		Name          *string        `json:"name,omitzero"`
@@ -9605,7 +9605,7 @@ func (value *ThreadPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		SessionID     string         `json:"sessionId"`
 		Source        jsontext.Value `json:"source"`
 		Status        jsontext.Value `json:"status"`
-		ThreadSource  *ThreadSource  `json:"threadSource,omitzero"`
+		ThreadSource  ThreadSource   `json:"threadSource,omitzero"`
 		Turns         []Turn         `json:"turns"`
 		UpdatedAt     int64          `json:"updatedAt"`
 	}
@@ -9702,10 +9702,10 @@ type ThreadCompactStartResponse struct{}
 //
 // Prefer using thread_id whenever possible.
 type ThreadForkParams struct {
-	ApprovalPolicy *AskForApproval `json:"approvalPolicy,omitzero"`
+	ApprovalPolicy AskForApproval `json:"approvalPolicy,omitzero"`
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this thread and subsequent turns.
-	ApprovalsReviewer     *ApprovalsReviewer        `json:"approvalsReviewer,omitzero"`
+	ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
 	BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
 	Cwd                   *string                   `json:"cwd,omitzero"`
@@ -9713,20 +9713,20 @@ type ThreadForkParams struct {
 	Ephemeral             *bool                     `json:"ephemeral,omitzero"`
 
 	// Model configuration overrides for the forked thread, if any.
-	Model         *string      `json:"model,omitzero"`
-	ModelProvider *string      `json:"modelProvider,omitzero"`
-	Sandbox       *SandboxMode `json:"sandbox,omitzero"`
-	ServiceTier   *string      `json:"serviceTier,omitzero"`
-	ThreadID      string       `json:"threadId"`
+	Model         *string     `json:"model,omitzero"`
+	ModelProvider *string     `json:"modelProvider,omitzero"`
+	Sandbox       SandboxMode `json:"sandbox,omitzero"`
+	ServiceTier   *string     `json:"serviceTier,omitzero"`
+	ThreadID      string      `json:"threadId"`
 
 	// ThreadSource optional client-supplied analytics source classification for this forked thread.
-	ThreadSource *ThreadSource `json:"threadSource,omitzero"`
+	ThreadSource ThreadSource `json:"threadSource,omitzero"`
 }
 
 func (value *ThreadForkParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ApprovalPolicy        jsontext.Value            `json:"approvalPolicy,omitzero"`
-		ApprovalsReviewer     *ApprovalsReviewer        `json:"approvalsReviewer,omitzero"`
+		ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
 		BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
 		Config                map[string]jsontext.Value `json:"config,omitzero"`
 		Cwd                   *string                   `json:"cwd,omitzero"`
@@ -9734,10 +9734,10 @@ func (value *ThreadForkParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Ephemeral             *bool                     `json:"ephemeral,omitzero"`
 		Model                 *string                   `json:"model,omitzero"`
 		ModelProvider         *string                   `json:"modelProvider,omitzero"`
-		Sandbox               *SandboxMode              `json:"sandbox,omitzero"`
+		Sandbox               SandboxMode               `json:"sandbox,omitzero"`
 		ServiceTier           *string                   `json:"serviceTier,omitzero"`
 		ThreadID              string                    `json:"threadId"`
-		ThreadSource          *ThreadSource             `json:"threadSource,omitzero"`
+		ThreadSource          ThreadSource              `json:"threadSource,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -9749,7 +9749,7 @@ func (value *ThreadForkParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ApprovalPolicy = &decodedApprovalPolicy
+		value.ApprovalPolicy = decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.BaseInstructions = raw.BaseInstructions
@@ -9775,10 +9775,10 @@ type ThreadForkResponse struct {
 	Cwd               string            `json:"cwd"`
 
 	// InstructionSources instruction source files currently loaded for this thread.
-	InstructionSources []string         `json:"instructionSources,omitzero"`
-	Model              string           `json:"model"`
-	ModelProvider      string           `json:"modelProvider"`
-	ReasoningEffort    *ReasoningEffort `json:"reasoningEffort,omitzero"`
+	InstructionSources []string        `json:"instructionSources,omitzero"`
+	Model              string          `json:"model"`
+	ModelProvider      string          `json:"modelProvider"`
+	ReasoningEffort    ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `activePermissionProfile` for profile provenance.
 	Sandbox     SandboxPolicy `json:"sandbox"`
@@ -9794,7 +9794,7 @@ func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 		InstructionSources []string          `json:"instructionSources,omitzero"`
 		Model              string            `json:"model"`
 		ModelProvider      string            `json:"modelProvider"`
-		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
+		ReasoningEffort    ReasoningEffort   `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
 		Thread             ThreadPayload     `json:"thread"`
@@ -9865,15 +9865,15 @@ type ThreadGoalGetParams struct {
 
 // ThreadGoalGetResponse is generated from the ThreadGoalGetResponse schema definition.
 type ThreadGoalGetResponse struct {
-	Goal *ThreadGoal `json:"goal,omitzero"`
+	Goal ThreadGoal `json:"goal,omitzero"`
 }
 
 // ThreadGoalSetParams is generated from the ThreadGoalSetParams schema definition.
 type ThreadGoalSetParams struct {
-	Objective   *string           `json:"objective,omitzero"`
-	Status      *ThreadGoalStatus `json:"status,omitzero"`
-	ThreadID    string            `json:"threadId"`
-	TokenBudget *int64            `json:"tokenBudget,omitzero"`
+	Objective   *string          `json:"objective,omitzero"`
+	Status      ThreadGoalStatus `json:"status,omitzero"`
+	ThreadID    string           `json:"threadId"`
+	TokenBudget *int64           `json:"tokenBudget,omitzero"`
 }
 
 // ThreadGoalSetResponse is generated from the ThreadGoalSetResponse schema definition.
@@ -9990,20 +9990,20 @@ func (HookPromptThreadItem) isThreadItem() {}
 
 // AgentMessageThreadItem is generated from the AgentMessageThreadItem schema definition.
 type AgentMessageThreadItem struct {
-	ID             string          `json:"id"`
-	MemoryCitation *MemoryCitation `json:"memoryCitation,omitzero"`
-	Phase          *MessagePhase   `json:"phase,omitzero"`
-	Text           string          `json:"text"`
-	Type           string          `json:"type"`
+	ID             string         `json:"id"`
+	MemoryCitation MemoryCitation `json:"memoryCitation,omitzero"`
+	Phase          MessagePhase   `json:"phase,omitzero"`
+	Text           string         `json:"text"`
+	Type           string         `json:"type"`
 }
 
 func (value *AgentMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		ID             string          `json:"id"`
-		MemoryCitation *MemoryCitation `json:"memoryCitation,omitzero"`
-		Phase          jsontext.Value  `json:"phase,omitzero"`
-		Text           string          `json:"text"`
-		Type           string          `json:"type"`
+		ID             string         `json:"id"`
+		MemoryCitation MemoryCitation `json:"memoryCitation,omitzero"`
+		Phase          jsontext.Value `json:"phase,omitzero"`
+		Text           string         `json:"text"`
+		Type           string         `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -10017,7 +10017,7 @@ func (value *AgentMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 		if err != nil {
 			return err
 		}
-		value.Phase = &decodedPhase
+		value.Phase = decodedPhase
 	}
 	value.Text = raw.Text
 	value.Type = raw.Type
@@ -10067,25 +10067,25 @@ type CommandExecutionThreadItem struct {
 	ID       string `json:"id"`
 
 	// ProcessID identifier for the underlying PTY process (when available).
-	ProcessID *string                 `json:"processId,omitzero"`
-	Source    *CommandExecutionSource `json:"source,omitzero"`
-	Status    CommandExecutionStatus  `json:"status"`
-	Type      string                  `json:"type"`
+	ProcessID *string                `json:"processId,omitzero"`
+	Source    CommandExecutionSource `json:"source,omitzero"`
+	Status    CommandExecutionStatus `json:"status"`
+	Type      string                 `json:"type"`
 }
 
 func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		AggregatedOutput *string                 `json:"aggregatedOutput,omitzero"`
-		Command          string                  `json:"command"`
-		CommandActions   []jsontext.Value        `json:"commandActions"`
-		Cwd              string                  `json:"cwd"`
-		DurationMs       *int64                  `json:"durationMs,omitzero"`
-		ExitCode         *int32                  `json:"exitCode,omitzero"`
-		ID               string                  `json:"id"`
-		ProcessID        *string                 `json:"processId,omitzero"`
-		Source           *CommandExecutionSource `json:"source,omitzero"`
-		Status           CommandExecutionStatus  `json:"status"`
-		Type             string                  `json:"type"`
+		AggregatedOutput *string                `json:"aggregatedOutput,omitzero"`
+		Command          string                 `json:"command"`
+		CommandActions   []jsontext.Value       `json:"commandActions"`
+		Cwd              string                 `json:"cwd"`
+		DurationMs       *int64                 `json:"durationMs,omitzero"`
+		ExitCode         *int32                 `json:"exitCode,omitzero"`
+		ID               string                 `json:"id"`
+		ProcessID        *string                `json:"processId,omitzero"`
+		Source           CommandExecutionSource `json:"source,omitzero"`
+		Status           CommandExecutionStatus `json:"status"`
+		Type             string                 `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -10134,16 +10134,16 @@ type MCPToolCallThreadItem struct {
 	Arguments jsontext.Value `json:"arguments"`
 
 	// DurationMs represents a duration of the MCP tool call in milliseconds.
-	DurationMs        *int64             `json:"durationMs,omitzero"`
-	Error             *MCPToolCallError  `json:"error,omitzero"`
-	ID                string             `json:"id"`
-	MCPAppResourceURI *string            `json:"mcpAppResourceUri,omitzero"`
-	PluginID          *string            `json:"pluginId,omitzero"`
-	Result            *MCPToolCallResult `json:"result,omitzero"`
-	Server            string             `json:"server"`
-	Status            MCPToolCallStatus  `json:"status"`
-	Tool              string             `json:"tool"`
-	Type              string             `json:"type"`
+	DurationMs        *int64            `json:"durationMs,omitzero"`
+	Error             MCPToolCallError  `json:"error,omitzero"`
+	ID                string            `json:"id"`
+	MCPAppResourceURI *string           `json:"mcpAppResourceUri,omitzero"`
+	PluginID          *string           `json:"pluginId,omitzero"`
+	Result            MCPToolCallResult `json:"result,omitzero"`
+	Server            string            `json:"server"`
+	Status            MCPToolCallStatus `json:"status"`
+	Tool              string            `json:"tool"`
+	Type              string            `json:"type"`
 }
 
 func (MCPToolCallThreadItem) isThreadItem() {}
@@ -10220,7 +10220,7 @@ type CollabAgentToolCallThreadItem struct {
 	Prompt *string `json:"prompt,omitzero"`
 
 	// ReasoningEffort reasoning effort requested for the spawned agent, when applicable.
-	ReasoningEffort *ReasoningEffort `json:"reasoningEffort,omitzero"`
+	ReasoningEffort ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// ReceiverThreadIDs thread ID of the receiving agent, when applicable. In case of spawn operation, this corresponds to the newly spawned agent.
 	ReceiverThreadIDs []string `json:"receiverThreadIds"`
@@ -10240,10 +10240,10 @@ func (CollabAgentToolCallThreadItem) isThreadItem() {}
 
 // WebSearchThreadItem is generated from the WebSearchThreadItem schema definition.
 type WebSearchThreadItem struct {
-	Action *WebSearchAction `json:"action,omitzero"`
-	ID     string           `json:"id"`
-	Query  string           `json:"query"`
-	Type   string           `json:"type"`
+	Action WebSearchAction `json:"action,omitzero"`
+	ID     string          `json:"id"`
+	Query  string          `json:"query"`
+	Type   string          `json:"type"`
 }
 
 func (value *WebSearchThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -10263,7 +10263,7 @@ func (value *WebSearchThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		if err != nil {
 			return err
 		}
-		value.Action = &decodedAction
+		value.Action = decodedAction
 	}
 	value.ID = raw.ID
 	value.Query = raw.Query
@@ -10488,7 +10488,7 @@ type ThreadListParams struct {
 	Cursor *string `json:"cursor,omitzero"`
 
 	// Cwd optional cwd filter or filters; when set, only threads whose session cwd exactly matches one of these paths are returned.
-	Cwd *ThreadListCwdFilter `json:"cwd,omitzero"`
+	Cwd ThreadListCwdFilter `json:"cwd,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
 	Limit *int32 `json:"limit,omitzero"`
@@ -10500,10 +10500,10 @@ type ThreadListParams struct {
 	SearchTerm *string `json:"searchTerm,omitzero"`
 
 	// SortDirection optional sort direction; defaults to descending (newest first).
-	SortDirection *SortDirection `json:"sortDirection,omitzero"`
+	SortDirection SortDirection `json:"sortDirection,omitzero"`
 
 	// SortKey optional sort key; defaults to created_at.
-	SortKey *ThreadSortKey `json:"sortKey,omitzero"`
+	SortKey ThreadSortKey `json:"sortKey,omitzero"`
 
 	// SourceKinds optional source filter; when set, only sessions from these source kinds are returned. When omitted or empty, defaults to interactive sources.
 	SourceKinds []ThreadSourceKind `json:"sourceKinds,omitzero"`
@@ -10520,8 +10520,8 @@ func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Limit          *int32             `json:"limit,omitzero"`
 		ModelProviders []string           `json:"modelProviders,omitzero"`
 		SearchTerm     *string            `json:"searchTerm,omitzero"`
-		SortDirection  *SortDirection     `json:"sortDirection,omitzero"`
-		SortKey        *ThreadSortKey     `json:"sortKey,omitzero"`
+		SortDirection  SortDirection      `json:"sortDirection,omitzero"`
+		SortKey        ThreadSortKey      `json:"sortKey,omitzero"`
 		SourceKinds    []ThreadSourceKind `json:"sourceKinds,omitzero"`
 		UseStateDbOnly *bool              `json:"useStateDbOnly,omitzero"`
 	}
@@ -10537,7 +10537,7 @@ func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.Cwd = &decodedCwd
+		value.Cwd = decodedCwd
 	}
 	value.Limit = raw.Limit
 	value.ModelProviders = raw.ModelProviders
@@ -10602,8 +10602,8 @@ type ThreadMetadataGitInfoUpdateParams struct {
 // ThreadMetadataUpdateParams is generated from the ThreadMetadataUpdateParams schema definition.
 type ThreadMetadataUpdateParams struct {
 	// GitInfo patch the stored Git metadata for this thread. Omit a field to leave it unchanged, set it to `null` to clear it, or provide a string to replace the stored value.
-	GitInfo  *ThreadMetadataGitInfoUpdateParams `json:"gitInfo,omitzero"`
-	ThreadID string                             `json:"threadId"`
+	GitInfo  ThreadMetadataGitInfoUpdateParams `json:"gitInfo,omitzero"`
+	ThreadID string                            `json:"threadId"`
 }
 
 // ThreadMetadataUpdateResponse is generated from the ThreadMetadataUpdateResponse schema definition.
@@ -10766,36 +10766,36 @@ type ThreadRealtimeTranscriptDoneNotification struct {
 //
 // Prefer using thread_id whenever possible.
 type ThreadResumeParams struct {
-	ApprovalPolicy *AskForApproval `json:"approvalPolicy,omitzero"`
+	ApprovalPolicy AskForApproval `json:"approvalPolicy,omitzero"`
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this thread and subsequent turns.
-	ApprovalsReviewer     *ApprovalsReviewer        `json:"approvalsReviewer,omitzero"`
+	ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
 	BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
 	Cwd                   *string                   `json:"cwd,omitzero"`
 	DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
 
 	// Model configuration overrides for the resumed thread, if any.
-	Model         *string      `json:"model,omitzero"`
-	ModelProvider *string      `json:"modelProvider,omitzero"`
-	Personality   *Personality `json:"personality,omitzero"`
-	Sandbox       *SandboxMode `json:"sandbox,omitzero"`
-	ServiceTier   *string      `json:"serviceTier,omitzero"`
-	ThreadID      string       `json:"threadId"`
+	Model         *string     `json:"model,omitzero"`
+	ModelProvider *string     `json:"modelProvider,omitzero"`
+	Personality   Personality `json:"personality,omitzero"`
+	Sandbox       SandboxMode `json:"sandbox,omitzero"`
+	ServiceTier   *string     `json:"serviceTier,omitzero"`
+	ThreadID      string      `json:"threadId"`
 }
 
 func (value *ThreadResumeParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ApprovalPolicy        jsontext.Value            `json:"approvalPolicy,omitzero"`
-		ApprovalsReviewer     *ApprovalsReviewer        `json:"approvalsReviewer,omitzero"`
+		ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
 		BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
 		Config                map[string]jsontext.Value `json:"config,omitzero"`
 		Cwd                   *string                   `json:"cwd,omitzero"`
 		DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
 		Model                 *string                   `json:"model,omitzero"`
 		ModelProvider         *string                   `json:"modelProvider,omitzero"`
-		Personality           *Personality              `json:"personality,omitzero"`
-		Sandbox               *SandboxMode              `json:"sandbox,omitzero"`
+		Personality           Personality               `json:"personality,omitzero"`
+		Sandbox               SandboxMode               `json:"sandbox,omitzero"`
 		ServiceTier           *string                   `json:"serviceTier,omitzero"`
 		ThreadID              string                    `json:"threadId"`
 	}
@@ -10809,7 +10809,7 @@ func (value *ThreadResumeParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 		if err != nil {
 			return err
 		}
-		value.ApprovalPolicy = &decodedApprovalPolicy
+		value.ApprovalPolicy = decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.BaseInstructions = raw.BaseInstructions
@@ -10834,10 +10834,10 @@ type ThreadResumeResponse struct {
 	Cwd               string            `json:"cwd"`
 
 	// InstructionSources instruction source files currently loaded for this thread.
-	InstructionSources []string         `json:"instructionSources,omitzero"`
-	Model              string           `json:"model"`
-	ModelProvider      string           `json:"modelProvider"`
-	ReasoningEffort    *ReasoningEffort `json:"reasoningEffort,omitzero"`
+	InstructionSources []string        `json:"instructionSources,omitzero"`
+	Model              string          `json:"model"`
+	ModelProvider      string          `json:"modelProvider"`
+	ReasoningEffort    ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `activePermissionProfile` for profile provenance.
 	Sandbox     SandboxPolicy `json:"sandbox"`
@@ -10853,7 +10853,7 @@ func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		InstructionSources []string          `json:"instructionSources,omitzero"`
 		Model              string            `json:"model"`
 		ModelProvider      string            `json:"modelProvider"`
-		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
+		ReasoningEffort    ReasoningEffort   `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
 		Thread             ThreadPayload     `json:"thread"`
@@ -10918,34 +10918,34 @@ type ThreadSetNameResponse struct{}
 
 // ThreadSettings is generated from the ThreadSettings schema definition.
 type ThreadSettings struct {
-	ActivePermissionProfile *ActivePermissionProfile `json:"activePermissionProfile,omitzero"`
-	ApprovalPolicy          AskForApproval           `json:"approvalPolicy"`
-	ApprovalsReviewer       ApprovalsReviewer        `json:"approvalsReviewer"`
-	CollaborationMode       CollaborationMode        `json:"collaborationMode"`
-	Cwd                     string                   `json:"cwd"`
-	Effort                  *ReasoningEffort         `json:"effort,omitzero"`
-	Model                   string                   `json:"model"`
-	ModelProvider           string                   `json:"modelProvider"`
-	Personality             *Personality             `json:"personality,omitzero"`
-	SandboxPolicy           SandboxPolicy            `json:"sandboxPolicy"`
-	ServiceTier             *string                  `json:"serviceTier,omitzero"`
-	Summary                 *ReasoningSummary        `json:"summary,omitzero"`
+	ActivePermissionProfile ActivePermissionProfile `json:"activePermissionProfile,omitzero"`
+	ApprovalPolicy          AskForApproval          `json:"approvalPolicy"`
+	ApprovalsReviewer       ApprovalsReviewer       `json:"approvalsReviewer"`
+	CollaborationMode       CollaborationMode       `json:"collaborationMode"`
+	Cwd                     string                  `json:"cwd"`
+	Effort                  ReasoningEffort         `json:"effort,omitzero"`
+	Model                   string                  `json:"model"`
+	ModelProvider           string                  `json:"modelProvider"`
+	Personality             Personality             `json:"personality,omitzero"`
+	SandboxPolicy           SandboxPolicy           `json:"sandboxPolicy"`
+	ServiceTier             *string                 `json:"serviceTier,omitzero"`
+	Summary                 ReasoningSummary        `json:"summary,omitzero"`
 }
 
 func (value *ThreadSettings) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		ActivePermissionProfile *ActivePermissionProfile `json:"activePermissionProfile,omitzero"`
-		ApprovalPolicy          jsontext.Value           `json:"approvalPolicy"`
-		ApprovalsReviewer       ApprovalsReviewer        `json:"approvalsReviewer"`
-		CollaborationMode       CollaborationMode        `json:"collaborationMode"`
-		Cwd                     string                   `json:"cwd"`
-		Effort                  *ReasoningEffort         `json:"effort,omitzero"`
-		Model                   string                   `json:"model"`
-		ModelProvider           string                   `json:"modelProvider"`
-		Personality             *Personality             `json:"personality,omitzero"`
-		SandboxPolicy           jsontext.Value           `json:"sandboxPolicy"`
-		ServiceTier             *string                  `json:"serviceTier,omitzero"`
-		Summary                 jsontext.Value           `json:"summary,omitzero"`
+		ActivePermissionProfile ActivePermissionProfile `json:"activePermissionProfile,omitzero"`
+		ApprovalPolicy          jsontext.Value          `json:"approvalPolicy"`
+		ApprovalsReviewer       ApprovalsReviewer       `json:"approvalsReviewer"`
+		CollaborationMode       CollaborationMode       `json:"collaborationMode"`
+		Cwd                     string                  `json:"cwd"`
+		Effort                  ReasoningEffort         `json:"effort,omitzero"`
+		Model                   string                  `json:"model"`
+		ModelProvider           string                  `json:"modelProvider"`
+		Personality             Personality             `json:"personality,omitzero"`
+		SandboxPolicy           jsontext.Value          `json:"sandboxPolicy"`
+		ServiceTier             *string                 `json:"serviceTier,omitzero"`
+		Summary                 jsontext.Value          `json:"summary,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -10984,7 +10984,7 @@ func (value *ThreadSettings) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.Summary = &decodedSummary
+		value.Summary = decodedSummary
 	}
 	return nil
 }
@@ -11055,10 +11055,10 @@ const (
 
 // ThreadStartParams is generated from the ThreadStartParams schema definition.
 type ThreadStartParams struct {
-	ApprovalPolicy *AskForApproval `json:"approvalPolicy,omitzero"`
+	ApprovalPolicy AskForApproval `json:"approvalPolicy,omitzero"`
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this thread and subsequent turns.
-	ApprovalsReviewer     *ApprovalsReviewer        `json:"approvalsReviewer,omitzero"`
+	ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
 	BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
 	Cwd                   *string                   `json:"cwd,omitzero"`
@@ -11066,20 +11066,20 @@ type ThreadStartParams struct {
 	Ephemeral             *bool                     `json:"ephemeral,omitzero"`
 	Model                 *string                   `json:"model,omitzero"`
 	ModelProvider         *string                   `json:"modelProvider,omitzero"`
-	Personality           *Personality              `json:"personality,omitzero"`
-	Sandbox               *SandboxMode              `json:"sandbox,omitzero"`
+	Personality           Personality               `json:"personality,omitzero"`
+	Sandbox               SandboxMode               `json:"sandbox,omitzero"`
 	ServiceName           *string                   `json:"serviceName,omitzero"`
 	ServiceTier           *string                   `json:"serviceTier,omitzero"`
-	SessionStartSource    *ThreadStartSource        `json:"sessionStartSource,omitzero"`
+	SessionStartSource    ThreadStartSource         `json:"sessionStartSource,omitzero"`
 
 	// ThreadSource optional client-supplied analytics source classification for this thread.
-	ThreadSource *ThreadSource `json:"threadSource,omitzero"`
+	ThreadSource ThreadSource `json:"threadSource,omitzero"`
 }
 
 func (value *ThreadStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ApprovalPolicy        jsontext.Value            `json:"approvalPolicy,omitzero"`
-		ApprovalsReviewer     *ApprovalsReviewer        `json:"approvalsReviewer,omitzero"`
+		ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
 		BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
 		Config                map[string]jsontext.Value `json:"config,omitzero"`
 		Cwd                   *string                   `json:"cwd,omitzero"`
@@ -11087,12 +11087,12 @@ func (value *ThreadStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Ephemeral             *bool                     `json:"ephemeral,omitzero"`
 		Model                 *string                   `json:"model,omitzero"`
 		ModelProvider         *string                   `json:"modelProvider,omitzero"`
-		Personality           *Personality              `json:"personality,omitzero"`
-		Sandbox               *SandboxMode              `json:"sandbox,omitzero"`
+		Personality           Personality               `json:"personality,omitzero"`
+		Sandbox               SandboxMode               `json:"sandbox,omitzero"`
 		ServiceName           *string                   `json:"serviceName,omitzero"`
 		ServiceTier           *string                   `json:"serviceTier,omitzero"`
-		SessionStartSource    *ThreadStartSource        `json:"sessionStartSource,omitzero"`
-		ThreadSource          *ThreadSource             `json:"threadSource,omitzero"`
+		SessionStartSource    ThreadStartSource         `json:"sessionStartSource,omitzero"`
+		ThreadSource          ThreadSource              `json:"threadSource,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -11104,7 +11104,7 @@ func (value *ThreadStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ApprovalPolicy = &decodedApprovalPolicy
+		value.ApprovalPolicy = decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.BaseInstructions = raw.BaseInstructions
@@ -11132,10 +11132,10 @@ type ThreadStartResponse struct {
 	Cwd               string            `json:"cwd"`
 
 	// InstructionSources instruction source files currently loaded for this thread.
-	InstructionSources []string         `json:"instructionSources,omitzero"`
-	Model              string           `json:"model"`
-	ModelProvider      string           `json:"modelProvider"`
-	ReasoningEffort    *ReasoningEffort `json:"reasoningEffort,omitzero"`
+	InstructionSources []string        `json:"instructionSources,omitzero"`
+	Model              string          `json:"model"`
+	ModelProvider      string          `json:"modelProvider"`
+	ReasoningEffort    ReasoningEffort `json:"reasoningEffort,omitzero"`
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `activePermissionProfile` for profile provenance.
 	Sandbox     SandboxPolicy `json:"sandbox"`
@@ -11151,7 +11151,7 @@ func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		InstructionSources []string          `json:"instructionSources,omitzero"`
 		Model              string            `json:"model"`
 		ModelProvider      string            `json:"modelProvider"`
-		ReasoningEffort    *ReasoningEffort  `json:"reasoningEffort,omitzero"`
+		ReasoningEffort    ReasoningEffort   `json:"reasoningEffort,omitzero"`
 		Sandbox            jsontext.Value    `json:"sandbox"`
 		ServiceTier        *string           `json:"serviceTier,omitzero"`
 		Thread             ThreadPayload     `json:"thread"`
@@ -11395,7 +11395,7 @@ type Tool struct {
 
 // ToolsV2 is generated from the ToolsV2 schema definition.
 type ToolsV2 struct {
-	WebSearch *WebSearchToolConfig `json:"web_search,omitzero"`
+	WebSearch WebSearchToolConfig `json:"web_search,omitzero"`
 }
 
 // Turn is generated from the Turn schema definition.
@@ -11407,14 +11407,14 @@ type Turn struct {
 	DurationMs *int64 `json:"durationMs,omitzero"`
 
 	// Error only populated when the Turn's status is failed.
-	Error *TurnError `json:"error,omitzero"`
-	ID    string     `json:"id"`
+	Error TurnError `json:"error,omitzero"`
+	ID    string    `json:"id"`
 
 	// Items thread items currently included in this turn payload.
 	Items []ThreadItem `json:"items"`
 
 	// ItemsView describes how much of `items` has been loaded for this turn.
-	ItemsView *TurnItemsView `json:"itemsView,omitzero"`
+	ItemsView TurnItemsView `json:"itemsView,omitzero"`
 
 	// StartedAt unix timestamp (in seconds) when the turn started.
 	StartedAt *int64     `json:"startedAt,omitzero"`
@@ -11425,7 +11425,7 @@ func (value *Turn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		CompletedAt *int64           `json:"completedAt,omitzero"`
 		DurationMs  *int64           `json:"durationMs,omitzero"`
-		Error       *TurnError       `json:"error,omitzero"`
+		Error       TurnError        `json:"error,omitzero"`
 		ID          string           `json:"id"`
 		Items       []jsontext.Value `json:"items"`
 		ItemsView   jsontext.Value   `json:"itemsView,omitzero"`
@@ -11460,7 +11460,7 @@ func (value *Turn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ItemsView = &decodedItemsView
+		value.ItemsView = decodedItemsView
 	}
 	value.StartedAt = raw.StartedAt
 	value.Status = raw.Status
@@ -11488,9 +11488,9 @@ type TurnEnvironmentParams struct {
 
 // TurnError is generated from the TurnError schema definition.
 type TurnError struct {
-	AdditionalDetails *string         `json:"additionalDetails,omitzero"`
-	CodexErrorInfo    *CodexErrorInfo `json:"codexErrorInfo,omitzero"`
-	Message           string          `json:"message"`
+	AdditionalDetails *string        `json:"additionalDetails,omitzero"`
+	CodexErrorInfo    CodexErrorInfo `json:"codexErrorInfo,omitzero"`
+	Message           string         `json:"message"`
 }
 
 func (value *TurnError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -11510,7 +11510,7 @@ func (value *TurnError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.CodexErrorInfo = &decodedCodexErrorInfo
+		value.CodexErrorInfo = decodedCodexErrorInfo
 	}
 	value.Message = raw.Message
 	return nil
@@ -11610,17 +11610,17 @@ type TurnPlanUpdatedNotification struct {
 // TurnStartParams is generated from the TurnStartParams schema definition.
 type TurnStartParams struct {
 	// ApprovalPolicy overrides the approval policy for this turn and subsequent turns.
-	ApprovalPolicy *AskForApproval `json:"approvalPolicy,omitzero"`
+	ApprovalPolicy AskForApproval `json:"approvalPolicy,omitzero"`
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this turn and subsequent turns.
-	ApprovalsReviewer *ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
+	ApprovalsReviewer ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
 
 	// Cwd overrides the working directory for this turn and subsequent turns.
 	Cwd *string `json:"cwd,omitzero"`
 
 	// Effort overrides the reasoning effort for this turn and subsequent turns.
-	Effort *ReasoningEffort `json:"effort,omitzero"`
-	Input  []UserInput      `json:"input"`
+	Effort ReasoningEffort `json:"effort,omitzero"`
+	Input  []UserInput     `json:"input"`
 
 	// Model overrides the model for this turn and subsequent turns.
 	Model *string `json:"model,omitzero"`
@@ -11629,33 +11629,33 @@ type TurnStartParams struct {
 	OutputSchema jsontext.Value `json:"outputSchema,omitzero"`
 
 	// Personality overrides the personality for this turn and subsequent turns.
-	Personality *Personality `json:"personality,omitzero"`
+	Personality Personality `json:"personality,omitzero"`
 
 	// SandboxPolicy overrides the sandbox policy for this turn and subsequent turns.
-	SandboxPolicy *SandboxPolicy `json:"sandboxPolicy,omitzero"`
+	SandboxPolicy SandboxPolicy `json:"sandboxPolicy,omitzero"`
 
 	// ServiceTier overrides the service tier for this turn and subsequent turns.
 	ServiceTier *string `json:"serviceTier,omitzero"`
 
 	// Summary overrides the reasoning summary for this turn and subsequent turns.
-	Summary  *ReasoningSummary `json:"summary,omitzero"`
-	ThreadID string            `json:"threadId"`
+	Summary  ReasoningSummary `json:"summary,omitzero"`
+	ThreadID string           `json:"threadId"`
 }
 
 func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		ApprovalPolicy    jsontext.Value     `json:"approvalPolicy,omitzero"`
-		ApprovalsReviewer *ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
-		Cwd               *string            `json:"cwd,omitzero"`
-		Effort            *ReasoningEffort   `json:"effort,omitzero"`
-		Input             []jsontext.Value   `json:"input"`
-		Model             *string            `json:"model,omitzero"`
-		OutputSchema      jsontext.Value     `json:"outputSchema,omitzero"`
-		Personality       *Personality       `json:"personality,omitzero"`
-		SandboxPolicy     jsontext.Value     `json:"sandboxPolicy,omitzero"`
-		ServiceTier       *string            `json:"serviceTier,omitzero"`
-		Summary           jsontext.Value     `json:"summary,omitzero"`
-		ThreadID          string             `json:"threadId"`
+		ApprovalPolicy    jsontext.Value    `json:"approvalPolicy,omitzero"`
+		ApprovalsReviewer ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
+		Cwd               *string           `json:"cwd,omitzero"`
+		Effort            ReasoningEffort   `json:"effort,omitzero"`
+		Input             []jsontext.Value  `json:"input"`
+		Model             *string           `json:"model,omitzero"`
+		OutputSchema      jsontext.Value    `json:"outputSchema,omitzero"`
+		Personality       Personality       `json:"personality,omitzero"`
+		SandboxPolicy     jsontext.Value    `json:"sandboxPolicy,omitzero"`
+		ServiceTier       *string           `json:"serviceTier,omitzero"`
+		Summary           jsontext.Value    `json:"summary,omitzero"`
+		ThreadID          string            `json:"threadId"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -11667,7 +11667,7 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.ApprovalPolicy = &decodedApprovalPolicy
+		value.ApprovalPolicy = decodedApprovalPolicy
 	}
 	value.ApprovalsReviewer = raw.ApprovalsReviewer
 	value.Cwd = raw.Cwd
@@ -11696,7 +11696,7 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.SandboxPolicy = &decodedSandboxPolicy
+		value.SandboxPolicy = decodedSandboxPolicy
 	}
 	value.ServiceTier = raw.ServiceTier
 	if raw.Summary == nil {
@@ -11706,7 +11706,7 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		if err != nil {
 			return err
 		}
-		value.Summary = &decodedSummary
+		value.Summary = decodedSummary
 	}
 	value.ThreadID = raw.ThreadID
 	return nil
@@ -11814,18 +11814,18 @@ func (TextUserInput) isUserInput() {}
 
 // ImageUserInput is generated from the ImageUserInput schema definition.
 type ImageUserInput struct {
-	Detail *ImageDetail `json:"detail,omitzero"`
-	Type   string       `json:"type"`
-	URL    string       `json:"url"`
+	Detail ImageDetail `json:"detail,omitzero"`
+	Type   string      `json:"type"`
+	URL    string      `json:"url"`
 }
 
 func (ImageUserInput) isUserInput() {}
 
 // LocalImageUserInput is generated from the LocalImageUserInput schema definition.
 type LocalImageUserInput struct {
-	Detail *ImageDetail `json:"detail,omitzero"`
-	Path   string       `json:"path"`
-	Type   string       `json:"type"`
+	Detail ImageDetail `json:"detail,omitzero"`
+	Path   string      `json:"path"`
+	Type   string      `json:"type"`
 }
 
 func (LocalImageUserInput) isUserInput() {}
@@ -12043,9 +12043,9 @@ const (
 
 // WebSearchToolConfig is generated from the WebSearchToolConfig schema definition.
 type WebSearchToolConfig struct {
-	AllowedDomains []string              `json:"allowed_domains,omitzero"`
-	ContextSize    *WebSearchContextSize `json:"context_size,omitzero"`
-	Location       *WebSearchLocation    `json:"location,omitzero"`
+	AllowedDomains []string             `json:"allowed_domains,omitzero"`
+	ContextSize    WebSearchContextSize `json:"context_size,omitzero"`
+	Location       WebSearchLocation    `json:"location,omitzero"`
 }
 
 // WindowsSandboxReadiness is generated from the WindowsSandboxReadiness schema definition.

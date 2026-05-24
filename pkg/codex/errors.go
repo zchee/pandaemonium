@@ -215,7 +215,7 @@ func (e *TurnFailedError) Unwrap() error {
 	// Marshal the concrete CodexErrorInfo value (e.g. CodexErrorInfoValue
 	// "serverOverloaded") to JSON so that mapJSONRPCError's isServerOverloaded
 	// check can classify it into the correct typed wrapper.
-	data, err := json.Marshal(*e.Err.CodexErrorInfo)
+	data, err := json.Marshal(e.Err.CodexErrorInfo)
 	if err != nil {
 		return nil
 	}

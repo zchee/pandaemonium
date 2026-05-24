@@ -70,7 +70,8 @@ func collectRunResult(ctx context.Context, client *Client, turnID string) (RunRe
 	}
 
 	if completed.Turn.Status == TurnStatusFailed {
-		return RunResult{}, &TurnFailedError{TurnID: turnID, Status: completed.Turn.Status, Err: completed.Turn.Error}
+		turnError := completed.Turn.Error
+		return RunResult{}, &TurnFailedError{TurnID: turnID, Status: completed.Turn.Status, Err: &turnError}
 	}
 
 	return RunResult{

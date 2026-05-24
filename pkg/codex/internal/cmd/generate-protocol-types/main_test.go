@@ -398,7 +398,22 @@ func TestUnexportName(t *testing.T) {
 }
 
 func TestTypeForSchema(t *testing.T) {
-	g := newGenerator(map[string]*jsonschema.Schema{})
+	g := newGenerator(map[string]*jsonschema.Schema{
+		"AppInfo": {
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{"name": {Type: "string"}},
+			Required:   []string{"name"},
+		},
+		"Nested": {
+			Type:       "object",
+			Properties: map[string]*jsonschema.Schema{"id": {Type: "string"}},
+			Required:   []string{"id"},
+		},
+		"ReasoningEffort": {
+			Type: "string",
+			Enum: []any{"low", "medium", "high"},
+		},
+	})
 	tests := map[string]struct {
 		input    *jsonschema.Schema
 		optional bool
@@ -417,6 +432,20 @@ func TestTypeForSchema(t *testing.T) {
 			input: &jsonschema.Schema{Type: "array", Items: &jsonschema.Schema{Ref: "#/definitions/AppInfo"}},
 			want:  "[]AppInfo",
 		},
+		"success: optional object ref uses omitzero value": {
+			input:    &jsonschema.Schema{Ref: "#/definitions/AppInfo"},
+			optional: true,
+			want:     "AppInfo",
+		},
+		"success: optional nullable object ref uses omitzero value": {
+			input:    &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/AppInfo"}, {Type: "null"}}},
+			optional: true,
+			want:     "AppInfo",
+		},
+		"success: required nullable object ref remains pointer": {
+			input: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/AppInfo"}, {Type: "null"}}},
+			want:  "*AppInfo",
+		},
 		"success: array of nullable refs becomes slice of pointers": {
 			input: &jsonschema.Schema{
 				Type:  "array",
@@ -431,6 +460,21 @@ func TestTypeForSchema(t *testing.T) {
 		"success: nullable ref becomes pointer": {
 			input: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/ReasoningEffort"}, {Type: "null"}}},
 			want:  "*ReasoningEffort",
+		},
+		"success: optional enum ref uses omitzero value": {
+			input:    &jsonschema.Schema{Ref: "#/definitions/ReasoningEffort"},
+			optional: true,
+			want:     "ReasoningEffort",
+		},
+		"success: optional nullable enum ref uses omitzero value": {
+			input:    &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/ReasoningEffort"}, {Type: "null"}}},
+			optional: true,
+			want:     "ReasoningEffort",
+		},
+		"success: optional primitive alias ref remains pointer": {
+			input:    &jsonschema.Schema{Ref: "#/definitions/RequestId"},
+			optional: true,
+			want:     "*string",
 		},
 		"success: complex union stays raw json": {
 			input: &jsonschema.Schema{OneOf: []*jsonschema.Schema{{Type: "string"}, {Type: "integer"}}},
@@ -551,7 +595,7 @@ func TestGenerateCodexAppServerPackageAvoidsSDKNameCollisions(t *testing.T) {
 				"type Granular struct {",
 				"type GranularAskForApproval struct {",
 				"type ConfigPayload struct {",
-				"Thread *ThreadPayload `json:\"thread,omitzero\"`",
+				"Thread ThreadPayload `json:\"thread,omitzero\"`",
 				"type ThreadPayload struct {",
 				"Thread ThreadPayload `json:\"thread\"`",
 			}
@@ -1113,9 +1157,13 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 			Properties: map[string]*jsonschema.Schema{
 				"enabled": {Types: []string{"boolean", "null"}},
 				"labels":  {Type: "object", AdditionalProperties: &jsonschema.Schema{Type: "string"}},
+				"metadata": {
+					Ref: "#/definitions/Nested",
+				},
 				"items":   {Type: "array", Items: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}}},
 				"nested":  {AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}},
 				"status":  {Ref: "#/definitions/SampleStatus"},
+				"status2": {Ref: "#/definitions/SampleStatus"},
 			},
 			Required: []string{"status"},
 		},
@@ -1156,9 +1204,11 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"SampleStatusNeedsInput SampleStatus = \"needs_input\"",
 		"Enabled *bool `json:\"enabled,omitzero\"`",
 		"Labels map[string]string `json:\"labels,omitzero\"`",
+		"Metadata Nested `json:\"metadata,omitzero\"`",
 		"Items []*Nested `json:\"items,omitzero\"`",
-		"Nested *Nested `json:\"nested,omitzero\"`",
+		"Nested Nested `json:\"nested,omitzero\"`",
 		"Status SampleStatus `json:\"status\"`",
+		"Status2 SampleStatus `json:\"status2,omitzero\"`",
 		"UnionSlice []jsontext.Value `json:\"unionSlice\"`",
 		"NestedUnion []*SampleStatus `json:\"nestedUnion\"`",
 	}
@@ -1435,11 +1485,12 @@ func TestGenerateStructUnmarshalForRawUnionFields(t *testing.T) {
 		"Item jsontext.Value `json:\"item\"`",
 		"Items []jsontext.Value `json:\"items\"`",
 		"MaybeItem jsontext.Value `json:\"maybeItem,omitzero\"`",
+		"MaybeItem ObjectUnion `json:\"maybeItem,omitzero\"`",
 		"Single SingleVariantUnion `json:\"single\"`",
 		"decodedItem, err := decodeGeneratedObjectUnion(raw.Item)",
 		"value.Item = decodedItem",
 		"decodedMaybeItem, err := decodeGeneratedObjectUnion(raw.MaybeItem)",
-		"value.MaybeItem = &decodedMaybeItem",
+		"value.MaybeItem = decodedMaybeItem",
 		"value.Items = make([]ObjectUnion, len(raw.Items))",
 		"decodedItems, err := decodeGeneratedObjectUnion(item)",
 		"value.Items[i] = decodedItems",
@@ -1461,6 +1512,9 @@ func TestGenerateStructUnmarshalForRawUnionFields(t *testing.T) {
 	}
 	if strings.Contains(got, "RawSingleVariantUnion") {
 		t.Fatalf("single-variant aliases must not use a missing raw union wrapper:\n%s", got)
+	}
+	if strings.Contains(got, "value.MaybeItem = &decodedMaybeItem") {
+		t.Fatalf("optional interface-union field should assign decoded value directly:\n%s", got)
 	}
 }
 

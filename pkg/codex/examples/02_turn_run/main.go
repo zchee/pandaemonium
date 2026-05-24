@@ -54,7 +54,7 @@ func main() {
 	fmt.Println("thread_id:", thread.ID())
 	fmt.Println("turn_id:", result.Turn.ID)
 	fmt.Println("status:", result.Turn.Status)
-	if result.Turn.Error != nil {
+	if result.Turn.Error.Message != "" {
 		fmt.Println("error:", result.Turn.Error)
 	}
 	fmt.Println("text:", exampleutil.AssistantTextFromTurn(persistedTurn))

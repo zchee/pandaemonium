@@ -43,8 +43,8 @@ func main() {
 		codex.TextInput{Text: "Analyze a safe rollout plan for enabling a feature flag in production. Return JSON matching the requested schema."},
 		&codex.TurnStartParams{
 			OutputSchema: exampleutil.OutputSchema(),
-			Personality:  &personality,
-			Summary:      &summary,
+			Personality:  personality,
+			Summary:      summary,
 		},
 	)
 	if err != nil {

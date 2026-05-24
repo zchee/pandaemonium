@@ -154,7 +154,7 @@ func (g *generator) emitStruct(out *bytes.Buffer, goName, schemaName string, def
 		if !required[jsonName] {
 			tag += ",omitzero"
 		}
-		unionName, shape := g.unionFieldShape(def.Properties[jsonName], !required[jsonName])
+		unionName, shape := g.unionFieldShape(def.Properties[jsonName], fieldType)
 		fields = append(fields, structField{
 			name:       fieldName,
 			typ:        fieldType,
@@ -240,7 +240,8 @@ func (g *generator) structNeedsCustomUnmarshal(def *jsonschema.Schema) bool {
 		required[name] = true
 	}
 	for name, property := range def.Properties {
-		if _, shape := g.unionFieldShape(property, !required[name]); shape != unionShapeNone {
+		fieldType := g.typeForSchema(property, !required[name])
+		if _, shape := g.unionFieldShape(property, fieldType); shape != unionShapeNone {
 			return true
 		}
 	}
@@ -339,10 +340,10 @@ func (g *generator) emitStructCustomUnmarshal(out *bytes.Buffer, goName string, 
 	fmt.Fprintf(out, "}\n")
 }
 
-func (g *generator) unionFieldShape(def *jsonschema.Schema, optional bool) (string, unionShape) {
+func (g *generator) unionFieldShape(def *jsonschema.Schema, fieldType string) (string, unionShape) {
 	unionName, ok := g.unionRefName(def)
 	if ok {
-		if optional {
+		if strings.HasPrefix(fieldType, "*") {
 			return unionName, unionShapeOptionalSingle
 		}
 		return unionName, unionShapeSingle

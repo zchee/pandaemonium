@@ -46,32 +46,36 @@ func uniqueName(name string, used map[string]int) string {
 }
 
 func (g *generator) typeForSchema(def *jsonschema.Schema, optional bool) string {
+	return g.typeForSchemaWithNullability(def, optional, false)
+}
+
+func (g *generator) typeForSchemaWithNullability(def *jsonschema.Schema, optional, nullable bool) string {
 	if def == nil {
 		return "jsontext.Value"
 	}
 	if def.Ref != "" {
-		return pointerIfOptional(g.refType(def.Ref), optional)
+		return g.typeForRef(def.Ref, optional, nullable)
 	}
 	if len(def.AllOf) == 1 {
-		return g.typeForSchema(def.AllOf[0], optional)
+		return g.typeForSchemaWithNullability(def.AllOf[0], optional, nullable)
 	}
-	if typ, nullable := nullableType(def); typ != "" {
+	if typ, nullType := nullableType(def); typ != "" {
 		copy := *def
 		copy.Type = typ
 		copy.Types = nil
-		return g.typeForSchema(&copy, optional || nullable)
+		return g.typeForSchemaWithNullability(&copy, optional, nullable || nullType)
 	}
-	if variant, nullable := nullableVariant(def.AnyOf); variant != nil {
-		return g.typeForSchema(variant, optional || nullable)
+	if variant, nullVariant := nullableVariant(def.AnyOf); variant != nil {
+		return g.typeForSchemaWithNullability(variant, optional, nullable || nullVariant)
 	}
-	if variant, nullable := nullableVariant(def.OneOf); variant != nil {
-		return g.typeForSchema(variant, optional || nullable)
+	if variant, nullVariant := nullableVariant(def.OneOf); variant != nil {
+		return g.typeForSchemaWithNullability(variant, optional, nullable || nullVariant)
 	}
 	if len(def.AnyOf) == 1 {
-		return g.typeForSchema(def.AnyOf[0], optional)
+		return g.typeForSchemaWithNullability(def.AnyOf[0], optional, nullable)
 	}
 	if len(def.OneOf) == 1 {
-		return g.typeForSchema(def.OneOf[0], optional)
+		return g.typeForSchemaWithNullability(def.OneOf[0], optional, nullable)
 	}
 	if len(def.AnyOf) > 0 || len(def.OneOf) > 0 || len(def.AllOf) > 0 {
 		return "jsontext.Value"
@@ -87,16 +91,49 @@ func (g *generator) typeForSchema(def *jsonschema.Schema, optional bool) string 
 	}
 	switch {
 	case includesType(def, "string"):
-		return pointerIfOptional("string", optional)
+		return pointerIfOptional("string", optional || nullable)
 	case includesType(def, "boolean"):
-		return pointerIfOptional("bool", optional)
+		return pointerIfOptional("bool", optional || nullable)
 	case includesType(def, "integer"):
-		return pointerIfOptional(integerType(def.Format), optional)
+		return pointerIfOptional(integerType(def.Format), optional || nullable)
 	case includesType(def, "number"):
-		return pointerIfOptional("float64", optional)
+		return pointerIfOptional("float64", optional || nullable)
 	default:
 		return "jsontext.Value"
 	}
+}
+
+func (g *generator) typeForRef(ref string, optional, nullable bool) string {
+	typ := g.refType(ref)
+	if !optional && !nullable {
+		return typ
+	}
+	if optional && g.refZeroValueOmittable(ref) {
+		return typ
+	}
+	if optional || nullable {
+		return pointerIfOptional(typ, true)
+	}
+	return typ
+}
+
+func (g *generator) refZeroValueOmittable(ref string) bool {
+	name := strings.TrimPrefix(ref, "#/definitions/")
+	if _, ok := g.aliases[name]; ok {
+		return false
+	}
+	def := g.resolvedSchema(&jsonschema.Schema{Ref: ref})
+	if emptyObjectSchema(def) || objectSchema(def) {
+		return true
+	}
+	if len(stringEnum(def)) > 0 && includesType(def, "string") {
+		return true
+	}
+	goName := g.goTypeName(name)
+	if _, ok := g.interfaceUnionForSchema(goName, def); ok && g.emitsInterfaceUnionName(goName, def) {
+		return true
+	}
+	return false
 }
 
 func unionDiscriminatorProperty(def *jsonschema.Schema) (string, bool) {

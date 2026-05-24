@@ -386,8 +386,8 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		if stringError.CodexErrorInfo == nil {
 			t.Fatal("CodexErrorInfo = nil, want string variant")
 		}
-		if got, ok := (*stringError.CodexErrorInfo).(CodexErrorInfoValue); !ok || got != CodexErrorInfoValueUsageLimitExceeded {
-			t.Fatalf("CodexErrorInfo = %#v (%T), want %s", *stringError.CodexErrorInfo, *stringError.CodexErrorInfo, CodexErrorInfoValueUsageLimitExceeded)
+		if got, ok := stringError.CodexErrorInfo.(CodexErrorInfoValue); !ok || got != CodexErrorInfoValueUsageLimitExceeded {
+			t.Fatalf("CodexErrorInfo = %#v (%T), want %s", stringError.CodexErrorInfo, stringError.CodexErrorInfo, CodexErrorInfoValueUsageLimitExceeded)
 		}
 
 		var objectError TurnError
@@ -398,9 +398,9 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		if objectError.CodexErrorInfo == nil {
 			t.Fatal("CodexErrorInfo = nil, want object variant")
 		}
-		activeTurn, ok := (*objectError.CodexErrorInfo).(ActiveTurnNotSteerableCodexErrorInfo)
+		activeTurn, ok := objectError.CodexErrorInfo.(ActiveTurnNotSteerableCodexErrorInfo)
 		if !ok {
-			t.Fatalf("CodexErrorInfo = %#v (%T), want ActiveTurnNotSteerableCodexErrorInfo", *objectError.CodexErrorInfo, *objectError.CodexErrorInfo)
+			t.Fatalf("CodexErrorInfo = %#v (%T), want ActiveTurnNotSteerableCodexErrorInfo", objectError.CodexErrorInfo, objectError.CodexErrorInfo)
 		}
 		if got := activeTurn.ActiveTurnNotSteerable.TurnKind; got != NonSteerableTurnKindReview {
 			t.Fatalf("ActiveTurnNotSteerable.TurnKind = %q, want %q", got, NonSteerableTurnKindReview)
@@ -478,7 +478,7 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 				if got.CodexErrorInfo == nil {
 					t.Fatal("CodexErrorInfo = nil, want typed variant")
 				}
-				tt.assertion(t, *got.CodexErrorInfo)
+				tt.assertion(t, got.CodexErrorInfo)
 			})
 		}
 	})
@@ -493,8 +493,8 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		if got.CodexErrorInfo == nil {
 			t.Fatal("CodexErrorInfo = nil, want raw fallback")
 		}
-		if _, ok := (*got.CodexErrorInfo).(RawCodexErrorInfo); !ok {
-			t.Fatalf("CodexErrorInfo = %#v (%T), want RawCodexErrorInfo", *got.CodexErrorInfo, *got.CodexErrorInfo)
+		if _, ok := got.CodexErrorInfo.(RawCodexErrorInfo); !ok {
+			t.Fatalf("CodexErrorInfo = %#v (%T), want RawCodexErrorInfo", got.CodexErrorInfo, got.CodexErrorInfo)
 		}
 	})
 
@@ -508,8 +508,8 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		if got.Summary == nil {
 			t.Fatal("Summary = nil, want value variant")
 		}
-		if summary, ok := (*got.Summary).(ReasoningSummaryValue); !ok || summary != ReasoningSummaryValueNone {
-			t.Fatalf("Summary = %#v (%T), want %s", *got.Summary, *got.Summary, ReasoningSummaryValueNone)
+		if summary, ok := got.Summary.(ReasoningSummaryValue); !ok || summary != ReasoningSummaryValueNone {
+			t.Fatalf("Summary = %#v (%T), want %s", got.Summary, got.Summary, ReasoningSummaryValueNone)
 		}
 	})
 

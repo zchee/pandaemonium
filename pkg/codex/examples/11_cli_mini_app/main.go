@@ -62,7 +62,7 @@ func main() {
 		}
 		var usage *codex.ThreadTokenUsage
 		status := "unknown"
-		var turnErr *codex.TurnError
+		var turnErr codex.TurnError
 		printedDelta := false
 		fmt.Print("assistant> ")
 		for event, err := range turn.Stream(ctx) {

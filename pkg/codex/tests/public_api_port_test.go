@@ -141,7 +141,7 @@ func TestApprovalModesSerializeToExpectedStartParams(t *testing.T) {
 			if err != nil {
 				t.Fatalf("ApprovalModeSettings() error = %v", err)
 			}
-			params := codex.TurnStartParams{ApprovalPolicy: &approval, ApprovalsReviewer: reviewer}
+			params := codex.TurnStartParams{ApprovalPolicy: approval, ApprovalsReviewer: approvalReviewerValue(reviewer)}
 			encoded, err := json.Marshal(params)
 			if err != nil {
 				t.Fatalf("json.Marshal(TurnStartParams) error = %v", err)

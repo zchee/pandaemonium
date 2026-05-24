@@ -292,7 +292,7 @@ func runAgentMessagePhaseSummaries(t *testing.T, items []codex.ThreadItem) []run
 		}
 		summary := runAgentMessagePhaseSummary{Text: item.Text}
 		if item.Phase != nil {
-			summary.Phase = messagePhaseString(t, *item.Phase)
+			summary.Phase = messagePhaseString(t, item.Phase)
 		}
 		summaries = append(summaries, summary)
 	}

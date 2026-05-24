@@ -40,8 +40,8 @@ func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {
 		t.Fatalf("ApprovalModeSettings(deny_all) error = %v", err)
 	}
 	thread, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{
-		ApprovalPolicy:    &approval,
-		ApprovalsReviewer: reviewer,
+		ApprovalPolicy:    approval,
+		ApprovalsReviewer: approvalReviewerValue(reviewer),
 	})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)

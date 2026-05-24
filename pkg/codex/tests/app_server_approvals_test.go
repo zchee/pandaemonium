@@ -29,7 +29,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		sdk, ctx := newApprovalPersistenceCodex(t)
 		never, reviewer := mustApprovalModeSettings(t, codex.ApprovalModeDenyAll)
 
-		source, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: &never, ApprovalsReviewer: reviewer})
+		source, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: never, ApprovalsReviewer: reviewer})
 		if err != nil {
 			t.Fatalf("ThreadStart(deny_all) error = %v", err)
 		}
@@ -56,7 +56,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		sdk, ctx := newApprovalPersistenceCodex(t)
 		never, reviewer := mustApprovalModeSettings(t, codex.ApprovalModeDenyAll)
 
-		source, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: &never, ApprovalsReviewer: reviewer})
+		source, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: never, ApprovalsReviewer: reviewer})
 		if err != nil {
 			t.Fatalf("ThreadStart(deny_all) error = %v", err)
 		}
@@ -89,7 +89,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		never, denyReviewer := mustApprovalModeSettings(t, codex.ApprovalModeDenyAll)
 		onRequest, autoReviewer := mustApprovalModeSettings(t, codex.ApprovalModeAutoReview)
 
-		source, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: &never, ApprovalsReviewer: denyReviewer})
+		source, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: never, ApprovalsReviewer: denyReviewer})
 		if err != nil {
 			t.Fatalf("ThreadStart(deny_all) error = %v", err)
 		}
@@ -97,7 +97,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Thread.Run(seed) error = %v", err)
 		}
-		forked, err := sdk.ThreadFork(ctx, source.ID(), &codex.ThreadForkParams{ApprovalPolicy: &onRequest, ApprovalsReviewer: autoReviewer})
+		forked, err := sdk.ThreadFork(ctx, source.ID(), &codex.ThreadForkParams{ApprovalPolicy: onRequest, ApprovalsReviewer: autoReviewer})
 		if err != nil {
 			t.Fatalf("ThreadFork(auto_review) error = %v", err)
 		}
@@ -125,7 +125,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		if err != nil {
 			t.Fatalf("ThreadStart(default) error = %v", err)
 		}
-		firstResult, err := thread.Run(ctx, "deny this and later turns", &codex.TurnStartParams{ApprovalPolicy: &never, ApprovalsReviewer: reviewer})
+		firstResult, err := thread.Run(ctx, "deny this and later turns", &codex.TurnStartParams{ApprovalPolicy: never, ApprovalsReviewer: reviewer})
 		if err != nil {
 			t.Fatalf("Thread.Run(deny override) error = %v", err)
 		}
@@ -158,7 +158,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		never, denyReviewer := mustApprovalModeSettings(t, codex.ApprovalModeDenyAll)
 		onRequest, autoReviewer := mustApprovalModeSettings(t, codex.ApprovalModeAutoReview)
 
-		thread, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: &never, ApprovalsReviewer: denyReviewer})
+		thread, err := sdk.ThreadStart(ctx, &codex.ThreadStartParams{ApprovalPolicy: never, ApprovalsReviewer: denyReviewer})
 		if err != nil {
 			t.Fatalf("ThreadStart(deny_all) error = %v", err)
 		}
@@ -170,7 +170,7 @@ func TestAppServerApprovalsPort(t *testing.T) {
 		if err != nil {
 			t.Fatalf("Client.ThreadResume(after default run) error = %v", err)
 		}
-		secondResult, err := thread.Run(ctx, "allow auto review now", &codex.TurnStartParams{ApprovalPolicy: &onRequest, ApprovalsReviewer: autoReviewer})
+		secondResult, err := thread.Run(ctx, "allow auto review now", &codex.TurnStartParams{ApprovalPolicy: onRequest, ApprovalsReviewer: autoReviewer})
 		if err != nil {
 			t.Fatalf("Thread.Run(auto_review override) error = %v", err)
 		}
@@ -205,13 +205,20 @@ func newApprovalPersistenceCodex(t *testing.T) (*codex.Codex, context.Context) {
 	return sdk, ctx
 }
 
-func mustApprovalModeSettings(t *testing.T, mode codex.ApprovalMode) (codex.AskForApproval, *codex.ApprovalsReviewer) {
+func mustApprovalModeSettings(t *testing.T, mode codex.ApprovalMode) (codex.AskForApproval, codex.ApprovalsReviewer) {
 	t.Helper()
 	approval, reviewer, err := codex.ApprovalModeSettings(mode)
 	if err != nil {
 		t.Fatalf("ApprovalModeSettings(%q) error = %v", mode, err)
 	}
-	return approval, reviewer
+	return approval, approvalReviewerValue(reviewer)
+}
+
+func approvalReviewerValue(reviewer *codex.ApprovalsReviewer) codex.ApprovalsReviewer {
+	if reviewer == nil {
+		return ""
+	}
+	return *reviewer
 }
 
 func approvalPolicyString(t *testing.T, policy codex.AskForApproval) string {

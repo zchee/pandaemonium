@@ -336,7 +336,7 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 			Title:   &clientTitle,
 			Version: c.config.ClientVersion,
 		},
-		Capabilities: &InitializeCapabilities{
+		Capabilities: InitializeCapabilities{
 			ExperimentalAPI: &experimentalAPI,
 		},
 	}
