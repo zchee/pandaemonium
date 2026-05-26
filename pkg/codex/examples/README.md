@@ -1,7 +1,7 @@
 # Codex Go SDK Examples
 
 These examples port the upstream Python SDK examples from
-`openai/codex` tag `rust-v0.133.0-alpha.4`, path `sdk/python/examples`, to the
+`openai/codex` tag `rust-v0.134.0-alpha.3`, path `sdk/python/examples`, to the
 Go SDK package in this module.
 
 Each numbered directory is a standalone `go run` command that uses public SDK

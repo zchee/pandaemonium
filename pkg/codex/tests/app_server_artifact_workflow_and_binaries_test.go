@@ -47,7 +47,7 @@ func TestArtifactWorkflowPortGenerationHasSingleGoGenerateEntrypoint(t *testing.
 	directive := directives[0]
 	for _, want := range []string{
 		"go run ./internal/cmd/generate-protocol-types",
-		"https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.133.0-alpha.4/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json",
+		"https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.134.0-alpha.3/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json",
 		"-out ./protocol_gen.go",
 		"-package codex",
 	} {
