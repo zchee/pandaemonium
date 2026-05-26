@@ -282,7 +282,7 @@ func (c *Client) Start(ctx context.Context) error {
 		cmdDone := waitForCommand(cmd)
 		go c.drainStderr(stderr, c.stderrDone)
 		c.stderr = stderr
-		conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket, c.effectiveEnv(), c.config.Cwd)
+		conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket, effectiveEnv, c.config.Cwd)
 		if err != nil {
 			if cmd.Process != nil {
 				_ = cmd.Process.Kill()
