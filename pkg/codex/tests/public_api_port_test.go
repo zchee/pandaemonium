@@ -50,6 +50,7 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		_ codex.CancelLoginAccountResponse
 		_ codex.GetAccountResponse
 		_ codex.RunResult
+		_ codex.RunInput  = "plain text"
 		_ codex.InputItem = codex.TextInput{}
 		_ codex.InputItem = codex.ImageInput{}
 		_ codex.InputItem = codex.LocalImageInput{}
@@ -92,6 +93,7 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		"Thread":                            reflect.TypeFor[codex.Thread](),
 		"TurnHandle":                        reflect.TypeFor[codex.TurnHandle](),
 		"RunResult":                         reflect.TypeFor[codex.RunResult](),
+		"RunInput":                          reflect.TypeFor[codex.RunInput](),
 		"ChatGPTLoginHandle":                reflect.TypeFor[codex.ChatGPTLoginHandle](),
 		"DeviceCodeLoginHandle":             reflect.TypeFor[codex.DeviceCodeLoginHandle](),
 		"InputItem":                         reflect.TypeFor[codex.InputItem](),

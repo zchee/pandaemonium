@@ -45,11 +45,11 @@ func TestAppServerTurnControlsPortSteerAddsFollowUpInput(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "Start a steerable turn."}, nil)
+	turn, err := thread.Turn(ctx, "Start a steerable turn.", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(steerable) error = %v", err)
 	}
-	steer, err := turn.Steer(ctx, codex.TextInput{Text: "Use this steering input."})
+	steer, err := turn.Steer(ctx, "Use this steering input.")
 	if err != nil {
 		t.Fatalf("TurnHandle.Steer() error = %v", err)
 	}
@@ -79,7 +79,7 @@ func TestAppServerTurnControlsPortInterruptStopsActiveTurnAndFollowUpRuns(t *tes
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	interruptedTurn, err := thread.Turn(ctx, codex.TextInput{Text: "Start a long turn."}, nil)
+	interruptedTurn, err := thread.Turn(ctx, "Start a long turn.", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(long) error = %v", err)
 	}

@@ -23,6 +23,18 @@
 // high-value protocol fields are typed while raw JSON extension fields preserve
 // compatibility with newer app-server schema members.
 //
+// Turn input accepts the [RunInput] contract used by [Client.TurnStart],
+// [Thread.Turn], [Thread.Run], and steer helpers. A plain string is shorthand
+// for one text input item, while typed input values such as [TextInput],
+// [ImageInput], [LocalImageInput], [SkillInput], [MentionInput], [InputItem]
+// slices, and raw [Object] values remain available for multimodal or
+// schema-adjacent payloads.
+//
+// RunInput is a named SDK contract rather than a static union type. Unsupported
+// values still fail during request normalization, and reflection or
+// method-expression callers observe the named [RunInput] parameter instead of
+// an unqualified `any`.
+//
 // Notification routing is turn- and login-aware: notifications that belong to
 // an active turn are consumed by that turn's stream, and interactive
 // account/login/completed events with a loginId are consumed by the matching

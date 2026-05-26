@@ -63,7 +63,7 @@ func TestRealAppServerIntegrationThreadTurnAndRunPort(t *testing.T) {
 		t.Fatalf("ThreadStart().ID() is empty")
 	}
 
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "Say ok in one short sentence."}, nil)
+	turn, err := thread.Turn(ctx, "Say ok in one short sentence.", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn() real app-server error = %v", err)
 	}
@@ -114,7 +114,7 @@ func TestRealAppServerIntegrationStreamingAndInterruptPort(t *testing.T) {
 	}
 
 	sawCompleted := false
-	for event, err := range streamThread.RunStream(ctx, codex.TextInput{Text: "Reply with one short sentence."}, nil) {
+	for event, err := range streamThread.RunStream(ctx, "Reply with one short sentence.", nil) {
 		if err != nil {
 			t.Fatalf("StreamThread.RunStream() real app-server error = %v", err)
 		}
@@ -133,7 +133,7 @@ func TestRealAppServerIntegrationStreamingAndInterruptPort(t *testing.T) {
 		t.Fatal("RunStream() ended without turn/completed notification")
 	}
 
-	interruptTurn, err := streamThread.Turn(ctx, codex.TextInput{Text: "Count from 1 to 200 with commas."}, nil)
+	interruptTurn, err := streamThread.Turn(ctx, "Count from 1 to 200 with commas.", nil)
 	if err != nil {
 		t.Fatalf("StreamThread.Turn(interrupt) real app-server error = %v", err)
 	}
@@ -141,7 +141,7 @@ func TestRealAppServerIntegrationStreamingAndInterruptPort(t *testing.T) {
 		t.Fatalf("StreamTurnHandle.Interrupt() real app-server error = %v", err)
 	}
 
-	followUpTurn, err := streamThread.Turn(ctx, codex.TextInput{Text: "Say ok only."}, nil)
+	followUpTurn, err := streamThread.Turn(ctx, "Say ok only.", nil)
 	if err != nil {
 		t.Fatalf("StreamThread.Turn(follow-up) real app-server error = %v", err)
 	}

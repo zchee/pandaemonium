@@ -286,7 +286,7 @@ func (c *Client) PluginUninstall(ctx context.Context, params *PluginUninstallPar
 }
 
 // TurnStart calls turn/start.
-func (c *Client) TurnStart(ctx context.Context, threadID string, input any, params *TurnStartParams) (TurnStartResponse, error) {
+func (c *Client) TurnStart(ctx context.Context, threadID string, input RunInput, params *TurnStartParams) (TurnStartResponse, error) {
 	items, err := normalizeInput(input)
 	if err != nil {
 		return TurnStartResponse{}, err
@@ -304,7 +304,7 @@ func (c *Client) TurnInterrupt(ctx context.Context, threadID, turnID string) (Tu
 }
 
 // TurnSteer calls turn/steer.
-func (c *Client) TurnSteer(ctx context.Context, threadID, expectedTurnID string, input any) (TurnSteerResponse, error) {
+func (c *Client) TurnSteer(ctx context.Context, threadID, expectedTurnID string, input RunInput) (TurnSteerResponse, error) {
 	items, err := normalizeInput(input)
 	if err != nil {
 		return TurnSteerResponse{}, err

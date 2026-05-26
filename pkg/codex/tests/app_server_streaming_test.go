@@ -42,7 +42,7 @@ func TestAppServerStreamingPortSyncStreamRoutesTextDeltasAndCompletion(t *testin
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "stream please"}, nil)
+	turn, err := thread.Turn(ctx, "stream please", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(stream please) error = %v", err)
 	}
@@ -68,7 +68,7 @@ func TestAppServerStreamingPortTurnRunReturnsCompletedTurn(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "complete this turn"}, nil)
+	turn, err := thread.Turn(ctx, "complete this turn", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(complete this turn) error = %v", err)
 	}
@@ -97,7 +97,7 @@ func TestAppServerStreamingPortAsyncEquivalentRoutesTextDeltasAndCompletion(t *t
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "async stream please"}, nil)
+	turn, err := thread.Turn(ctx, "async stream please", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(async stream please) error = %v", err)
 	}
@@ -261,7 +261,7 @@ func startStreamingPortTurn(t *testing.T, ctx context.Context, sdk *codex.Codex,
 	if err != nil {
 		t.Fatalf("ThreadStart(%q) error = %v", text, err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: text}, nil)
+	turn, err := thread.Turn(ctx, text, nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(%q) error = %v", text, err)
 	}

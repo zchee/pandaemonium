@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	if _, err := original.Run(ctx, codex.TextInput{Text: "Tell me one fact about Saturn."}, nil); err != nil {
+	if _, err := original.Run(ctx, "Tell me one fact about Saturn.", nil); err != nil {
 		log.Fatal(err)
 	}
 	fmt.Println("Created thread:", original.ID())
@@ -45,7 +45,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	second, err := resumed.Run(ctx, codex.TextInput{Text: "Continue with one more fact."}, nil)
+	second, err := resumed.Run(ctx, "Continue with one more fact.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

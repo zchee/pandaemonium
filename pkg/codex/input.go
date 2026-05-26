@@ -23,6 +23,13 @@ type InputItem interface {
 	wireInputItem() Object
 }
 
+// RunInput is any caller input shape accepted by turn start and steer APIs.
+//
+// Supported values are string, [InputItem], []InputItem, [Object], []Object,
+// and []any values containing supported input shapes. Unsupported values fail
+// during request normalization.
+type RunInput any
+
 // TextInput is a plain text turn input.
 type TextInput struct {
 	Text string
@@ -97,7 +104,7 @@ func (i MentionInput) wireInputItem() Object {
 	}
 }
 
-func normalizeInput(input any) ([]Object, error) {
+func normalizeInput(input RunInput) ([]Object, error) {
 	switch input := input.(type) {
 	case string:
 		return []Object{

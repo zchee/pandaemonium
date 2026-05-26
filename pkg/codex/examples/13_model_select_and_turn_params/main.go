@@ -59,7 +59,7 @@ func main() {
 	}
 	first, err := thread.Run(
 		ctx,
-		codex.TextInput{Text: "Give one short sentence about reliable production releases."},
+		"Give one short sentence about reliable production releases.",
 		&codex.TurnStartParams{Model: &selectedModel.Model, Effort: selectedEffort},
 	)
 	if err != nil {
@@ -77,7 +77,7 @@ func main() {
 	sandbox := exampleutil.ReadOnlySandboxPolicy()
 	second, err := thread.Run(
 		ctx,
-		codex.TextInput{Text: "Return JSON for a safe feature-flag rollout plan."},
+		"Return JSON for a safe feature-flag rollout plan.",
 		&codex.TurnStartParams{
 			Cwd:           &cwd,
 			Effort:        selectedEffort,

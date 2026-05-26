@@ -37,15 +37,19 @@ import (
 
 func TestNormalizeInput(t *testing.T) {
 	tests := map[string]struct {
-		input any
+		input RunInput
 		want  []Object
 	}{
 		"success: string becomes text input": {
 			input: "hello",
 			want:  []Object{{"type": "text", "text": "hello"}},
 		},
-		"success: typed inputs preserve order": {
-			input: []any{
+		"success: direct input item becomes one object": {
+			input: TextInput{Text: "direct"},
+			want:  []Object{{"type": "text", "text": "direct"}},
+		},
+		"success: input item slice preserves order": {
+			input: []InputItem{
 				TextInput{Text: "describe"},
 				ImageInput{URL: "https://example.com/a.png"},
 				LocalImageInput{Path: "/tmp/a.png"},
@@ -60,9 +64,37 @@ func TestNormalizeInput(t *testing.T) {
 				{"type": "mention", "name": "README", "path": "README.md"},
 			},
 		},
+		"success: mixed any slice expands supported shapes": {
+			input: []any{
+				"plain",
+				TextInput{Text: "describe"},
+				Object{"type": "text", "text": "raw"},
+				[]InputItem{
+					ImageInput{URL: "https://example.com/a.png"},
+					LocalImageInput{Path: "/tmp/a.png"},
+				},
+			},
+			want: []Object{
+				{"type": "text", "text": "plain"},
+				{"type": "text", "text": "describe"},
+				{"type": "text", "text": "raw"},
+				{"type": "image", "url": "https://example.com/a.png"},
+				{"type": "localImage", "path": "/tmp/a.png"},
+			},
+		},
 		"success: raw object is accepted": {
 			input: Object{"type": "text", "text": "raw"},
 			want:  []Object{{"type": "text", "text": "raw"}},
+		},
+		"success: raw object slice is accepted": {
+			input: []Object{
+				{"type": "text", "text": "first"},
+				{"type": "text", "text": "second"},
+			},
+			want: []Object{
+				{"type": "text", "text": "first"},
+				{"type": "text", "text": "second"},
+			},
 		},
 	}
 	for name, tt := range tests {
@@ -75,6 +107,16 @@ func TestNormalizeInput(t *testing.T) {
 				t.Fatalf("normalizeInput() mismatch (-want +got):\n%s", diff)
 			}
 		})
+	}
+}
+
+func TestNormalizeInputRejectsUnsupportedShape(t *testing.T) {
+	_, err := normalizeInput(42)
+	if err == nil {
+		t.Fatal("normalizeInput(unsupported) error = nil, want error")
+	}
+	if !strings.Contains(err.Error(), "unsupported input type: int") {
+		t.Fatalf("normalizeInput(unsupported) error = %v, want unsupported int", err)
 	}
 }
 
@@ -1195,7 +1237,7 @@ func TestStreamTurnHandleDelegatesSteerInterruptAndStream(t *testing.T) {
 	if _, err := handle.Interrupt(controlCtx); err != nil {
 		t.Fatalf("StreamTurnHandle.Interrupt() while streaming error = %v", err)
 	}
-	if _, err := handle.Steer(controlCtx, TextInput{Text: "continue"}); err != nil {
+	if _, err := handle.Steer(controlCtx, "continue"); err != nil {
 		t.Fatalf("StreamTurnHandle.Steer() while streaming error = %v", err)
 	}
 	select {
@@ -1316,7 +1358,7 @@ func TestTurnStreamAllowsConcurrentSteer(t *testing.T) {
 
 	steerCtx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
 	defer cancel()
-	if _, err := handle.Steer(steerCtx, TextInput{Text: "continue"}); err != nil {
+	if _, err := handle.Steer(steerCtx, "continue"); err != nil {
 		t.Fatalf("Steer() while streaming error = %v", err)
 	}
 	select {

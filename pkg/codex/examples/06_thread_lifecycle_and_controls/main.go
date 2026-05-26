@@ -36,11 +36,11 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	first, err := thread.Run(ctx, codex.TextInput{Text: "One sentence about structured planning."}, nil)
+	first, err := thread.Run(ctx, "One sentence about structured planning.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
-	second, err := thread.Run(ctx, codex.TextInput{Text: "Now restate it for a junior engineer."}, nil)
+	second, err := thread.Run(ctx, "Now restate it for a junior engineer.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -74,7 +74,7 @@ func main() {
 
 	resumedInfo := "n/a"
 	if resumed, err := client.ThreadResume(ctx, unarchived.ID(), &codex.ThreadResumeParams{Model: exampleutil.DefaultThreadParams().Model, Config: exampleutil.DefaultThreadParams().Config}); err == nil {
-		if result, err := resumed.Run(ctx, codex.TextInput{Text: "Continue in one short sentence."}, nil); err == nil {
+		if result, err := resumed.Run(ctx, "Continue in one short sentence.", nil); err == nil {
 			resumedInfo = fmt.Sprintf("%s %s", result.Turn.ID, result.Turn.Status)
 		} else {
 			resumedInfo = fmt.Sprintf("skipped(%T)", err)
@@ -85,7 +85,7 @@ func main() {
 
 	forkedInfo := "n/a"
 	if forked, err := client.ThreadFork(ctx, unarchived.ID(), &codex.ThreadForkParams{Model: exampleutil.DefaultThreadParams().Model}); err == nil {
-		if result, err := forked.Run(ctx, codex.TextInput{Text: "Take a different angle in one short sentence."}, nil); err == nil {
+		if result, err := forked.Run(ctx, "Take a different angle in one short sentence.", nil); err == nil {
 			forkedInfo = fmt.Sprintf("%s %s", result.Turn.ID, result.Turn.Status)
 		} else {
 			forkedInfo = fmt.Sprintf("skipped(%T)", err)

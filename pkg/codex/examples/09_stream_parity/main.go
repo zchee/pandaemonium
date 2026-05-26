@@ -38,7 +38,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "Say hello in one sentence."}, nil)
+	turn, err := thread.Turn(ctx, "Say hello in one sentence.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

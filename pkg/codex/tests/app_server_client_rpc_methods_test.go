@@ -222,7 +222,7 @@ func TestAppServerClientRPCMethodsPortBuffersEventsBeforeRegistration(t *testing
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "stream please"}, nil)
+	turn, err := thread.Turn(ctx, "stream please", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(stream please) error = %v", err)
 	}

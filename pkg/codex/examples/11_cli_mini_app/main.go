@@ -56,7 +56,7 @@ func main() {
 			break
 		}
 
-		turn, err := thread.Turn(ctx, codex.TextInput{Text: userInput}, nil)
+		turn, err := thread.Turn(ctx, userInput, nil)
 		if err != nil {
 			log.Fatal(err)
 		}

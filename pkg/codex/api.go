@@ -136,7 +136,7 @@ type Thread struct {
 func (t *Thread) ID() string { return t.id }
 
 // Run starts a turn, consumes events until completion, and returns collected output.
-func (t *Thread) Run(ctx context.Context, input any, params *TurnStartParams) (RunResult, error) {
+func (t *Thread) Run(ctx context.Context, input RunInput, params *TurnStartParams) (RunResult, error) {
 	handle, err := t.Turn(ctx, input, params)
 	if err != nil {
 		return RunResult{}, err
@@ -145,7 +145,7 @@ func (t *Thread) Run(ctx context.Context, input any, params *TurnStartParams) (R
 }
 
 // Turn starts a turn and returns a handle for stream, steer, interrupt, or run.
-func (t *Thread) Turn(ctx context.Context, input any, params *TurnStartParams) (*TurnHandle, error) {
+func (t *Thread) Turn(ctx context.Context, input RunInput, params *TurnStartParams) (*TurnHandle, error) {
 	started, err := t.client.TurnStart(ctx, t.id, input, params)
 	if err != nil {
 		return nil, err
@@ -213,7 +213,7 @@ type TurnHandle struct {
 func (h *TurnHandle) ID() string { return h.turnID }
 
 // Steer sends additional input to the active turn.
-func (h *TurnHandle) Steer(ctx context.Context, input any) (TurnSteerResponse, error) {
+func (h *TurnHandle) Steer(ctx context.Context, input RunInput) (TurnSteerResponse, error) {
 	return h.client.TurnSteer(ctx, h.threadID, h.turnID, input)
 }
 

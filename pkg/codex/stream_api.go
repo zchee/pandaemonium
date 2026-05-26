@@ -82,7 +82,7 @@ func (t *StreamThread) ID() string {
 }
 
 // Turn starts a turn and returns a streaming turn handle.
-func (t *StreamThread) Turn(ctx context.Context, input any, params *TurnStartParams) (*StreamTurnHandle, error) {
+func (t *StreamThread) Turn(ctx context.Context, input RunInput, params *TurnStartParams) (*StreamTurnHandle, error) {
 	handle, err := t.thread.Turn(ctx, input, params)
 	if err != nil {
 		return nil, err
@@ -92,7 +92,7 @@ func (t *StreamThread) Turn(ctx context.Context, input any, params *TurnStartPar
 
 // Run starts a turn, consumes notifications until completion, and returns the
 // collected result. Iterator output is available through RunStream.
-func (t *StreamThread) Run(ctx context.Context, input any, params *TurnStartParams) (RunResult, error) {
+func (t *StreamThread) Run(ctx context.Context, input RunInput, params *TurnStartParams) (RunResult, error) {
 	handle, err := t.Turn(ctx, input, params)
 	if err != nil {
 		return RunResult{}, err
@@ -101,7 +101,7 @@ func (t *StreamThread) Run(ctx context.Context, input any, params *TurnStartPara
 }
 
 // RunStream starts a turn and returns its notification stream.
-func (t *StreamThread) RunStream(ctx context.Context, input any, params *TurnStartParams) iter.Seq2[Notification, error] {
+func (t *StreamThread) RunStream(ctx context.Context, input RunInput, params *TurnStartParams) iter.Seq2[Notification, error] {
 	handle, err := t.Turn(ctx, input, params)
 	if err != nil {
 		return func(yield func(Notification, error) bool) {
@@ -135,7 +135,7 @@ func (h *StreamTurnHandle) ID() string {
 }
 
 // Steer sends additional input to the active turn.
-func (h *StreamTurnHandle) Steer(ctx context.Context, input any) (TurnSteerResponse, error) {
+func (h *StreamTurnHandle) Steer(ctx context.Context, input RunInput) (TurnSteerResponse, error) {
 	return h.handle.Steer(ctx, input)
 }
 

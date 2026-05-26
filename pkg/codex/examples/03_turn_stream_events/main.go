@@ -36,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "Explain SIMD in 3 short bullets."}, nil)
+	turn, err := thread.Turn(ctx, "Explain SIMD in 3 short bullets.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

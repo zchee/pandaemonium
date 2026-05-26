@@ -110,7 +110,7 @@ func TestExamplesPublicAppServerLifecyclePort(t *testing.T) {
 		t.Fatalf("Thread.ID() = %q, want %q", got, want)
 	}
 
-	runResult, err := thread.Run(t.Context(), codex.TextInput{Text: "run lifecycle turn"}, nil)
+	runResult, err := thread.Run(t.Context(), "run lifecycle turn", nil)
 	if err != nil {
 		t.Fatalf("Thread.Run() error = %v", err)
 	}
@@ -216,18 +216,18 @@ func TestExamplesPublicStreamingControlsAndInputsPort(t *testing.T) {
 		t.Fatalf("completed status = %q, want completed", completedStatus)
 	}
 
-	steerTurn, err := thread.Turn(t.Context(), codex.TextInput{Text: "wait for steer"}, nil)
+	steerTurn, err := thread.Turn(t.Context(), "wait for steer", nil)
 	if err != nil {
 		t.Fatalf("Turn(steer) error = %v", err)
 	}
-	if _, err := steerTurn.Steer(t.Context(), codex.TextInput{Text: "follow-up steer input"}); err != nil {
+	if _, err := steerTurn.Steer(t.Context(), "follow-up steer input"); err != nil {
 		t.Fatalf("Steer() error = %v", err)
 	}
 	if status := collectCompletedStatus(t, steerTurn); status != codex.TurnStatusCompleted {
 		t.Fatalf("steer stream status = %q, want completed", status)
 	}
 
-	interruptTurn, err := thread.Turn(t.Context(), codex.TextInput{Text: "wait for interrupt"}, nil)
+	interruptTurn, err := thread.Turn(t.Context(), "wait for interrupt", nil)
 	if err != nil {
 		t.Fatalf("Turn(interrupt) error = %v", err)
 	}

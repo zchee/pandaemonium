@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/zchee/pandaemonium/pkg/codex"
 	"github.com/zchee/pandaemonium/pkg/codex/examples/internal/exampleutil"
 )
 
@@ -37,7 +36,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	result, err := thread.Run(ctx, codex.TextInput{Text: "Say hello in one sentence."}, nil)
+	result, err := thread.Run(ctx, "Say hello in one sentence.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

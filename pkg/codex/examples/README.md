@@ -18,6 +18,11 @@ helpers live under `pkg/codex/examples/internal/exampleutil`.
 The examples compile during `go test ./...`, but they are not executed by unit
 tests because running them starts a real Codex app-server process.
 
+Plain strings are accepted anywhere an example starts or steers a turn; they
+are shorthand for `codex.TextInput{Text: ...}`. Use typed inputs such as
+`codex.ImageInput`, `codex.LocalImageInput`, `codex.SkillInput`, and
+`codex.MentionInput` when the turn needs non-text or mixed payloads.
+
 ## Run examples
 
 From the repository root:

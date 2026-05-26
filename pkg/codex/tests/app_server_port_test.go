@@ -128,7 +128,7 @@ func TestAppServerHarnessStreamAndControlsPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
-	turn, err := thread.Turn(ctx, codex.TextInput{Text: "stream please"}, nil)
+	turn, err := thread.Turn(ctx, "stream please", nil)
 	if err != nil {
 		t.Fatalf("Thread.Turn(stream) error = %v", err)
 	}
@@ -153,7 +153,7 @@ func TestAppServerHarnessStreamAndControlsPort(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Thread.Turn(steer) error = %v", err)
 	}
-	steerResponse, err := steerTurn.Steer(ctx, codex.TextInput{Text: "steer now"})
+	steerResponse, err := steerTurn.Steer(ctx, "steer now")
 	if err != nil {
 		t.Fatalf("TurnHandle.Steer() error = %v", err)
 	}

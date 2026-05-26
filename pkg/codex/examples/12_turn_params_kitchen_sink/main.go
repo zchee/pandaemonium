@@ -40,7 +40,7 @@ func main() {
 	summary := codex.ReasoningSummary(codex.ReasoningSummaryValueConcise)
 	result, err := thread.Run(
 		ctx,
-		codex.TextInput{Text: "Analyze a safe rollout plan for enabling a feature flag in production. Return JSON matching the requested schema."},
+		"Analyze a safe rollout plan for enabling a feature flag in production. Return JSON matching the requested schema.",
 		&codex.TurnStartParams{
 			OutputSchema: exampleutil.OutputSchema(),
 			Personality:  personality,

@@ -38,17 +38,17 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	steerTurn, err := thread.Turn(ctx, codex.TextInput{Text: "Count from 1 to 40 with commas, then one summary sentence."}, nil)
+	steerTurn, err := thread.Turn(ctx, "Count from 1 to 40 with commas, then one summary sentence.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}
 	steerResult := "sent"
-	if _, err := steerTurn.Steer(ctx, codex.TextInput{Text: "Keep it brief and stop after 10 numbers."}); err != nil {
+	if _, err := steerTurn.Steer(ctx, "Keep it brief and stop after 10 numbers."); err != nil {
 		steerResult = fmt.Sprintf("skipped %T", err)
 	}
 	steerEventCount, steerStatus, steerPreview := consumeControlStream(ctx, steerTurn)
 
-	interruptTurn, err := thread.Turn(ctx, codex.TextInput{Text: "Count from 1 to 200 with commas, then one summary sentence."}, nil)
+	interruptTurn, err := thread.Turn(ctx, "Count from 1 to 200 with commas, then one summary sentence.", nil)
 	if err != nil {
 		log.Fatal(err)
 	}

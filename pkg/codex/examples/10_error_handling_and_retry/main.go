@@ -43,7 +43,7 @@ func main() {
 		InitialDelay: 250 * time.Millisecond,
 		MaxDelay:     2 * time.Second,
 	}, func() (codex.RunResult, error) {
-		return thread.Run(ctx, codex.TextInput{Text: "Summarize retry best practices in 3 bullets."}, nil)
+		return thread.Run(ctx, "Summarize retry best practices in 3 bullets.", nil)
 	})
 	if err != nil {
 		var busy *codex.ServerBusyError

@@ -44,6 +44,7 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		_ *codex.ChatGPTLoginHandle
 		_ *codex.DeviceCodeLoginHandle
 		_ codex.RunResult
+		_ codex.RunInput  = "plain text"
 		_ codex.InputItem = codex.TextInput{}
 		_ codex.InputItem = codex.ImageInput{}
 		_ codex.InputItem = codex.LocalImageInput{}
@@ -79,6 +80,7 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		"ChatGPTLoginHandle":            reflect.TypeFor[codex.ChatGPTLoginHandle](),
 		"DeviceCodeLoginHandle":         reflect.TypeFor[codex.DeviceCodeLoginHandle](),
 		"RunResult":                     reflect.TypeFor[codex.RunResult](),
+		"RunInput":                      reflect.TypeFor[codex.RunInput](),
 		"InputItem":                     reflect.TypeFor[codex.InputItem](),
 		"TextInput":                     reflect.TypeFor[codex.TextInput](),
 		"ImageInput":                    reflect.TypeFor[codex.ImageInput](),
@@ -199,9 +201,9 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 	t.Parallel()
 
-	anyType := reflect.TypeFor[any]()
 	contextType := reflect.TypeFor[context.Context]()
 	errorType := reflect.TypeFor[error]()
+	runInputType := reflect.TypeFor[codex.RunInput]()
 	tests := map[string]struct {
 		typ  reflect.Type
 		name string
@@ -325,6 +327,34 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 				errorType,
 			},
 		},
+		"success: Client TurnStart": {
+			typ:  reflect.TypeFor[*codex.Client](),
+			name: "TurnStart",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[string](),
+				runInputType,
+				reflect.TypeFor[*codex.TurnStartParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.TurnStartResponse](),
+				errorType,
+			},
+		},
+		"success: Client TurnSteer": {
+			typ:  reflect.TypeFor[*codex.Client](),
+			name: "TurnSteer",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[string](),
+				reflect.TypeFor[string](),
+				runInputType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.TurnSteerResponse](),
+				errorType,
+			},
+		},
 		"success: ChatGPTLoginHandle Wait": {
 			typ:  reflect.TypeFor[*codex.ChatGPTLoginHandle](),
 			name: "Wait",
@@ -409,7 +439,7 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			name: "Turn",
 			in: []reflect.Type{
 				contextType,
-				anyType,
+				runInputType,
 				reflect.TypeFor[*codex.TurnStartParams](),
 			},
 			out: []reflect.Type{
@@ -422,7 +452,7 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			name: "Run",
 			in: []reflect.Type{
 				contextType,
-				anyType,
+				runInputType,
 				reflect.TypeFor[*codex.TurnStartParams](),
 			},
 			out: []reflect.Type{
@@ -440,16 +470,41 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 				reflect.TypeFor[iter.Seq2[codex.Notification, error]](),
 			},
 		},
+		"success: TurnHandle Steer": {
+			typ:  reflect.TypeFor[*codex.TurnHandle](),
+			name: "Steer",
+			in: []reflect.Type{
+				contextType,
+				runInputType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.TurnSteerResponse](),
+				errorType,
+			},
+		},
 		"success: StreamThread Turn": {
 			typ:  reflect.TypeFor[*codex.StreamThread](),
 			name: "Turn",
 			in: []reflect.Type{
 				contextType,
-				anyType,
+				runInputType,
 				reflect.TypeFor[*codex.TurnStartParams](),
 			},
 			out: []reflect.Type{
 				reflect.TypeFor[*codex.StreamTurnHandle](),
+				errorType,
+			},
+		},
+		"success: StreamThread Run": {
+			typ:  reflect.TypeFor[*codex.StreamThread](),
+			name: "Run",
+			in: []reflect.Type{
+				contextType,
+				runInputType,
+				reflect.TypeFor[*codex.TurnStartParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.RunResult](),
 				errorType,
 			},
 		},
@@ -458,11 +513,23 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			name: "RunStream",
 			in: []reflect.Type{
 				contextType,
-				anyType,
+				runInputType,
 				reflect.TypeFor[*codex.TurnStartParams](),
 			},
 			out: []reflect.Type{
 				reflect.TypeFor[iter.Seq2[codex.Notification, error]](),
+			},
+		},
+		"success: StreamTurnHandle Steer": {
+			typ:  reflect.TypeFor[*codex.StreamTurnHandle](),
+			name: "Steer",
+			in: []reflect.Type{
+				contextType,
+				runInputType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.TurnSteerResponse](),
+				errorType,
 			},
 		},
 		"success: StreamTurnHandle Stream": {
