@@ -1483,6 +1483,14 @@ func TestHelperProcess(t *testing.T) {
 			handleMethodWrappersScenario(writer, req, method, id, &methodWrapperIndex)
 			continue
 		}
+		if scenario == "login_account" {
+			handleLoginAccountScenario(writer, req, method, id)
+			continue
+		}
+		if scenario == "login_handles" {
+			handleLoginHandlesScenario(writer, req, method, id)
+			continue
+		}
 	}
 }
 
@@ -1628,6 +1636,66 @@ func methodWrapperExpectsEmptyParams(method string) bool {
 		return true
 	default:
 		return false
+	}
+}
+
+func handleLoginAccountScenario(writer *bufio.Writer, req map[string]any, method, id string) {
+	switch method {
+	case RequestMethodAccountLoginStart:
+		params, _ := req["params"].(map[string]any)
+		if params["type"] != "apiKey" || params["apiKey"] != "sk-sdk-login-test" {
+			writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "unexpected api key login params"}})
+			return
+		}
+		writeJSON(writer, Object{"id": id, "result": Object{"type": "apiKey"}})
+	case RequestMethodAccountRead:
+		params, _ := req["params"].(map[string]any)
+		if params["refreshToken"] != true {
+			writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "missing refreshToken"}})
+			return
+		}
+		writeJSON(writer, Object{"id": id, "result": Object{
+			"account":            Object{"type": "apiKey"},
+			"requiresOpenaiAuth": false,
+		}})
+	case RequestMethodAccountLogout:
+		writeJSON(writer, Object{"id": id, "result": Object{}})
+	default:
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32601, "message": "unexpected login account method " + method}})
+	}
+}
+
+func handleLoginHandlesScenario(writer *bufio.Writer, req map[string]any, method, id string) {
+	switch method {
+	case RequestMethodAccountLoginStart:
+		params, _ := req["params"].(map[string]any)
+		switch params["type"] {
+		case "chatgpt":
+			writeJSON(writer, Object{"id": id, "result": Object{
+				"type":    "chatgpt",
+				"loginId": "login-browser",
+				"authUrl": "https://example.test/login",
+			}})
+		case "chatgptDeviceCode":
+			writeJSON(writer, Object{"id": id, "result": Object{
+				"type":            "chatgptDeviceCode",
+				"loginId":         "login-device",
+				"verificationUrl": "https://example.test/device",
+				"userCode":        "CODE-123",
+			}})
+		default:
+			writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "unexpected login handle params"}})
+		}
+	case RequestMethodAccountLoginCancel:
+		params, _ := req["params"].(map[string]any)
+		loginID, _ := params["loginId"].(string)
+		if loginID != "login-browser" && loginID != "login-device" {
+			writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "unexpected cancel login id"}})
+			return
+		}
+		writeJSON(writer, Object{"id": id, "result": Object{"status": "canceled"}})
+	default:
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32601, "message": "unexpected login handles method " + method}})
 	}
 }
 

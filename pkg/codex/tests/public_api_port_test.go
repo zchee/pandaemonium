@@ -42,7 +42,13 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		_ *codex.TurnHandle
 		_ *codex.StreamThread
 		_ *codex.StreamTurnHandle
+		_ *codex.ChatGPTLoginHandle
+		_ *codex.DeviceCodeLoginHandle
 		_ codex.InitializeResponse
+		_ codex.Account
+		_ codex.AccountLoginCompletedNotification
+		_ codex.CancelLoginAccountResponse
+		_ codex.GetAccountResponse
 		_ codex.RunResult
 		_ codex.InputItem = codex.TextInput{}
 		_ codex.InputItem = codex.ImageInput{}
@@ -51,6 +57,7 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		_ codex.InputItem = codex.MentionInput{}
 		_ *codex.AppServerError
 		_ *codex.TransportClosedError
+		_ *codex.LoginNotificationDroppedError
 		_ *codex.JSONRPCError
 		_ *codex.AppServerRPCError
 		_ *codex.ParseError
@@ -75,29 +82,36 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 	)
 
 	rootExports := map[string]reflect.Type{
-		"Config":                    reflect.TypeFor[codex.Config](),
-		"ListenConfig":              reflect.TypeFor[codex.ListenConfig](),
-		"WebSocketConfig":           reflect.TypeFor[codex.WebSocketConfig](),
-		"WebSocketAuthMode":         reflect.TypeFor[codex.WebSocketAuthMode](),
-		"Codex":                     reflect.TypeFor[codex.Codex](),
-		"Client":                    reflect.TypeFor[codex.Client](),
-		"ApprovalMode":              reflect.TypeFor[codex.ApprovalMode](),
-		"Thread":                    reflect.TypeFor[codex.Thread](),
-		"TurnHandle":                reflect.TypeFor[codex.TurnHandle](),
-		"RunResult":                 reflect.TypeFor[codex.RunResult](),
-		"InputItem":                 reflect.TypeFor[codex.InputItem](),
-		"TextInput":                 reflect.TypeFor[codex.TextInput](),
-		"ImageInput":                reflect.TypeFor[codex.ImageInput](),
-		"LocalImageInput":           reflect.TypeFor[codex.LocalImageInput](),
-		"SkillInput":                reflect.TypeFor[codex.SkillInput](),
-		"MentionInput":              reflect.TypeFor[codex.MentionInput](),
-		"RetryConfig":               reflect.TypeFor[codex.RetryConfig](),
-		"Notification":              reflect.TypeFor[codex.Notification](),
-		"InitializeResponse":        reflect.TypeFor[codex.InitializeResponse](),
-		"ThreadStartParams":         reflect.TypeFor[codex.ThreadStartParams](),
-		"TurnStartParams":           reflect.TypeFor[codex.TurnStartParams](),
-		"TurnCompletedNotification": reflect.TypeFor[codex.TurnCompletedNotification](),
-		"TurnStatus":                reflect.TypeFor[codex.TurnStatus](),
+		"Config":                            reflect.TypeFor[codex.Config](),
+		"ListenConfig":                      reflect.TypeFor[codex.ListenConfig](),
+		"WebSocketConfig":                   reflect.TypeFor[codex.WebSocketConfig](),
+		"WebSocketAuthMode":                 reflect.TypeFor[codex.WebSocketAuthMode](),
+		"Codex":                             reflect.TypeFor[codex.Codex](),
+		"Client":                            reflect.TypeFor[codex.Client](),
+		"ApprovalMode":                      reflect.TypeFor[codex.ApprovalMode](),
+		"Thread":                            reflect.TypeFor[codex.Thread](),
+		"TurnHandle":                        reflect.TypeFor[codex.TurnHandle](),
+		"RunResult":                         reflect.TypeFor[codex.RunResult](),
+		"ChatGPTLoginHandle":                reflect.TypeFor[codex.ChatGPTLoginHandle](),
+		"DeviceCodeLoginHandle":             reflect.TypeFor[codex.DeviceCodeLoginHandle](),
+		"InputItem":                         reflect.TypeFor[codex.InputItem](),
+		"TextInput":                         reflect.TypeFor[codex.TextInput](),
+		"ImageInput":                        reflect.TypeFor[codex.ImageInput](),
+		"LocalImageInput":                   reflect.TypeFor[codex.LocalImageInput](),
+		"SkillInput":                        reflect.TypeFor[codex.SkillInput](),
+		"MentionInput":                      reflect.TypeFor[codex.MentionInput](),
+		"RetryConfig":                       reflect.TypeFor[codex.RetryConfig](),
+		"Account":                           reflect.TypeFor[codex.Account](),
+		"AccountLoginCompletedNotification": reflect.TypeFor[codex.AccountLoginCompletedNotification](),
+		"CancelLoginAccountResponse":        reflect.TypeFor[codex.CancelLoginAccountResponse](),
+		"GetAccountResponse":                reflect.TypeFor[codex.GetAccountResponse](),
+		"LoginNotificationDroppedError":     reflect.TypeFor[codex.LoginNotificationDroppedError](),
+		"Notification":                      reflect.TypeFor[codex.Notification](),
+		"InitializeResponse":                reflect.TypeFor[codex.InitializeResponse](),
+		"ThreadStartParams":                 reflect.TypeFor[codex.ThreadStartParams](),
+		"TurnStartParams":                   reflect.TypeFor[codex.TurnStartParams](),
+		"TurnCompletedNotification":         reflect.TypeFor[codex.TurnCompletedNotification](),
+		"TurnStatus":                        reflect.TypeFor[codex.TurnStatus](),
 	}
 	for name, typ := range rootExports {
 		if typ.Name() == "" && typ.Kind() != reflect.Interface {

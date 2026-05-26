@@ -556,12 +556,47 @@ func (c *Client) WaitForTurnCompleted(ctx context.Context, turnID string) (TurnC
 	}
 }
 
-func (c *Client) openTurnConsumer(turnID string) (*turnNotificationQueue, error) {
+// WaitForLoginCompleted waits for a matching account/login/completed notification.
+func (c *Client) WaitForLoginCompleted(ctx context.Context, loginID string) (AccountLoginCompletedNotification, error) {
+	if err := c.acquireLoginConsumer(loginID); err != nil {
+		return AccountLoginCompletedNotification{}, err
+	}
+	defer c.releaseLoginConsumer(loginID)
+
+	for {
+		notification, err := c.nextLoginNotification(ctx, loginID)
+		if err != nil {
+			return AccountLoginCompletedNotification{}, err
+		}
+
+		completed, ok, err := notification.AccountLoginCompleted()
+		if err != nil {
+			return AccountLoginCompletedNotification{}, err
+		}
+		if !ok || completed.LoginID == nil || *completed.LoginID != loginID {
+			continue
+		}
+
+		c.clearLoginPending(loginID)
+		return completed, nil
+	}
+}
+
+func (c *Client) openTurnConsumer(turnID string) (*notificationQueue, error) {
 	return c.turnRouter.register(turnID)
 }
 
 func (c *Client) acquireTurnConsumer(turnID string) error {
 	_, err := c.openTurnConsumer(turnID)
+	return err
+}
+
+func (c *Client) openLoginConsumer(loginID string) (*notificationQueue, error) {
+	return c.turnRouter.registerLogin(loginID)
+}
+
+func (c *Client) acquireLoginConsumer(loginID string) error {
+	_, err := c.openLoginConsumer(loginID)
 	return err
 }
 
@@ -646,12 +681,24 @@ func (c *Client) nextTurnNotification(ctx context.Context, turnID string) (Notif
 	return c.turnRouter.next(ctx, turnID)
 }
 
+func (c *Client) nextLoginNotification(ctx context.Context, loginID string) (Notification, error) {
+	return c.turnRouter.nextLogin(ctx, loginID)
+}
+
 func (c *Client) releaseTurnConsumer(turnID string) {
 	c.turnRouter.unregister(turnID)
 }
 
+func (c *Client) releaseLoginConsumer(loginID string) {
+	c.turnRouter.unregisterLogin(loginID)
+}
+
 func (c *Client) clearTurnPending(turnID string) {
 	c.turnRouter.clearPending(turnID)
+}
+
+func (c *Client) clearLoginPending(loginID string) {
+	c.turnRouter.clearLoginPending(loginID)
 }
 
 func (c *Client) routeNotification(notification Notification) error {

@@ -25,6 +25,16 @@ func notificationTurnID(notif Notification) string {
 	return decodeNotificationTurnID(notif)
 }
 
+func notificationLoginID(notif Notification) (string, bool) {
+	if notif.Method != NotificationMethodAccountLoginCompleted {
+		return "", false
+	}
+	if loginID, ok := scanNotificationLoginID(notif.Params); ok {
+		return loginID, true
+	}
+	return decodeNotificationLoginID(notif), true
+}
+
 type scannedTurn struct {
 	id      string
 	turnID  string
@@ -111,6 +121,55 @@ func scanNotificationTurnID(params []byte) (string, bool) {
 		return turn.turnID2, true
 	}
 	return turn.id, true
+}
+
+func scanNotificationLoginID(params []byte) (string, bool) {
+	scanner := notificationJSONScanner{data: params}
+	scanner.skipSpace()
+	if scanner.consumeLiteral("null") {
+		scanner.skipSpace()
+		return "", scanner.done()
+	}
+	if !scanner.consumeByte('{') {
+		return "", false
+	}
+
+	var loginID string
+	for {
+		scanner.skipSpace()
+		if scanner.consumeByte('}') {
+			break
+		}
+		key, escaped, ok := scanner.readString()
+		if !ok || escaped {
+			return "", false
+		}
+		scanner.skipSpace()
+		if !scanner.consumeByte(':') {
+			return "", false
+		}
+		if bytesEqualString(key, "loginId") {
+			value, ok := scanner.readSimpleString()
+			if !ok {
+				return "", false
+			}
+			loginID = value
+		} else if !scanner.skipValue() {
+			return "", false
+		}
+		scanner.skipSpace()
+		if scanner.consumeByte('}') {
+			break
+		}
+		if !scanner.consumeByte(',') {
+			return "", false
+		}
+	}
+	scanner.skipSpace()
+	if !scanner.done() {
+		return "", false
+	}
+	return loginID, true
 }
 
 func (s *notificationJSONScanner) readTurnObject() (scannedTurn, bool) {
@@ -429,4 +488,14 @@ func decodeNotificationTurnID(notif Notification) string {
 		return envelope.Turn.ID
 	}
 	return ""
+}
+
+func decodeNotificationLoginID(notif Notification) string {
+	var envelope struct {
+		LoginID string `json:"loginId"`
+	}
+	if err := json.Unmarshal(notif.Params, &envelope); err != nil {
+		return ""
+	}
+	return envelope.LoginID
 }

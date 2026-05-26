@@ -23,11 +23,14 @@
 // high-value protocol fields are typed while raw JSON extension fields preserve
 // compatibility with newer app-server schema members.
 //
-// Notification routing is turn-aware: notifications that belong to an active
-// turn are consumed by that turn's stream, while low-level consumers still see
-// unscoped events through `NextNotification` when no registered turn owns them.
-// This makes per-turn streaming explicit and prevents unrelated turns from
-// silently stealing each other's notifications.
+// Notification routing is turn- and login-aware: notifications that belong to
+// an active turn are consumed by that turn's stream, and interactive
+// account/login/completed events with a loginId are consumed by the matching
+// login handle or [Client.WaitForLoginCompleted]. Low-level consumers still see
+// unscoped events through [Client.NextNotification] when no registered turn or
+// login attempt owns them. This makes per-operation streaming explicit and
+// prevents unrelated turns or login attempts from silently stealing each
+// other's notifications.
 //
 // Generated protocol bindings intentionally preserve the upstream public type
 // surface where names do not collide, and they use package-root payload types
@@ -38,16 +41,17 @@
 //
 // Notification routing is intentionally split between decoded, typed methods
 // and raw passthrough:
-//   - Client.NextNotification returns the next notification exactly as read from
-//     the transport, preserving unknown methods and payloads for callers that
-//     need to log or forward them.
+//   - Client.NextNotification returns the next notification not owned by an
+//     active turn or login consumer, preserving unknown methods and payloads for
+//     callers that need to log or forward them.
 //   - DecodeNotification and the generated helpers decode only the registry
 //     entries in notification.go; upstream additions that are not yet registered
 //     remain available through the raw notification value instead of being
 //     silently rewritten.
 //   - TurnHandle.Stream and TurnHandle.Run consume the shared notification
-//     stream until their matching turn completes, so only one active consumer may
-//     read a Client at a time.
+//     stream until their matching turn completes, and login handles consume
+//     their matching account/login/completed event until the login attempt
+//     finishes.
 //
 // Generated protocol bindings live in this package (for example,
 // `ThreadStartParams`, `TurnStartParams`, `ThreadItem`, `ReasoningEffort`,
@@ -67,4 +71,7 @@
 //   - Each [TurnHandle] may have at most one active stream consumer at a time.
 //     Calling [TurnHandle.Stream] or [TurnHandle.Run] while another goroutine
 //     is already streaming the same turn returns an error immediately.
+//   - Each login attempt id may have at most one active completion waiter at a
+//     time. Calling [Client.WaitForLoginCompleted] concurrently for the same
+//     login id returns an error immediately.
 package codex

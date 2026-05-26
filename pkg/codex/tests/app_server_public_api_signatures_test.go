@@ -41,6 +41,8 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		_ *codex.StreamThread
 		_ *codex.TurnHandle
 		_ *codex.StreamTurnHandle
+		_ *codex.ChatGPTLoginHandle
+		_ *codex.DeviceCodeLoginHandle
 		_ codex.RunResult
 		_ codex.InputItem = codex.TextInput{}
 		_ codex.InputItem = codex.ImageInput{}
@@ -50,6 +52,7 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		_ codex.RetryConfig
 		_ *codex.AppServerError
 		_ *codex.TransportClosedError
+		_ *codex.LoginNotificationDroppedError
 		_ *codex.JSONRPCError
 		_ *codex.AppServerRPCError
 		_ *codex.ParseError
@@ -62,36 +65,39 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 	)
 
 	types := map[string]reflect.Type{
-		"Config":                  reflect.TypeFor[codex.Config](),
-		"ListenConfig":            reflect.TypeFor[codex.ListenConfig](),
-		"WebSocketConfig":         reflect.TypeFor[codex.WebSocketConfig](),
-		"WebSocketAuthMode":       reflect.TypeFor[codex.WebSocketAuthMode](),
-		"Codex":                   reflect.TypeFor[codex.Codex](),
-		"Client":                  reflect.TypeFor[codex.Client](),
-		"ApprovalMode":            reflect.TypeFor[codex.ApprovalMode](),
-		"Thread":                  reflect.TypeFor[codex.Thread](),
-		"StreamThread":            reflect.TypeFor[codex.StreamThread](),
-		"TurnHandle":              reflect.TypeFor[codex.TurnHandle](),
-		"StreamTurnHandle":        reflect.TypeFor[codex.StreamTurnHandle](),
-		"RunResult":               reflect.TypeFor[codex.RunResult](),
-		"InputItem":               reflect.TypeFor[codex.InputItem](),
-		"TextInput":               reflect.TypeFor[codex.TextInput](),
-		"ImageInput":              reflect.TypeFor[codex.ImageInput](),
-		"LocalImageInput":         reflect.TypeFor[codex.LocalImageInput](),
-		"SkillInput":              reflect.TypeFor[codex.SkillInput](),
-		"MentionInput":            reflect.TypeFor[codex.MentionInput](),
-		"RetryConfig":             reflect.TypeFor[codex.RetryConfig](),
-		"AppServerError":          reflect.TypeFor[codex.AppServerError](),
-		"TransportClosedError":    reflect.TypeFor[codex.TransportClosedError](),
-		"JSONRPCError":            reflect.TypeFor[codex.JSONRPCError](),
-		"AppServerRPCError":       reflect.TypeFor[codex.AppServerRPCError](),
-		"ParseError":              reflect.TypeFor[codex.ParseError](),
-		"InvalidRequestError":     reflect.TypeFor[codex.InvalidRequestError](),
-		"MethodNotFoundError":     reflect.TypeFor[codex.MethodNotFoundError](),
-		"InvalidParamsError":      reflect.TypeFor[codex.InvalidParamsError](),
-		"InternalRPCError":        reflect.TypeFor[codex.InternalRPCError](),
-		"ServerBusyError":         reflect.TypeFor[codex.ServerBusyError](),
-		"RetryLimitExceededError": reflect.TypeFor[codex.RetryLimitExceededError](),
+		"Config":                        reflect.TypeFor[codex.Config](),
+		"ListenConfig":                  reflect.TypeFor[codex.ListenConfig](),
+		"WebSocketConfig":               reflect.TypeFor[codex.WebSocketConfig](),
+		"WebSocketAuthMode":             reflect.TypeFor[codex.WebSocketAuthMode](),
+		"Codex":                         reflect.TypeFor[codex.Codex](),
+		"Client":                        reflect.TypeFor[codex.Client](),
+		"ApprovalMode":                  reflect.TypeFor[codex.ApprovalMode](),
+		"Thread":                        reflect.TypeFor[codex.Thread](),
+		"StreamThread":                  reflect.TypeFor[codex.StreamThread](),
+		"TurnHandle":                    reflect.TypeFor[codex.TurnHandle](),
+		"StreamTurnHandle":              reflect.TypeFor[codex.StreamTurnHandle](),
+		"ChatGPTLoginHandle":            reflect.TypeFor[codex.ChatGPTLoginHandle](),
+		"DeviceCodeLoginHandle":         reflect.TypeFor[codex.DeviceCodeLoginHandle](),
+		"RunResult":                     reflect.TypeFor[codex.RunResult](),
+		"InputItem":                     reflect.TypeFor[codex.InputItem](),
+		"TextInput":                     reflect.TypeFor[codex.TextInput](),
+		"ImageInput":                    reflect.TypeFor[codex.ImageInput](),
+		"LocalImageInput":               reflect.TypeFor[codex.LocalImageInput](),
+		"SkillInput":                    reflect.TypeFor[codex.SkillInput](),
+		"MentionInput":                  reflect.TypeFor[codex.MentionInput](),
+		"RetryConfig":                   reflect.TypeFor[codex.RetryConfig](),
+		"AppServerError":                reflect.TypeFor[codex.AppServerError](),
+		"TransportClosedError":          reflect.TypeFor[codex.TransportClosedError](),
+		"LoginNotificationDroppedError": reflect.TypeFor[codex.LoginNotificationDroppedError](),
+		"JSONRPCError":                  reflect.TypeFor[codex.JSONRPCError](),
+		"AppServerRPCError":             reflect.TypeFor[codex.AppServerRPCError](),
+		"ParseError":                    reflect.TypeFor[codex.ParseError](),
+		"InvalidRequestError":           reflect.TypeFor[codex.InvalidRequestError](),
+		"MethodNotFoundError":           reflect.TypeFor[codex.MethodNotFoundError](),
+		"InvalidParamsError":            reflect.TypeFor[codex.InvalidParamsError](),
+		"InternalRPCError":              reflect.TypeFor[codex.InternalRPCError](),
+		"ServerBusyError":               reflect.TypeFor[codex.ServerBusyError](),
+		"RetryLimitExceededError":       reflect.TypeFor[codex.RetryLimitExceededError](),
 	}
 	assertNamedPublicTypes(t, types)
 
@@ -108,7 +114,12 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 
 	var (
 		_ codex.ApprovalsReviewer
+		_ codex.Account
+		_ codex.AccountLoginCompletedNotification
 		_ codex.AskForApproval
+		_ codex.CancelLoginAccountResponse
+		_ codex.CancelLoginAccountStatus
+		_ codex.GetAccountResponse
 		_ codex.InitializeResponse
 		_ codex.Object
 		_ codex.ModelListResponse
@@ -142,7 +153,12 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 
 	types := map[string]reflect.Type{
 		"ApprovalsReviewer":                   reflect.TypeFor[codex.ApprovalsReviewer](),
+		"Account":                             reflect.TypeFor[codex.Account](),
+		"AccountLoginCompletedNotification":   reflect.TypeFor[codex.AccountLoginCompletedNotification](),
 		"AskForApproval":                      reflect.TypeFor[codex.AskForApproval](),
+		"CancelLoginAccountResponse":          reflect.TypeFor[codex.CancelLoginAccountResponse](),
+		"CancelLoginAccountStatus":            reflect.TypeFor[codex.CancelLoginAccountStatus](),
+		"GetAccountResponse":                  reflect.TypeFor[codex.GetAccountResponse](),
 		"InitializeResponse":                  reflect.TypeFor[codex.InitializeResponse](),
 		"ModelListResponse":                   reflect.TypeFor[codex.ModelListResponse](),
 		"Notification":                        reflect.TypeFor[codex.Notification](),
@@ -239,6 +255,152 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			},
 			out: []reflect.Type{
 				reflect.TypeFor[*codex.Thread](),
+				errorType,
+			},
+		},
+		"success: Codex LoginAPIKey": {
+			typ:  reflect.TypeFor[*codex.Codex](),
+			name: "LoginAPIKey",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[string](),
+			},
+			out: []reflect.Type{
+				errorType,
+			},
+		},
+		"success: Codex LoginChatGPT": {
+			typ:  reflect.TypeFor[*codex.Codex](),
+			name: "LoginChatGPT",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[*codex.ChatGPTLoginHandle](),
+				errorType,
+			},
+		},
+		"success: Codex LoginChatGPTDeviceCode": {
+			typ:  reflect.TypeFor[*codex.Codex](),
+			name: "LoginChatGPTDeviceCode",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[*codex.DeviceCodeLoginHandle](),
+				errorType,
+			},
+		},
+		"success: Codex Account": {
+			typ:  reflect.TypeFor[*codex.Codex](),
+			name: "Account",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[*codex.GetAccountParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.GetAccountResponse](),
+				errorType,
+			},
+		},
+		"success: Codex Logout": {
+			typ:  reflect.TypeFor[*codex.Codex](),
+			name: "Logout",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				errorType,
+			},
+		},
+		"success: Client WaitForLoginCompleted": {
+			typ:  reflect.TypeFor[*codex.Client](),
+			name: "WaitForLoginCompleted",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[string](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.AccountLoginCompletedNotification](),
+				errorType,
+			},
+		},
+		"success: ChatGPTLoginHandle Wait": {
+			typ:  reflect.TypeFor[*codex.ChatGPTLoginHandle](),
+			name: "Wait",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.AccountLoginCompletedNotification](),
+				errorType,
+			},
+		},
+		"success: ChatGPTLoginHandle Cancel": {
+			typ:  reflect.TypeFor[*codex.ChatGPTLoginHandle](),
+			name: "Cancel",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.CancelLoginAccountResponse](),
+				errorType,
+			},
+		},
+		"success: ChatGPTLoginHandle LoginID": {
+			typ:  reflect.TypeFor[*codex.ChatGPTLoginHandle](),
+			name: "LoginID",
+			out: []reflect.Type{
+				reflect.TypeFor[string](),
+			},
+		},
+		"success: ChatGPTLoginHandle AuthURL": {
+			typ:  reflect.TypeFor[*codex.ChatGPTLoginHandle](),
+			name: "AuthURL",
+			out: []reflect.Type{
+				reflect.TypeFor[string](),
+			},
+		},
+		"success: DeviceCodeLoginHandle Wait": {
+			typ:  reflect.TypeFor[*codex.DeviceCodeLoginHandle](),
+			name: "Wait",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.AccountLoginCompletedNotification](),
+				errorType,
+			},
+		},
+		"success: DeviceCodeLoginHandle LoginID": {
+			typ:  reflect.TypeFor[*codex.DeviceCodeLoginHandle](),
+			name: "LoginID",
+			out: []reflect.Type{
+				reflect.TypeFor[string](),
+			},
+		},
+		"success: DeviceCodeLoginHandle VerificationURL": {
+			typ:  reflect.TypeFor[*codex.DeviceCodeLoginHandle](),
+			name: "VerificationURL",
+			out: []reflect.Type{
+				reflect.TypeFor[string](),
+			},
+		},
+		"success: DeviceCodeLoginHandle UserCode": {
+			typ:  reflect.TypeFor[*codex.DeviceCodeLoginHandle](),
+			name: "UserCode",
+			out: []reflect.Type{
+				reflect.TypeFor[string](),
+			},
+		},
+		"success: DeviceCodeLoginHandle Cancel": {
+			typ:  reflect.TypeFor[*codex.DeviceCodeLoginHandle](),
+			name: "Cancel",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.CancelLoginAccountResponse](),
 				errorType,
 			},
 		},

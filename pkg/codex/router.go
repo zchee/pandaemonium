@@ -23,21 +23,27 @@ import (
 const notificationQueueCapacity = 128
 
 type turnNotificationRouter struct {
-	mu             sync.Mutex
-	global         chan Notification
-	queues         map[string]*turnNotificationQueue
-	pending        map[string][]Notification
-	pendingDropped map[string]uint64 // drop counts for pre-consumer pending
-	closed         bool
-	err            error
+	mu                  sync.Mutex
+	global              chan Notification
+	queues              map[string]*notificationQueue
+	pending             map[string][]Notification
+	pendingDropped      map[string]uint64 // drop counts for pre-consumer pending
+	loginQueues         map[string]*notificationQueue
+	pendingLogin        map[string][]Notification
+	pendingLoginDropped map[string]uint64
+	closed              bool
+	err                 error
 }
 
 func newTurnNotificationRouter() *turnNotificationRouter {
 	return &turnNotificationRouter{
-		global:         make(chan Notification, notificationQueueCapacity),
-		queues:         map[string]*turnNotificationQueue{},
-		pending:        map[string][]Notification{},
-		pendingDropped: map[string]uint64{},
+		global:              make(chan Notification, notificationQueueCapacity),
+		queues:              map[string]*notificationQueue{},
+		pending:             map[string][]Notification{},
+		pendingDropped:      map[string]uint64{},
+		loginQueues:         map[string]*notificationQueue{},
+		pendingLogin:        map[string][]Notification{},
+		pendingLoginDropped: map[string]uint64{},
 	}
 }
 
@@ -80,7 +86,22 @@ func (r *turnNotificationRouter) next(ctx context.Context, turnID string) (Notif
 	return queue.next(ctx)
 }
 
-func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue, error) {
+func (r *turnNotificationRouter) nextLogin(ctx context.Context, loginID string) (Notification, error) {
+	r.mu.Lock()
+	if r.closed {
+		err := r.err
+		r.mu.Unlock()
+		return Notification{}, err
+	}
+	queue := r.loginQueues[loginID]
+	r.mu.Unlock()
+	if queue == nil {
+		return Notification{}, fmt.Errorf("login consumer is not active for %s", loginID)
+	}
+	return queue.next(ctx)
+}
+
+func (r *turnNotificationRouter) register(turnID string) (*notificationQueue, error) {
 	if turnID == "" {
 		return nil, fmt.Errorf("turn notification router: empty turn id")
 	}
@@ -92,11 +113,7 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 	if _, ok := r.queues[turnID]; ok {
 		return nil, fmt.Errorf("turn consumer already active for %s", turnID)
 	}
-	queue := &turnNotificationQueue{
-		turnID:   turnID,
-		notifies: newNotificationRing(notificationQueueCapacity),
-		notify:   make(chan struct{}, 1),
-	}
+	queue := newTurnNotificationQueue(turnID)
 	if pending := r.pending[turnID]; len(pending) > 0 {
 		if !queue.notifies.appendAll(pending) {
 			return nil, fmt.Errorf("turn notification router: pending queue overflow for %s", turnID)
@@ -117,12 +134,52 @@ func (r *turnNotificationRouter) register(turnID string) (*turnNotificationQueue
 	return queue, nil
 }
 
+func (r *turnNotificationRouter) registerLogin(loginID string) (*notificationQueue, error) {
+	if loginID == "" {
+		return nil, fmt.Errorf("login notification router: empty login id")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return nil, r.err
+	}
+	if _, ok := r.loginQueues[loginID]; ok {
+		return nil, fmt.Errorf("login consumer already active for %s", loginID)
+	}
+	queue := newLoginNotificationQueue(loginID)
+	if pending := r.pendingLogin[loginID]; len(pending) > 0 {
+		if !queue.notifies.appendAll(pending) {
+			return nil, fmt.Errorf("login notification router: pending queue overflow for %s", loginID)
+		}
+		delete(r.pendingLogin, loginID)
+	}
+	if dropped := r.pendingLoginDropped[loginID]; dropped > 0 {
+		queue.dropped = dropped
+		delete(r.pendingLoginDropped, loginID)
+		select {
+		case queue.notify <- struct{}{}:
+		default:
+		}
+	}
+	r.loginQueues[loginID] = queue
+	return queue, nil
+}
+
 func (r *turnNotificationRouter) unregister(turnID string) {
 	if turnID == "" {
 		return
 	}
 	r.mu.Lock()
 	delete(r.queues, turnID)
+	r.mu.Unlock()
+}
+
+func (r *turnNotificationRouter) unregisterLogin(loginID string) {
+	if loginID == "" {
+		return
+	}
+	r.mu.Lock()
+	delete(r.loginQueues, loginID)
 	r.mu.Unlock()
 }
 
@@ -135,7 +192,22 @@ func (r *turnNotificationRouter) clearPending(turnID string) {
 	r.mu.Unlock()
 }
 
+func (r *turnNotificationRouter) clearLoginPending(loginID string) {
+	if loginID == "" {
+		return
+	}
+	r.mu.Lock()
+	delete(r.pendingLogin, loginID)
+	delete(r.pendingLoginDropped, loginID)
+	r.mu.Unlock()
+}
+
 func (r *turnNotificationRouter) route(notif Notification) error {
+	loginID, loginScoped := notificationLoginID(notif)
+	if loginScoped {
+		return r.routeLogin(notif, loginID)
+	}
+
 	turnID := notificationTurnID(notif)
 
 	r.mu.Lock()
@@ -191,6 +263,53 @@ func (r *turnNotificationRouter) route(notif Notification) error {
 	return nil
 }
 
+func (r *turnNotificationRouter) routeLogin(notif Notification, loginID string) error {
+	r.mu.Lock()
+	if r.closed {
+		err := r.err
+		r.mu.Unlock()
+		return err
+	}
+
+	if loginID == "" {
+		r.routeGlobalLocked(notif)
+		r.mu.Unlock()
+		return nil
+	}
+
+	if queue := r.loginQueues[loginID]; queue != nil {
+		queue.push(notif)
+		r.mu.Unlock()
+		return nil
+	}
+
+	pending := r.pendingLogin[loginID]
+	if len(pending) >= notificationQueueCapacity {
+		r.pendingLogin[loginID] = append(pending[1:], notif)
+		r.pendingLoginDropped[loginID]++
+	} else {
+		r.pendingLogin[loginID] = append(pending, notif)
+	}
+	r.mu.Unlock()
+	return nil
+}
+
+func (r *turnNotificationRouter) routeGlobalLocked(notif Notification) {
+	select {
+	case r.global <- notif:
+		return
+	default:
+	}
+	select {
+	case <-r.global:
+	default:
+	}
+	select {
+	case r.global <- notif:
+	default:
+	}
+}
+
 func (r *turnNotificationRouter) close(err error) {
 	r.mu.Lock()
 	if r.closed {
@@ -201,18 +320,29 @@ func (r *turnNotificationRouter) close(err error) {
 	r.err = err
 	global := r.global
 	r.global = nil
-	queues := make([]*turnNotificationQueue, 0, len(r.queues))
+	queues := make([]*notificationQueue, 0, len(r.queues))
 	for _, queue := range r.queues {
 		queues = append(queues, queue)
 	}
-	r.queues = map[string]*turnNotificationQueue{}
+	loginQueues := make([]*notificationQueue, 0, len(r.loginQueues))
+	for _, queue := range r.loginQueues {
+		loginQueues = append(loginQueues, queue)
+	}
+	r.queues = map[string]*notificationQueue{}
 	r.pending = map[string][]Notification{}
+	r.pendingDropped = map[string]uint64{}
+	r.loginQueues = map[string]*notificationQueue{}
+	r.pendingLogin = map[string][]Notification{}
+	r.pendingLoginDropped = map[string]uint64{}
 	r.mu.Unlock()
 
 	if global != nil {
 		close(global)
 	}
 	for _, queue := range queues {
+		queue.close(err)
+	}
+	for _, queue := range loginQueues {
 		queue.close(err)
 	}
 }

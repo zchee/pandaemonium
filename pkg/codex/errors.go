@@ -69,6 +69,18 @@ func (e *NotificationDroppedError) Error() string {
 	return fmt.Sprintf("turn %s: %d notification(s) dropped due to queue overflow", e.TurnID, e.Dropped)
 }
 
+// LoginNotificationDroppedError is returned by a login notification consumer
+// when one or more account/login/completed notifications for the login attempt
+// were dropped due to queue overflow.
+type LoginNotificationDroppedError struct {
+	LoginID string
+	Dropped int
+}
+
+func (e *LoginNotificationDroppedError) Error() string {
+	return fmt.Sprintf("login %s: %d notification(s) dropped due to queue overflow", e.LoginID, e.Dropped)
+}
+
 // AppServerRPCError is a server-side JSON-RPC error.
 type AppServerRPCError struct {
 	*JSONRPCError
