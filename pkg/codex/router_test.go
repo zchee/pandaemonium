@@ -132,6 +132,59 @@ func TestNotificationRingRejectsAppendPastCapacity(t *testing.T) {
 	}
 }
 
+func TestPushPendingNotification(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success: appends before capacity", func(t *testing.T) {
+		t.Parallel()
+
+		pending, dropped := pushPendingNotification(nil, Notification{Method: "pending/one"})
+		if dropped {
+			t.Fatal("pushPendingNotification() dropped = true, want false before capacity")
+		}
+		if diff := gocmp.Diff([]string{"pending/one"}, notificationMethods(pending)); diff != "" {
+			t.Fatalf("pending methods mismatch (-want +got):\n%s", diff)
+		}
+	})
+
+	t.Run("success: drops oldest in place at capacity", func(t *testing.T) {
+		t.Parallel()
+
+		pending := make([]Notification, 0, notificationQueueCapacity)
+		for i := range notificationQueueCapacity {
+			pending = append(pending, Notification{
+				Method: fmt.Sprintf("pending/%03d", i),
+				Params: mustJSON(t, Object{
+					"payload": fmt.Sprintf("retention-sentinel-%03d", i),
+				}),
+			})
+		}
+		backing := &pending[0]
+
+		updated, dropped := pushPendingNotification(pending, Notification{Method: "pending/overflow"})
+		if !dropped {
+			t.Fatal("pushPendingNotification() dropped = false, want true at capacity")
+		}
+		if len(updated) != notificationQueueCapacity {
+			t.Fatalf("updated len = %d, want %d", len(updated), notificationQueueCapacity)
+		}
+		if &updated[0] != backing {
+			t.Fatal("pushPendingNotification() moved backing array, want in-place reuse")
+		}
+		if updated[0].Method != "pending/001" {
+			t.Fatalf("updated first method = %q, want pending/001", updated[0].Method)
+		}
+		if updated[len(updated)-1].Method != "pending/overflow" {
+			t.Fatalf("updated last method = %q, want pending/overflow", updated[len(updated)-1].Method)
+		}
+		for i, notification := range updated {
+			if notification.Method == "pending/000" {
+				t.Fatalf("updated[%d] retained oldest notification, want it evicted", i)
+			}
+		}
+	})
+}
+
 func TestNotificationTurnIDExtractsSupportedShapes(t *testing.T) {
 	t.Parallel()
 

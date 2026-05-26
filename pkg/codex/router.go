@@ -22,6 +22,15 @@ import (
 
 const notificationQueueCapacity = 128
 
+func pushPendingNotification(pending []Notification, notif Notification) ([]Notification, bool) {
+	if len(pending) < notificationQueueCapacity {
+		return append(pending, notif), false
+	}
+	copy(pending, pending[1:])
+	pending[len(pending)-1] = notif
+	return pending, true
+}
+
 type turnNotificationRouter struct {
 	mu                  sync.Mutex
 	global              chan Notification
@@ -251,13 +260,11 @@ func (r *turnNotificationRouter) route(notif Notification) error {
 	}
 
 	// ── Pre-consumer pending ───────────────────────────────────────────────
-	pending := r.pending[turnID]
-	if len(pending) >= notificationQueueCapacity {
+	pending, dropped := pushPendingNotification(r.pending[turnID], notif)
+	r.pending[turnID] = pending
+	if dropped {
 		// Drop oldest pending entry, track count.
-		r.pending[turnID] = append(pending[1:], notif)
 		r.pendingDropped[turnID]++
-	} else {
-		r.pending[turnID] = append(pending, notif)
 	}
 	r.mu.Unlock()
 	return nil
@@ -283,12 +290,10 @@ func (r *turnNotificationRouter) routeLogin(notif Notification, loginID string) 
 		return nil
 	}
 
-	pending := r.pendingLogin[loginID]
-	if len(pending) >= notificationQueueCapacity {
-		r.pendingLogin[loginID] = append(pending[1:], notif)
+	pending, dropped := pushPendingNotification(r.pendingLogin[loginID], notif)
+	r.pendingLogin[loginID] = pending
+	if dropped {
 		r.pendingLoginDropped[loginID]++
-	} else {
-		r.pendingLogin[loginID] = append(pending, notif)
 	}
 	r.mu.Unlock()
 	return nil
