@@ -39,7 +39,7 @@ func parseListenTransport(listenURL string) (listenTransportKind, error) {
 	}
 	if strings.HasPrefix(listenURL, unixListenPrefix) {
 		if err := validateUnixListenURL(listenURL); err != nil {
-			return 0, err
+			return listenTransportStdio, err
 		}
 		return listenTransportUnixWebSocket, nil
 	}
