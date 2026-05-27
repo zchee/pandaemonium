@@ -133,6 +133,85 @@ func (t *blockingTransport) Close() error {
 	return nil
 }
 
+type blockingWriteTransport struct {
+	writeStarted chan struct{}
+	writeRelease chan struct{}
+	closeCalled  chan struct{}
+	writeOnce    sync.Once
+	releaseOnce  sync.Once
+	closeOnce    sync.Once
+}
+
+func newBlockingWriteTransport() *blockingWriteTransport {
+	return &blockingWriteTransport{
+		writeStarted: make(chan struct{}),
+		writeRelease: make(chan struct{}),
+		closeCalled:  make(chan struct{}),
+	}
+}
+
+func (t *blockingWriteTransport) ReadLine(context.Context) (string, error) {
+	<-t.writeRelease
+	return "", io.EOF
+}
+
+func (t *blockingWriteTransport) WriteLine(context.Context, string) error {
+	t.writeOnce.Do(func() { close(t.writeStarted) })
+	<-t.writeRelease
+	return ErrClosed
+}
+
+func (t *blockingWriteTransport) Close() error {
+	t.closeOnce.Do(func() { close(t.closeCalled) })
+	t.releaseWrite()
+	return nil
+}
+
+func (t *blockingWriteTransport) releaseWrite() {
+	t.releaseOnce.Do(func() { close(t.writeRelease) })
+}
+
+type blockingCloseTransport struct {
+	closeStarted chan struct{}
+	closeRelease chan struct{}
+	closeOnce    sync.Once
+	releaseOnce  sync.Once
+}
+
+var errBlockingTransportClose = errors.New("blocking transport close")
+
+func newBlockingCloseTransport() *blockingCloseTransport {
+	return &blockingCloseTransport{
+		closeStarted: make(chan struct{}),
+		closeRelease: make(chan struct{}),
+	}
+}
+
+func (t *blockingCloseTransport) ReadLine(context.Context) (string, error) {
+	<-t.closeRelease
+	return "", io.EOF
+}
+
+func (t *blockingCloseTransport) WriteLine(context.Context, string) error {
+	return nil
+}
+
+func (t *blockingCloseTransport) Close() error {
+	t.closeOnce.Do(func() { close(t.closeStarted) })
+	<-t.closeRelease
+	return errBlockingTransportClose
+}
+
+func (t *blockingCloseTransport) releaseClose() {
+	t.releaseOnce.Do(func() { close(t.closeRelease) })
+}
+
+func closedChan() chan struct{} {
+	ch := make(chan struct{})
+	close(ch)
+	return ch
+}
+
 func nextNotification(events iter.Seq[Notification]) (Notification, bool) {
 	for notification := range events {
 		return notification, true
@@ -438,6 +517,102 @@ func TestClientCloseUnblocksPendingExec(t *testing.T) {
 		}
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for ExecRaw to unblock")
+	}
+}
+
+func TestClientCloseUnblocksExecRawStuckInTransportWrite(t *testing.T) {
+	t.Parallel()
+	cfg, err := applyOptions([]Option{WithInitialCommand("new-session", "-A", "-s", "test"), WithShutdownTimeout(time.Second)})
+	if err != nil {
+		t.Fatalf("applyOptions() error = %v", err)
+	}
+	tr := newBlockingWriteTransport()
+	client := newClient(nil, cfg, tr, nil)
+	client.readDone = closedChan()
+	client.stderrDone = closedChan()
+
+	execDone := make(chan error, 1)
+	go func() {
+		_, err := client.ExecRaw(context.Background(), "display-message -p stuck")
+		execDone <- err
+	}()
+	select {
+	case <-tr.writeStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ExecRaw to enter transport WriteLine")
+	}
+
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- client.Close(context.Background()) }()
+	select {
+	case err := <-closeDone:
+		if err != nil {
+			t.Fatalf("Close() error = %v", err)
+		}
+	case <-time.After(200 * time.Millisecond):
+		tr.releaseWrite()
+		if err := <-closeDone; err != nil {
+			t.Fatalf("Close() after forced release error = %v", err)
+		}
+		t.Fatal("Close() blocked behind ExecRaw's writeMu instead of closing transport to unblock WriteLine")
+	}
+	select {
+	case <-tr.closeCalled:
+	default:
+		t.Fatal("Close() returned without closing the transport")
+	}
+	select {
+	case err := <-execDone:
+		if !errors.Is(err, ErrClosed) {
+			t.Fatalf("ExecRaw() error = %v, want ErrClosed", err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for ExecRaw to return after Close")
+	}
+}
+
+func TestClientConcurrentCloseWaitsForCleanupToFinish(t *testing.T) {
+	t.Parallel()
+	cfg, err := applyOptions([]Option{WithInitialCommand("new-session", "-A", "-s", "test"), WithShutdownTimeout(time.Second)})
+	if err != nil {
+		t.Fatalf("applyOptions() error = %v", err)
+	}
+	tr := newBlockingCloseTransport()
+	client := newClient(nil, cfg, tr, nil)
+	client.readDone = closedChan()
+	client.stderrDone = closedChan()
+
+	firstDone := make(chan error, 1)
+	go func() { firstDone <- client.Close(context.Background()) }()
+	select {
+	case <-tr.closeStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for first Close to start transport cleanup")
+	}
+
+	secondDone := make(chan error, 1)
+	go func() { secondDone <- client.Close(context.Background()) }()
+	select {
+	case err := <-secondDone:
+		tr.releaseClose()
+		if firstErr := <-firstDone; !errors.Is(firstErr, errBlockingTransportClose) {
+			t.Fatalf("first Close() after forced release error = %v, want errBlockingTransportClose", firstErr)
+		}
+		t.Fatalf("concurrent Close() returned before the in-flight cleanup finished: %v", err)
+	case <-time.After(50 * time.Millisecond):
+		// Expected: concurrent Close callers share the in-flight cleanup result.
+	}
+
+	tr.releaseClose()
+	for name, ch := range map[string]<-chan error{"first": firstDone, "second": secondDone} {
+		select {
+		case err := <-ch:
+			if !errors.Is(err, errBlockingTransportClose) {
+				t.Fatalf("%s Close() error = %v, want errBlockingTransportClose", name, err)
+			}
+		case <-time.After(time.Second):
+			t.Fatalf("timed out waiting for %s Close() after cleanup release", name)
+		}
 	}
 }
 

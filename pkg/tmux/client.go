@@ -294,13 +294,11 @@ func (c *Client) Close(ctx context.Context) error {
 		ctx = context.Background()
 	}
 	c.closeMu.Lock()
+	defer c.closeMu.Unlock()
 	if c.cleanupDone {
-		err := c.cleanupErr
-		c.closeMu.Unlock()
-		return err
+		return c.cleanupErr
 	}
 	c.cleanupDone = true
-	c.closeMu.Unlock()
 
 	alreadyClosed := c.closedError() != nil
 	c.markClosed(ErrClosed)
@@ -308,8 +306,7 @@ func (c *Client) Close(ctx context.Context) error {
 
 	var errs []error
 	if c.transport != nil {
-		if !alreadyClosed {
-			c.writeMu.Lock()
+		if !alreadyClosed && c.writeMu.TryLock() {
 			if err := c.transport.WriteLine(ctx, string(DetachClient)); err != nil && !errors.Is(err, ErrClosed) {
 				errs = append(errs, fmt.Errorf("write detach-client: %w", err))
 			}
@@ -334,11 +331,8 @@ func (c *Client) Close(ctx context.Context) error {
 	if err := waitOptional(shutdownCtx, c.stderrDone, "stderr drain"); err != nil {
 		errs = append(errs, err)
 	}
-	err := errors.Join(errs...)
-	c.closeMu.Lock()
-	c.cleanupErr = err
-	c.closeMu.Unlock()
-	return err
+	c.cleanupErr = errors.Join(errs...)
+	return c.cleanupErr
 }
 
 func waitForCmd(cmd *exec.Cmd) <-chan error {
