@@ -154,6 +154,9 @@ func (o Options) validate() error {
 	if len(o.InitialCommand) == 0 && o.SessionName == "" {
 		return fmt.Errorf("tmux: InitialCommand or SessionName is required to avoid implicit default-server attach")
 	}
+	if len(o.InitialCommand) > 0 && o.SessionName != "" {
+		return fmt.Errorf("tmux: InitialCommand and SessionName are mutually exclusive")
+	}
 	for _, arg := range o.InitialCommand {
 		if strings.ContainsAny(arg, "\r\n") {
 			return fmt.Errorf("tmux: InitialCommand argument %q contains a newline", arg)
