@@ -23,11 +23,6 @@ import (
 	"time"
 )
 
-const (
-	controlModeEnterDCS = "\x1bP1000p"
-	controlModeExitST   = "\x1b\\"
-)
-
 // BlockMarker is a tmux `%begin`, `%end`, or `%error` response marker.
 type BlockMarker struct {
 	// Time is the marker timestamp in seconds from the Unix epoch.
@@ -170,8 +165,6 @@ func (p *protocolParser) eof() error {
 }
 
 func normalizeControlLine(line string) (string, bool) {
-	line = strings.ReplaceAll(line, controlModeEnterDCS, "")
-	line = strings.ReplaceAll(line, controlModeExitST, "")
 	if line == "" {
 		return "", false
 	}
@@ -235,6 +228,16 @@ func parseMarker(line, prefix string) (BlockMarker, error) {
 	return BlockMarker{Time: time.Unix(seconds, 0), Command: command, Flags: flags}, nil
 }
 
+// sameMarkerIdentity reports whether two BlockMarkers share the timestamp and
+// command number that tmux assigns to a single response.
+//
+// tmux assigns command numbers monotonically per control client, so payload
+// lines cannot collide with the in-flight %begin under normal operation. The
+// only adversarial collision shape is a payload line that exactly mimics
+// `%end <begin-time> <begin-command> <flags>`; tmux itself never produces such
+// a line, so the parser intentionally accepts the first matching terminator.
+// Tests should ensure payloads that look like other commands' end markers do
+// not terminate the active block.
 func sameMarkerIdentity(a, b BlockMarker) bool {
 	return a.Command == b.Command && a.Time.Equal(b.Time)
 }

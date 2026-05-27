@@ -91,18 +91,13 @@ func TestProtocolParserResponses(t *testing.T) {
 	}
 }
 
-func TestProtocolParserNotificationsAndControlSequences(t *testing.T) {
+func TestProtocolParserNotifications(t *testing.T) {
 	t.Parallel()
 	parser := &protocolParser{}
-	if msg, err := parser.feed("\x1bP1000p%output %1 hello"); err != nil {
+	if msg, err := parser.feed("%output %1 hello"); err != nil {
 		t.Fatalf("feed() error = %v", err)
 	} else if msg.kind != protocolMessageNotification || msg.notification.Kind != NotificationOutput {
 		t.Fatalf("feed() message = %#v, want output notification", msg)
-	}
-	if msg, err := parser.feed("\x1b\\"); err != nil {
-		t.Fatalf("feed(ST) error = %v", err)
-	} else if msg.kind != protocolMessageNone {
-		t.Fatalf("feed(ST) message = %#v, want none", msg)
 	}
 	if msg, err := parser.feed("%beginning future notification"); err != nil {
 		t.Fatalf("feed(beginning) error = %v", err)
