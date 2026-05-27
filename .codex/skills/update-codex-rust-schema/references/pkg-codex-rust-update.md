@@ -17,17 +17,26 @@ sed -n '1,120p' pkg/codex/generate.go
 If any command shows the wrong repo/module/package, stop and resolve that before
 editing.
 
-## 2. Determine upstream provenance
+## 2. Determine schema provenance
 
-Current schema pin lives in `pkg/codex/generate.go` as a `//go:generate` URL:
+Normal schema generation is local-Codex driven. `pkg/codex/generate.go` should
+invoke `pkg/codex/internal/cmd/generate-protocol-types` without an upstream
+`-schema` URL; when `-schema` is omitted, the generator runs:
 
-```text
-https://raw.githubusercontent.com/openai/codex/refs/tags/<rust-tag>/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json
+```sh
+codex app-server generate-json-schema --experimental --out <tmpdir>
 ```
 
-When the target tag is not supplied, discover it from official upstream sources
-or the local upstream checkout; do not guess from memory. Record both previous
-and target tags in the report.
+and reads:
+
+```text
+<tmpdir>/codex_app_server_protocol.v2.schemas.json
+```
+
+Record the `codex` binary path/version used for generation. When the task is
+also an upstream release comparison, discover the target tag from official
+upstream sources or the local upstream checkout; do not guess from memory.
+Record both previous and target tags in the report.
 
 Useful local comparison shape when an upstream checkout exists:
 
@@ -35,11 +44,20 @@ Useful local comparison shape when an upstream checkout exists:
 git -C /path/to/openai/codex diff <old-tag>..<new-tag> -- codex-rs/app-server-protocol codex-rs/app-server-daemon sdk/python
 ```
 
-## 3. Schema-only bump path
+## 3. Schema-only refresh path
 
-1. Edit only the tag in `pkg/codex/generate.go`.
-2. Run `go generate ./pkg/codex`.
-3. Inspect generated type changes:
+1. Verify the intended `codex` binary resolves on `PATH`:
+   ```sh
+   command -v codex
+   codex --version
+   ```
+2. Run `go generate ./pkg/codex`. The generator should obtain the schema via
+   `codex app-server generate-json-schema --experimental --out <tmpdir>` and
+   use a stable generated-source label, not a temp path.
+3. Keep the checked-in `protocol_gen.go` `Source binary` header aligned with
+   `codex --version`; the schema-regeneration contract test fails on missing or
+   mismatched binaries rather than silently accepting ambient drift.
+4. Inspect generated type changes:
    ```sh
    git diff -- pkg/codex/generate.go pkg/codex/protocol_gen.go
    go test -count=1 ./pkg/codex/...
@@ -47,6 +65,10 @@ git -C /path/to/openai/codex diff <old-tag>..<new-tag> -- codex-rs/app-server-pr
 4. If tests fail because generated output no longer satisfies rename, optional
    reference, or identity contracts, fix generator code/tests before accepting
    the generated diff.
+
+For controlled experiments only, pass `-schema <path-or-url>` directly to the
+generator. Do not reintroduce an upstream raw schema URL into the normal
+`go:generate` directive.
 
 ## 4. Generator behavior path
 
@@ -112,7 +134,7 @@ limitation and substitute validation.
 
 Keep one logical change per commit/report. A schema bump may include:
 
-- `pkg/codex/generate.go`
+- `pkg/codex/generate.go` when the generation command changes
 - `pkg/codex/protocol_gen.go`
 - generator tests, contract tests, or examples required by the new schema
 - testdata/golden files required by public-type parity

@@ -47,12 +47,20 @@ func TestArtifactWorkflowPortGenerationHasSingleGoGenerateEntrypoint(t *testing.
 	directive := directives[0]
 	for _, want := range []string{
 		"go run ./internal/cmd/generate-protocol-types",
-		"https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.137.0-alpha.4/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json",
 		"-out ./protocol_gen.go",
 		"-package codex",
 	} {
 		if !strings.Contains(directive, want) {
 			t.Fatalf("go:generate directive missing %q:\n%s", want, directive)
+		}
+	}
+	for _, unwanted := range []string{
+		"raw.githubusercontent.com/openai/codex",
+		"codex-rs/app-server-protocol/schema/json",
+		"-schema ",
+	} {
+		if strings.Contains(directive, unwanted) {
+			t.Fatalf("go:generate directive contains unexpected %q:\n%s", unwanted, directive)
 		}
 	}
 }

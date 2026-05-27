@@ -20,14 +20,20 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"testing"
 	"time"
 )
 
-const contractGenerationPinnedSchema = "https://raw.githubusercontent.com/openai/codex/refs/tags/rust-v0.137.0-alpha.4/codex-rs/app-server-protocol/schema/json/codex_app_server_protocol.v2.schemas.json"
+const contractGenerationSchemaSource = "codex app-server generate-json-schema --experimental"
 
 func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
+	codexPath, err := exec.LookPath("codex")
+	if err != nil {
+		t.Fatalf("codex binary not on PATH; cannot verify app-server schema regeneration: %v", err)
+	}
+
 	repoRoot := artifactWorkflowRepoRoot(t)
 	packageRoot := filepath.Join(repoRoot, "pkg", "codex")
 	checkedInPath := filepath.Join(packageRoot, "protocol_gen.go")
@@ -37,17 +43,31 @@ func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 	if err != nil {
 		t.Fatalf("os.ReadFile(%s) error = %v", checkedInPath, err)
 	}
+	expectedVersion, ok := contractGenerationSourceBinary(before)
+	if !ok {
+		t.Fatalf("%s is missing generated Source binary provenance", checkedInPath)
+	}
+	actualVersion, err := contractGenerationCodexVersion(t.Context(), codexPath)
+	if err != nil {
+		t.Fatalf("read codex version from %s error = %v", codexPath, err)
+	}
+	if actualVersion != expectedVersion {
+		t.Fatalf(
+			"codex version %q does not match checked-in generated provenance %q; install the matching binary or regenerate protocol_gen.go with the intended codex",
+			actualVersion,
+			expectedVersion,
+		)
+	}
 
 	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Minute)
 	t.Cleanup(cancel)
 	cmd := exec.CommandContext(
-		ctx, "go", "run", "./internal/cmd/generate-protocol-types",
-		"-schema", contractGenerationPinnedSchema,
+		ctx, contractGenerationGoCommand(), "run", "./internal/cmd/generate-protocol-types",
 		"-out", generatedPath,
 		"-package", "codex",
 	)
 	cmd.Dir = packageRoot
-	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=auto")
+	cmd.Env = append(os.Environ(), "GOTOOLCHAIN=local")
 	output, err := cmd.CombinedOutput()
 	if err != nil {
 		t.Fatalf("%s failed: %v\n%s", strings.Join(cmd.Args, " "), err, output)
@@ -62,7 +82,32 @@ func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 	}
 
 	diff := contractGenerationDiff(t, checkedInPath, generatedPath)
-	t.Fatalf("Generated files drifted after regeneration from %s.\n%s", contractGenerationPinnedSchema, diff)
+	t.Fatalf("Generated files drifted after regeneration from %s.\n%s", contractGenerationSchemaSource, diff)
+}
+
+func contractGenerationGoCommand() string {
+	return filepath.Join(runtime.GOROOT(), "bin", "go")
+}
+
+func contractGenerationSourceBinary(generated []byte) (string, bool) {
+	for _, line := range strings.Split(string(generated), "\n") {
+		version, ok := strings.CutPrefix(line, "// Source binary: ")
+		if ok {
+			return strings.TrimSpace(version), strings.TrimSpace(version) != ""
+		}
+	}
+	return "", false
+}
+
+func contractGenerationCodexVersion(ctx context.Context, codexPath string) (string, error) {
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+	cmd := exec.CommandContext(ctx, codexPath, "--version")
+	output, err := cmd.CombinedOutput()
+	if err != nil {
+		return "", err
+	}
+	return strings.TrimSpace(strings.SplitN(string(output), "\n", 2)[0]), nil
 }
 
 func contractGenerationDiff(t *testing.T, checkedInPath, generatedPath string) string {

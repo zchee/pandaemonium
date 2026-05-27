@@ -15,6 +15,7 @@
 package main
 
 import (
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"os"
@@ -26,6 +27,144 @@ import (
 	gocmp "github.com/google/go-cmp/cmp"
 	"github.com/google/jsonschema-go/jsonschema"
 )
+
+func TestGenerateCodexAppServerSchemaWithFakeBinary(t *testing.T) {
+	t.Parallel()
+
+	argsPath := filepath.Join(t.TempDir(), "args.txt")
+	fakeCodex := writeFakeCodexSchemaCommand(t, argsPath, fakeCodexSchemaOptions{})
+
+	got, err := generateCodexAppServerSchema(fakeCodex)
+	if err != nil {
+		t.Fatalf("generateCodexAppServerSchema(%q) error = %v", fakeCodex, err)
+	}
+	if got.label != generatedSchemaSourceLabel {
+		t.Fatalf("generateCodexAppServerSchema() label = %q, want %q", got.label, generatedSchemaSourceLabel)
+	}
+	wantDetails := []string{"Source binary: codex-cli test-version"}
+	if diff := gocmp.Diff(wantDetails, got.details); diff != "" {
+		t.Fatalf("generateCodexAppServerSchema() details mismatch (-want +got):\n%s", diff)
+	}
+	wantSchema := []byte("{\"definitions\":{\"Fake\":{\"type\":\"string\"}}}\n")
+	if diff := gocmp.Diff(wantSchema, got.data); diff != "" {
+		t.Fatalf("generateCodexAppServerSchema() data mismatch (-want +got):\n%s", diff)
+	}
+
+	argsBody, err := os.ReadFile(argsPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile(%s) error = %v", argsPath, err)
+	}
+	args := strings.Split(strings.TrimSpace(string(argsBody)), "\n")
+	if len(args) != 5 {
+		t.Fatalf("fake codex args = %#v, want 5 args", args)
+	}
+	wantPrefix := []string{"app-server", "generate-json-schema", "--experimental", "--out"}
+	if diff := gocmp.Diff(wantPrefix, args[:4]); diff != "" {
+		t.Fatalf("fake codex args prefix mismatch (-want +got):\n%s", diff)
+	}
+	if args[4] == "" {
+		t.Fatalf("fake codex --out arg is empty: %#v", args)
+	}
+	if _, err := os.Stat(args[4]); !os.IsNotExist(err) {
+		t.Fatalf("temporary schema directory still exists or stat failed with non-ENOENT: %v", err)
+	}
+}
+
+func TestGenerateCodexAppServerSchemaCommandFailure(t *testing.T) {
+	t.Parallel()
+
+	fakeCodex := writeFakeCodexSchemaCommand(t, filepath.Join(t.TempDir(), "args.txt"), fakeCodexSchemaOptions{exitCode: 7})
+	_, err := generateCodexAppServerSchema(fakeCodex)
+	if err == nil {
+		t.Fatal("generateCodexAppServerSchema() error = nil, want command failure")
+	}
+	for _, want := range []string{"run " + fakeCodex + " app-server generate-json-schema --experimental", "exit status 7", "fake codex failed"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("generateCodexAppServerSchema() error = %v, want %q", err, want)
+		}
+	}
+}
+
+func TestGenerateCodexAppServerSchemaMissingOutput(t *testing.T) {
+	t.Parallel()
+
+	fakeCodex := writeFakeCodexSchemaCommand(t, filepath.Join(t.TempDir(), "args.txt"), fakeCodexSchemaOptions{skipSchema: true})
+	_, err := generateCodexAppServerSchema(fakeCodex)
+	if err == nil {
+		t.Fatal("generateCodexAppServerSchema() error = nil, want missing schema failure")
+	}
+	if !strings.Contains(err.Error(), "read generated schema "+generatedSchemaFilename) {
+		t.Fatalf("generateCodexAppServerSchema() error = %v, want missing generated schema", err)
+	}
+}
+
+func TestGenerateCodexAppServerSchemaStartFailure(t *testing.T) {
+	t.Parallel()
+
+	missing := filepath.Join(t.TempDir(), "missing-codex")
+	_, err := generateCodexAppServerSchema(missing)
+	if err == nil {
+		t.Fatal("generateCodexAppServerSchema() error = nil, want start failure")
+	}
+	for _, want := range []string{"read codex version:", "run " + missing + " --version"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Fatalf("generateCodexAppServerSchema() error = %v, want %q", err, want)
+		}
+	}
+}
+
+type fakeCodexSchemaOptions struct {
+	exitCode   int
+	skipSchema bool
+}
+
+func writeFakeCodexSchemaCommand(t *testing.T, argsPath string, opts fakeCodexSchemaOptions) string {
+	t.Helper()
+
+	fakePath := filepath.Join(t.TempDir(), "codex")
+	exitCode := opts.exitCode
+	skipSchema := "0"
+	if opts.skipSchema {
+		skipSchema = "1"
+	}
+	script := fmt.Sprintf(`#!/bin/sh
+set -eu
+if [ "${1:-}" = "--version" ]; then
+	echo codex-cli test-version
+	exit 0
+fi
+: > %[1]q
+for arg in "$@"; do
+	printf '%%s\n' "$arg" >> %[1]q
+done
+if [ %[2]d -ne 0 ]; then
+	echo fake codex failed >&2
+	exit %[2]d
+fi
+out_dir=
+while [ "$#" -gt 0 ]; do
+	if [ "$1" = "--out" ]; then
+		shift
+		out_dir="$1"
+		break
+	fi
+	shift
+done
+if [ -z "$out_dir" ]; then
+	echo missing --out >&2
+	exit 2
+fi
+if [ %[3]q != "1" ]; then
+	cat > "$out_dir/%[4]s" <<'JSON'
+{"definitions":{"Fake":{"type":"string"}}}
+JSON
+fi
+`, argsPath, exitCode, skipSchema, generatedSchemaFilename)
+	if err := os.WriteFile(fakePath, []byte(script), 0o700); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", fakePath, err)
+	}
+	return fakePath
+}
 
 func TestReadSchemaSourceLocalFile(t *testing.T) {
 	t.Parallel()

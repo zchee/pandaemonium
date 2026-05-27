@@ -16,6 +16,7 @@ concurrency:
 # job can flip continue-on-error to false.
 env:
   GOEXPERIMENT_SIMD: "loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup"
+  CODEX_CLI_VERSION: "0.135.0-alpha.2"
 
 jobs:
   test:
@@ -32,6 +33,17 @@ jobs:
       # directive yet; use stable Go only to install the gotip wrapper.
       - name: Setup gotip dev.simd
         uses: ./.github/actions/setup-gotip
+
+      - name: Setup Node.js for pinned Codex CLI
+        uses: actions/setup-node@v6
+        with:
+          node-version: "24"
+
+      - name: Install pinned Codex CLI
+        run: |
+          npm install --global "@openai/codex@${CODEX_CLI_VERSION}"
+          command -v codex
+          test "$(codex --version)" = "codex-cli ${CODEX_CLI_VERSION}"
 
       - name: Run Unit tests
         env:

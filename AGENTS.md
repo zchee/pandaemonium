@@ -424,7 +424,7 @@ Execute `omx setup` to install all components. Execute `omx doctor` to verify in
   - `notification.go`, `errors.go`, `retry.go`, `input.go`, `types.go`, `public_types.go` — protocol primitives and decoders.
   - `protocol_gen.go` — **generated**; do not edit by hand (see Generated Code below).
   - `*_test.go` — unit/SDK tests; `integration_test.go` is opt-in.
-  - `internal/cmd/generate-protocol-types/` — `go run` target that produces `protocol_gen.go` from the upstream JSON schema.
+  - `internal/cmd/generate-protocol-types/` — `go run` target that produces `protocol_gen.go` from the Codex app-server protocol JSON schema.
   - `testdata/` — golden fixtures (e.g. `python_public_types_v0.131.0-alpha.5.txt`).
   - `doc.go`, `review_notes.md` — package overview and rename/routing contracts.
 - `hack/boilerplate/boilerplate.go.txt` — Apache-2.0 header prepended to every `.go` file.
@@ -437,11 +437,11 @@ Execute `omx setup` to install all components. Execute `omx doctor` to verify in
 Run from the repository root.
 
 - `go build ./...` — compile every package; fails fast on type or vet-adjacent errors.
-- `go test -v -race -count=1 -shuffle=on ./...` — run all unit and SDK tests (excludes the opt-in real-server lane).
+- `go test -v -race -count=1 -shuffle=on ./...` — run all unit and SDK tests (excludes the opt-in real-server lane; requires `codex` on `PATH` matching `protocol_gen.go`'s `Source binary` provenance for the schema-regeneration contract test).
 - `RUN_REAL_CODEX_TESTS=1 go test -v -race -count=1 -shuffle=on ./pkg/codex/...` — run integration tests against a real `codex` binary on `PATH`.
 - `go test -v -race -count=1 -shuffle=on -run TestName ./pkg/codex` — focused test execution.
-- `go generate ./pkg/codex` — regenerate `protocol_gen.go` from the pinned upstream schema URL declared in `generate.go`.
-- `go run ./pkg/codex/internal/cmd/generate-protocol-types -schema <path-or-url> -out ./pkg/codex/protocol_gen.go -package codexappserver` — direct generator invocation (use a different `-schema` for local experimentation).
+- `go generate ./pkg/codex` — regenerate `protocol_gen.go` by running the local `codex app-server generate-json-schema --experimental --out <tmpdir>` schema exporter through the generator command in `generate.go`.
+- `go run ./pkg/codex/internal/cmd/generate-protocol-types -out ./pkg/codex/protocol_gen.go -package codex` — direct generator invocation using the local `codex` binary; add `-codex-bin <path>` to select a binary or `-schema <path-or-url>` only for controlled schema experiments.
 - `go mod tidy && go mod vendor` — refresh module graph and the committed `vendor/` tree after dependency changes.
 
 ## Coding Style & Naming Conventions
@@ -460,7 +460,7 @@ Run from the repository root.
 - Table-driven tests use `tests := map[string]struct{...}{...}` keyed by descriptive names with a `success:` / `error:` prefix (see `internal/cmd/generate-protocol-types/main_test.go`).
 - Real-server coverage lives behind `RUN_REAL_CODEX_TESTS=1` and additionally requires `codex` on `PATH`; never assume the binary is present in CI by default.
 - When changing `notification.go` or the routing surface, update or extend the round-trip, unknown-payload, and turn-stream consumer tests called out in `review_notes.md`.
-- After regenerating `protocol_gen.go`, run `go test ./pkg/codex/...` — `protocol_gen_test.go` and `public_types_test.go` enforce rename/identity parity against `testdata/`.
+- After regenerating `protocol_gen.go`, run `go test ./pkg/codex/...` with the same `codex` binary version recorded in `protocol_gen.go`'s `Source binary` header; `protocol_gen_test.go` and `public_types_test.go` enforce rename/identity parity against `testdata/`.
 
 ## Commit & Pull Request Guidelines
 
@@ -469,9 +469,12 @@ Run from the repository root.
 - One logical change per commit; regenerated artifacts (`protocol_gen.go`, `testdata/`) belong in the same commit as the generator or schema change that produced them.
 - Pull requests must fill the `## Why` section of `.github/PULL_REQUEST_TEMPLATE.md` with the motivating change and link any upstream schema version (`rust-vX.Y.Z-...`) or issue. Note opt-in test runs (e.g. `RUN_REAL_CODEX_TESTS=1`) when they were exercised.
 
-## Generated Code & Schema Pinning
+## Generated Code & Schema Provenance
 
-- The upstream schema URL is pinned in `pkg/codex/generate.go` (currently `rust-v0.131.0-alpha.9`). Bump that URL in the same commit that regenerates `protocol_gen.go`.
+- The normal protocol schema input is produced by the local `codex` binary: `codex app-server generate-json-schema --experimental --out <tmpdir>`, then the generator reads `<tmpdir>/codex_app_server_protocol.v2.schemas.json`.
+- `pkg/codex/protocol_gen.go` records the schema command and `codex --version` output in its generated header. When regenerating, report `command -v codex`, `codex --version`, and any upstream release/tag comparison that informed the change.
+- `.github/workflows/test.yaml` installs the exact npm `@openai/codex` version matching the checked-in `Source binary` header before running full tests; update that pin in the same change as `protocol_gen.go` when the source binary version changes.
+- Keep `-schema <path-or-url>` as a controlled/manual generator override only; do not reintroduce an upstream raw schema URL into the normal `go:generate` directive.
 - Do not hand-edit `protocol_gen.go`. If the generator output is wrong, fix it in `internal/cmd/generate-protocol-types/main.go` and re-run `go generate`.
 - Vendor the resulting dependency graph (`go mod vendor`) so reproducible builds keep working offline.
 
