@@ -354,10 +354,14 @@ func request[T any](ctx context.Context, c *ExecServerClient, method string, par
 	if err != nil {
 		return zero, err
 	}
-	if err := json.Unmarshal(raw, &zero); err != nil {
+	if len(raw) == 0 || string(raw) == "null" {
+		return zero, nil
+	}
+	var result T
+	if err := json.Unmarshal(raw, &result); err != nil {
 		return zero, fmt.Errorf("decode %s response: %w", method, err)
 	}
-	return zero, nil
+	return result, nil
 }
 
 func (c *ExecServerClient) loadTransport() Transport {
@@ -407,7 +411,7 @@ func (c *ExecServerClient) readMessage(ctx context.Context, t Transport) (rpcMes
 
 	var msg rpcMessage
 	if err := json.Unmarshal(line, &msg); err != nil {
-		return rpcMessage{}, &TransportClosedError{Message: fmt.Sprintf("invalid JSON-RPC line %q: %v", string(line), err)}
+		return rpcMessage{}, &AppServerError{Message: fmt.Sprintf("invalid JSON-RPC line %q: %v", string(line), err)}
 	}
 	return msg, nil
 }
@@ -430,7 +434,7 @@ func (c *ExecServerClient) readLoop(ctx context.Context, t Transport, done chan<
 		}
 
 		if msg.Method != "" {
-			c.routeNotification(Notification{Method: msg.Method, Params: cloneRaw(msg.Params)})
+			c.routeNotification(Notification{Method: msg.Method, Params: msg.Params})
 			continue
 		}
 		c.deliverResponse(msg)
@@ -471,17 +475,12 @@ func (c *ExecServerClient) routeNotification(notification Notification) {
 }
 
 func decodeExecServerProcessNotification[T ExecServerProcessNotification](notification Notification) (T, bool) {
-	var zero T
 	var got T
 	if err := json.Unmarshal(notification.Params, &got); err != nil {
+		var zero T
 		return zero, false
 	}
-	switch any(got).(type) {
-	case ExecServerProcessOutputNotification, ExecServerProcessExitedNotification, ExecServerProcessClosedNotification:
-		return got, true
-	default:
-		return zero, false
-	}
+	return got, true
 }
 
 func (c *ExecServerClient) ensureProcessQueue(processID ProcessID) *execServerProcessQueue {
@@ -515,7 +514,12 @@ type ExecServerProcessHandle struct {
 }
 
 // ID returns the process identifier.
-func (h *ExecServerProcessHandle) ID() ProcessID { return h.processID }
+func (h *ExecServerProcessHandle) ID() ProcessID {
+	if h == nil {
+		return ""
+	}
+	return h.processID
+}
 
 // Read reads retained process output.
 func (h *ExecServerProcessHandle) Read(ctx context.Context, params *ExecServerProcessReadParams) (ExecServerProcessReadResponse, error) {

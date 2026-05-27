@@ -783,13 +783,6 @@ func (c *Client) buildServerArgsForCommand(command string, listenCfg ListenConfi
 	return args, nil
 }
 
-func (c *Client) serverBinaryName() string {
-	if c.config.ServerMode == ServerModeExecServer {
-		return "exec-server"
-	}
-	return "app-server"
-}
-
 func (c *Client) initializeServer(ctx context.Context) (InitializeResponse, error) {
 	switch c.config.ServerMode {
 	case ServerModeExecServer:
