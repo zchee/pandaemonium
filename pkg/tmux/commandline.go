@@ -36,15 +36,6 @@ func StringArg(value string) Arg { return Arg{value: value} }
 // RawArg returns an explicit raw tmux syntax fragment.
 func RawArg(value string) Arg { return Arg{value: value, raw: true} }
 
-// Args converts values to normal tmux command arguments.
-func Args(values ...string) []Arg {
-	args := make([]Arg, 0, len(values))
-	for _, value := range values {
-		args = append(args, StringArg(value))
-	}
-	return args
-}
-
 // CommandLine is one rendered tmux command plus arguments.
 type CommandLine struct {
 	Command Command
