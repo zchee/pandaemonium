@@ -129,9 +129,11 @@ func (p *protocolParser) feed(line string) (protocolMessage, error) {
 	}
 
 	if p.active != nil {
-		if kind, marker, ok, err := parseTerminator(line); err != nil {
+		kind, marker, ok, err := parseTerminator(line)
+		if err != nil {
 			return protocolMessage{}, &ProtocolError{Line: line, Err: err}
-		} else if ok {
+		}
+		if ok {
 			if !sameMarkerIdentity(p.active.begin, marker) {
 				return protocolMessage{}, &ProtocolError{
 					Line: line,
@@ -151,9 +153,11 @@ func (p *protocolParser) feed(line string) (protocolMessage, error) {
 		return protocolMessage{}, nil
 	}
 
-	if marker, ok, err := parseBegin(line); err != nil {
+	marker, ok, err := parseBegin(line)
+	if err != nil {
 		return protocolMessage{}, &ProtocolError{Line: line, Err: err}
-	} else if ok {
+	}
+	if ok {
 		p.active = &responseBuilder{begin: marker}
 		return protocolMessage{}, nil
 	}

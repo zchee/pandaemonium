@@ -92,7 +92,10 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		}
 	}
 	args := cfg.launchArgs()
-	cmd := exec.CommandContext(ctx, path, args...)
+	// Do not bind the subprocess lifetime to ctx. The startup context bounds
+	// New through the initial response handshake; after New returns, Close owns
+	// shutdown so callers may cancel their startup context without killing tmux.
+	cmd := exec.CommandContext(context.WithoutCancel(ctx), path, args...)
 	if cfg.Dir != "" {
 		cmd.Dir = cfg.Dir
 	}
@@ -132,8 +135,10 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		_ = client.Close(ctx)
 		return nil, err
 	}
+	client.stderrDone = make(chan struct{})
 	go client.drainStderr(stderr, client.stderrDone)
-	go client.readLoop(ctx, client.transport, client.readDone)
+	client.readDone = make(chan struct{})
+	go client.readLoop(context.Background(), client.transport, client.readDone)
 	select {
 	case result := <-startup.ch:
 		if result.err != nil {
@@ -155,8 +160,6 @@ func newClient(cfg Options, tr transport, stdoutCloser io.Closer, cmd *exec.Cmd)
 		stdoutCloser: stdoutCloser,
 		cmd:          cmd,
 		events:       make(chan Notification, cfg.EventBuffer),
-		readDone:     make(chan struct{}),
-		stderrDone:   make(chan struct{}),
 	}
 }
 
@@ -319,6 +322,9 @@ func (c *Client) Close(ctx context.Context) error {
 
 	shutdownCtx, cancel := context.WithTimeout(ctx, c.options.ShutdownTimeout)
 	defer cancel()
+	if err := c.waitProcess(shutdownCtx); err != nil {
+		errs = append(errs, err)
+	}
 	if err := waitOptional(shutdownCtx, c.readDone, "stdout read loop"); err != nil {
 		if c.stdoutCloser != nil {
 			_ = c.stdoutCloser.Close()
@@ -326,9 +332,6 @@ func (c *Client) Close(ctx context.Context) error {
 		errs = append(errs, err)
 	}
 	if err := waitOptional(shutdownCtx, c.stderrDone, "stderr drain"); err != nil {
-		errs = append(errs, err)
-	}
-	if err := c.waitProcess(shutdownCtx); err != nil {
 		errs = append(errs, err)
 	}
 	err := errors.Join(errs...)

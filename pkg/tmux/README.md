@@ -10,7 +10,7 @@ fork/exec cost for every command, or when you need control-mode notifications
 such as pane output, format subscription changes, pause/continue events, and
 client exit events.
 
-## How to usage
+## How to use
 
 ### 1. Import the package
 

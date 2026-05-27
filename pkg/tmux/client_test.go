@@ -15,10 +15,14 @@
 package tmux
 
 import (
+	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"iter"
+	"os"
+	"path/filepath"
 	"slices"
 	"strconv"
 	"strings"
@@ -96,6 +100,39 @@ func (t *scriptedTransport) isClosed() bool {
 	return t.closed
 }
 
+type blockingTransport struct {
+	readStarted chan struct{}
+	release     chan struct{}
+	closeOnce   sync.Once
+	startOnce   sync.Once
+}
+
+func newBlockingTransport() *blockingTransport {
+	return &blockingTransport{
+		readStarted: make(chan struct{}),
+		release:     make(chan struct{}),
+	}
+}
+
+func (t *blockingTransport) ReadLine(ctx context.Context) (string, error) {
+	t.startOnce.Do(func() { close(t.readStarted) })
+	select {
+	case <-t.release:
+		return "", io.EOF
+	case <-ctx.Done():
+		return "", ctx.Err()
+	}
+}
+
+func (t *blockingTransport) WriteLine(context.Context, string) error {
+	return nil
+}
+
+func (t *blockingTransport) Close() error {
+	t.closeOnce.Do(func() { close(t.release) })
+	return nil
+}
+
 func nextNotification(events iter.Seq[Notification]) (Notification, bool) {
 	for notification := range events {
 		return notification, true
@@ -111,10 +148,39 @@ func newScriptedClient(t *testing.T, buffer int) (*Client, *scriptedTransport) {
 	}
 	tr := newScriptedTransport()
 	client := newClient(cfg, tr, nil, nil)
+	client.readDone = make(chan struct{})
+	client.stderrDone = make(chan struct{})
 	close(client.stderrDone)
-	go client.readLoop(t.Context(), tr, client.readDone)
+	go client.readLoop(context.Background(), tr, client.readDone)
 	t.Cleanup(func() { _ = client.Close(context.Background()) })
 	return client, tr
+}
+
+func writeTmuxTestHelper(t *testing.T) string {
+	t.Helper()
+	path := filepath.Join(t.TempDir(), "tmux-helper")
+	script := fmt.Sprintf("#!/bin/sh\nexec %s -test.run=TestTmuxHelperProcess -- \"$@\"\n", strconv.Quote(os.Args[0]))
+	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
+		t.Fatalf("write tmux helper script: %v", err)
+	}
+	return path
+}
+
+func TestTmuxHelperProcess(t *testing.T) {
+	if os.Getenv("PANDAEMONIUM_TMUX_HELPER") != "1" {
+		return
+	}
+	_, _ = io.WriteString(os.Stdout, "%begin 1 1 1\n%end 1 1 1\n")
+	scanner := bufio.NewScanner(os.Stdin)
+	for scanner.Scan() {
+		if scanner.Text() == string(DetachClient) {
+			break
+		}
+	}
+	if err := scanner.Err(); err != nil {
+		t.Fatal(err)
+	}
+	os.Exit(0)
 }
 
 func TestClientExecRoutesResponses(t *testing.T) {
@@ -231,6 +297,98 @@ func TestClientEventsStopsOnContextCancel(t *testing.T) {
 	cancel()
 	for notification := range client.Events(ctx) {
 		t.Fatalf("canceled Events yielded unexpected notification %#v", notification)
+	}
+}
+
+func TestClientCloseAllowsUnstartedLoopChannels(t *testing.T) {
+	t.Parallel()
+	cfg, err := applyOptions([]Option{WithInitialCommand("new-session", "-A", "-s", "test"), WithShutdownTimeout(10 * time.Millisecond)})
+	if err != nil {
+		t.Fatalf("applyOptions() error = %v", err)
+	}
+	tr := newScriptedTransport()
+	client := newClient(cfg, tr, nil, nil)
+	if client.readDone != nil || client.stderrDone != nil {
+		t.Fatalf("newClient() readDone = %v, stderrDone = %v; want nil channels before goroutine launch", client.readDone, client.stderrDone)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := client.Close(ctx); err != nil {
+		t.Fatalf("Close() with unstarted loops error = %v", err)
+	}
+	if !tr.isClosed() {
+		t.Fatal("Close() with unstarted loops did not close transport")
+	}
+}
+
+func TestReadLoopCanOutliveStartupContextCancellation(t *testing.T) {
+	t.Parallel()
+	startupCtx, cancelStartup := context.WithCancel(t.Context())
+	defer cancelStartup()
+	cfg, err := applyOptions([]Option{WithInitialCommand("new-session", "-A", "-s", "test"), WithShutdownTimeout(10 * time.Millisecond)})
+	if err != nil {
+		t.Fatalf("applyOptions() error = %v", err)
+	}
+	tr := newBlockingTransport()
+	client := newClient(cfg, tr, nil, nil)
+	client.readDone = make(chan struct{})
+	client.stderrDone = make(chan struct{})
+	close(client.stderrDone)
+	go client.readLoop(context.Background(), tr, client.readDone)
+
+	select {
+	case <-tr.readStarted:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for read loop to start")
+	}
+	cancelStartup()
+	if err := startupCtx.Err(); !errors.Is(err, context.Canceled) {
+		t.Fatalf("startup context error = %v, want context.Canceled", err)
+	}
+	select {
+	case <-client.readDone:
+		t.Fatal("read loop stopped when unrelated startup context was canceled")
+	case <-time.After(25 * time.Millisecond):
+	}
+
+	if err := tr.Close(); err != nil {
+		t.Fatalf("blocking transport close error = %v", err)
+	}
+	select {
+	case <-client.readDone:
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for read loop to stop after transport close")
+	}
+}
+
+func TestNewClientProcessOutlivesStartupContextCancellation(t *testing.T) {
+	t.Parallel()
+	helper := writeTmuxTestHelper(t)
+	startupCtx, cancelStartup := context.WithCancel(context.Background())
+	client, err := New(
+		startupCtx,
+		WithPath(helper),
+		WithEnv("PANDAEMONIUM_TMUX_HELPER=1"),
+		WithInitialCommand("new-session", "-A", "-s", "test"),
+		WithShutdownTimeout(5*time.Second),
+	)
+	if err != nil {
+		t.Fatalf("New() with helper error = %v", err)
+	}
+	cancelStartup()
+	select {
+	case <-client.readDone:
+		t.Fatal("read loop stopped when startup context was canceled after New returned")
+	case <-time.After(50 * time.Millisecond):
+	}
+	if err := client.closedError(); err != nil {
+		t.Fatalf("client closed after startup context cancellation: %v", err)
+	}
+
+	closeCtx, cancelClose := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancelClose()
+	if err := client.Close(closeCtx); err != nil {
+		t.Fatalf("Close() after startup context cancellation error = %v", err)
 	}
 }
 
