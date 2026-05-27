@@ -1,0 +1,4 @@
+interface:
+  display_name: "Update Codex Rust Schema"
+  short_description: "Port upstream Rust Codex schema to pkg/codex"
+  default_prompt: "Use $update-codex-rust-schema to update pkg/codex from an upstream rust-v0.X.Y.Z tag."
