@@ -235,9 +235,19 @@ func (c *Client) FSReadFile(ctx context.Context, params *FSReadFileParams) (FSRe
 	return Request[FSReadFileResponse](ctx, c, RequestMethodFSReadFile, paramsOrEmpty(params))
 }
 
+// FSRead calls fs/read.
+func (c *Client) FSRead(ctx context.Context, params *FSReadFileParams) (FSReadFileResponse, error) {
+	return Request[FSReadFileResponse](ctx, c, "fs/read", paramsOrEmpty(params))
+}
+
 // FSWriteFile calls fs/writeFile.
 func (c *Client) FSWriteFile(ctx context.Context, params *FSWriteFileParams) (FSWriteFileResponse, error) {
 	return Request[FSWriteFileResponse](ctx, c, RequestMethodFSWriteFile, paramsOrEmpty(params))
+}
+
+// FSWrite calls fs/write.
+func (c *Client) FSWrite(ctx context.Context, params *FSWriteFileParams) (FSWriteFileResponse, error) {
+	return Request[FSWriteFileResponse](ctx, c, "fs/write", paramsOrEmpty(params))
 }
 
 // FSCreateDirectory calls fs/createDirectory.
@@ -250,9 +260,19 @@ func (c *Client) FSGetMetadata(ctx context.Context, params *FSGetMetadataParams)
 	return Request[FSGetMetadataResponse](ctx, c, RequestMethodFSGetMetadata, paramsOrEmpty(params))
 }
 
+// FSStat calls fs/stat.
+func (c *Client) FSStat(ctx context.Context, params *FSGetMetadataParams) (FSGetMetadataResponse, error) {
+	return Request[FSGetMetadataResponse](ctx, c, "fs/stat", paramsOrEmpty(params))
+}
+
 // FSReadDirectory calls fs/readDirectory.
 func (c *Client) FSReadDirectory(ctx context.Context, params *FSReadDirectoryParams) (FSReadDirectoryResponse, error) {
 	return Request[FSReadDirectoryResponse](ctx, c, RequestMethodFSReadDirectory, paramsOrEmpty(params))
+}
+
+// FSList calls fs/list.
+func (c *Client) FSList(ctx context.Context, params *FSReadDirectoryParams) (FSReadDirectoryResponse, error) {
+	return Request[FSReadDirectoryResponse](ctx, c, "fs/list", paramsOrEmpty(params))
 }
 
 // FSRemove calls fs/remove.
@@ -442,6 +462,16 @@ func (c *Client) CommandExecWrite(ctx context.Context, params *CommandExecWriteP
 // CommandExecTerminate calls command/exec/terminate.
 func (c *Client) CommandExecTerminate(ctx context.Context, params *CommandExecTerminateParams) (CommandExecTerminateResponse, error) {
 	return Request[CommandExecTerminateResponse](ctx, c, RequestMethodCommandExecTerminate, paramsOrEmpty(params))
+}
+
+// HTTPRequest calls http/request.
+func (c *Client) HTTPRequest(ctx context.Context, params any) (jsontext.Value, error) {
+	return c.RequestRaw(ctx, "http/request", paramsOrEmpty(params))
+}
+
+// HTTPRequestBodyDelta calls http/request/bodyDelta.
+func (c *Client) HTTPRequestBodyDelta(ctx context.Context, params any) (jsontext.Value, error) {
+	return c.RequestRaw(ctx, "http/request/bodyDelta", paramsOrEmpty(params))
 }
 
 // CommandExecResize calls command/exec/resize.

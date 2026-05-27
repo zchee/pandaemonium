@@ -123,8 +123,13 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		}},
 		{name: "app/list", call: func() error { _, err := client.AppList(ctx, &AppsListParams{}); return err }},
 		{name: "fs/readFile", call: func() error { _, err := client.FSReadFile(ctx, &FSReadFileParams{Path: "/tmp/file"}); return err }},
+		{name: "fs/read", call: func() error { _, err := client.FSRead(ctx, &FSReadFileParams{Path: "/tmp/file"}); return err }},
 		{name: "fs/writeFile", call: func() error {
 			_, err := client.FSWriteFile(ctx, &FSWriteFileParams{Path: "/tmp/file", DataBase64: "b2s="})
+			return err
+		}},
+		{name: "fs/write", call: func() error {
+			_, err := client.FSWrite(ctx, &FSWriteFileParams{Path: "/tmp/file", DataBase64: "b2s="})
 			return err
 		}},
 		{name: "fs/createDirectory", call: func() error {
@@ -132,7 +137,9 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			return err
 		}},
 		{name: "fs/getMetadata", call: func() error { _, err := client.FSGetMetadata(ctx, &FSGetMetadataParams{Path: "/tmp/file"}); return err }},
+		{name: "fs/stat", call: func() error { _, err := client.FSStat(ctx, &FSGetMetadataParams{Path: "/tmp/file"}); return err }},
 		{name: "fs/readDirectory", call: func() error { _, err := client.FSReadDirectory(ctx, &FSReadDirectoryParams{Path: "/tmp"}); return err }},
+		{name: "fs/list", call: func() error { _, err := client.FSList(ctx, &FSReadDirectoryParams{Path: "/tmp"}); return err }},
 		{name: "fs/remove", call: func() error { _, err := client.FSRemove(ctx, &FSRemoveParams{Path: "/tmp/file"}); return err }},
 		{name: "fs/copy", call: func() error {
 			_, err := client.FSCopy(ctx, &FSCopyParams{SourcePath: "/tmp/a", DestinationPath: "/tmp/b"})
@@ -230,6 +237,14 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		}},
 		{name: "command/exec/resize", call: func() error {
 			_, err := client.CommandExecResize(ctx, &CommandExecResizeParams{ProcessID: "process"})
+			return err
+		}},
+		{name: "http/request", call: func() error {
+			_, err := client.HTTPRequest(ctx, Object{"url": "https://example.com", "method": "GET"})
+			return err
+		}},
+		{name: "http/request/bodyDelta", call: func() error {
+			_, err := client.HTTPRequestBodyDelta(ctx, Object{"url": "https://example.com", "method": "GET"})
 			return err
 		}},
 		{name: "config/read", call: func() error { _, err := client.ConfigRead(ctx, &ConfigReadParams{}); return err }},
