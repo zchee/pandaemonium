@@ -44,20 +44,20 @@ const (
 // ByteChunk serializes bytes as a base64 string.
 type ByteChunk []byte
 
-// MarshalJSON implements [json.Marshaler].
-func (b ByteChunk) MarshalJSON() ([]byte, error) {
-	encoded := base64.StdEncoding.EncodeToString(b)
-	out := make([]byte, 0, len(encoded)+2)
-	out = append(out, '"')
-	out = append(out, encoded...)
-	out = append(out, '"')
-	return out, nil
+var (
+	_ json.MarshalerTo     = ByteChunk{}
+	_ json.UnmarshalerFrom = (*ByteChunk)(nil)
+)
+
+// MarshalJSONTo implements [json.MarshalerTo].
+func (b ByteChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
+	return json.MarshalEncode(enc, base64.StdEncoding.EncodeToString(b))
 }
 
-// UnmarshalJSON implements [json.Unmarshaler].
-func (b *ByteChunk) UnmarshalJSON(data []byte) error {
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom].
+func (b *ByteChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var encoded string
-	if err := json.Unmarshal(data, &encoded); err != nil {
+	if err := json.UnmarshalDecode(dec, &encoded); err != nil {
 		return err
 	}
 	if encoded == "" {

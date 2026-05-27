@@ -28,21 +28,57 @@ import (
 func TestExecServerByteChunkRoundTrip(t *testing.T) {
 	t.Parallel()
 
-	original := ByteChunk([]byte("hello, world"))
-	raw, err := json.Marshal(original)
-	if err != nil {
-		t.Fatalf("Marshal() error = %v", err)
-	}
-	if got, want := string(raw), `"aGVsbG8sIHdvcmxk"`; got != want {
-		t.Fatalf("Marshal() = %s, want %s", got, want)
+	tests := map[string]struct {
+		input       ByteChunk
+		wantJSON    string
+		wantDecoded []byte
+	}{
+		"success: ascii bytes": {
+			input:       ByteChunk([]byte("hello, world")),
+			wantJSON:    `"aGVsbG8sIHdvcmxk"`,
+			wantDecoded: []byte("hello, world"),
+		},
+		"success: binary bytes": {
+			input:       ByteChunk([]byte{0x00, 0x01, 0x02, 0xff}),
+			wantJSON:    `"AAEC/w=="`,
+			wantDecoded: []byte{0x00, 0x01, 0x02, 0xff},
+		},
+		"success: empty bytes decode to nil": {
+			input:       nil,
+			wantJSON:    `""`,
+			wantDecoded: nil,
+		},
 	}
 
-	var decoded ByteChunk
-	if err := json.Unmarshal(raw, &decoded); err != nil {
-		t.Fatalf("Unmarshal() error = %v", err)
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			raw, err := json.Marshal(tt.input)
+			if err != nil {
+				t.Fatalf("Marshal() error = %v", err)
+			}
+			if got := string(raw); got != tt.wantJSON {
+				t.Fatalf("Marshal() = %s, want %s", got, tt.wantJSON)
+			}
+
+			var decoded ByteChunk
+			if err := json.Unmarshal(raw, &decoded); err != nil {
+				t.Fatalf("Unmarshal() error = %v", err)
+			}
+			if diff := gocmp.Diff(tt.wantDecoded, []byte(decoded)); diff != "" {
+				t.Fatalf("round-trip mismatch (-want +got):\n%s", diff)
+			}
+		})
 	}
-	if diff := gocmp.Diff([]byte(original), []byte(decoded)); diff != "" {
-		t.Fatalf("round-trip mismatch (-want +got):\n%s", diff)
+}
+
+func TestExecServerByteChunkRejectsInvalidBase64(t *testing.T) {
+	t.Parallel()
+
+	var decoded ByteChunk
+	if err := json.Unmarshal([]byte(`"not-base64!"`), &decoded); err == nil {
+		t.Fatal("Unmarshal() error = nil, want base64 decode error")
 	}
 }
 
