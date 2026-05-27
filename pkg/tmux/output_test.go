@@ -93,3 +93,13 @@ func TestOutputNotificationText(t *testing.T) {
 		t.Fatalf("Text() invalid UTF-8 error = %v, want valid UTF-8", err)
 	}
 }
+
+func TestOutputNotificationTextLossyKeepsPartialDecode(t *testing.T) {
+	t.Parallel()
+	// Valid prefix followed by an incomplete escape; lossy decoder must return
+	// the bytes decoded before the error rather than collapsing to "".
+	got := (OutputNotification{Value: `ok\01`}).TextLossy()
+	if got != "ok" {
+		t.Fatalf("TextLossy() = %q, want %q", got, "ok")
+	}
+}

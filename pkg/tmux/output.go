@@ -22,6 +22,18 @@ import (
 
 // DecodeOutputValue decodes tmux `%output` octal escapes to terminal bytes.
 func DecodeOutputValue(value string) ([]byte, error) {
+	out, err := decodeOutputValuePartial(value)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// decodeOutputValuePartial decodes value and returns the successfully decoded
+// bytes alongside the first decode error. The bytes slice always reflects
+// everything decoded before the error site so callers can build best-effort
+// lossy renderings without re-scanning the input.
+func decodeOutputValuePartial(value string) ([]byte, error) {
 	out := make([]byte, 0, len(value))
 	for i := 0; i < len(value); i++ {
 		b := value[i]
@@ -30,18 +42,18 @@ func DecodeOutputValue(value string) ([]byte, error) {
 			continue
 		}
 		if i+3 >= len(value) {
-			return nil, fmt.Errorf("tmux: incomplete octal escape at byte %d", i)
+			return out, fmt.Errorf("tmux: incomplete octal escape at byte %d", i)
 		}
 		v := 0
 		for j := 1; j <= 3; j++ {
 			digit := value[i+j]
 			if digit < '0' || digit > '7' {
-				return nil, fmt.Errorf("tmux: invalid octal digit %q at byte %d", digit, i+j)
+				return out, fmt.Errorf("tmux: invalid octal digit %q at byte %d", digit, i+j)
 			}
 			v = v*8 + int(digit-'0')
 		}
 		if v > 0xff {
-			return nil, fmt.Errorf("tmux: octal escape at byte %d is out of range", i)
+			return out, fmt.Errorf("tmux: octal escape at byte %d is out of range", i)
 		}
 		out = append(out, byte(v))
 		i += 3
@@ -61,9 +73,6 @@ func decodeOutputText(value string) (string, error) {
 }
 
 func decodeOutputTextLossy(value string) string {
-	bytes, err := DecodeOutputValue(value)
-	if err != nil {
-		return ""
-	}
+	bytes, _ := decodeOutputValuePartial(value)
 	return strings.ToValidUTF8(string(bytes), "\uFFFD")
 }
