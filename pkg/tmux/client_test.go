@@ -151,7 +151,6 @@ func newBlockingWriteTransport() *blockingWriteTransport {
 }
 
 func (t *blockingWriteTransport) ReadLine(context.Context) (string, error) {
-	<-t.writeRelease
 	return "", io.EOF
 }
 
@@ -188,7 +187,6 @@ func newBlockingCloseTransport() *blockingCloseTransport {
 }
 
 func (t *blockingCloseTransport) ReadLine(context.Context) (string, error) {
-	<-t.closeRelease
 	return "", io.EOF
 }
 
@@ -204,12 +202,6 @@ func (t *blockingCloseTransport) Close() error {
 
 func (t *blockingCloseTransport) releaseClose() {
 	t.releaseOnce.Do(func() { close(t.closeRelease) })
-}
-
-func closedChan() chan struct{} {
-	ch := make(chan struct{})
-	close(ch)
-	return ch
 }
 
 func nextNotification(events iter.Seq[Notification]) (Notification, bool) {
@@ -528,8 +520,6 @@ func TestClientCloseUnblocksExecRawStuckInTransportWrite(t *testing.T) {
 	}
 	tr := newBlockingWriteTransport()
 	client := newClient(nil, cfg, tr, nil)
-	client.readDone = closedChan()
-	client.stderrDone = closedChan()
 
 	execDone := make(chan error, 1)
 	go func() {
@@ -579,8 +569,6 @@ func TestClientConcurrentCloseWaitsForCleanupToFinish(t *testing.T) {
 	}
 	tr := newBlockingCloseTransport()
 	client := newClient(nil, cfg, tr, nil)
-	client.readDone = closedChan()
-	client.stderrDone = closedChan()
 
 	firstDone := make(chan error, 1)
 	go func() { firstDone <- client.Close(context.Background()) }()
