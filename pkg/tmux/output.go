@@ -57,7 +57,7 @@ func decodeOutputText(value string) (string, error) {
 	if !utf8.Valid(bytes) {
 		return "", fmt.Errorf("tmux: decoded output is not valid UTF-8")
 	}
-	return strings.ToValidUTF8(string(bytes), "\uFFFD"), nil
+	return string(bytes), nil
 }
 
 func decodeOutputTextLossy(value string) string {
