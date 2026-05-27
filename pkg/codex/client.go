@@ -120,17 +120,13 @@ type Client struct {
 	transport    atomic.Pointer[Transport]
 	cmdDone      chan error
 
-	writeMu     sync.Mutex
 	closeMu     sync.Mutex
-	responseMu  sync.Mutex
-	responses   map[string]chan responseWait
+	rpcState    *jsonRPCClientState
 	turnRouter  *turnNotificationRouter
 	stderrMu    sync.Mutex
 	stderrLines []string
 	stderrDone  chan struct{}
 	readDone    chan struct{}
-
-	requestSeq atomic.Uint64
 }
 
 // NewClient creates a client. Call Start or use higher-level NewCodex to initialize it.
@@ -157,7 +153,7 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 	return &Client{
 		config:          cfg,
 		approvalHandler: approvalHandler,
-		responses:       map[string]chan responseWait{},
+		rpcState:        newJSONRPCClientState(),
 		turnRouter:      newTurnNotificationRouter(),
 		stderrDone:      make(chan struct{}),
 		readDone:        make(chan struct{}),
@@ -259,7 +255,7 @@ func (c *Client) Start(ctx context.Context) error {
 	c.stderrDone = make(chan struct{})
 	c.readDone = make(chan struct{})
 	c.turnRouter = newTurnNotificationRouter()
-	c.responses = map[string]chan responseWait{}
+	c.rpcState = newJSONRPCClientState()
 
 	var stderr io.ReadCloser
 	listenCfg := c.effectiveListenConfig()
@@ -348,7 +344,7 @@ func (c *Client) Close() error {
 	c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
-	c.writeMu.Lock()
+	c.rpcState.lockWrite()
 	transport := c.loadTransport()
 	c.storeTransport(nil)
 	c.stdin = nil
@@ -357,7 +353,7 @@ func (c *Client) Close() error {
 	if transport != nil {
 		_ = transport.Close()
 	}
-	c.writeMu.Unlock()
+	c.rpcState.unlockWrite()
 
 	if stdoutCloser != nil {
 		_ = stdoutCloser.Close()
@@ -467,31 +463,7 @@ func decodeRequestResult[T any](method string, raw jsontext.Value) (T, error) {
 
 // RequestRaw sends a request and returns the raw result JSON.
 func (c *Client) RequestRaw(ctx context.Context, method string, params any) (jsontext.Value, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	id := c.nextRequestID()
-	response := make(chan responseWait, 1)
-	c.registerResponse(id, response)
-	if err := c.writeMessage(ctx, Object{"id": id, "method": method, "params": paramsOrEmpty(params)}); err != nil {
-		c.unregisterResponse(id)
-		return nil, err
-	}
-
-	select {
-	case <-ctx.Done():
-		c.unregisterResponse(id)
-		return nil, ctx.Err()
-	case got := <-response:
-		if got.err != nil {
-			return nil, got.err
-		}
-		if got.msg.Error != nil {
-			return nil, mapJSONRPCError(got.msg.Error.Code, got.msg.Error.Message, got.msg.Error.Data)
-		}
-		return got.msg.Result, nil
-	}
+	return c.rpcState.requestRaw(ctx, method, params, c.writeMessage)
 }
 
 // RequestWithRetryOnOverload sends a request and retries retryable overload responses.
@@ -517,11 +489,7 @@ func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method st
 
 // Notify sends a JSON-RPC notification to the app-server.
 func (c *Client) Notify(ctx context.Context, method string, params any) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-
-	return c.writeMessage(ctx, Object{"method": method, "params": params})
+	return c.rpcState.notify(ctx, method, params, c.writeMessage)
 }
 
 // NextNotification returns the next server notification exactly as received.
@@ -846,10 +814,6 @@ func (c *Client) effectiveEnv() map[string]string {
 	return env
 }
 
-func (c *Client) nextRequestID() string {
-	return fmt.Sprintf("go-sdk-%d", c.requestSeq.Add(1))
-}
-
 func (c *Client) loadTransport() Transport {
 	p := c.transport.Load()
 	if p == nil {
@@ -867,8 +831,8 @@ func (c *Client) storeTransport(t Transport) {
 }
 
 func (c *Client) writeMessage(ctx context.Context, payload any) error {
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
+	c.rpcState.lockWrite()
+	defer c.rpcState.unlockWrite()
 
 	line, err := json.Marshal(payload)
 	if err != nil {
@@ -943,35 +907,19 @@ func (c *Client) readLoop(ctx context.Context, t Transport, done chan<- struct{}
 }
 
 func (c *Client) registerResponse(id string, response chan responseWait) {
-	c.responseMu.Lock()
-	c.responses[id] = response
-	c.responseMu.Unlock()
+	c.rpcState.registerResponse(id, response)
 }
 
 func (c *Client) unregisterResponse(id string) {
-	c.responseMu.Lock()
-	delete(c.responses, id)
-	c.responseMu.Unlock()
+	c.rpcState.unregisterResponse(id)
 }
 
 func (c *Client) deliverResponse(msg rpcMessage) {
-	c.responseMu.Lock()
-	response := c.responses[msg.ID]
-	delete(c.responses, msg.ID)
-	c.responseMu.Unlock()
-	if response != nil {
-		response <- responseWait{msg: msg}
-	}
+	c.rpcState.deliverResponse(msg)
 }
 
 func (c *Client) failPending(err error) {
-	c.responseMu.Lock()
-	responses := c.responses
-	c.responses = map[string]chan responseWait{}
-	c.responseMu.Unlock()
-	for _, response := range responses {
-		response <- responseWait{err: err}
-	}
+	c.rpcState.failPending(err)
 }
 
 func (c *Client) drainStderr(stderr io.Reader, done chan<- struct{}) {

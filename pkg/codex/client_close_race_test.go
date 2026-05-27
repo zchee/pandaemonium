@@ -44,7 +44,7 @@ func TestCloseDuringConcurrentWrite(t *testing.T) {
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
 	client.stdoutCloser = stdoutR
-	client.responses = map[string]chan responseWait{}
+	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
 	client.stderrDone = make(chan struct{})
@@ -142,7 +142,7 @@ func TestCloseDuringConcurrentRead(t *testing.T) {
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
 	client.stdoutCloser = stdoutR
-	client.responses = map[string]chan responseWait{}
+	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
 	client.stderrDone = make(chan struct{})

@@ -853,9 +853,9 @@ func TestReleaseTurnConsumerDoesNotFailPendingRequests(t *testing.T) {
 		t.Fatalf("releaseTurnConsumer delivered responseWait %#v, want pending request left untouched", got)
 	default:
 	}
-	client.responseMu.Lock()
-	_, stillRegistered := client.responses["request-1"]
-	client.responseMu.Unlock()
+	client.rpcState.responseMu.Lock()
+	_, stillRegistered := client.rpcState.responses["request-1"]
+	client.rpcState.responseMu.Unlock()
 	if !stillRegistered {
 		t.Fatalf("pending response was unregistered; releaseTurnConsumer must not fail unrelated requests")
 	}
@@ -959,9 +959,9 @@ func waitForActiveTurnConsumer(t *testing.T, client *Client, turnID string) {
 
 func assertPendingResponses(t *testing.T, client *Client, want int) {
 	t.Helper()
-	client.responseMu.Lock()
-	got := len(client.responses)
-	client.responseMu.Unlock()
+	client.rpcState.responseMu.Lock()
+	got := len(client.rpcState.responses)
+	client.rpcState.responseMu.Unlock()
 	if got != want {
 		t.Fatalf("pending responses = %d, want %d", got, want)
 	}

@@ -67,7 +67,7 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
-	client.responses = map[string]chan responseWait{}
+	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
 	go client.readLoop(ctx, client.loadTransport(), client.readDone)
@@ -89,7 +89,7 @@ func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.Canc
 	}
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(&websocketTransport{conn: conn})
-	client.responses = map[string]chan responseWait{}
+	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})
 	go client.readLoop(ctx, client.loadTransport(), client.readDone)
