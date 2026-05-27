@@ -77,11 +77,12 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
-	cfg, err := applyOptions(opts)
-	if err != nil {
+	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
-	if err := ctx.Err(); err != nil {
+
+	cfg, err := applyOptions(opts)
+	if err != nil {
 		return nil, err
 	}
 	path := cfg.Path
@@ -195,6 +196,9 @@ func (c *Client) ExecRaw(ctx context.Context, line string) (Response, error) {
 	}
 	if ctx == nil {
 		ctx = context.Background()
+	}
+	if err := ctx.Err(); err != nil {
+		return Response{}, err
 	}
 
 	c.writeMu.Lock()

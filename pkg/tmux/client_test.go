@@ -230,7 +230,11 @@ func newScriptedClient(t *testing.T, buffer int) (*Client, *scriptedTransport) {
 func writeTmuxTestHelper(t *testing.T) string {
 	t.Helper()
 	path := filepath.Join(t.TempDir(), "tmux-helper")
-	script := fmt.Sprintf("#!/bin/sh\nexec %s -test.run=TestTmuxHelperProcess -- \"$@\"\n", strconv.Quote(os.Args[0]))
+	execPath, err := os.Executable()
+	if err != nil {
+		t.Fatalf("get executable path: %v", err)
+	}
+	script := fmt.Sprintf("#!/bin/sh\nexec %s -test.run=TestTmuxHelperProcess -- \"$@\"\n", strconv.Quote(execPath))
 	if err := os.WriteFile(path, []byte(script), 0o755); err != nil {
 		t.Fatalf("write tmux helper script: %v", err)
 	}
