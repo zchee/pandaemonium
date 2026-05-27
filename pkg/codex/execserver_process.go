@@ -269,15 +269,21 @@ func (c *ExecServerClient) Close() error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
 
+	closedErr := &TransportClosedError{Message: execServerTransportClosedMessage}
+	c.failPending(closedErr)
+	c.closeAllProcessQueues(closedErr)
+
+	c.rpcState.lockWrite()
 	t := c.loadTransport()
+	c.storeTransport(nil)
+	var closeErr error
 	if t != nil {
-		if err := t.Close(); err != nil {
-			return err
-		}
-		c.storeTransport(nil)
+		closeErr = t.Close()
 	}
+	c.rpcState.unlockWrite()
+
 	<-c.readDone
-	return nil
+	return closeErr
 }
 
 // Initialize sends initialize and then initialized.
