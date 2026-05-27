@@ -162,10 +162,22 @@ func runTransportHelperStdio() {
 		switch req.Method {
 		case RequestMethodInitialize:
 			enc := jsontext.NewEncoder(w)
-			json.MarshalEncode(enc, InitializeResponse{
-				UserAgent:  "codex-bench/1.0",
-				ServerInfo: &ServerInfo{Name: "codex-bench", Version: "1.0"},
-			})
+			if os.Getenv("CODEX_EXEC_SERVER_HANDSHAKE") == "1" {
+				json.MarshalEncode(enc, rpcMessage{
+					ID: req.ID,
+					Result: mustJSONValueForHelper(ExecServerInitializeResponse{
+						SessionID: "session-1",
+					}),
+				})
+			} else {
+				json.MarshalEncode(enc, rpcMessage{
+					ID: req.ID,
+					Result: mustJSONValueForHelper(InitializeResponse{
+						UserAgent:  "codex-bench/1.0",
+						ServerInfo: &ServerInfo{Name: "codex-bench", Version: "1.0"},
+					}),
+				})
+			}
 			_ = w.Flush()
 		case "initialized":
 		case "helper/echo":

@@ -720,10 +720,12 @@ func (c *Client) launchArgs() ([]string, error) {
 	if len(c.config.LaunchArgsOverride) > 0 {
 		return slices.Clone(c.config.LaunchArgsOverride), nil
 	}
-	return c.buildAppServerArgs(c.effectiveListenConfig())
+	return c.buildServerArgs(c.effectiveListenConfig())
 }
 
-func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
+func (c *Client) buildServerArgs(listenCfg ListenConfig) ([]string, error) {
+	serverBinary := c.serverBinaryName()
+
 	listenURL := strings.TrimSpace(listenCfg.URL)
 	if listenURL == "" {
 		listenURL = defaultListenURL
@@ -760,15 +762,38 @@ func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
 	for _, override := range c.config.ConfigOverrides {
 		args = append(args, "--config", override)
 	}
-	if listenURL == defaultListenURL {
-		args = append(args, "app-server", "--listen", defaultListenURL)
-		return args, nil
-	}
-	args = append(args, "app-server", "--listen", listenURL)
+	args = append(args, serverBinary, "--listen", listenURL)
 	if kind == listenTransportWebSocket {
 		args = append(args, wsLaunchArgs(listenCfg.WebSocket)...)
 	}
 	return args, nil
+}
+
+func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
+	return c.buildServerArgs(listenCfg)
+}
+
+func (c *Client) serverBinaryName() string {
+	if c.config.ServerMode == ServerModeExecServer {
+		return "exec-server"
+	}
+	return "app-server"
+}
+
+func (c *Client) initializeServer(ctx context.Context) error {
+	switch c.config.ServerMode {
+	case ServerModeExecServer:
+		_, err := Request[ExecServerInitializeResponse](ctx, c, ExecServerInitializeMethod, &ExecServerInitializeParams{
+			ClientName: c.config.ClientName,
+		})
+		if err != nil {
+			return err
+		}
+		return c.Notify(ctx, NotificationMethodInitialized, nil)
+	default:
+		_, err := c.Initialize(ctx)
+		return err
+	}
 }
 
 func validateListenConfig(listenCfg ListenConfig, kind listenTransportKind, listenURL string) error {

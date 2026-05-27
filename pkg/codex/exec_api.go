@@ -49,14 +49,13 @@ func NewExecServer(ctx context.Context, config *Config) (*ExecServer, error) {
 		return nil, err
 	}
 
-	metadata, err := client.Initialize(ctx)
-	if err != nil {
+	if err := client.initializeServer(ctx); err != nil {
 		_ = client.Close()
 		return nil, err
 	}
 	return &ExecServer{
 		client:   client,
-		metadata: metadata,
+		metadata: InitializeResponse{},
 	}, nil
 }
 

@@ -34,6 +34,34 @@ func TestClientBuildAppServerArgsUsesStdioByDefault(t *testing.T) {
 	}
 }
 
+func TestClientBuildServerArgsUsesExecServerForExecMode(t *testing.T) {
+	client := &Client{config: Config{
+		CodexBin:   os.Args[0],
+		ServerMode: ServerModeExecServer,
+	}}
+	args, err := client.buildServerArgs(ListenConfig{})
+	if err != nil {
+		t.Fatalf("buildServerArgs() error = %v", err)
+	}
+	if got, want := strings.Join(args, " "), os.Args[0]+" exec-server --listen stdio://"; !strings.Contains(got, want) {
+		t.Fatalf("buildServerArgs() = %q, want contain %q", got, want)
+	}
+}
+
+func TestClientBuildServerArgsAppModeStillUsesAppServer(t *testing.T) {
+	client := &Client{config: Config{
+		CodexBin:   os.Args[0],
+		ServerMode: ServerModeAppServer,
+	}}
+	args, err := client.buildServerArgs(ListenConfig{})
+	if err != nil {
+		t.Fatalf("buildServerArgs() error = %v", err)
+	}
+	if got, want := strings.Join(args, " "), os.Args[0]+" app-server --listen stdio://"; !strings.Contains(got, want) {
+		t.Fatalf("buildServerArgs() = %q, want contain %q", got, want)
+	}
+}
+
 func TestClientLaunchArgsOverrideTakesPriority(t *testing.T) {
 	client := &Client{
 		config: Config{
