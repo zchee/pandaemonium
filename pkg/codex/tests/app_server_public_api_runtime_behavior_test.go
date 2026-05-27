@@ -97,6 +97,39 @@ func TestPublicAPIRuntimeBehaviorPortConcurrentPublicCallsReuseInitializedClient
 	}
 }
 
+func TestPublicAPIRuntimeBehaviorPortNewExecServerInitializesAndExecs(t *testing.T) {
+	config := helperCodexConfig(t, "command_exec")
+	config.ServerMode = codex.ServerModeAppServer
+
+	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
+	t.Cleanup(cancel)
+	server, err := codex.NewExecServer(ctx, config)
+	if err != nil {
+		t.Fatalf("NewExecServer() error = %v", err)
+	}
+	t.Cleanup(func() {
+		if err := server.Close(); err != nil {
+			t.Fatalf("ExecServer.Close() error = %v", err)
+		}
+	})
+
+	if got := server.Metadata().ServerInfo; got == nil || got.Name != "codex-test" || got.Version != "1.2.3" {
+		t.Fatalf("ExecServer.Metadata().ServerInfo = %#v, want helper metadata", got)
+	}
+	result, err := server.CommandExec(ctx, &codex.CommandExecParams{Command: []string{"printf", "hello"}})
+	if err != nil {
+		t.Fatalf("ExecServer.CommandExec() error = %v", err)
+	}
+	want := codex.CommandExecResponse{
+		ExitCode: 0,
+		Stdout:   "printf\x00hello",
+		Stderr:   "",
+	}
+	if diff := cmp.Diff(want, result); diff != "" {
+		t.Fatalf("ExecServer.CommandExec() mismatch (-want +got):\n%s", diff)
+	}
+}
+
 func TestPublicAPIRuntimeBehaviorPortApprovalModesSerializeToStartParams(t *testing.T) {
 	t.Parallel()
 

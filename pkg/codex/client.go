@@ -42,6 +42,8 @@ const (
 	defaultListenURL = "stdio://"
 )
 
+var errUnsupportedServerMode = errors.New("unsupported codex server mode")
+
 // ApprovalHandler answers app-server requests initiated during JSON-RPC processing.
 type ApprovalHandler func(method string, params jsontext.Value) (Object, error)
 
@@ -230,7 +232,7 @@ func HomeDir() string {
 	return filepath.Join(home, ".codex")
 }
 
-// Start launches the app-server process if it is not already running.
+// Start launches the configured server process if it is not already running.
 func (c *Client) Start(ctx context.Context) error {
 	c.closeMu.Lock()
 	defer c.closeMu.Unlock()
@@ -243,6 +245,7 @@ func (c *Client) Start(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	serverName := c.serverProcessNameForErrors()
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	if c.config.Cwd != "" {
 		cmd.Dir = c.config.Cwd
@@ -274,10 +277,10 @@ func (c *Client) Start(ctx context.Context) error {
 	case listenTransportWebSocket, listenTransportUnixWebSocket:
 		stderr, err = cmd.StderrPipe()
 		if err != nil {
-			return fmt.Errorf("create app-server stderr: %w", err)
+			return fmt.Errorf("create %s stderr: %w", serverName, err)
 		}
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("start app-server: %w", err)
+			return fmt.Errorf("start %s: %w", serverName, err)
 		}
 		cmdDone := waitForCommand(cmd)
 		go c.drainStderr(stderr, c.stderrDone)
@@ -288,7 +291,7 @@ func (c *Client) Start(ctx context.Context) error {
 				_ = cmd.Process.Kill()
 			}
 			<-cmdDone
-			return fmt.Errorf("dial app-server websocket: %w", err)
+			return fmt.Errorf("dial %s websocket: %w", serverName, err)
 		}
 		c.cmd = cmd
 		c.cmdDone = cmdDone
@@ -299,18 +302,18 @@ func (c *Client) Start(ctx context.Context) error {
 		var stdout io.ReadCloser
 		stdin, err = cmd.StdinPipe()
 		if err != nil {
-			return fmt.Errorf("create app-server stdin: %w", err)
+			return fmt.Errorf("create %s stdin: %w", serverName, err)
 		}
 		stdout, err = cmd.StdoutPipe()
 		if err != nil {
-			return fmt.Errorf("create app-server stdout: %w", err)
+			return fmt.Errorf("create %s stdout: %w", serverName, err)
 		}
 		stderr, err = cmd.StderrPipe()
 		if err != nil {
-			return fmt.Errorf("create app-server stderr: %w", err)
+			return fmt.Errorf("create %s stderr: %w", serverName, err)
 		}
 		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("start app-server: %w", err)
+			return fmt.Errorf("start %s: %w", serverName, err)
 		}
 		c.cmdDone = waitForCommand(cmd)
 		c.cmd = cmd
@@ -688,12 +691,51 @@ func (c *Client) launchArgs() ([]string, error) {
 	if len(c.config.LaunchArgsOverride) > 0 {
 		return slices.Clone(c.config.LaunchArgsOverride), nil
 	}
-	return c.buildServerArgs(c.effectiveListenConfig())
+	return c.buildServerArgs(c.serverMode(), c.effectiveListenConfig())
 }
 
-func (c *Client) buildServerArgs(listenCfg ListenConfig) ([]string, error) {
-	serverBinary := c.serverBinaryName()
+func (c *Client) buildServerArgs(mode ServerMode, listenCfg ListenConfig) ([]string, error) {
+	command, err := serverModeCommand(mode)
+	if err != nil {
+		return nil, err
+	}
+	return c.buildServerArgsForCommand(command, listenCfg)
+}
 
+func (c *Client) serverMode() ServerMode {
+	if c.config.ServerMode == "" {
+		return ServerModeAppServer
+	}
+	return c.config.ServerMode
+}
+
+func (c *Client) serverProcessNameForErrors() string {
+	command, err := serverModeCommand(c.serverMode())
+	if err != nil {
+		return string(c.serverMode())
+	}
+	return command
+}
+
+func serverModeCommand(mode ServerMode) (string, error) {
+	switch mode {
+	case "", ServerModeAppServer:
+		return string(ServerModeAppServer), nil
+	case ServerModeExecServer:
+		return string(ServerModeExecServer), nil
+	default:
+		return "", fmt.Errorf("%w %q", errUnsupportedServerMode, mode)
+	}
+}
+
+func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
+	return c.buildServerArgsForCommand(string(ServerModeAppServer), listenCfg)
+}
+
+func (c *Client) buildServerArgsForCommand(command string, listenCfg ListenConfig) ([]string, error) {
+	if command == "" {
+		return nil, errors.New("codex server command is empty")
+	}
 	listenURL := strings.TrimSpace(listenCfg.URL)
 	if listenURL == "" {
 		listenURL = defaultListenURL
@@ -730,15 +772,15 @@ func (c *Client) buildServerArgs(listenCfg ListenConfig) ([]string, error) {
 	for _, override := range c.config.ConfigOverrides {
 		args = append(args, "--config", override)
 	}
-	args = append(args, serverBinary, "--listen", listenURL)
+	if listenURL == defaultListenURL {
+		args = append(args, command, "--listen", defaultListenURL)
+		return args, nil
+	}
+	args = append(args, command, "--listen", listenURL)
 	if kind == listenTransportWebSocket {
 		args = append(args, wsLaunchArgs(listenCfg.WebSocket)...)
 	}
 	return args, nil
-}
-
-func (c *Client) buildAppServerArgs(listenCfg ListenConfig) ([]string, error) {
-	return c.buildServerArgs(listenCfg)
 }
 
 func (c *Client) serverBinaryName() string {
@@ -748,19 +790,39 @@ func (c *Client) serverBinaryName() string {
 	return "app-server"
 }
 
-func (c *Client) initializeServer(ctx context.Context) error {
+func (c *Client) initializeServer(ctx context.Context) (InitializeResponse, error) {
 	switch c.config.ServerMode {
 	case ServerModeExecServer:
-		_, err := Request[ExecServerInitializeResponse](ctx, c, ExecServerInitializeMethod, &ExecServerInitializeParams{
+		raw, err := c.RequestRaw(ctx, ExecServerInitializeMethod, &ExecServerInitializeParams{
 			ClientName: c.config.ClientName,
 		})
 		if err != nil {
-			return err
+			return InitializeResponse{}, err
 		}
-		return c.Notify(ctx, NotificationMethodInitialized, nil)
+		if _, err := decodeRequestResult[ExecServerInitializeResponse](ExecServerInitializeMethod, raw); err != nil {
+			return InitializeResponse{}, err
+		}
+
+		var metadata InitializeResponse
+		if len(raw) > 0 && string(raw) != "null" {
+			var candidate InitializeResponse
+			if err := json.Unmarshal(raw, &candidate); err != nil {
+				return InitializeResponse{}, fmt.Errorf("decode %s metadata: %w", ExecServerInitializeMethod, err)
+			}
+			if strings.TrimSpace(candidate.UserAgent) != "" || candidate.ServerInfo != nil {
+				metadata, err = validateInitialize(candidate)
+				if err != nil {
+					return InitializeResponse{}, err
+				}
+			}
+		}
+
+		if err := c.Notify(ctx, NotificationMethodInitialized, nil); err != nil {
+			return InitializeResponse{}, err
+		}
+		return metadata, nil
 	default:
-		_, err := c.Initialize(ctx)
-		return err
+		return c.Initialize(ctx)
 	}
 }
 

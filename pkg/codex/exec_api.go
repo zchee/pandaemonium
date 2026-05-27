@@ -41,21 +41,20 @@ func NewExecServer(ctx context.Context, config *Config) (*ExecServer, error) {
 	if config != nil {
 		cfg = *config
 	}
-	if cfg.ServerMode == "" {
-		cfg.ServerMode = ServerModeExecServer
-	}
+	cfg.ServerMode = ServerModeExecServer
 	client := NewClient(&cfg, nil)
 	if err := client.Start(ctx); err != nil {
 		return nil, err
 	}
 
-	if err := client.initializeServer(ctx); err != nil {
+	metadata, err := client.initializeServer(ctx)
+	if err != nil {
 		_ = client.Close()
 		return nil, err
 	}
 	return &ExecServer{
 		client:   client,
-		metadata: InitializeResponse{},
+		metadata: metadata,
 	}, nil
 }
 

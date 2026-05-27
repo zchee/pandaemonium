@@ -455,13 +455,22 @@ func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
 			}
 			switch req.Method {
 			case RequestMethodInitialize:
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
-					ID: req.ID,
-					Result: mustJSONValueForHelper(InitializeResponse{
-						UserAgent:  "codex-bench/1.0",
-						ServerInfo: &ServerInfo{Name: "codex-bench", Version: "1.0"},
-					}),
-				}))
+				if os.Getenv("CODEX_EXEC_SERVER_HANDSHAKE") == "1" {
+					_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+						ID: req.ID,
+						Result: mustJSONValueForHelper(ExecServerInitializeResponse{
+							SessionID: "session-1",
+						}),
+					}))
+				} else {
+					_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+						ID: req.ID,
+						Result: mustJSONValueForHelper(InitializeResponse{
+							UserAgent:  "codex-bench/1.0",
+							ServerInfo: &ServerInfo{Name: "codex-bench", Version: "1.0"},
+						}),
+					}))
+				}
 			case "initialized":
 				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
 					Method: "custom/global",

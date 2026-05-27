@@ -39,7 +39,7 @@ func TestClientBuildServerArgsUsesExecServerForExecMode(t *testing.T) {
 		CodexBin:   os.Args[0],
 		ServerMode: ServerModeExecServer,
 	}}
-	args, err := client.buildServerArgs(ListenConfig{})
+	args, err := client.buildServerArgs(ServerModeExecServer, ListenConfig{})
 	if err != nil {
 		t.Fatalf("buildServerArgs() error = %v", err)
 	}
@@ -53,7 +53,7 @@ func TestClientBuildServerArgsAppModeStillUsesAppServer(t *testing.T) {
 		CodexBin:   os.Args[0],
 		ServerMode: ServerModeAppServer,
 	}}
-	args, err := client.buildServerArgs(ListenConfig{})
+	args, err := client.buildServerArgs(ServerModeAppServer, ListenConfig{})
 	if err != nil {
 		t.Fatalf("buildServerArgs() error = %v", err)
 	}
@@ -66,6 +66,7 @@ func TestClientLaunchArgsOverrideTakesPriority(t *testing.T) {
 	client := &Client{
 		config: Config{
 			LaunchArgsOverride: []string{"override", "--flag"},
+			ServerMode:         ServerModeExecServer,
 		},
 	}
 	args, err := client.launchArgs()
@@ -74,6 +75,80 @@ func TestClientLaunchArgsOverrideTakesPriority(t *testing.T) {
 	}
 	if got := strings.Join(args, " "); got != "override --flag" {
 		t.Fatalf("launchArgs() = %q, want override --flag", got)
+	}
+}
+
+func TestClientLaunchArgsHonorsServerMode(t *testing.T) {
+	tests := map[string]struct {
+		mode ServerMode
+		want []string
+	}{
+		"success: empty mode defaults to app-server": {
+			want: []string{os.Args[0], "app-server", "--listen", "stdio://"},
+		},
+		"success: app-server mode preserves legacy command": {
+			mode: ServerModeAppServer,
+			want: []string{os.Args[0], "app-server", "--listen", "stdio://"},
+		},
+		"success: exec-server mode uses exec-server command": {
+			mode: ServerModeExecServer,
+			want: []string{os.Args[0], "exec-server", "--listen", "stdio://"},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			client := &Client{config: Config{CodexBin: os.Args[0], ServerMode: tt.mode}}
+			args, err := client.launchArgs()
+			if err != nil {
+				t.Fatalf("launchArgs() error = %v", err)
+			}
+			if diff := compareStringSlice(args, tt.want); diff != "" {
+				t.Fatalf("launchArgs() mismatch: %s", diff)
+			}
+		})
+	}
+}
+
+func TestClientLaunchArgsExecServerWebSocketPreservesAuthArgs(t *testing.T) {
+	tokenFile := filepath.Join(t.TempDir(), "capability.token")
+	if err := os.WriteFile(tokenFile, []byte("capability-token\n"), 0o600); err != nil {
+		t.Fatalf("os.WriteFile(%s) error = %v", tokenFile, err)
+	}
+	client := &Client{
+		config: Config{
+			CodexBin:   os.Args[0],
+			ServerMode: ServerModeExecServer,
+			Listen: ListenConfig{
+				URL: "ws://127.0.0.1:49815",
+				WebSocket: &WebSocketConfig{
+					AuthMode:  WebSocketAuthCapabilityToken,
+					TokenFile: tokenFile,
+				},
+			},
+		},
+	}
+	args, err := client.launchArgs()
+	if err != nil {
+		t.Fatalf("launchArgs() error = %v", err)
+	}
+	want := []string{
+		os.Args[0], "exec-server", "--listen", "ws://127.0.0.1:49815",
+		"--ws-auth", "capability-token", "--ws-token-file", tokenFile,
+	}
+	if diff := compareStringSlice(args, want); diff != "" {
+		t.Fatalf("launchArgs() mismatch: %s", diff)
+	}
+}
+
+func TestClientLaunchArgsRejectsUnsupportedServerMode(t *testing.T) {
+	client := &Client{config: Config{CodexBin: os.Args[0], ServerMode: ServerMode("sidecar-server")}}
+	_, err := client.launchArgs()
+	if err == nil {
+		t.Fatal("launchArgs() error = nil, want unsupported server mode rejection")
+	}
+	if !strings.Contains(err.Error(), "unsupported codex server mode") {
+		t.Fatalf("launchArgs() error = %v, want unsupported server mode context", err)
 	}
 }
 

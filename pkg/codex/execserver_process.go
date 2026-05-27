@@ -233,12 +233,8 @@ func (n ExecServerProcessClosedNotification) SeqValue() uint64 { return n.Seq }
 type ExecServerClient struct {
 	transport atomic.Pointer[Transport]
 
-	writeMu    sync.Mutex
-	closeMu    sync.Mutex
-	responseMu sync.Mutex
-	requestSeq atomic.Uint64
-
-	responses map[string]chan responseWait
+	closeMu  sync.Mutex
+	rpcState *jsonRPCClientState
 
 	processMu     sync.Mutex
 	processQueues map[ProcessID]*execServerProcessQueue
@@ -248,7 +244,7 @@ type ExecServerClient struct {
 // NewExecServerClient constructs a client around an existing transport.
 func NewExecServerClient(transport Transport) *ExecServerClient {
 	client := &ExecServerClient{
-		responses:     map[string]chan responseWait{},
+		rpcState:      newJSONRPCClientState(),
 		processQueues: map[ProcessID]*execServerProcessQueue{},
 		readDone:      make(chan struct{}),
 	}
@@ -325,39 +321,12 @@ func (c *ExecServerClient) ProcessTerminate(ctx context.Context, params *ExecSer
 
 // RequestRaw sends a request and returns the raw result JSON.
 func (c *ExecServerClient) RequestRaw(ctx context.Context, method string, params any) (jsontext.Value, error) {
-	if err := ctx.Err(); err != nil {
-		return nil, err
-	}
-
-	id := c.nextRequestID()
-	response := make(chan responseWait, 1)
-	c.registerResponse(id, response)
-	if err := c.writeMessage(ctx, Object{"id": id, "method": method, "params": paramsOrEmpty(params)}); err != nil {
-		c.unregisterResponse(id)
-		return nil, err
-	}
-
-	select {
-	case <-ctx.Done():
-		c.unregisterResponse(id)
-		return nil, ctx.Err()
-	case got := <-response:
-		if got.err != nil {
-			return nil, got.err
-		}
-		if got.msg.Error != nil {
-			return nil, mapJSONRPCError(got.msg.Error.Code, got.msg.Error.Message, got.msg.Error.Data)
-		}
-		return got.msg.Result, nil
-	}
+	return c.rpcState.requestRaw(ctx, method, params, c.writeMessage)
 }
 
 // Notify sends a JSON-RPC notification to the exec-server.
 func (c *ExecServerClient) Notify(ctx context.Context, method string, params any) error {
-	if err := ctx.Err(); err != nil {
-		return err
-	}
-	return c.writeMessage(ctx, Object{"method": method, "params": params})
+	return c.rpcState.notify(ctx, method, params, c.writeMessage)
 }
 
 // NextProcessNotification waits for the next ordered process event.
@@ -378,10 +347,6 @@ func request[T any](ctx context.Context, c *ExecServerClient, method string, par
 	return zero, nil
 }
 
-func (c *ExecServerClient) nextRequestID() string {
-	return fmt.Sprintf("go-sdk-%d", c.requestSeq.Add(1))
-}
-
 func (c *ExecServerClient) loadTransport() Transport {
 	p := c.transport.Load()
 	if p == nil {
@@ -399,8 +364,8 @@ func (c *ExecServerClient) storeTransport(t Transport) {
 }
 
 func (c *ExecServerClient) writeMessage(ctx context.Context, payload any) error {
-	c.writeMu.Lock()
-	defer c.writeMu.Unlock()
+	c.rpcState.lockWrite()
+	defer c.rpcState.unlockWrite()
 
 	line, err := json.Marshal(payload)
 	if err != nil {
@@ -460,35 +425,19 @@ func (c *ExecServerClient) readLoop(ctx context.Context, t Transport, done chan<
 }
 
 func (c *ExecServerClient) registerResponse(id string, response chan responseWait) {
-	c.responseMu.Lock()
-	c.responses[id] = response
-	c.responseMu.Unlock()
+	c.rpcState.registerResponse(id, response)
 }
 
 func (c *ExecServerClient) unregisterResponse(id string) {
-	c.responseMu.Lock()
-	delete(c.responses, id)
-	c.responseMu.Unlock()
+	c.rpcState.unregisterResponse(id)
 }
 
 func (c *ExecServerClient) deliverResponse(msg rpcMessage) {
-	c.responseMu.Lock()
-	response := c.responses[msg.ID]
-	delete(c.responses, msg.ID)
-	c.responseMu.Unlock()
-	if response != nil {
-		response <- responseWait{msg: msg}
-	}
+	c.rpcState.deliverResponse(msg)
 }
 
 func (c *ExecServerClient) failPending(err error) {
-	c.responseMu.Lock()
-	responses := c.responses
-	c.responses = map[string]chan responseWait{}
-	c.responseMu.Unlock()
-	for _, response := range responses {
-		response <- responseWait{err: err}
-	}
+	c.rpcState.failPending(err)
 }
 
 func (c *ExecServerClient) routeNotification(notification Notification) {

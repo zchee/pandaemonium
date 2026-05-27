@@ -163,6 +163,8 @@ func (s *helperState) handle(req helperRequest) error {
 		return s.handleTurnControls(req)
 	case "client_routing_retry":
 		return s.handleClientRoutingRetry(req)
+	case "command_exec":
+		return s.handleCommandExec(req)
 	case "approval_persistence":
 		return s.handleApprovalPersistence(req)
 	case "input_capture":
@@ -177,6 +179,31 @@ func (s *helperState) handle(req helperRequest) error {
 		s.writeError(req.ID, -32601, "unexpected scenario "+s.scenario, nil)
 		return nil
 	}
+}
+
+func (s *helperState) handleCommandExec(req helperRequest) error {
+	switch req.Method {
+	case codex.RequestMethodCommandExec:
+		command := commandParam(req.Params)
+		if len(command) == 0 {
+			s.writeError(req.ID, -32602, "missing command argv", nil)
+			return nil
+		}
+		s.writeResult(req.ID, codex.Object{
+			"exitCode": int32(0),
+			"stdout":   strings.Join(command, "\x00"),
+			"stderr":   "",
+		})
+	case codex.RequestMethodCommandExecWrite:
+		s.writeResult(req.ID, codex.Object{})
+	case codex.RequestMethodCommandExecTerminate:
+		s.writeResult(req.ID, codex.Object{})
+	case codex.RequestMethodCommandExecResize:
+		s.writeResult(req.ID, codex.Object{})
+	default:
+		s.writeError(req.ID, -32601, "unexpected command exec method "+req.Method, nil)
+	}
+	return nil
 }
 
 func (s *helperState) handleAsyncClientBehavior(req helperRequest) error {
@@ -1032,6 +1059,22 @@ func stringParam(params codex.Object, key string) string {
 		return value
 	}
 	return ""
+}
+
+func commandParam(params codex.Object) []string {
+	values, ok := params["command"].([]any)
+	if !ok {
+		return nil
+	}
+	command := make([]string, 0, len(values))
+	for _, value := range values {
+		text, ok := value.(string)
+		if !ok {
+			return nil
+		}
+		command = append(command, text)
+	}
+	return command
 }
 
 func textInput(params codex.Object) string {
