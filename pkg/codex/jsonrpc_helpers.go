@@ -70,7 +70,7 @@ func (s *jsonRPCClientState) notify(ctx context.Context, method string, params a
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	return write(ctx, Object{"method": method, "params": paramsOrEmpty(params)})
+	return write(ctx, Object{"method": method, "params": params})
 }
 
 func (s *jsonRPCClientState) registerResponse(id string, response chan responseWait) {
