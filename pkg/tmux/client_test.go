@@ -282,6 +282,26 @@ func TestClientNotificationOverflowDropsOldest(t *testing.T) {
 	}
 }
 
+func TestClientDeliverEventDropsOldestWhenCalledDirectly(t *testing.T) {
+	t.Parallel()
+	cfg, err := applyOptions([]Option{WithInitialCommand("new-session", "-A", "-s", "test"), WithEventBuffer(1)})
+	if err != nil {
+		t.Fatalf("applyOptions() error = %v", err)
+	}
+	client := newClient(cfg, nil, nil, nil)
+	client.events <- Notification{Kind: NotificationMessage, Raw: "%message existing"}
+	client.deliverEvent(Notification{Kind: NotificationMessage, Raw: "%message replacement"})
+	client.deliverEvent(Notification{Kind: NotificationMessage, Raw: "%message newest"})
+
+	if got := client.DroppedNotifications(); got != 2 {
+		t.Fatalf("DroppedNotifications() = %d, want 2", got)
+	}
+	got := <-client.events
+	if got.Raw != "%message newest" {
+		t.Fatalf("buffered event Raw = %q, want newest", got.Raw)
+	}
+}
+
 func TestClientEventsNilClientStops(t *testing.T) {
 	t.Parallel()
 	var client *Client

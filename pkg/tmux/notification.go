@@ -87,7 +87,7 @@ func ParseNotification(line string) (Notification, error) {
 	if kind == "%" {
 		return Notification{}, &ProtocolError{Line: line, Err: fmt.Errorf("notification kind is empty")}
 	}
-	args := []string(nil)
+	var args []string
 	if rest != "" {
 		args = strings.Fields(rest)
 	}

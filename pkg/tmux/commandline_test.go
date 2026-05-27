@@ -50,6 +50,10 @@ func TestCommandLineString(t *testing.T) {
 			line: NewCommandLine(DisplayMessage, StringArg(`can't\stop`)),
 			want: `display-message "can't\\stop"`,
 		},
+		"success: dollar is escaped in double quotes": {
+			line: NewCommandLine(DisplayMessage, StringArg("can't $expand ${HOME}")),
+			want: `display-message "can't \$expand \${HOME}"`,
+		},
 		"success: unicode is quoted when needed": {
 			line: NewCommandLine(DisplayMessage, StringArg("hello 😀")),
 			want: "display-message 'hello 😀'",

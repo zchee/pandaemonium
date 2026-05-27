@@ -125,7 +125,7 @@ func quoteArg(value string) string {
 	b.WriteByte('"')
 	for _, r := range value {
 		switch r {
-		case '\\', '"':
+		case '\\', '"', '$':
 			b.WriteByte('\\')
 		}
 		b.WriteRune(r)

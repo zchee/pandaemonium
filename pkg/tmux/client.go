@@ -405,16 +405,15 @@ func (c *Client) deliverEvent(notification Notification) {
 	case c.events <- notification:
 		return
 	default:
-	}
-	select {
-	case <-c.events:
-		c.droppedNotifications.Add(1)
-	default:
-	}
-	select {
-	case c.events <- notification:
-	default:
-		c.droppedNotifications.Add(1)
+		// Buffer is full; drop the oldest notification to make room.
+		select {
+		case <-c.events:
+			c.droppedNotifications.Add(1)
+		default:
+			// A consumer drained the buffer in the meantime.
+		}
+		// This write is now guaranteed to succeed as we are the sole writer.
+		c.events <- notification
 	}
 }
 

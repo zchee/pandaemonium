@@ -53,9 +53,13 @@ func TestProtocolParserResponses(t *testing.T) {
 			lines: []string{"%begin 1 2 1", "%error one two three", "%end 1 2 1"},
 			want:  Response{Begin: marker(1, 2, 1), End: marker(1, 2, 1), Lines: []string{"%error one two three"}},
 		},
-		"error: mismatched end marker": {
-			lines:   []string{"%begin 1 2 1", "%end 1 3 1"},
-			wantErr: "does not match active command",
+		"success: mismatched end marker remains output": {
+			lines: []string{"%begin 1 2 1", "%end 1 3 1", "%end 1 2 1"},
+			want:  Response{Begin: marker(1, 2, 1), End: marker(1, 2, 1), Lines: []string{"%end 1 3 1"}},
+		},
+		"success: mismatched error marker remains output": {
+			lines: []string{"%begin 1 2 1", "%error 1 3 1", "%end 1 2 1"},
+			want:  Response{Begin: marker(1, 2, 1), End: marker(1, 2, 1), Lines: []string{"%error 1 3 1"}},
 		},
 		"error: malformed begin marker": {
 			lines:   []string{"%begin one 2 1"},

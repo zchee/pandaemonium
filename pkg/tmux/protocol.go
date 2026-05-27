@@ -133,13 +133,7 @@ func (p *protocolParser) feed(line string) (protocolMessage, error) {
 		if err != nil {
 			return protocolMessage{}, &ProtocolError{Line: line, Err: err}
 		}
-		if ok {
-			if !sameMarkerIdentity(p.active.begin, marker) {
-				return protocolMessage{}, &ProtocolError{
-					Line: line,
-					Err:  fmt.Errorf("marker does not match active command %d at %d", p.active.begin.Command, p.active.begin.Time.Unix()),
-				}
-			}
+		if ok && sameMarkerIdentity(p.active.begin, marker) {
 			response := Response{
 				Begin: p.active.begin,
 				End:   marker,
