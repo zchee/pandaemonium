@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"iter"
 	"os"
 	"os/exec"
 	"slices"
@@ -121,7 +122,11 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		return nil, fmt.Errorf("tmux: start %q: %w", path, err)
 	}
 
-	client := newClient(cfg, &stdioTransport{stdin: stdin, stdout: bufio.NewReader(stdout)}, stdout, cmd)
+	tr := &stdioTransport{
+		stdin:  stdin,
+		stdout: bufio.NewReader(stdout),
+	}
+	client := newClient(cfg, tr, stdout, cmd)
 	startup := &pendingCommand{line: cfg.initialCommandLine(), ch: make(chan responseResult, 1)}
 	if err := client.registerPending(startup); err != nil {
 		_ = client.Close(ctx)
@@ -227,18 +232,32 @@ func (c *Client) ExecRaw(ctx context.Context, line string) (Response, error) {
 	}
 }
 
-// Events returns the asynchronous tmux notification channel.
+// Events returns an iterator over asynchronous tmux notifications.
 //
-// The channel is bounded by [Options.EventBuffer]. When it is full, the client
-// drops the oldest buffered notification it can observe so the stdout reader can
-// continue draining tmux output.
-func (c *Client) Events() <-chan Notification {
-	if c == nil {
-		closed := make(chan Notification)
-		close(closed)
-		return closed
+// The underlying notification queue is bounded by [Options.EventBuffer]. When it
+// is full, the client drops the oldest buffered notification it can observe so
+// the stdout reader can continue draining tmux output. Iteration stops when the
+// client closes, when the caller breaks from the range loop, or when ctx is
+// canceled. A nil ctx is treated as [context.Background].
+func (c *Client) Events(ctx context.Context) iter.Seq[Notification] {
+	return func(yield func(Notification) bool) {
+		if c == nil {
+			return
+		}
+		if ctx == nil {
+			ctx = context.Background()
+		}
+		for {
+			select {
+			case notification, ok := <-c.events:
+				if !ok || !yield(notification) {
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
 	}
-	return c.events
 }
 
 // DroppedNotifications returns the notification backpressure counter.

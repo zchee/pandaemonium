@@ -92,35 +92,34 @@ func waitForRealTmuxEvidence(t *testing.T, ctx context.Context, client *Client) 
 	defer cancel()
 	seenOutput := false
 	seenSubscription := false
-	for !seenOutput || !seenSubscription {
-		select {
-		case notification, ok := <-client.Events():
-			if !ok {
-				t.Fatalf("events closed before evidence: output=%v subscription=%v", seenOutput, seenSubscription)
+	for notification := range client.Events(deadline) {
+		if out, ok, err := notification.Output(); ok {
+			if err != nil {
+				t.Fatalf("Output() error = %v", err)
 			}
-			if out, ok, err := notification.Output(); ok {
-				if err != nil {
-					t.Fatalf("Output() error = %v", err)
-				}
-				bytes, err := out.Bytes()
-				if err != nil {
-					t.Fatalf("Output Bytes() error = %v", err)
-				}
-				if strings.Contains(string(bytes), "pandaemonium-output") {
-					seenOutput = true
-				}
+			bytes, err := out.Bytes()
+			if err != nil {
+				t.Fatalf("Output Bytes() error = %v", err)
 			}
-			if _, ok, err := notification.SubscriptionChanged(); ok {
-				if err != nil {
-					t.Fatalf("SubscriptionChanged() error = %v", err)
-				}
-				seenSubscription = true
+			if strings.Contains(string(bytes), "pandaemonium-output") {
+				seenOutput = true
 			}
-		case <-deadline.Done():
-			if errors.Is(deadline.Err(), context.DeadlineExceeded) {
-				t.Fatalf("timed out waiting for real tmux output/subscription evidence: output=%v subscription=%v drops=%d", seenOutput, seenSubscription, client.DroppedNotifications())
+		}
+		if _, ok, err := notification.SubscriptionChanged(); ok {
+			if err != nil {
+				t.Fatalf("SubscriptionChanged() error = %v", err)
 			}
-			t.Fatalf("context done waiting for real tmux evidence: %v", deadline.Err())
+			seenSubscription = true
+		}
+		if seenOutput && seenSubscription {
+			return
 		}
 	}
+	if errors.Is(deadline.Err(), context.DeadlineExceeded) {
+		t.Fatalf("timed out waiting for real tmux output/subscription evidence: output=%v subscription=%v drops=%d", seenOutput, seenSubscription, client.DroppedNotifications())
+	}
+	if err := deadline.Err(); err != nil {
+		t.Fatalf("context done waiting for real tmux evidence: %v", err)
+	}
+	t.Fatalf("events closed before evidence: output=%v subscription=%v", seenOutput, seenSubscription)
 }

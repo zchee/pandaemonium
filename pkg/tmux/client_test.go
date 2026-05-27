@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"io"
+	"iter"
 	"slices"
 	"strconv"
 	"strings"
@@ -93,6 +94,13 @@ func (t *scriptedTransport) isClosed() bool {
 	t.mu.Lock()
 	defer t.mu.Unlock()
 	return t.closed
+}
+
+func nextNotification(events iter.Seq[Notification]) (Notification, bool) {
+	for notification := range events {
+		return notification, true
+	}
+	return Notification{}, false
 }
 
 func newScriptedClient(t *testing.T, buffer int) (*Client, *scriptedTransport) {
@@ -197,14 +205,32 @@ func TestClientNotificationOverflowDropsOldest(t *testing.T) {
 	if client.DroppedNotifications() != 2 {
 		t.Fatalf("DroppedNotifications() = %d, want 2", client.DroppedNotifications())
 	}
-	var got Notification
-	select {
-	case got = <-client.Events():
-	case <-time.After(time.Second):
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	defer cancel()
+	got, ok := nextNotification(client.Events(ctx))
+	if !ok {
 		t.Fatal("timed out waiting for notification")
 	}
 	if got.Raw != "%message third" {
 		t.Fatalf("event Raw = %q, want newest third", got.Raw)
+	}
+}
+
+func TestClientEventsNilClientStops(t *testing.T) {
+	t.Parallel()
+	var client *Client
+	for notification := range client.Events(t.Context()) {
+		t.Fatalf("nil Events yielded unexpected notification %#v", notification)
+	}
+}
+
+func TestClientEventsStopsOnContextCancel(t *testing.T) {
+	t.Parallel()
+	client, _ := newScriptedClient(t, 8)
+	ctx, cancel := context.WithCancel(t.Context())
+	cancel()
+	for notification := range client.Events(ctx) {
+		t.Fatalf("canceled Events yielded unexpected notification %#v", notification)
 	}
 }
 

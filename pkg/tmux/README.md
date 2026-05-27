@@ -150,14 +150,14 @@ is to abort the persistent control-mode connection.
 
 ### 5. Read pane output and notifications
 
-`Client.Events` returns a bounded channel of asynchronous tmux notifications.
+`Client.Events` returns an iterator over asynchronous tmux notifications.
 The reader keeps draining tmux stdout even if your consumer falls behind: when
 the event buffer is full, the oldest buffered notification that can be observed
 is dropped and `DroppedNotifications` is incremented.
 
 ```go
 go func() {
-	for event := range client.Events() {
+	for event := range client.Events(ctx) {
 		if output, ok, err := event.Output(); ok {
 			if err != nil {
 				log.Printf("bad output notification: %v", err)
