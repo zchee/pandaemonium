@@ -34,7 +34,9 @@ coverage:
 # https://docs.codecov.com/docs/ignoring-paths
 # prettier-ignore
 ignore:
+  - pkg/claude/examples
   - pkg/codex/examples
+  - pkg/tmux/examples
 
 # https://docs.codecov.com/docs/codecovyml-reference#comment
 comment:
