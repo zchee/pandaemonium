@@ -129,7 +129,7 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdout),
 	}
-	client := newClient(cfg, tr, stdout, cmd)
+	client := newClient(cmd, cfg, tr, stdout)
 	startup := &pendingCommand{line: cfg.initialCommandLine(), ch: make(chan responseResult, 1)}
 	if err := client.registerPending(startup); err != nil {
 		_ = client.Close(ctx)
@@ -153,7 +153,7 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	return client, nil
 }
 
-func newClient(cfg Options, tr transport, stdoutCloser io.Closer, cmd *exec.Cmd) *Client {
+func newClient(cmd *exec.Cmd, cfg Options, tr transport, stdoutCloser io.Closer) *Client {
 	return &Client{
 		options:      cfg,
 		transport:    tr,
