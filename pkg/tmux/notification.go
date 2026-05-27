@@ -16,6 +16,7 @@ package tmux
 
 import (
 	"fmt"
+	"math"
 	"slices"
 	"strconv"
 	"strings"
@@ -103,6 +104,7 @@ func (n Notification) Output() (OutputNotification, bool, error) {
 	if !ok {
 		return OutputNotification{}, true, fmt.Errorf("%%output missing pane id")
 	}
+	rest = strings.TrimLeft(rest, " ")
 	pane, value, ok := strings.Cut(rest, " ")
 	if !ok {
 		value = ""
@@ -137,6 +139,9 @@ func (n Notification) ExtendedOutput() (ExtendedOutputNotification, bool, error)
 	if err != nil || ageMillis < 0 {
 		return ExtendedOutputNotification{}, true, fmt.Errorf("invalid %%extended-output age %q", fields[1])
 	}
+	if ageMillis > maxAgeMillis {
+		return ExtendedOutputNotification{}, true, fmt.Errorf("%%extended-output age %d ms overflows time.Duration", ageMillis)
+	}
 	return ExtendedOutputNotification{
 		Pane:            pane,
 		Age:             time.Duration(ageMillis) * time.Millisecond,
@@ -144,6 +149,10 @@ func (n Notification) ExtendedOutput() (ExtendedOutputNotification, bool, error)
 		Value:           value,
 	}, true, nil
 }
+
+// maxAgeMillis is the largest %extended-output age in milliseconds that fits in
+// a time.Duration without overflow.
+const maxAgeMillis = int64(math.MaxInt64 / int64(time.Millisecond))
 
 // SubscriptionChanged returns the typed form of a `%subscription-changed` notification.
 func (n Notification) SubscriptionChanged() (SubscriptionChangedNotification, bool, error) {

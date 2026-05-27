@@ -15,6 +15,7 @@
 package tmux
 
 import (
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -132,6 +133,34 @@ func TestPaneNotifications(t *testing.T) {
 	}
 	if _, ok, err := cont.Continue(); !ok || err == nil || !strings.Contains(err.Error(), "pane ID") {
 		t.Fatalf("Continue() ok=%v err=%v, want pane ID error", ok, err)
+	}
+}
+
+func TestOutputNotificationTolerantOfRepeatedSpaces(t *testing.T) {
+	t.Parallel()
+	n, err := ParseNotification("%output  %1 hello")
+	if err != nil {
+		t.Fatalf("ParseNotification() error = %v", err)
+	}
+	out, ok, err := n.Output()
+	if err != nil || !ok {
+		t.Fatalf("Output() = %#v, %v, %v", out, ok, err)
+	}
+	if out.Pane != "%1" || out.Value != "hello" {
+		t.Fatalf("Output() = %#v, want pane=%%1 value=hello", out)
+	}
+}
+
+func TestExtendedOutputAgeOverflowRejected(t *testing.T) {
+	t.Parallel()
+	// 1<<62 milliseconds * time.Millisecond overflows int64.
+	overflow := strconv.FormatInt(int64(1)<<62, 10)
+	n, err := ParseNotification("%extended-output %1 " + overflow + " : value")
+	if err != nil {
+		t.Fatalf("ParseNotification() error = %v", err)
+	}
+	if _, _, err := n.ExtendedOutput(); err == nil || !strings.Contains(err.Error(), "overflows time.Duration") {
+		t.Fatalf("ExtendedOutput() error = %v, want overflows time.Duration", err)
 	}
 }
 
