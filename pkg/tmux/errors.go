@@ -24,6 +24,10 @@ import (
 // has begun.
 var ErrClosed = errors.New("tmux: client closed")
 
+// errDetachSkippedWriteLocked is returned by Close when the detach-client write
+// is skipped because another goroutine is holding the write lock.
+var errDetachSkippedWriteLocked = errors.New("tmux: detach-client skipped: write lock held")
+
 // CommandError reports a tmux command that completed with a `%error` marker.
 type CommandError struct {
 	Line     string

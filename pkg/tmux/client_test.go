@@ -503,8 +503,8 @@ func TestClientCloseUnblocksPendingExec(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for write")
 	}
-	if err := client.Close(context.Background()); err != nil {
-		t.Fatalf("Close() error = %v", err)
+	if err := client.Close(context.Background()); err == nil || !errors.Is(err, errDetachSkippedWriteLocked) {
+		t.Fatalf("Close() error = %v, want errDetachSkippedWriteLocked", err)
 	}
 	select {
 	case err := <-errCh:
@@ -540,13 +540,13 @@ func TestClientCloseUnblocksExecRawStuckInTransportWrite(t *testing.T) {
 	go func() { closeDone <- client.Close(context.Background()) }()
 	select {
 	case err := <-closeDone:
-		if err != nil {
-			t.Fatalf("Close() error = %v", err)
+		if err == nil || !errors.Is(err, errDetachSkippedWriteLocked) {
+			t.Fatalf("Close() error = %v, want errDetachSkippedWriteLocked", err)
 		}
 	case <-time.After(200 * time.Millisecond):
 		tr.releaseWrite()
-		if err := <-closeDone; err != nil {
-			t.Fatalf("Close() after forced release error = %v", err)
+		if err := <-closeDone; err == nil || !errors.Is(err, errDetachSkippedWriteLocked) {
+			t.Fatalf("Close() after forced release error = %v, want errDetachSkippedWriteLocked", err)
 		}
 		t.Fatal("Close() blocked behind ExecRaw's writeMu instead of closing transport to unblock WriteLine")
 	}
@@ -635,8 +635,8 @@ func TestClientExecTimeoutClosesClient(t *testing.T) {
 	case <-time.After(time.Second):
 		t.Fatal("timed out waiting for ExecRaw timeout")
 	}
-	if _, err := client.ExecRaw(t.Context(), "display-message -p after-timeout"); !errors.Is(err, context.DeadlineExceeded) {
-		t.Fatalf("ExecRaw() after timeout error = %v, want DeadlineExceeded", err)
+	if _, err := client.ExecRaw(t.Context(), "display-message -p after-timeout"); !errors.Is(err, ErrClosed) {
+		t.Fatalf("ExecRaw() after timeout error = %v, want ErrClosed", err)
 	}
 }
 

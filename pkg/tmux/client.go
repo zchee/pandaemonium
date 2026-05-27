@@ -24,7 +24,6 @@ import (
 	"os"
 	"os/exec"
 	"slices"
-	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -143,12 +142,12 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	select {
 	case result := <-startup.ch:
 		if result.err != nil {
-			_ = client.Close(ctx)
+			_ = client.Close(context.WithoutCancel(ctx))
 			return nil, fmt.Errorf("tmux: initial command: %w", result.err)
 		}
 	case <-ctx.Done():
 		client.clearPending(startup)
-		_ = client.Close(ctx)
+		_ = client.Close(context.WithoutCancel(ctx))
 		return nil, ctx.Err()
 	}
 	return client, nil
@@ -207,6 +206,9 @@ func (c *Client) ExecRaw(ctx context.Context, line string) (Response, error) {
 	if err := c.closedError(); err != nil {
 		return Response{}, err
 	}
+	if err := ctx.Err(); err != nil {
+		return Response{}, err
+	}
 	pending := &pendingCommand{line: line, ch: make(chan responseResult, 1)}
 	if err := c.registerPending(pending); err != nil {
 		return Response{}, err
@@ -234,7 +236,7 @@ func (c *Client) ExecRaw(ctx context.Context, line string) (Response, error) {
 	case <-ctx.Done():
 		registered = false
 		c.clearPending(pending)
-		c.abort(ctx.Err())
+		c.abort(ErrClosed)
 		return Response{}, ctx.Err()
 	}
 }
@@ -310,11 +312,15 @@ func (c *Client) Close(ctx context.Context) error {
 
 	var errs []error
 	if c.transport != nil {
-		if !alreadyClosed && c.writeMu.TryLock() {
-			if err := c.transport.WriteLine(ctx, string(DetachClient)); err != nil && !errors.Is(err, ErrClosed) {
-				errs = append(errs, fmt.Errorf("write detach-client: %w", err))
+		if !alreadyClosed {
+			if c.writeMu.TryLock() {
+				if err := c.transport.WriteLine(ctx, string(DetachClient)); err != nil && !errors.Is(err, ErrClosed) {
+					errs = append(errs, fmt.Errorf("write detach-client: %w", err))
+				}
+				c.writeMu.Unlock()
+			} else {
+				errs = append(errs, errDetachSkippedWriteLocked)
 			}
-			c.writeMu.Unlock()
 		}
 		if err := c.transport.Close(); err != nil && !errors.Is(err, os.ErrClosed) {
 			errs = append(errs, fmt.Errorf("close stdin: %w", err))
@@ -492,6 +498,7 @@ func (c *Client) closedError() error {
 func (c *Client) drainStderr(r io.Reader, done chan<- struct{}) {
 	defer close(done)
 	scanner := bufio.NewScanner(r)
+	scanner.Buffer(make([]byte, 0, 64*1024), 1024*1024)
 	for scanner.Scan() {
 		c.appendStderrLine(scanner.Text())
 	}
@@ -558,6 +565,9 @@ func isExpectedClosedProcessError(err error) bool {
 	if err == nil {
 		return true
 	}
-	message := err.Error()
-	return strings.Contains(message, "signal: killed")
+	var exitErr *exec.ExitError
+	if errors.As(err, &exitErr) && processSignaledKilled(exitErr.ProcessState) {
+		return true
+	}
+	return false
 }
