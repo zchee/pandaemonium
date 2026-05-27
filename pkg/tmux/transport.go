@@ -48,7 +48,14 @@ func (t *stdioTransport) ReadLine(_ context.Context) (string, error) {
 	}
 	line, err := t.stdout.ReadString('\n')
 	if len(line) > 0 {
-		return trimLineEnding(line), nil
+		trimmed := trimLineEnding(line)
+		if errors.Is(err, io.EOF) {
+			return trimmed, io.EOF
+		}
+		if err != nil {
+			return trimmed, err
+		}
+		return trimmed, nil
 	}
 	if errors.Is(err, io.EOF) {
 		return "", io.EOF

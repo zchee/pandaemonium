@@ -640,6 +640,26 @@ func TestClientExecTimeoutClosesClient(t *testing.T) {
 	}
 }
 
+func TestReadLoopStopsAfterExitNotification(t *testing.T) {
+	t.Parallel()
+	client, tr := newScriptedClient(t, 8)
+	tr.writeLines("%exit detached", "%message stray after exit")
+	select {
+	case <-client.readDone:
+	case <-time.After(time.Second):
+		t.Fatalf("timed out waiting for read loop to stop after %s", "%exit")
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 100*time.Millisecond)
+	defer cancel()
+	var got []Notification
+	for notification := range client.Events(ctx) {
+		got = append(got, notification)
+	}
+	if len(got) != 1 || got[0].Kind != NotificationExit {
+		t.Fatalf("events after %s = %#v, want only the exit notification", "%exit", got)
+	}
+}
+
 func TestClientCloseAfterReadEOFStillClosesTransport(t *testing.T) {
 	t.Parallel()
 	client, tr := newScriptedClient(t, 8)

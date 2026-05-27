@@ -351,7 +351,7 @@ func (c *Client) readLoop(ctx context.Context, tr transport, done chan<- struct{
 	parser := &protocolParser{}
 	for {
 		line, err := tr.ReadLine(ctx)
-		if err != nil {
+		if line == "" && err != nil {
 			if errors.Is(err, io.EOF) {
 				if parserErr := parser.eof(); parserErr != nil {
 					c.abort(parserErr)
@@ -363,10 +363,10 @@ func (c *Client) readLoop(ctx context.Context, tr transport, done chan<- struct{
 			c.abort(err)
 			return
 		}
-		message, err := parser.feed(line)
-		if err != nil {
-			c.deliverEvent(Notification{Kind: "%protocol-error", Raw: line, Args: []string{err.Error()}})
-			c.abort(err)
+		message, feedErr := parser.feed(line)
+		if feedErr != nil {
+			c.deliverEvent(Notification{Kind: "%protocol-error", Raw: line, Args: []string{feedErr.Error()}})
+			c.abort(feedErr)
 			return
 		}
 		switch message.kind {
@@ -376,7 +376,20 @@ func (c *Client) readLoop(ctx context.Context, tr transport, done chan<- struct{
 			c.deliverEvent(message.notification)
 			if exit, ok := message.notification.Exit(); ok {
 				c.abort(&ExitError{Reason: exit.Reason})
+				return
 			}
+		}
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				if parserErr := parser.eof(); parserErr != nil {
+					c.abort(parserErr)
+					return
+				}
+				c.abort(io.EOF)
+				return
+			}
+			c.abort(err)
+			return
 		}
 	}
 }
