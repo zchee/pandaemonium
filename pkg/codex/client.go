@@ -100,6 +100,7 @@ type Config struct {
 	ConfigOverrides    []string
 	Cwd                string
 	Env                map[string]string
+	ServerMode         ServerMode
 	ClientName         string
 	ClientTitle        string
 	ClientVersion      string
@@ -146,6 +147,9 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 	}
 	if cfg.ClientVersion == "" {
 		cfg.ClientVersion = sdkVersion
+	}
+	if cfg.ServerMode == "" {
+		cfg.ServerMode = ServerModeAppServer
 	}
 	if approvalHandler == nil {
 		approvalHandler = defaultApprovalHandler
@@ -416,7 +420,7 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 		return InitializeResponse{}, err
 	}
 
-	if err := c.Notify(ctx, "initialized", nil); err != nil {
+	if err := c.Notify(ctx, NotificationMethodInitialized, nil); err != nil {
 		return InitializeResponse{}, err
 	}
 

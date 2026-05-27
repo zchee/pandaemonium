@@ -34,7 +34,9 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		_ codex.ListenConfig
 		_ codex.WebSocketConfig
 		_ codex.WebSocketAuthMode
+		_ codex.ServerMode
 		_ *codex.Codex
+		_ *codex.ExecServer
 		_ *codex.Client
 		_ codex.ApprovalMode
 		_ *codex.Thread
@@ -70,7 +72,9 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		"ListenConfig":                  reflect.TypeFor[codex.ListenConfig](),
 		"WebSocketConfig":               reflect.TypeFor[codex.WebSocketConfig](),
 		"WebSocketAuthMode":             reflect.TypeFor[codex.WebSocketAuthMode](),
+		"ServerMode":                    reflect.TypeFor[codex.ServerMode](),
 		"Codex":                         reflect.TypeFor[codex.Codex](),
+		"ExecServer":                    reflect.TypeFor[codex.ExecServer](),
 		"Client":                        reflect.TypeFor[codex.Client](),
 		"ApprovalMode":                  reflect.TypeFor[codex.ApprovalMode](),
 		"Thread":                        reflect.TypeFor[codex.Thread](),
@@ -108,6 +112,15 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 	}
 	if got := string(codex.ApprovalModeAutoReview); got != "auto_review" {
 		t.Fatalf("ApprovalModeAutoReview = %q, want auto_review", got)
+	}
+	if got := string(codex.ServerModeAppServer); got != "app-server" {
+		t.Fatalf("ServerModeAppServer = %q, want app-server", got)
+	}
+	if got := string(codex.ServerModeExecServer); got != "exec-server" {
+		t.Fatalf("ServerModeExecServer = %q, want exec-server", got)
+	}
+	if got := string(codex.NotificationMethodInitialized); got != "initialized" {
+		t.Fatalf("NotificationMethodInitialized = %q, want initialized", got)
 	}
 }
 
@@ -302,6 +315,75 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			},
 			out: []reflect.Type{
 				reflect.TypeFor[codex.GetAccountResponse](),
+				errorType,
+			},
+		},
+		"success: ExecServer CommandExec": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "CommandExec",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[*codex.CommandExecParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.CommandExecResponse](),
+				errorType,
+			},
+		},
+		"success: ExecServer CommandExecWrite": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "CommandExecWrite",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[*codex.CommandExecWriteParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.CommandExecWriteResponse](),
+				errorType,
+			},
+		},
+		"success: ExecServer CommandExecTerminate": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "CommandExecTerminate",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[*codex.CommandExecTerminateParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.CommandExecTerminateResponse](),
+				errorType,
+			},
+		},
+		"success: ExecServer CommandExecResize": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "CommandExecResize",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[*codex.CommandExecResizeParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.CommandExecResizeResponse](),
+				errorType,
+			},
+		},
+		"success: ExecServer Metadata": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "Metadata",
+			out: []reflect.Type{
+				reflect.TypeFor[codex.InitializeResponse](),
+			},
+		},
+		"success: ExecServer Client": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "Client",
+			out: []reflect.Type{
+				reflect.TypeFor[*codex.Client](),
+			},
+		},
+		"success: ExecServer Close": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "Close",
+			out: []reflect.Type{
 				errorType,
 			},
 		},
