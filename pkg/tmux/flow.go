@@ -17,7 +17,6 @@ package tmux
 import (
 	"context"
 	"fmt"
-	"math"
 	"strconv"
 	"strings"
 	"time"
@@ -90,12 +89,18 @@ func (c *Client) SetClientFlags(ctx context.Context, flags ...ClientFlag) (Respo
 }
 
 // SetPauseAfter enables flow control with `refresh-client -f pause-after=N`.
+//
+// The tmux wire format is integer seconds; d must be a whole number of seconds
+// because tmux cannot express sub-second precision.
 func (c *Client) SetPauseAfter(ctx context.Context, d time.Duration) (Response, error) {
 	if d <= 0 {
 		return Response{}, fmt.Errorf("tmux: pause-after duration must be positive")
 	}
-	seconds := int(math.Ceil(d.Seconds()))
-	return c.SetClientFlags(ctx, ClientFlag("pause-after="+strconv.Itoa(seconds)))
+	if d%time.Second != 0 {
+		return Response{}, fmt.Errorf("tmux: pause-after duration %s must be a whole number of seconds", d)
+	}
+	seconds := int64(d / time.Second)
+	return c.SetClientFlags(ctx, ClientFlag("pause-after="+strconv.FormatInt(seconds, 10)))
 }
 
 // PausePane asks tmux to pause pane output with `refresh-client -A pane:pause`.

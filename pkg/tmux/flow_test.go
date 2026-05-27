@@ -39,9 +39,9 @@ func TestRefreshClientHelpersRenderCommands(t *testing.T) {
 			},
 			want: "refresh-client -f no-output,wait-exit",
 		},
-		"success: pause after rounds up seconds": {
+		"success: pause after whole seconds": {
 			call: func(ctx context.Context, c *Client) (Response, error) {
-				return c.SetPauseAfter(ctx, 1500*time.Millisecond)
+				return c.SetPauseAfter(ctx, 2*time.Second)
 			},
 			want: "refresh-client -f pause-after=2",
 		},
@@ -105,6 +105,10 @@ func TestRefreshClientHelperValidation(t *testing.T) {
 		"error: pause after positive": {
 			call:    func() error { _, err := client.SetPauseAfter(t.Context(), 0); return err },
 			wantErr: "positive",
+		},
+		"error: pause after sub-second": {
+			call:    func() error { _, err := client.SetPauseAfter(t.Context(), 1500*time.Millisecond); return err },
+			wantErr: "whole number of seconds",
 		},
 		"error: pane id prefix": {
 			call:    func() error { _, err := client.PausePane(t.Context(), "1"); return err },
