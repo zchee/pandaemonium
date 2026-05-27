@@ -129,10 +129,7 @@ func (p *protocolParser) feed(line string) (protocolMessage, error) {
 	}
 
 	if p.active != nil {
-		kind, marker, ok, err := parseTerminator(line)
-		if err != nil {
-			return protocolMessage{}, &ProtocolError{Line: line, Err: err}
-		}
+		kind, marker, ok := parseTerminator(line)
 		if ok && sameMarkerIdentity(p.active.begin, marker) {
 			response := Response{
 				Begin: p.active.begin,
@@ -190,32 +187,32 @@ func parseBegin(line string) (BlockMarker, bool, error) {
 	return marker, err == nil, err
 }
 
-func parseTerminator(line string) (string, BlockMarker, bool, error) {
+func parseTerminator(line string) (rawMarker string, blockMarker BlockMarker, ok bool) {
 	fields := strings.Fields(line)
 	if len(fields) == 0 {
-		return "", BlockMarker{}, false, nil
+		return "", BlockMarker{}, false
 	}
 	if fields[0] == "%end" {
 		if len(fields) != 4 {
-			return "", BlockMarker{}, false, nil
+			return "", BlockMarker{}, false
 		}
 		marker, err := parseMarker(line, "%end")
 		if err != nil {
-			return "", BlockMarker{}, false, nil
+			return "", BlockMarker{}, false
 		}
-		return "%end", marker, true, nil
+		return "%end", marker, true
 	}
 	if fields[0] == "%error" {
 		if len(fields) != 4 {
-			return "", BlockMarker{}, false, nil
+			return "", BlockMarker{}, false
 		}
 		marker, err := parseMarker(line, "%error")
 		if err != nil {
-			return "", BlockMarker{}, false, nil
+			return "", BlockMarker{}, false
 		}
-		return "%error", marker, true, nil
+		return "%error", marker, true
 	}
-	return "", BlockMarker{}, false, nil
+	return "", BlockMarker{}, false
 }
 
 func parseMarker(line, prefix string) (BlockMarker, error) {
