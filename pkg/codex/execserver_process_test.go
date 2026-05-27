@@ -25,6 +25,7 @@ import (
 	gocmp "github.com/google/go-cmp/cmp"
 )
 
+// TestExecServerByteChunkRoundTrip verifies the base64 JSON wire format.
 func TestExecServerByteChunkRoundTrip(t *testing.T) {
 	t.Parallel()
 
@@ -43,8 +44,13 @@ func TestExecServerByteChunkRoundTrip(t *testing.T) {
 			wantJSON:    `"AAEC/w=="`,
 			wantDecoded: []byte{0x00, 0x01, 0x02, 0xff},
 		},
-		"success: empty bytes decode to nil": {
+		"success: nil bytes decode to nil": {
 			input:       nil,
+			wantJSON:    `""`,
+			wantDecoded: nil,
+		},
+		"success: empty bytes decode to nil": {
+			input:       ByteChunk{},
 			wantJSON:    `""`,
 			wantDecoded: nil,
 		},
@@ -63,7 +69,8 @@ func TestExecServerByteChunkRoundTrip(t *testing.T) {
 			}
 
 			var decoded ByteChunk
-			if err := json.Unmarshal(raw, &decoded); err != nil {
+			err = json.Unmarshal(raw, &decoded)
+			if err != nil {
 				t.Fatalf("Unmarshal() error = %v", err)
 			}
 			if diff := gocmp.Diff(tt.wantDecoded, []byte(decoded)); diff != "" {
@@ -73,11 +80,13 @@ func TestExecServerByteChunkRoundTrip(t *testing.T) {
 	}
 }
 
+// TestExecServerByteChunkRejectsInvalidBase64 verifies invalid chunks fail.
 func TestExecServerByteChunkRejectsInvalidBase64(t *testing.T) {
 	t.Parallel()
 
 	var decoded ByteChunk
-	if err := json.Unmarshal([]byte(`"not-base64!"`), &decoded); err == nil {
+	err := json.Unmarshal([]byte(`"not-base64!"`), &decoded)
+	if err == nil {
 		t.Fatal("Unmarshal() error = nil, want base64 decode error")
 	}
 }

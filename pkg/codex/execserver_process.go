@@ -51,22 +51,29 @@ var (
 
 // MarshalJSONTo implements [json.MarshalerTo].
 func (b ByteChunk) MarshalJSONTo(enc *jsontext.Encoder) error {
-	return json.MarshalEncode(enc, base64.StdEncoding.EncodeToString(b))
+	err := enc.WriteToken(jsontext.String(base64.StdEncoding.EncodeToString(b)))
+	if err != nil {
+		return fmt.Errorf("marshal byte chunk: %w", err)
+	}
+
+	return nil
 }
 
 // UnmarshalJSONFrom implements [json.UnmarshalerFrom].
 func (b *ByteChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var encoded string
-	if err := json.UnmarshalDecode(dec, &encoded); err != nil {
-		return err
+	err := json.UnmarshalDecode(dec, &encoded)
+	if err != nil {
+		return fmt.Errorf("unmarshal byte chunk string: %w", err)
 	}
 	if encoded == "" {
 		*b = nil
+
 		return nil
 	}
 	decoded, err := base64.StdEncoding.DecodeString(encoded)
 	if err != nil {
-		return err
+		return fmt.Errorf("unmarshal byte chunk base64: %w", err)
 	}
 	*b = append((*b)[:0], decoded...)
 	return nil
