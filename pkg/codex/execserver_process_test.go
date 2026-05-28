@@ -290,6 +290,59 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 	}
 }
 
+func TestExecServerProcessClosedNotificationRemovesQueue(t *testing.T) {
+	t.Parallel()
+
+	client := NewExecServerClient(nil)
+	queue := client.ensureProcessQueue("proc-closed")
+	handle := &ExecServerProcessHandle{client: client, processID: "proc-closed", processQueue: queue}
+
+	if err := client.routeNotification(Notification{
+		Method: ExecServerProcessClosedMethod,
+		Params: mustJSON(t, ExecServerProcessClosedNotification{
+			ProcessID: "proc-closed",
+			Seq:       2,
+		}),
+	}); err != nil {
+		t.Fatalf("routeNotification(closed) error = %v", err)
+	}
+	if err := client.routeNotification(Notification{
+		Method: ExecServerProcessExitedMethod,
+		Params: mustJSON(t, ExecServerProcessExitedNotification{
+			ProcessID: "proc-closed",
+			Seq:       1,
+			ExitCode:  0,
+		}),
+	}); err != nil {
+		t.Fatalf("routeNotification(exited) error = %v", err)
+	}
+	assertExecServerProcessQueueCount(t, client, 1)
+
+	first, err := handle.NextNotification(t.Context())
+	if err != nil {
+		t.Fatalf("NextNotification() first error = %v", err)
+	}
+	if got, ok := first.(ExecServerProcessExitedNotification); !ok || got.Seq != 1 {
+		t.Fatalf("first notification = %#v, want exited seq 1", first)
+	}
+	assertExecServerProcessQueueCount(t, client, 1)
+
+	second, err := handle.NextNotification(t.Context())
+	if err != nil {
+		t.Fatalf("NextNotification() second error = %v", err)
+	}
+	if got, ok := second.(ExecServerProcessClosedNotification); !ok || got.Seq != 2 {
+		t.Fatalf("second notification = %#v, want closed seq 2", second)
+	}
+	assertExecServerProcessQueueCount(t, client, 0)
+
+	_, err = handle.NextNotification(t.Context())
+	if !errors.Is(err, io.EOF) {
+		t.Fatalf("NextNotification() after closed error = %v, want io.EOF", err)
+	}
+	assertExecServerProcessQueueCount(t, client, 0)
+}
+
 // TestExecServerProcessMalformedNotificationFailsQueue verifies malformed
 // process notifications fail waiting handles.
 func TestExecServerProcessMalformedNotificationFailsQueue(t *testing.T) {
@@ -372,6 +425,17 @@ func TestExecServerProcessNotificationsRequireRoutingFields(t *testing.T) {
 				t.Fatalf("routeNotification() error = %v, want %q", err, tt.wantErr)
 			}
 		})
+	}
+}
+
+func assertExecServerProcessQueueCount(t *testing.T, client *ExecServerClient, want int) {
+	t.Helper()
+
+	client.processMu.Lock()
+	got := len(client.processQueues)
+	client.processMu.Unlock()
+	if got != want {
+		t.Fatalf("process queue count = %d, want %d", got, want)
 	}
 }
 

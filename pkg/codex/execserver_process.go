@@ -337,8 +337,8 @@ func (c *ExecServerClient) ProcessStart(ctx context.Context, params *ExecServerP
 	if err := json.Unmarshal(raw, &response); err != nil {
 		return nil, fmt.Errorf("decode %s response: %w", ExecServerProcessStartMethod, err)
 	}
-	handle := &ExecServerProcessHandle{client: c, processID: response.ProcessID}
-	c.ensureProcessQueue(response.ProcessID)
+	queue := c.ensureProcessQueue(response.ProcessID)
+	handle := &ExecServerProcessHandle{client: c, processID: response.ProcessID, processQueue: queue}
 	return handle, nil
 }
 
@@ -370,7 +370,7 @@ func (c *ExecServerClient) Notify(ctx context.Context, method string, params any
 // NextProcessNotification waits for the next ordered process event.
 func (c *ExecServerClient) NextProcessNotification(ctx context.Context, processID ProcessID) (ExecServerProcessNotification, error) {
 	queue := c.ensureProcessQueue(processID)
-	return queue.next(ctx)
+	return c.nextProcessNotification(ctx, processID, queue)
 }
 
 func request[T any](ctx context.Context, c *ExecServerClient, method string, params any) (T, error) {
@@ -565,18 +565,44 @@ func (c *ExecServerClient) pushProcessNotification(notification ExecServerProces
 	c.ensureProcessQueue(notification.ProcessIDValue()).push(notification)
 }
 
+func (c *ExecServerClient) nextProcessNotification(
+	ctx context.Context,
+	processID ProcessID,
+	queue *execServerProcessQueue,
+) (ExecServerProcessNotification, error) {
+	notification, err := queue.next(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if _, ok := notification.(ExecServerProcessClosedNotification); ok {
+		queue.close(io.EOF)
+		c.deleteProcessQueue(processID, queue)
+	}
+	return notification, nil
+}
+
+func (c *ExecServerClient) deleteProcessQueue(processID ProcessID, queue *execServerProcessQueue) {
+	c.processMu.Lock()
+	defer c.processMu.Unlock()
+	if c.processQueues[processID] == queue {
+		delete(c.processQueues, processID)
+	}
+}
+
 func (c *ExecServerClient) closeAllProcessQueues(err error) {
 	c.processMu.Lock()
 	defer c.processMu.Unlock()
 	for _, queue := range c.processQueues {
 		queue.close(err)
 	}
+	c.processQueues = map[ProcessID]*execServerProcessQueue{}
 }
 
 // ExecServerProcessHandle scopes process operations to a single process id.
 type ExecServerProcessHandle struct {
-	client    *ExecServerClient
-	processID ProcessID
+	client       *ExecServerClient
+	processID    ProcessID
+	processQueue *execServerProcessQueue
 }
 
 // ID returns the process identifier.
@@ -619,6 +645,9 @@ func (h *ExecServerProcessHandle) Terminate(ctx context.Context) (ExecServerProc
 func (h *ExecServerProcessHandle) NextNotification(ctx context.Context) (ExecServerProcessNotification, error) {
 	if h == nil || h.client == nil {
 		return nil, fmt.Errorf("process handle is nil")
+	}
+	if h.processQueue != nil {
+		return h.client.nextProcessNotification(ctx, h.processID, h.processQueue)
 	}
 	return h.client.NextProcessNotification(ctx, h.processID)
 }
