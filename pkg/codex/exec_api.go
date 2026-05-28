@@ -14,7 +14,12 @@
 
 package codex
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+var errExecServerNil = errors.New("codex exec server is nil")
 
 // ServerMode selects whether the SDK expects an app-server or command-exec server.
 type ServerMode string
@@ -68,32 +73,32 @@ func (c *ExecServer) Metadata() InitializeResponse {
 
 // CommandExec runs a standalone command (argv vector).
 func (c *ExecServer) CommandExec(ctx context.Context, params *CommandExecParams) (CommandExecResponse, error) {
-	if c == nil {
-		return CommandExecResponse{}, nil
+	if c == nil || c.client == nil {
+		return CommandExecResponse{}, errExecServerNil
 	}
 	return c.client.CommandExec(ctx, params)
 }
 
 // CommandExecWrite writes stdin bytes to a running command/exec session.
 func (c *ExecServer) CommandExecWrite(ctx context.Context, params *CommandExecWriteParams) (CommandExecWriteResponse, error) {
-	if c == nil {
-		return CommandExecWriteResponse{}, nil
+	if c == nil || c.client == nil {
+		return CommandExecWriteResponse{}, errExecServerNil
 	}
 	return c.client.CommandExecWrite(ctx, params)
 }
 
 // CommandExecTerminate terminates a running command/exec session.
 func (c *ExecServer) CommandExecTerminate(ctx context.Context, params *CommandExecTerminateParams) (CommandExecTerminateResponse, error) {
-	if c == nil {
-		return CommandExecTerminateResponse{}, nil
+	if c == nil || c.client == nil {
+		return CommandExecTerminateResponse{}, errExecServerNil
 	}
 	return c.client.CommandExecTerminate(ctx, params)
 }
 
 // CommandExecResize resizes a running command/exec PTY-backed session.
 func (c *ExecServer) CommandExecResize(ctx context.Context, params *CommandExecResizeParams) (CommandExecResizeResponse, error) {
-	if c == nil {
-		return CommandExecResizeResponse{}, nil
+	if c == nil || c.client == nil {
+		return CommandExecResizeResponse{}, errExecServerNil
 	}
 	return c.client.CommandExecResize(ctx, params)
 }

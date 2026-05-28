@@ -41,6 +41,14 @@ const (
 	execServerTransportClosedEOFMessage = "exec-server closed stdout"
 )
 
+const execServerProcessNotificationDecodeForm = "decode %s notification: %w"
+
+var (
+	errExecServerUnexpectedServerRequest  = errors.New("unexpected server request")
+	errExecServerProcessNotificationNoID  = errors.New("missing processId")
+	errExecServerProcessNotificationNoSeq = errors.New("missing seq")
+)
+
 // ByteChunk serializes bytes as a base64 string.
 type ByteChunk []byte
 
@@ -420,21 +428,31 @@ func (c *ExecServerClient) readLoop(ctx context.Context, t Transport, done chan<
 	defer close(done)
 
 	for {
-		msg, err := c.readMessage(ctx, t)
-		if err != nil {
-			c.failPending(err)
-			c.closeAllProcessQueues(err)
+		msg, readErr := c.readMessage(ctx, t)
+		if readErr != nil {
+			c.failPending(readErr)
+			c.closeAllProcessQueues(readErr)
+
 			return
 		}
 
 		if msg.Method != "" && msg.ID != "" {
-			c.failPending(fmt.Errorf("unexpected server request %q", msg.Method))
-			c.closeAllProcessQueues(fmt.Errorf("unexpected server request %q", msg.Method))
+			requestErr := fmt.Errorf("%w: %s", errExecServerUnexpectedServerRequest, msg.Method)
+			c.failPending(requestErr)
+			c.closeAllProcessQueues(requestErr)
+
 			return
 		}
 
 		if msg.Method != "" {
-			c.routeNotification(Notification{Method: msg.Method, Params: msg.Params})
+			routeErr := c.routeNotification(Notification{Method: msg.Method, Params: msg.Params})
+			if routeErr != nil {
+				c.failPending(routeErr)
+				c.closeAllProcessQueues(routeErr)
+
+				return
+			}
+
 			continue
 		}
 		c.deliverResponse(msg)
@@ -457,30 +475,61 @@ func (c *ExecServerClient) failPending(err error) {
 	c.rpcState.failPending(err)
 }
 
-func (c *ExecServerClient) routeNotification(notification Notification) {
+func (c *ExecServerClient) routeNotification(notification Notification) error {
 	switch notification.Method {
 	case ExecServerProcessOutputMethod:
-		if decoded, ok := decodeExecServerProcessNotification[ExecServerProcessOutputNotification](notification); ok {
-			c.pushProcessNotification(decoded)
+		decoded, err := decodeExecServerProcessNotification[ExecServerProcessOutputNotification](notification)
+		if err != nil {
+			return err
 		}
+		c.pushProcessNotification(decoded)
 	case ExecServerProcessExitedMethod:
-		if decoded, ok := decodeExecServerProcessNotification[ExecServerProcessExitedNotification](notification); ok {
-			c.pushProcessNotification(decoded)
+		decoded, err := decodeExecServerProcessNotification[ExecServerProcessExitedNotification](notification)
+		if err != nil {
+			return err
 		}
+		c.pushProcessNotification(decoded)
 	case ExecServerProcessClosedMethod:
-		if decoded, ok := decodeExecServerProcessNotification[ExecServerProcessClosedNotification](notification); ok {
-			c.pushProcessNotification(decoded)
+		decoded, err := decodeExecServerProcessNotification[ExecServerProcessClosedNotification](notification)
+		if err != nil {
+			return err
 		}
+		c.pushProcessNotification(decoded)
 	}
+
+	return nil
 }
 
-func decodeExecServerProcessNotification[T ExecServerProcessNotification](notification Notification) (T, bool) {
-	var got T
-	if err := json.Unmarshal(notification.Params, &got); err != nil {
-		var zero T
-		return zero, false
+func decodeExecServerProcessNotification[
+	ProcessNotification ExecServerProcessNotification,
+](notification Notification) (ProcessNotification, error) {
+	var got ProcessNotification
+	err := json.Unmarshal(notification.Params, &got)
+	if err != nil {
+		var zero ProcessNotification
+
+		return zero, fmt.Errorf(execServerProcessNotificationDecodeForm, notification.Method, err)
 	}
-	return got, true
+	if got.ProcessIDValue() == "" {
+		var zero ProcessNotification
+
+		return zero, fmt.Errorf(
+			execServerProcessNotificationDecodeForm,
+			notification.Method,
+			errExecServerProcessNotificationNoID,
+		)
+	}
+	if got.SeqValue() == 0 {
+		var zero ProcessNotification
+
+		return zero, fmt.Errorf(
+			execServerProcessNotificationDecodeForm,
+			notification.Method,
+			errExecServerProcessNotificationNoSeq,
+		)
+	}
+
+	return got, nil
 }
 
 func (c *ExecServerClient) ensureProcessQueue(processID ProcessID) *execServerProcessQueue {

@@ -18,8 +18,10 @@ import (
 	"context"
 	"errors"
 	"io"
+	"strings"
 	"sync"
 	"testing"
+	"time"
 
 	"github.com/go-json-experiment/json"
 	gocmp "github.com/google/go-cmp/cmp"
@@ -157,7 +159,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		}
 	}
 
-	initResp, err := client.Initialize(context.Background(), &ExecServerInitializeParams{ClientName: "codex-test"})
+	initResp, err := client.Initialize(t.Context(), &ExecServerInitializeParams{ClientName: "codex-test"})
 	if err != nil {
 		t.Fatalf("Initialize() error = %v", err)
 	}
@@ -165,7 +167,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		t.Fatalf("Initialize() sessionId = %q, want session-1", initResp.SessionID)
 	}
 
-	handle, err := client.ProcessStart(context.Background(), &ExecServerProcessStartParams{
+	handle, err := client.ProcessStart(t.Context(), &ExecServerProcessStartParams{
 		ProcessID: "proc-1",
 		Argv:      []string{"/bin/sh", "-lc", "echo hello"},
 		Cwd:       "/tmp",
@@ -188,7 +190,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		t.Fatalf("ProcessStart() handle id = %q, want %q", got, want)
 	}
 
-	readResp, err := handle.Read(context.Background(), &ExecServerProcessReadParams{AfterSeq: func() *uint64 { v := uint64(0); return &v }()})
+	readResp, err := handle.Read(t.Context(), &ExecServerProcessReadParams{AfterSeq: func() *uint64 { v := uint64(0); return &v }()})
 	if err != nil {
 		t.Fatalf("ProcessRead() error = %v", err)
 	}
@@ -202,7 +204,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		t.Fatalf("ProcessRead() exit state = %#v, want exited with exit code 7", readResp)
 	}
 
-	writeResp, err := handle.Write(context.Background(), ByteChunk([]byte("input")))
+	writeResp, err := handle.Write(t.Context(), ByteChunk([]byte("input")))
 	if err != nil {
 		t.Fatalf("ProcessWrite() error = %v", err)
 	}
@@ -210,7 +212,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		t.Fatalf("ProcessWrite() status = %q, want accepted", writeResp.Status)
 	}
 
-	termResp, err := handle.Terminate(context.Background())
+	termResp, err := handle.Terminate(t.Context())
 	if err != nil {
 		t.Fatalf("ProcessTerminate() error = %v", err)
 	}
@@ -229,7 +231,7 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 	client := NewExecServerClient(nil)
 	handle := &ExecServerProcessHandle{client: client, processID: "proc-ordered"}
 
-	client.routeNotification(Notification{
+	routeErr := client.routeNotification(Notification{
 		Method: ExecServerProcessOutputMethod,
 		Params: mustJSON(t, ExecServerProcessOutputNotification{
 			ProcessID: "proc-ordered",
@@ -238,14 +240,20 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 			Chunk:     ByteChunk([]byte("two")),
 		}),
 	})
-	client.routeNotification(Notification{
+	if routeErr != nil {
+		t.Fatalf("routeNotification(output) error = %v", routeErr)
+	}
+	routeErr = client.routeNotification(Notification{
 		Method: ExecServerProcessClosedMethod,
 		Params: mustJSON(t, ExecServerProcessClosedNotification{
 			ProcessID: "proc-ordered",
 			Seq:       3,
 		}),
 	})
-	client.routeNotification(Notification{
+	if routeErr != nil {
+		t.Fatalf("routeNotification(closed) error = %v", routeErr)
+	}
+	routeErr = client.routeNotification(Notification{
 		Method: ExecServerProcessExitedMethod,
 		Params: mustJSON(t, ExecServerProcessExitedNotification{
 			ProcessID: "proc-ordered",
@@ -253,8 +261,11 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 			ExitCode:  9,
 		}),
 	})
+	if routeErr != nil {
+		t.Fatalf("routeNotification(exited) error = %v", routeErr)
+	}
 
-	first, err := handle.NextNotification(context.Background())
+	first, err := handle.NextNotification(t.Context())
 	if err != nil {
 		t.Fatalf("NextNotification() first error = %v", err)
 	}
@@ -262,7 +273,7 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 		t.Fatalf("first notification = %#v, want exited seq 1", first)
 	}
 
-	second, err := handle.NextNotification(context.Background())
+	second, err := handle.NextNotification(t.Context())
 	if err != nil {
 		t.Fatalf("NextNotification() second error = %v", err)
 	}
@@ -270,12 +281,97 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 		t.Fatalf("second notification = %#v, want output seq 2", second)
 	}
 
-	third, err := handle.NextNotification(context.Background())
+	third, err := handle.NextNotification(t.Context())
 	if err != nil {
 		t.Fatalf("NextNotification() third error = %v", err)
 	}
 	if got, ok := third.(ExecServerProcessClosedNotification); !ok || got.Seq != 3 {
 		t.Fatalf("third notification = %#v, want closed seq 3", third)
+	}
+}
+
+// TestExecServerProcessMalformedNotificationFailsQueue verifies malformed
+// process notifications fail waiting handles.
+func TestExecServerProcessMalformedNotificationFailsQueue(t *testing.T) {
+	t.Parallel()
+
+	tr := newScriptTransport()
+	client := NewExecServerClient(tr)
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	handle := &ExecServerProcessHandle{client: client, processID: "proc-invalid"}
+	client.ensureProcessQueue("proc-invalid")
+	err := tr.enqueueJSON(rpcMessage{
+		Method: ExecServerProcessOutputMethod,
+		Params: mustJSON(t, map[string]any{
+			"processId": "proc-invalid",
+			"seq":       1,
+			"stream":    "stdout",
+			"chunk":     123,
+		}),
+	})
+	if err != nil {
+		t.Fatalf("enqueue malformed process notification error = %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancel)
+	_, err = handle.NextNotification(ctx)
+	if err == nil {
+		t.Fatal("NextNotification() error = nil, want malformed notification failure")
+	}
+	if !strings.Contains(err.Error(), "decode process/output notification") {
+		t.Fatalf("NextNotification() error = %v, want decode process/output notification context", err)
+	}
+}
+
+// TestExecServerProcessNotificationsRequireRoutingFields verifies
+// required routing metadata.
+func TestExecServerProcessNotificationsRequireRoutingFields(t *testing.T) {
+	t.Parallel()
+
+	client := NewExecServerClient(nil)
+	tests := map[string]struct {
+		wantErr      string
+		notification Notification
+	}{
+		"error: missing process id": {
+			wantErr: "missing processId",
+			notification: Notification{
+				Method: ExecServerProcessOutputMethod,
+				Params: mustJSON(t, map[string]any{
+					"seq":    1,
+					"stream": "stdout",
+					"chunk":  "b2s=",
+				}),
+			},
+		},
+		"error: missing seq": {
+			wantErr: "missing seq",
+			notification: Notification{
+				Method: ExecServerProcessExitedMethod,
+				Params: mustJSON(t, map[string]any{
+					"processId": "proc-invalid",
+					"exitCode":  7,
+				}),
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := client.routeNotification(tt.notification)
+			if err == nil {
+				t.Fatal("routeNotification() error = nil, want validation failure")
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("routeNotification() error = %v, want %q", err, tt.wantErr)
+			}
+		})
 	}
 }
 

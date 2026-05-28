@@ -16,6 +16,7 @@ package codex
 
 import (
 	"context"
+	"errors"
 	"os"
 	"path/filepath"
 	"testing"
@@ -95,5 +96,65 @@ func TestNewExecServerStartsExecServerOverWebSocketAndPerformsInitializeHandshak
 	}
 	if client.Client().config.ServerMode != ServerModeExecServer {
 		t.Fatalf("unexpected server mode = %q, want %q", client.Client().config.ServerMode, ServerModeExecServer)
+	}
+}
+
+// TestExecServerCommandMethodsRejectNilReceiver verifies command wrappers fail
+// loudly without a client.
+func TestExecServerCommandMethodsRejectNilReceiver(t *testing.T) {
+	t.Parallel()
+
+	var nilServer *ExecServer
+	emptyServer := &ExecServer{}
+	tests := map[string]struct {
+		server *ExecServer
+		call   func(context.Context, *ExecServer) error
+	}{
+		"error: nil command exec": {
+			server: nilServer,
+			call: func(ctx context.Context, server *ExecServer) error {
+				_, err := server.CommandExec(ctx, &CommandExecParams{})
+				return err
+			},
+		},
+		"error: nil command exec write": {
+			server: nilServer,
+			call: func(ctx context.Context, server *ExecServer) error {
+				_, err := server.CommandExecWrite(ctx, &CommandExecWriteParams{})
+				return err
+			},
+		},
+		"error: nil command exec terminate": {
+			server: nilServer,
+			call: func(ctx context.Context, server *ExecServer) error {
+				_, err := server.CommandExecTerminate(ctx, &CommandExecTerminateParams{})
+				return err
+			},
+		},
+		"error: nil command exec resize": {
+			server: nilServer,
+			call: func(ctx context.Context, server *ExecServer) error {
+				_, err := server.CommandExecResize(ctx, &CommandExecResizeParams{})
+				return err
+			},
+		},
+		"error: nil underlying client": {
+			server: emptyServer,
+			call: func(ctx context.Context, server *ExecServer) error {
+				_, err := server.CommandExec(ctx, &CommandExecParams{})
+				return err
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			err := tt.call(t.Context(), tt.server)
+			if !errors.Is(err, errExecServerNil) {
+				t.Fatalf("command wrapper error = %v, want %v", err, errExecServerNil)
+			}
+		})
 	}
 }
