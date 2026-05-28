@@ -83,7 +83,7 @@ func (b *ByteChunk) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	if err != nil {
 		return fmt.Errorf("unmarshal byte chunk base64: %w", err)
 	}
-	*b = append((*b)[:0], decoded...)
+	*b = decoded
 	return nil
 }
 
