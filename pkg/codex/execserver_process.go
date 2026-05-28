@@ -28,15 +28,25 @@ import (
 )
 
 const (
-	ExecServerInitializeMethod          = "initialize"
-	ExecServerInitializedMethod         = "initialized"
-	ExecServerProcessStartMethod        = "process/start"
-	ExecServerProcessReadMethod         = "process/read"
-	ExecServerProcessWriteMethod        = "process/write"
-	ExecServerProcessTerminateMethod    = "process/terminate"
-	ExecServerProcessOutputMethod       = "process/output"
-	ExecServerProcessExitedMethod       = "process/exited"
-	ExecServerProcessClosedMethod       = "process/closed"
+	// ExecServerInitializeMethod is the method name for initializing the exec-server.
+	ExecServerInitializeMethod = "initialize"
+	// ExecServerInitializedMethod is the method name sent after initialization is complete.
+	ExecServerInitializedMethod = "initialized"
+	// ExecServerProcessStartMethod is the method name for starting a process.
+	ExecServerProcessStartMethod = "process/start"
+	// ExecServerProcessReadMethod is the method name for reading process output.
+	ExecServerProcessReadMethod = "process/read"
+	// ExecServerProcessWriteMethod is the method name for writing to a process's stdin.
+	ExecServerProcessWriteMethod = "process/write"
+	// ExecServerProcessTerminateMethod is the method name for terminating a process.
+	ExecServerProcessTerminateMethod = "process/terminate"
+	// ExecServerProcessOutputMethod is the notification method for streaming process output.
+	ExecServerProcessOutputMethod = "process/output"
+	// ExecServerProcessExitedMethod is the notification method for process exit events.
+	ExecServerProcessExitedMethod = "process/exited"
+	// ExecServerProcessClosedMethod is the notification method for process close events.
+	ExecServerProcessClosedMethod = "process/closed"
+
 	execServerTransportClosedMessage    = "exec-server is not running"
 	execServerTransportClosedEOFMessage = "exec-server closed stdout"
 )
@@ -139,9 +149,12 @@ type ExecServerProcessReadParams struct {
 type ExecServerProcessOutputStream string
 
 const (
+	// ExecServerProcessOutputStreamStdout represents the standard output stream.
 	ExecServerProcessOutputStreamStdout ExecServerProcessOutputStream = "stdout"
+	// ExecServerProcessOutputStreamStderr represents the standard error stream.
 	ExecServerProcessOutputStreamStderr ExecServerProcessOutputStream = "stderr"
-	ExecServerProcessOutputStreamPty    ExecServerProcessOutputStream = "pty"
+	// ExecServerProcessOutputStreamPty represents the PTY stream.
+	ExecServerProcessOutputStreamPty ExecServerProcessOutputStream = "pty"
 )
 
 // ExecServerProcessOutputChunk is a retained-output chunk returned by process/read.
@@ -171,10 +184,14 @@ type ExecServerProcessWriteParams struct {
 type ExecServerProcessWriteStatus string
 
 const (
-	ExecServerProcessWriteStatusAccepted       ExecServerProcessWriteStatus = "accepted"
+	// ExecServerProcessWriteStatusAccepted indicates the write was accepted.
+	ExecServerProcessWriteStatusAccepted ExecServerProcessWriteStatus = "accepted"
+	// ExecServerProcessWriteStatusUnknownProcess indicates the process is unknown.
 	ExecServerProcessWriteStatusUnknownProcess ExecServerProcessWriteStatus = "unknownProcess"
-	ExecServerProcessWriteStatusStdinClosed    ExecServerProcessWriteStatus = "stdinClosed"
-	ExecServerProcessWriteStatusStarting       ExecServerProcessWriteStatus = "starting"
+	// ExecServerProcessWriteStatusStdinClosed indicates the stdin stream is closed.
+	ExecServerProcessWriteStatusStdinClosed ExecServerProcessWriteStatus = "stdinClosed"
+	// ExecServerProcessWriteStatusStarting indicates the process is still starting.
+	ExecServerProcessWriteStatusStarting ExecServerProcessWriteStatus = "starting"
 )
 
 // ExecServerProcessWriteResponse reports whether the write was accepted.
