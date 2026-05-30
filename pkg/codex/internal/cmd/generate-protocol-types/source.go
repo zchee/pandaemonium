@@ -92,7 +92,7 @@ func generateCodexAppServerSchema(codexBin string) (schemaInput, error) {
 	cmd := exec.CommandContext(ctx, codexBin, args...)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
-		command := codexBin + " " + strings.Join(args[:3], " ")
+		command := codexBin + " " + strings.Join(args, " ")
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return schemaInput{}, fmt.Errorf("run %s: timed out after 30s%s", command, commandOutputSuffix(output))
 		}

@@ -888,13 +888,13 @@ func (c *Client) storeTransport(t Transport) {
 }
 
 func (c *Client) writeMessage(ctx context.Context, payload any) error {
-	c.rpcState.lockWrite()
-	defer c.rpcState.unlockWrite()
-
 	line, err := json.Marshal(payload)
 	if err != nil {
 		return fmt.Errorf("encode JSON-RPC payload: %w", err)
 	}
+
+	c.rpcState.lockWrite()
+	defer c.rpcState.unlockWrite()
 
 	t := c.loadTransport()
 	if t == nil {
