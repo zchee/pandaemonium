@@ -373,6 +373,13 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 				reflect.TypeFor[codex.InitializeResponse](),
 			},
 		},
+		"success: ExecServer SessionID": {
+			typ:  reflect.TypeFor[*codex.ExecServer](),
+			name: "SessionID",
+			out: []reflect.Type{
+				reflect.TypeFor[string](),
+			},
+		},
 		"success: ExecServer Client": {
 			typ:  reflect.TypeFor[*codex.ExecServer](),
 			name: "Client",

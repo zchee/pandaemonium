@@ -36,8 +36,9 @@ const (
 
 // ExecServer is the high-level synchronous Go SDK surface for command-exec server flows.
 type ExecServer struct {
-	client   *Client
-	metadata InitializeResponse
+	client    *Client
+	metadata  InitializeResponse
+	sessionID string
 }
 
 // NewExecServer starts and initializes an exec-server client.
@@ -52,14 +53,15 @@ func NewExecServer(ctx context.Context, config *Config) (*ExecServer, error) {
 		return nil, err
 	}
 
-	metadata, err := client.initializeServer(ctx)
+	metadata, execMeta, err := client.initializeServer(ctx)
 	if err != nil {
 		_ = client.Close()
 		return nil, err
 	}
 	return &ExecServer{
-		client:   client,
-		metadata: metadata,
+		client:    client,
+		metadata:  metadata,
+		sessionID: execMeta.SessionID,
 	}, nil
 }
 
@@ -69,6 +71,15 @@ func (c *ExecServer) Metadata() InitializeResponse {
 		return InitializeResponse{}
 	}
 	return c.metadata
+}
+
+// SessionID returns the session id assigned by the exec-server during
+// initialization, or the empty string if the server did not assign one.
+func (c *ExecServer) SessionID() string {
+	if c == nil {
+		return ""
+	}
+	return c.sessionID
 }
 
 // CommandExec runs a standalone command (argv vector).

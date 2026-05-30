@@ -783,39 +783,41 @@ func (c *Client) buildServerArgsForCommand(command string, listenCfg ListenConfi
 	return args, nil
 }
 
-func (c *Client) initializeServer(ctx context.Context) (InitializeResponse, error) {
+func (c *Client) initializeServer(ctx context.Context) (InitializeResponse, ExecServerInitializeResponse, error) {
 	switch c.config.ServerMode {
 	case ServerModeExecServer:
 		raw, err := c.RequestRaw(ctx, ExecServerInitializeMethod, &ExecServerInitializeParams{
 			ClientName: c.config.ClientName,
 		})
 		if err != nil {
-			return InitializeResponse{}, err
+			return InitializeResponse{}, ExecServerInitializeResponse{}, err
 		}
-		if _, err := decodeRequestResult[ExecServerInitializeResponse](ExecServerInitializeMethod, raw); err != nil {
-			return InitializeResponse{}, err
+		execMeta, err := decodeRequestResult[ExecServerInitializeResponse](ExecServerInitializeMethod, raw)
+		if err != nil {
+			return InitializeResponse{}, ExecServerInitializeResponse{}, err
 		}
 
 		var metadata InitializeResponse
 		if len(raw) > 0 && string(raw) != "null" {
 			var candidate InitializeResponse
 			if err := json.Unmarshal(raw, &candidate); err != nil {
-				return InitializeResponse{}, fmt.Errorf("decode %s metadata: %w", ExecServerInitializeMethod, err)
+				return InitializeResponse{}, ExecServerInitializeResponse{}, fmt.Errorf("decode %s metadata: %w", ExecServerInitializeMethod, err)
 			}
 			if strings.TrimSpace(candidate.UserAgent) != "" || candidate.ServerInfo != nil {
 				metadata, err = validateInitialize(candidate)
 				if err != nil {
-					return InitializeResponse{}, err
+					return InitializeResponse{}, ExecServerInitializeResponse{}, err
 				}
 			}
 		}
 
 		if err := c.Notify(ctx, NotificationMethodInitialized, nil); err != nil {
-			return InitializeResponse{}, err
+			return InitializeResponse{}, ExecServerInitializeResponse{}, err
 		}
-		return metadata, nil
+		return metadata, execMeta, nil
 	default:
-		return c.Initialize(ctx)
+		metadata, err := c.Initialize(ctx)
+		return metadata, ExecServerInitializeResponse{}, err
 	}
 }
 

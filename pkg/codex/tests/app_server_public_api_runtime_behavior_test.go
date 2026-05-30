@@ -116,6 +116,9 @@ func TestPublicAPIRuntimeBehaviorPortNewExecServerInitializesAndExecs(t *testing
 	if got := server.Metadata().ServerInfo; got == nil || got.Name != "codex-test" || got.Version != "1.2.3" {
 		t.Fatalf("ExecServer.Metadata().ServerInfo = %#v, want helper metadata", got)
 	}
+	if got := server.SessionID(); got != "session-command-exec" {
+		t.Fatalf("ExecServer.SessionID() = %q, want %q", got, "session-command-exec")
+	}
 	result, err := server.CommandExec(ctx, &codex.CommandExecParams{Command: []string{"printf", "hello"}})
 	if err != nil {
 		t.Fatalf("ExecServer.CommandExec() error = %v", err)

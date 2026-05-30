@@ -146,7 +146,11 @@ func (s *helperState) handle(req helperRequest) error {
 			s.writeResult(req.ID, codex.Object{})
 			return nil
 		}
-		s.writeResult(req.ID, codex.Object{"userAgent": "codex-test/1.2.3"})
+		result := codex.Object{"userAgent": "codex-test/1.2.3"}
+		if s.scenario == "command_exec" {
+			result["sessionId"] = "session-command-exec"
+		}
+		s.writeResult(req.ID, result)
 		return nil
 	}
 	if req.Method == "initialized" {
