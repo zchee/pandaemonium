@@ -607,11 +607,12 @@ func (h *ExecServerProcessHandle) Read(ctx context.Context, params *ExecServerPr
 	if h == nil || h.client == nil {
 		return ExecServerProcessReadResponse{}, errProcessHandleNil
 	}
-	if params == nil {
-		params = &ExecServerProcessReadParams{}
+	scoped := ExecServerProcessReadParams{}
+	if params != nil {
+		scoped = *params
 	}
-	params.ProcessID = h.processID
-	return h.client.ProcessRead(ctx, params)
+	scoped.ProcessID = h.processID
+	return h.client.ProcessRead(ctx, &scoped)
 }
 
 // Write writes to process stdin.
