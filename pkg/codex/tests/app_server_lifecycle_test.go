@@ -37,7 +37,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 			t.Fatalf("Thread.SetName() error = %v", err)
 		}
 		includeTurns := true
-		named, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+		named, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: includeTurns})
 		if err != nil {
 			t.Fatalf("Thread.Read(includeTurns=true) error = %v", err)
 		}
@@ -105,7 +105,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 			t.Fatalf("second Thread.Run() error = %v", err)
 		}
 		includeTurns := true
-		read, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+		read, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: includeTurns})
 		if err != nil {
 			t.Fatalf("Thread.Read(includeTurns=true) error = %v", err)
 		}

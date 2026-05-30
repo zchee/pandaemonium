@@ -94,7 +94,7 @@ func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {
 		t.Fatalf("Thread.SetName() error = %v", err)
 	}
 	includeTurns := true
-	read, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+	read, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: includeTurns})
 	if err != nil {
 		t.Fatalf("Thread.Read() error = %v", err)
 	}

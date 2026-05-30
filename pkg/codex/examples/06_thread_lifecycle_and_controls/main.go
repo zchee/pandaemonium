@@ -56,7 +56,7 @@ func main() {
 		log.Fatal(err)
 	}
 	includeTurns := true
-	reading, err := reopened.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+	reading, err := reopened.Read(ctx, &codex.ThreadReadParams{IncludeTurns: includeTurns})
 	if err != nil {
 		log.Fatal(err)
 	}

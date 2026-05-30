@@ -1297,7 +1297,7 @@ func TestCodexStreamThreadLifecycleMethodsDelegateToThreadAPI(t *testing.T) {
 		t.Fatalf("unarchived.ID() = %q, want thr_stream_unarchive", unarchived.ID())
 	}
 
-	read, err := started.Read(t.Context(), &ThreadReadParams{IncludeTurns: new(true)})
+	read, err := started.Read(t.Context(), &ThreadReadParams{IncludeTurns: true})
 	if err != nil {
 		t.Fatalf("StreamThread.Read() error = %v", err)
 	}

@@ -208,7 +208,7 @@ type AppConfig struct {
 	DefaultToolsApprovalMode AppToolApproval `json:"default_tools_approval_mode,omitzero"`
 	DefaultToolsEnabled      *bool           `json:"default_tools_enabled,omitzero"`
 	DestructiveEnabled       *bool           `json:"destructive_enabled,omitzero"`
-	Enabled                  *bool           `json:"enabled,omitzero"`
+	Enabled                  bool            `json:"enabled,omitzero"`
 	OpenWorldEnabled         *bool           `json:"open_world_enabled,omitzero"`
 	Tools                    AppToolsConfig  `json:"tools,omitzero"`
 }
@@ -221,10 +221,10 @@ type AppInfo struct {
 	DistributionChannel *string     `json:"distributionChannel,omitzero"`
 	ID                  string      `json:"id"`
 	InstallURL          *string     `json:"installUrl,omitzero"`
-	IsAccessible        *bool       `json:"isAccessible,omitzero"`
+	IsAccessible        bool        `json:"isAccessible,omitzero"`
 
 	// IsEnabled reports whether this app is enabled in config.toml. Example: ```toml [apps.bad_app] enabled = false ```
-	IsEnabled          *bool             `json:"isEnabled,omitzero"`
+	IsEnabled          bool              `json:"isEnabled,omitzero"`
 	Labels             map[string]string `json:"labels,omitzero"`
 	LogoURL            *string           `json:"logoUrl,omitzero"`
 	LogoURLDark        *string           `json:"logoUrlDark,omitzero"`
@@ -314,9 +314,9 @@ type AppsConfig struct {
 
 // AppsDefaultConfig is generated from the AppsDefaultConfig schema definition.
 type AppsDefaultConfig struct {
-	DestructiveEnabled *bool `json:"destructive_enabled,omitzero"`
-	Enabled            *bool `json:"enabled,omitzero"`
-	OpenWorldEnabled   *bool `json:"open_world_enabled,omitzero"`
+	DestructiveEnabled bool `json:"destructive_enabled,omitzero"`
+	Enabled            bool `json:"enabled,omitzero"`
+	OpenWorldEnabled   bool `json:"open_world_enabled,omitzero"`
 }
 
 // AppsListParams list available apps/connectors.
@@ -325,7 +325,7 @@ type AppsListParams struct {
 	Cursor *string `json:"cursor,omitzero"`
 
 	// ForceRefetch when true, bypass app caches and fetch the latest data from sources.
-	ForceRefetch *bool `json:"forceRefetch,omitzero"`
+	ForceRefetch bool `json:"forceRefetch,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
 	Limit *int32 `json:"limit,omitzero"`
@@ -383,11 +383,11 @@ const (
 
 // Granular is generated from the Granular schema definition.
 type Granular struct {
-	MCPElicitations    bool  `json:"mcp_elicitations"`
-	RequestPermissions *bool `json:"request_permissions,omitzero"`
-	Rules              bool  `json:"rules"`
-	SandboxApproval    bool  `json:"sandbox_approval"`
-	SkillApproval      *bool `json:"skill_approval,omitzero"`
+	MCPElicitations    bool `json:"mcp_elicitations"`
+	RequestPermissions bool `json:"request_permissions,omitzero"`
+	Rules              bool `json:"rules"`
+	SandboxApproval    bool `json:"sandbox_approval"`
+	SkillApproval      bool `json:"skill_approval,omitzero"`
 }
 
 // GranularAskForApproval is generated from the GranularAskForApproval schema definition.
@@ -2490,12 +2490,12 @@ type CommandExecParams struct {
 	// DisableOutputCap disables stdout/stderr capture truncation for this request.
 	//
 	// Cannot be combined with `outputBytesCap`.
-	DisableOutputCap *bool `json:"disableOutputCap,omitzero"`
+	DisableOutputCap bool `json:"disableOutputCap,omitzero"`
 
 	// DisableTimeout disables the timeout entirely for this request.
 	//
 	// Cannot be combined with `timeoutMs`.
-	DisableTimeout *bool `json:"disableTimeout,omitzero"`
+	DisableTimeout bool `json:"disableTimeout,omitzero"`
 
 	// Env optional environment overrides merged into the server-computed environment.
 	//
@@ -2523,12 +2523,12 @@ type CommandExecParams struct {
 	// StreamStdin allows follow-up `command/exec/write` requests to write stdin bytes.
 	//
 	// Requires a client-supplied `processId`.
-	StreamStdin *bool `json:"streamStdin,omitzero"`
+	StreamStdin bool `json:"streamStdin,omitzero"`
 
 	// StreamStdoutStderr streams stdout/stderr via `command/exec/outputDelta` notifications.
 	//
 	// Streamed bytes are not duplicated into the final response and require a client-supplied `processId`.
-	StreamStdoutStderr *bool `json:"streamStdoutStderr,omitzero"`
+	StreamStdoutStderr bool `json:"streamStdoutStderr,omitzero"`
 
 	// TimeoutMs optional timeout in milliseconds.
 	//
@@ -2538,24 +2538,24 @@ type CommandExecParams struct {
 	// TTY enables PTY mode.
 	//
 	// This implies `streamStdin` and `streamStdoutStderr`.
-	TTY *bool `json:"tty,omitzero"`
+	TTY bool `json:"tty,omitzero"`
 }
 
 func (value *CommandExecParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Command            []string                `json:"command"`
 		Cwd                *string                 `json:"cwd,omitzero"`
-		DisableOutputCap   *bool                   `json:"disableOutputCap,omitzero"`
-		DisableTimeout     *bool                   `json:"disableTimeout,omitzero"`
+		DisableOutputCap   bool                    `json:"disableOutputCap,omitzero"`
+		DisableTimeout     bool                    `json:"disableTimeout,omitzero"`
 		Env                map[string]*string      `json:"env,omitzero"`
 		OutputBytesCap     *uint                   `json:"outputBytesCap,omitzero"`
 		ProcessID          *string                 `json:"processId,omitzero"`
 		SandboxPolicy      jsontext.Value          `json:"sandboxPolicy,omitzero"`
 		Size               CommandExecTerminalSize `json:"size,omitzero"`
-		StreamStdin        *bool                   `json:"streamStdin,omitzero"`
-		StreamStdoutStderr *bool                   `json:"streamStdoutStderr,omitzero"`
+		StreamStdin        bool                    `json:"streamStdin,omitzero"`
+		StreamStdoutStderr bool                    `json:"streamStdoutStderr,omitzero"`
 		TimeoutMs          *int64                  `json:"timeoutMs,omitzero"`
-		TTY                *bool                   `json:"tty,omitzero"`
+		TTY                bool                    `json:"tty,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -2633,7 +2633,7 @@ type CommandExecTerminateResponse struct{}
 // CommandExecWriteParams writes stdin bytes to a running `command/exec` session, close stdin, or both.
 type CommandExecWriteParams struct {
 	// CloseStdin closes stdin after writing `deltaBase64`, if present.
-	CloseStdin *bool `json:"closeStdin,omitzero"`
+	CloseStdin bool `json:"closeStdin,omitzero"`
 
 	// DeltaBase64 optional base64-encoded stdin bytes to write.
 	DeltaBase64 *string `json:"deltaBase64,omitzero"`
@@ -2816,7 +2816,7 @@ type ConfigBatchWriteParams struct {
 	FilePath *string `json:"filePath,omitzero"`
 
 	// ReloadUserConfig when true, hot-reload the updated user config into all loaded threads after writing.
-	ReloadUserConfig *bool `json:"reloadUserConfig,omitzero"`
+	ReloadUserConfig bool `json:"reloadUserConfig,omitzero"`
 }
 
 // ConfigEdit is generated from the ConfigEdit schema definition.
@@ -3030,7 +3030,7 @@ func decodeGeneratedConfigLayerSource(raw jsontext.Value) (ConfigLayerSource, er
 type ConfigReadParams struct {
 	// Cwd optional working directory to resolve project config layers. If specified, return the effective config as seen from that directory (i.e., including any project layers between `cwd` and the project/repo root).
 	Cwd           *string `json:"cwd,omitzero"`
-	IncludeLayers *bool   `json:"includeLayers,omitzero"`
+	IncludeLayers bool    `json:"includeLayers,omitzero"`
 }
 
 // ConfigReadResponse is generated from the ConfigReadResponse schema definition.
@@ -3431,7 +3431,7 @@ const (
 
 // DynamicToolSpec is generated from the DynamicToolSpec schema definition.
 type DynamicToolSpec struct {
-	DeferLoading *bool          `json:"deferLoading,omitzero"`
+	DeferLoading bool           `json:"deferLoading,omitzero"`
 	Description  string         `json:"description"`
 	InputSchema  jsontext.Value `json:"inputSchema"`
 	Name         string         `json:"name"`
@@ -3605,7 +3605,7 @@ type ExternalAgentConfigDetectParams struct {
 	Cwds []string `json:"cwds,omitzero"`
 
 	// IncludeHome if true, include detection under the user's home (~/.claude, ~/.codex, etc.).
-	IncludeHome *bool `json:"includeHome,omitzero"`
+	IncludeHome bool `json:"includeHome,omitzero"`
 }
 
 // ExternalAgentConfigDetectResponse is generated from the ExternalAgentConfigDetectResponse schema definition.
@@ -3661,7 +3661,7 @@ const (
 type FeedbackUploadParams struct {
 	Classification string            `json:"classification"`
 	ExtraLogFiles  []string          `json:"extraLogFiles,omitzero"`
-	IncludeLogs    *bool             `json:"includeLogs,omitzero"`
+	IncludeLogs    bool              `json:"includeLogs,omitzero"`
 	Reason         *string           `json:"reason,omitzero"`
 	Tags           map[string]string `json:"tags,omitzero"`
 	ThreadID       *string           `json:"threadId,omitzero"`
@@ -4052,7 +4052,7 @@ type FSCopyParams struct {
 	DestinationPath string `json:"destinationPath"`
 
 	// Recursive required for directory copies; ignored for file copies.
-	Recursive *bool `json:"recursive,omitzero"`
+	Recursive bool `json:"recursive,omitzero"`
 
 	// SourcePath absolute source path.
 	SourcePath string `json:"sourcePath"`
@@ -4368,7 +4368,7 @@ type GetAccountParams struct {
 	// RefreshToken when `true`, requests a proactive token refresh before returning.
 	//
 	// In managed auth mode this triggers the normal refresh-token flow. In external auth mode this flag is ignored. Clients should refresh tokens themselves and call `account/login/start` with `chatgptAuthTokens`.
-	RefreshToken *bool `json:"refreshToken,omitzero"`
+	RefreshToken bool `json:"refreshToken,omitzero"`
 }
 
 // GetAccountRateLimitsResponse is generated from the GetAccountRateLimitsResponse schema definition.
@@ -4857,13 +4857,13 @@ const (
 // InitializeCapabilities client-declared capabilities negotiated during initialize.
 type InitializeCapabilities struct {
 	// ExperimentalAPI opt into receiving experimental API methods and fields.
-	ExperimentalAPI *bool `json:"experimentalApi,omitzero"`
+	ExperimentalAPI bool `json:"experimentalApi,omitzero"`
 
 	// OptOutNotificationMethods exact notification method names that should be suppressed for this connection (for example `thread/started`).
 	OptOutNotificationMethods []string `json:"optOutNotificationMethods,omitzero"`
 
 	// RequestAttestation opt into `attestation/generate` requests for upstream `x-oai-attestation`.
-	RequestAttestation *bool `json:"requestAttestation,omitzero"`
+	RequestAttestation bool `json:"requestAttestation,omitzero"`
 }
 
 // InitializeParams is generated from the InitializeParams schema definition.
@@ -5185,7 +5185,7 @@ func (APIKeyv2LoginAccountParams) isLoginAccountParams() {}
 
 // ChatGPTv2LoginAccountParams is generated from the Chatgptv2::LoginAccountParams schema definition.
 type ChatGPTv2LoginAccountParams struct {
-	CodexStreamlinedLogin *bool  `json:"codexStreamlinedLogin,omitzero"`
+	CodexStreamlinedLogin bool   `json:"codexStreamlinedLogin,omitzero"`
 	Type                  string `json:"type"`
 }
 
@@ -5709,7 +5709,7 @@ type Model struct {
 	Model                     string                  `json:"model"`
 	ServiceTiers              []ModelServiceTier      `json:"serviceTiers,omitzero"`
 	SupportedReasoningEfforts []ReasoningEffortOption `json:"supportedReasoningEfforts"`
-	SupportsPersonality       *bool                   `json:"supportsPersonality,omitzero"`
+	SupportsPersonality       bool                    `json:"supportsPersonality,omitzero"`
 	Upgrade                   *string                 `json:"upgrade,omitzero"`
 	UpgradeInfo               ModelUpgradeInfo        `json:"upgradeInfo,omitzero"`
 }
@@ -5729,7 +5729,7 @@ func (value *Model) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Model                     string                  `json:"model"`
 		ServiceTiers              []ModelServiceTier      `json:"serviceTiers,omitzero"`
 		SupportedReasoningEfforts []ReasoningEffortOption `json:"supportedReasoningEfforts"`
-		SupportsPersonality       *bool                   `json:"supportsPersonality,omitzero"`
+		SupportsPersonality       bool                    `json:"supportsPersonality,omitzero"`
 		Upgrade                   *string                 `json:"upgrade,omitzero"`
 		UpgradeInfo               ModelUpgradeInfo        `json:"upgradeInfo,omitzero"`
 	}
@@ -7950,7 +7950,7 @@ func (DangerFullAccessSandboxPolicy) isSandboxPolicy() {}
 
 // ReadOnlySandboxPolicy is generated from the ReadOnlySandboxPolicy schema definition.
 type ReadOnlySandboxPolicy struct {
-	NetworkAccess *bool  `json:"networkAccess,omitzero"`
+	NetworkAccess bool   `json:"networkAccess,omitzero"`
 	Type          string `json:"type"`
 }
 
@@ -7966,9 +7966,9 @@ func (ExternalSandboxSandboxPolicy) isSandboxPolicy() {}
 
 // WorkspaceWriteSandboxPolicy is generated from the WorkspaceWriteSandboxPolicy schema definition.
 type WorkspaceWriteSandboxPolicy struct {
-	ExcludeSlashTmp     *bool    `json:"excludeSlashTmp,omitzero"`
-	ExcludeTmpdirEnvVar *bool    `json:"excludeTmpdirEnvVar,omitzero"`
-	NetworkAccess       *bool    `json:"networkAccess,omitzero"`
+	ExcludeSlashTmp     bool     `json:"excludeSlashTmp,omitzero"`
+	ExcludeTmpdirEnvVar bool     `json:"excludeTmpdirEnvVar,omitzero"`
+	NetworkAccess       bool     `json:"networkAccess,omitzero"`
 	Type                string   `json:"type"`
 	WritableRoots       []string `json:"writableRoots,omitzero"`
 }
@@ -8016,9 +8016,9 @@ func decodeGeneratedSandboxPolicy(raw jsontext.Value) (SandboxPolicy, error) {
 
 // SandboxWorkspaceWrite is generated from the SandboxWorkspaceWrite schema definition.
 type SandboxWorkspaceWrite struct {
-	ExcludeSlashTmp     *bool    `json:"exclude_slash_tmp,omitzero"`
-	ExcludeTmpdirEnvVar *bool    `json:"exclude_tmpdir_env_var,omitzero"`
-	NetworkAccess       *bool    `json:"network_access,omitzero"`
+	ExcludeSlashTmp     bool     `json:"exclude_slash_tmp,omitzero"`
+	ExcludeTmpdirEnvVar bool     `json:"exclude_tmpdir_env_var,omitzero"`
+	NetworkAccess       bool     `json:"network_access,omitzero"`
 	WritableRoots       []string `json:"writable_roots,omitzero"`
 }
 
@@ -9306,7 +9306,7 @@ type SkillsListParams struct {
 	Cwds []string `json:"cwds,omitzero"`
 
 	// ForceReload when true, bypass the skills cache and re-scan skills from disk.
-	ForceReload *bool `json:"forceReload,omitzero"`
+	ForceReload bool `json:"forceReload,omitzero"`
 }
 
 // SkillsListResponse is generated from the SkillsListResponse schema definition.
@@ -9643,7 +9643,7 @@ type ThreadForkParams struct {
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
 	Cwd                   *string                   `json:"cwd,omitzero"`
 	DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
-	Ephemeral             *bool                     `json:"ephemeral,omitzero"`
+	Ephemeral             bool                      `json:"ephemeral,omitzero"`
 
 	// Model configuration overrides for the forked thread, if any.
 	Model         *string     `json:"model,omitzero"`
@@ -9664,7 +9664,7 @@ func (value *ThreadForkParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Config                map[string]jsontext.Value `json:"config,omitzero"`
 		Cwd                   *string                   `json:"cwd,omitzero"`
 		DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
-		Ephemeral             *bool                     `json:"ephemeral,omitzero"`
+		Ephemeral             bool                      `json:"ephemeral,omitzero"`
 		Model                 *string                   `json:"model,omitzero"`
 		ModelProvider         *string                   `json:"modelProvider,omitzero"`
 		Sandbox               SandboxMode               `json:"sandbox,omitzero"`
@@ -10442,7 +10442,7 @@ type ThreadListParams struct {
 	SourceKinds []ThreadSourceKind `json:"sourceKinds,omitzero"`
 
 	// UseStateDbOnly if true, return from the state DB without scanning JSONL rollouts to repair thread metadata. Omitted or false preserves scan-and-repair behavior.
-	UseStateDbOnly *bool `json:"useStateDbOnly,omitzero"`
+	UseStateDbOnly bool `json:"useStateDbOnly,omitzero"`
 }
 
 func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -10456,7 +10456,7 @@ func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		SortDirection  SortDirection      `json:"sortDirection,omitzero"`
 		SortKey        ThreadSortKey      `json:"sortKey,omitzero"`
 		SourceKinds    []ThreadSourceKind `json:"sourceKinds,omitzero"`
-		UseStateDbOnly *bool              `json:"useStateDbOnly,omitzero"`
+		UseStateDbOnly bool               `json:"useStateDbOnly,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -10553,7 +10553,7 @@ type ThreadNameUpdatedNotification struct {
 // ThreadReadParams is generated from the ThreadReadParams schema definition.
 type ThreadReadParams struct {
 	// IncludeTurns when true, include turns and their items from rollout history.
-	IncludeTurns *bool  `json:"includeTurns,omitzero"`
+	IncludeTurns bool   `json:"includeTurns,omitzero"`
 	ThreadID     string `json:"threadId"`
 }
 

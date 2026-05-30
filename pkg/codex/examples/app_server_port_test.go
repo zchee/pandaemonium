@@ -122,7 +122,7 @@ func TestExamplesPublicAppServerLifecyclePort(t *testing.T) {
 	}
 
 	includeTurns := true
-	reading, err := thread.Read(t.Context(), &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+	reading, err := thread.Read(t.Context(), &codex.ThreadReadParams{IncludeTurns: includeTurns})
 	if err != nil {
 		t.Fatalf("Thread.Read() error = %v", err)
 	}

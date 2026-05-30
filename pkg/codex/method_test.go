@@ -76,7 +76,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "thread/list", call: func() error { _, err := client.ThreadList(ctx, &ThreadListParams{}); return err }},
 		{name: "thread/loaded/list", call: func() error { _, err := client.ThreadLoadedList(ctx, &ThreadLoadedListParams{}); return err }},
 		{name: "thread/read", call: func() error {
-			_, err := client.ThreadRead(ctx, "thread", &ThreadReadParams{IncludeTurns: new(true)})
+			_, err := client.ThreadRead(ctx, "thread", &ThreadReadParams{IncludeTurns: true})
 			return err
 		}},
 		{name: "thread/inject_items", call: func() error {

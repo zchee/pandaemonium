@@ -50,7 +50,7 @@ func main() {
 		log.Fatal(err)
 	}
 	includeTurns := true
-	persisted, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+	persisted, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: includeTurns})
 	if err != nil {
 		log.Fatal(err)
 	}

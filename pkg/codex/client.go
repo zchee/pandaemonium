@@ -408,7 +408,7 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 			Version: c.config.ClientVersion,
 		},
 		Capabilities: InitializeCapabilities{
-			ExperimentalAPI: &experimentalAPI,
+			ExperimentalAPI: experimentalAPI,
 		},
 	}
 	resp, err := Request[InitializeResponse](ctx, c, RequestMethodInitialize, params)

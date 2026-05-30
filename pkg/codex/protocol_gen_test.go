@@ -39,7 +39,7 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 				Command:            []string{"printf", "hello"},
 				Cwd:                new("/tmp/work"),
 				Env:                map[string]*string{"EMPTY": nil, "FOO": new("bar")},
-				StreamStdoutStderr: new(true),
+				StreamStdoutStderr: true,
 				TimeoutMs:          new(int64(2500)),
 			},
 			want: `{"command":["printf","hello"],"cwd":"/tmp/work","env":{"EMPTY":null,"FOO":"bar"},"streamStdoutStderr":true,"timeoutMs":2500}`,
@@ -47,6 +47,10 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 		"success: fs read file response uses base64 field": {
 			value: FSReadFileResponse{DataBase64: "aGVsbG8="},
 			want:  `{"dataBase64":"aGVsbG8="}`,
+		},
+		"success: optional non-null scalar zero values omit under omitzero": {
+			value: CommandExecParams{Command: []string{"echo", "ok"}},
+			want:  `{"command":["echo","ok"]}`,
 		},
 		"success: enum constants encode as strings": {
 			value: ReasoningEffortHigh,
@@ -134,7 +138,7 @@ func TestGeneratedProtocolTypesDecode(t *testing.T) {
 			input: `{"command":["echo","ok"],"disableTimeout":true,"env":{"FOO":"bar","REMOVE":null},"timeoutMs":123}`,
 			want: CommandExecParams{
 				Command:        []string{"echo", "ok"},
-				DisableTimeout: new(true),
+				DisableTimeout: true,
 				Env:            map[string]*string{"FOO": new("bar"), "REMOVE": nil},
 				TimeoutMs:      new(int64(123)),
 			},

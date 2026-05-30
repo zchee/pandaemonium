@@ -278,7 +278,7 @@ func TestCodexLoginAPIKeyAccountAndLogoutUseAccountMethods(t *testing.T) {
 		t.Fatalf("LoginAPIKey() error = %v", err)
 	}
 	refresh := true
-	account, err := sdk.Account(t.Context(), &GetAccountParams{RefreshToken: &refresh})
+	account, err := sdk.Account(t.Context(), &GetAccountParams{RefreshToken: refresh})
 	if err != nil {
 		t.Fatalf("Account() error = %v", err)
 	}

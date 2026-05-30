@@ -423,6 +423,11 @@ func TestTypeForSchema(t *testing.T) {
 			input: &jsonschema.Schema{Type: "string"},
 			want:  "string",
 		},
+		"success: optional non-nullable scalar returns value type": {
+			input:    &jsonschema.Schema{Type: "string"},
+			optional: true,
+			want:     "string",
+		},
 		"success: optional nullable scalar becomes pointer": {
 			input:    &jsonschema.Schema{Types: []string{"string", "null"}},
 			optional: true,
@@ -471,10 +476,14 @@ func TestTypeForSchema(t *testing.T) {
 			optional: true,
 			want:     "ReasoningEffort",
 		},
-		"success: optional primitive alias ref remains pointer": {
+		"success: optional non-nullable primitive alias ref returns value type": {
 			input:    &jsonschema.Schema{Ref: "#/definitions/RequestId"},
 			optional: true,
-			want:     "*string",
+			want:     "string",
+		},
+		"success: nullable primitive alias ref remains pointer": {
+			input: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/RequestId"}, {Type: "null"}}},
+			want:  "*string",
 		},
 		"success: complex union stays raw json": {
 			input: &jsonschema.Schema{OneOf: []*jsonschema.Schema{{Type: "string"}, {Type: "integer"}}},
@@ -1155,6 +1164,8 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"Sample": {
 			Type: "object",
 			Properties: map[string]*jsonschema.Schema{
+				"active":  {Type: "boolean"},
+				"count":   {Type: "integer"},
 				"enabled": {Types: []string{"boolean", "null"}},
 				"labels":  {Type: "object", AdditionalProperties: &jsonschema.Schema{Type: "string"}},
 				"metadata": {
@@ -1164,6 +1175,7 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 				"nested":  {AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}},
 				"status":  {Ref: "#/definitions/SampleStatus"},
 				"status2": {Ref: "#/definitions/SampleStatus"},
+				"title":   {Type: "string"},
 			},
 			Required: []string{"status"},
 		},
@@ -1202,6 +1214,8 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"package protocol",
 		"type SampleStatus string",
 		"SampleStatusNeedsInput SampleStatus = \"needs_input\"",
+		"Active bool `json:\"active,omitzero\"`",
+		"Count int64 `json:\"count,omitzero\"`",
 		"Enabled *bool `json:\"enabled,omitzero\"`",
 		"Labels map[string]string `json:\"labels,omitzero\"`",
 		"Metadata Nested `json:\"metadata,omitzero\"`",
@@ -1209,6 +1223,7 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"Nested Nested `json:\"nested,omitzero\"`",
 		"Status SampleStatus `json:\"status\"`",
 		"Status2 SampleStatus `json:\"status2,omitzero\"`",
+		"Title string `json:\"title,omitzero\"`",
 		"UnionSlice []jsontext.Value `json:\"unionSlice\"`",
 		"NestedUnion []*SampleStatus `json:\"nestedUnion\"`",
 	}

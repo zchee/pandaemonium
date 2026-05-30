@@ -74,7 +74,7 @@ func TestRealAppServerIntegrationThreadTurnAndRunPort(t *testing.T) {
 	assertRealCompletedTurn(t, result)
 
 	includeTurns := true
-	persisted, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: &includeTurns})
+	persisted, err := thread.Read(ctx, &codex.ThreadReadParams{IncludeTurns: includeTurns})
 	if err != nil {
 		t.Fatalf("Thread.Read(includeTurns=true) real app-server error = %v", err)
 	}
