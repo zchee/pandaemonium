@@ -57,6 +57,7 @@ var (
 	errExecServerUnexpectedServerRequest  = errors.New("unexpected server request")
 	errExecServerProcessNotificationNoID  = errors.New("missing processId")
 	errExecServerProcessNotificationNoSeq = errors.New("missing seq")
+	errProcessHandleNil                   = errors.New("process handle is nil")
 )
 
 // ByteChunk serializes bytes as a base64 string.
@@ -476,14 +477,6 @@ func (c *ExecServerClient) readLoop(ctx context.Context, t Transport, done chan<
 	}
 }
 
-func (c *ExecServerClient) registerResponse(id string, response chan responseWait) {
-	c.rpcState.registerResponse(id, response)
-}
-
-func (c *ExecServerClient) unregisterResponse(id string) {
-	c.rpcState.unregisterResponse(id)
-}
-
 func (c *ExecServerClient) deliverResponse(msg rpcMessage) {
 	c.rpcState.deliverResponse(msg)
 }
@@ -612,7 +605,7 @@ func (h *ExecServerProcessHandle) ID() ProcessID {
 // Read reads retained process output.
 func (h *ExecServerProcessHandle) Read(ctx context.Context, params *ExecServerProcessReadParams) (ExecServerProcessReadResponse, error) {
 	if h == nil || h.client == nil {
-		return ExecServerProcessReadResponse{}, fmt.Errorf("process handle is nil")
+		return ExecServerProcessReadResponse{}, errProcessHandleNil
 	}
 	if params == nil {
 		params = &ExecServerProcessReadParams{}
@@ -624,7 +617,7 @@ func (h *ExecServerProcessHandle) Read(ctx context.Context, params *ExecServerPr
 // Write writes to process stdin.
 func (h *ExecServerProcessHandle) Write(ctx context.Context, chunk ByteChunk) (ExecServerProcessWriteResponse, error) {
 	if h == nil || h.client == nil {
-		return ExecServerProcessWriteResponse{}, fmt.Errorf("process handle is nil")
+		return ExecServerProcessWriteResponse{}, errProcessHandleNil
 	}
 	return h.client.ProcessWrite(ctx, &ExecServerProcessWriteParams{ProcessID: h.processID, Chunk: chunk})
 }
@@ -632,7 +625,7 @@ func (h *ExecServerProcessHandle) Write(ctx context.Context, chunk ByteChunk) (E
 // Terminate terminates the process.
 func (h *ExecServerProcessHandle) Terminate(ctx context.Context) (ExecServerProcessTerminateResponse, error) {
 	if h == nil || h.client == nil {
-		return ExecServerProcessTerminateResponse{}, fmt.Errorf("process handle is nil")
+		return ExecServerProcessTerminateResponse{}, errProcessHandleNil
 	}
 	return h.client.ProcessTerminate(ctx, &ExecServerProcessTerminateParams{ProcessID: h.processID})
 }
@@ -640,7 +633,7 @@ func (h *ExecServerProcessHandle) Terminate(ctx context.Context) (ExecServerProc
 // NextNotification waits for the next ordered process notification.
 func (h *ExecServerProcessHandle) NextNotification(ctx context.Context) (ExecServerProcessNotification, error) {
 	if h == nil || h.client == nil {
-		return nil, fmt.Errorf("process handle is nil")
+		return nil, errProcessHandleNil
 	}
 	if h.processQueue != nil {
 		return h.client.nextProcessNotification(ctx, h.processID, h.processQueue)
