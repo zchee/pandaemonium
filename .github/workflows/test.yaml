@@ -1,3 +1,4 @@
+---
 name: Test
 
 on:
@@ -16,7 +17,7 @@ concurrency:
 # job can flip continue-on-error to false.
 env:
   GOEXPERIMENT_SIMD: "loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup"
-  CODEX_CLI_VERSION: "0.135.0-alpha.2"
+  CODEX_CLI_VERSION: "0.136.0-alpha.1"
 
 jobs:
   test:
@@ -76,5 +77,5 @@ jobs:
       - name: Run go vet
         env:
           GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
-        run: |
+        run: |-
           gotip vet ./...
