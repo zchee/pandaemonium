@@ -565,11 +565,7 @@ func (c *ExecServerClient) pushProcessNotification(notification ExecServerProces
 	c.ensureProcessQueue(notification.ProcessIDValue()).push(notification)
 }
 
-func (c *ExecServerClient) nextProcessNotification(
-	ctx context.Context,
-	processID ProcessID,
-	queue *execServerProcessQueue,
-) (ExecServerProcessNotification, error) {
+func (c *ExecServerClient) nextProcessNotification(ctx context.Context, processID ProcessID, queue *execServerProcessQueue) (ExecServerProcessNotification, error) {
 	notification, err := queue.next(ctx)
 	if err != nil {
 		return nil, err
