@@ -17,9 +17,9 @@ package claude
 import (
 	"bufio"
 	"context"
-	"errors"
 	"io"
-	"slices"
+
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // transport is the low-level read/write interface for the claude CLI subprocess.
@@ -64,28 +64,19 @@ func (t *stdioTransport) Close() error {
 // WriteJSON writes p followed by a newline to the subprocess stdin.
 // The data is cloned so the caller may reuse the slice immediately.
 func (t *stdioTransport) WriteJSON(_ context.Context, p []byte) error {
-	if t.stdin == nil {
-		return &CLIConnectionError{Message: "\"claude\" is not running"}
-	}
-	line := append(slices.Clone(p), '\n')
-	if _, err := t.stdin.Write(line); err != nil {
-		return &CLIConnectionError{Message: err.Error()}
-	}
-	return nil
+	return llm.WriteJSONLine(
+		t.stdin,
+		p,
+		func() error { return &CLIConnectionError{Message: "\"claude\" is not running"} },
+		func(err error) error { return &CLIConnectionError{Message: err.Error()} },
+	)
 }
 
 // ReadJSON reads the next newline-terminated line from the subprocess stdout.
 // Returns io.EOF when the subprocess closes its stdout.
 func (t *stdioTransport) ReadJSON(_ context.Context) ([]byte, error) {
-	if t.stdout == nil {
-		return nil, &CLIConnectionError{Message: "\"claude\" is not running"}
-	}
-	line, err := t.stdout.ReadBytes('\n')
-	if err != nil {
-		if errors.Is(err, io.EOF) {
-			return nil, io.EOF
-		}
-		return nil, err
-	}
-	return line, nil
+	return llm.ReadJSONLine(
+		t.stdout,
+		func() error { return &CLIConnectionError{Message: "\"claude\" is not running"} },
+	)
 }

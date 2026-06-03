@@ -18,19 +18,18 @@ import (
 	"bufio"
 	"context"
 	"encoding/hex"
-	"errors"
 	"fmt"
 	"io"
 	"net"
 	"net/http"
 	"net/url"
 	"os"
-	"slices"
 	"strings"
 	"sync"
 	"time"
 
 	"github.com/coder/websocket"
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // Transport represents a bidirectional JSON message Transport between the client and the app-server.
@@ -58,50 +57,24 @@ func (t *stdioTransport) Close() error {
 
 // WriteJSON implements [Transport].
 func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
-	if t.stdin == nil {
-		return &TransportClosedError{Message: "app-server is not running"}
-	}
-
-	data = append(slices.Clone(data), '\n')
-	_, err := t.stdin.Write(data)
-	if err != nil {
-		return &TransportClosedError{Message: err.Error()}
-	}
-	return nil
+	return llm.WriteJSONLine(
+		t.stdin,
+		data,
+		func() error { return &TransportClosedError{Message: "app-server is not running"} },
+		func(err error) error { return &TransportClosedError{Message: err.Error()} },
+	)
 }
 
 // ReadJSON implements [Transport].
 func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
-	if t.stdout == nil {
-		return nil, &TransportClosedError{Message: "app-server is not running"}
-	}
-	type result struct {
-		data []byte
-		err  error
-	}
-	done := make(chan result, 1)
-	go func() {
-		line, err := t.stdout.ReadBytes('\n')
-		if err != nil {
-			if errors.Is(err, io.EOF) {
-				done <- result{err: io.EOF}
-				return
-			}
-			done <- result{err: err}
-			return
-		}
-		done <- result{data: line}
-	}()
-
-	// The goroutine above is orphaned when ctx is cancelled; it exits naturally
-	// when [stdioTransport.Close] closes stdoutCloser (the raw stdout pipe), which causes
-	// ReadBytes to return an error.
-	select {
-	case <-ctx.Done():
-		return nil, ctx.Err()
-	case r := <-done:
-		return r.data, r.err
-	}
+	// The goroutine in ReadJSONLineContext is orphaned when ctx is cancelled; it
+	// exits naturally when [stdioTransport.Close] closes stdoutCloser (the raw
+	// stdout pipe), which causes ReadBytes to return an error.
+	return llm.ReadJSONLineContext(
+		ctx,
+		t.stdout,
+		func() error { return &TransportClosedError{Message: "app-server is not running"} },
+	)
 }
 
 // websocketTransport represents a bidirectional JSON message transport over a websocket connection to the app-server.

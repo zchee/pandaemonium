@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/go-json-experiment/json"
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // rawMessageBuffer is a single-consumer, unbounded FIFO for stream-JSON data
@@ -673,30 +674,18 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *control
 // pattern at pkg/codex/client.go:657.
 func (c *ClaudeSDKClient) drainStderr(r io.Reader, done chan<- struct{}) {
 	defer close(done)
-	scanner := bufio.NewScanner(r)
-	for scanner.Scan() {
-		line := scanner.Text()
+	llm.DrainLines(r, func(line string) {
 		c.stderrMu.Lock()
 		c.appendStderrLineLocked(line)
 		c.stderrMu.Unlock()
-	}
-	if err := scanner.Err(); err != nil {
-		c.stderrMu.Lock()
-		c.appendStderrLineLocked("stderr read error: " + err.Error())
-		c.stderrMu.Unlock()
-	}
+	})
 }
 
 // appendStderrLineLocked appends line to the fixed-size stderr tail.
 // c.stderrMu must be held by the caller.
 func (c *ClaudeSDKClient) appendStderrLineLocked(line string) {
 	const maxStderrLines = 400
-	if len(c.stderrLines) < maxStderrLines {
-		c.stderrLines = append(c.stderrLines, line)
-		return
-	}
-	copy(c.stderrLines, c.stderrLines[1:])
-	c.stderrLines[maxStderrLines-1] = line
+	c.stderrLines = llm.AppendBoundedLine(c.stderrLines, line, maxStderrLines)
 }
 
 // waitForCmd starts a goroutine that calls cmd.Wait and returns a channel that

@@ -35,6 +35,7 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 const (
@@ -989,38 +990,18 @@ func (c *Client) failPending(err error) {
 
 func (c *Client) drainStderr(stderr io.Reader, done chan<- struct{}) {
 	defer close(done)
-
-	scanner := bufio.NewScanner(stderr)
-	for scanner.Scan() {
-		line := scanner.Text()
+	llm.DrainLines(stderr, func(line string) {
 		c.stderrMu.Lock()
-		c.stderrLines = append(c.stderrLines, line)
-		if len(c.stderrLines) > 400 {
-			copy(c.stderrLines, c.stderrLines[len(c.stderrLines)-400:])
-			c.stderrLines = c.stderrLines[:400]
-		}
+		c.stderrLines = llm.AppendBoundedLine(c.stderrLines, line, 400)
 		c.stderrMu.Unlock()
-	}
-
-	if err := scanner.Err(); err != nil {
-		c.stderrMu.Lock()
-		c.stderrLines = append(c.stderrLines, "stderr read error: "+err.Error())
-		if len(c.stderrLines) > 400 {
-			copy(c.stderrLines, c.stderrLines[len(c.stderrLines)-400:])
-			c.stderrLines = c.stderrLines[:400]
-		}
-		c.stderrMu.Unlock()
-	}
+	})
 }
 
 func (c *Client) stderrTail(limit int) string {
 	c.stderrMu.Lock()
 	defer c.stderrMu.Unlock()
 
-	if limit > len(c.stderrLines) {
-		limit = len(c.stderrLines)
-	}
-	return strings.Join(c.stderrLines[len(c.stderrLines)-limit:], "\n")
+	return llm.Tail(c.stderrLines, limit)
 }
 
 func defaultApprovalHandler(method string, _ jsontext.Value) (Object, error) {
