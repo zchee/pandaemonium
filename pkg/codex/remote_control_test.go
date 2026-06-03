@@ -62,16 +62,5 @@ func newRemoteControlFacadeTestClient(t *testing.T) *Client {
 		})
 	}
 
-	client := NewClient(&Config{}, nil)
-	client.storeTransport(tr)
-	client.rpcState = newJSONRPCClientState()
-	client.turnRouter = newTurnNotificationRouter()
-	client.readDone = make(chan struct{})
-	client.stderrDone = make(chan struct{})
-	close(client.stderrDone)
-	go client.readLoop(t.Context(), client.loadTransport(), client.readDone)
-	t.Cleanup(func() {
-		_ = client.Close()
-	})
-	return client
+	return newScriptedClient(t, tr)
 }

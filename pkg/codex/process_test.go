@@ -206,6 +206,16 @@ func newProcessHandleTestClient(t *testing.T) (*Client, *[]string) {
 		}
 	}
 
+	return newScriptedClient(t, tr), &methods
+}
+
+// newScriptedClient wires a Client onto a scripted transport and starts its
+// read loop, mirroring the runtime setup that NewClient performs for a live
+// process. The stderr stream is pre-closed because scripted transports carry no
+// child process.
+func newScriptedClient(t *testing.T, tr *scriptTransport) *Client {
+	t.Helper()
+
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(tr)
 	client.rpcState = newJSONRPCClientState()
@@ -217,7 +227,7 @@ func newProcessHandleTestClient(t *testing.T) (*Client, *[]string) {
 	t.Cleanup(func() {
 		_ = client.Close()
 	})
-	return client, &methods
+	return client
 }
 
 func processOutputNotification(t *testing.T, processHandle, deltaBase64 string) Notification {
