@@ -61,7 +61,7 @@ func TestAppServerRunPort(t *testing.T) {
 			t.Fatalf("ThreadStart() error = %v", err)
 		}
 		model := "mock-model-override"
-		result, err := thread.Run(ctx, "use overrides", &codex.TurnStartParams{Model: &model})
+		result, err := thread.Run(ctx, "use overrides", &codex.TurnStartParams{Model: model})
 		if err != nil {
 			t.Fatalf("Thread.Run(use overrides) error = %v", err)
 		}

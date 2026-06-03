@@ -43,8 +43,8 @@ func main() {
 	}
 	fmt.Println("remote-control.status:", status.Status)
 	fmt.Println("remote-control.server:", status.ServerName)
-	if status.EnvironmentID != nil {
-		fmt.Println("remote-control.environment:", *status.EnvironmentID)
+	if status.EnvironmentID != "" {
+		fmt.Println("remote-control.environment:", status.EnvironmentID)
 	}
 
 	models, err := client.Models(ctx, nil)

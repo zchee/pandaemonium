@@ -51,7 +51,7 @@ func main() {
 	}
 	limit := int32(20)
 	archivedFalse := false
-	listingActive, err := client.ThreadList(ctx, &codex.ThreadListParams{Limit: &limit, Archived: &archivedFalse})
+	listingActive, err := client.ThreadList(ctx, &codex.ThreadListParams{Limit: limit, Archived: archivedFalse})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -63,7 +63,7 @@ func main() {
 	_, _ = reopened.SetName(ctx, "sdk-lifecycle-demo")
 	_, _ = client.ThreadArchive(ctx, reopened.ID())
 	archivedTrue := true
-	listingArchived, err := client.ThreadList(ctx, &codex.ThreadListParams{Limit: &limit, Archived: &archivedTrue})
+	listingArchived, err := client.ThreadList(ctx, &codex.ThreadListParams{Limit: limit, Archived: archivedTrue})
 	if err != nil {
 		log.Fatal(err)
 	}

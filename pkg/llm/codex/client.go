@@ -408,7 +408,7 @@ func (c *Client) Initialize(ctx context.Context) (InitializeResponse, error) {
 	params := InitializeParams{
 		ClientInfo: ClientInfo{
 			Name:    c.config.ClientName,
-			Title:   &clientTitle,
+			Title:   clientTitle,
 			Version: c.config.ClientVersion,
 		},
 		Capabilities: InitializeCapabilities{
@@ -549,7 +549,7 @@ func (c *Client) WaitForLoginCompleted(ctx context.Context, loginID string) (Acc
 		if err != nil {
 			return AccountLoginCompletedNotification{}, err
 		}
-		if !ok || completed.LoginID == nil || *completed.LoginID != loginID {
+		if !ok || completed.LoginID != loginID {
 			continue
 		}
 

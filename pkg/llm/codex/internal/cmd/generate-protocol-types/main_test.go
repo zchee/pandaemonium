@@ -567,10 +567,14 @@ func TestTypeForSchema(t *testing.T) {
 			optional: true,
 			want:     "string",
 		},
-		"success: optional nullable scalar becomes pointer": {
+		"success: optional nullable scalar uses omitzero value": {
 			input:    &jsonschema.Schema{Types: []string{"string", "null"}},
 			optional: true,
-			want:     "*string",
+			want:     "string",
+		},
+		"success: required nullable scalar remains pointer": {
+			input: &jsonschema.Schema{Types: []string{"string", "null"}},
+			want:  "*string",
 		},
 		"success: array of refs": {
 			input: &jsonschema.Schema{Type: "array", Items: &jsonschema.Schema{Ref: "#/definitions/AppInfo"}},
@@ -620,7 +624,12 @@ func TestTypeForSchema(t *testing.T) {
 			optional: true,
 			want:     "string",
 		},
-		"success: nullable primitive alias ref remains pointer": {
+		"success: optional nullable primitive alias ref uses omitzero value": {
+			input:    &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/RequestId"}, {Type: "null"}}},
+			optional: true,
+			want:     "string",
+		},
+		"success: required nullable primitive alias ref remains pointer": {
 			input: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/RequestId"}, {Type: "null"}}},
 			want:  "*string",
 		},
@@ -1114,7 +1123,7 @@ func TestGenerateUnionWrapperInlineObjectPayloads(t *testing.T) {
 	got := string(gotBytes)
 	wantFragments := []string{
 		"type HTTPConnectionFailed struct {",
-		"HTTPStatusCode *int64 `json:\"httpStatusCode,omitzero\"`",
+		"HTTPStatusCode int64 `json:\"httpStatusCode,omitzero\"`",
 		"type HTTPConnectionFailedCodexErrorInfo struct {",
 		"HTTPConnectionFailed HTTPConnectionFailed `json:\"httpConnectionFailed\"`",
 		"type ResponseStreamConnectionFailed struct {",
@@ -1355,7 +1364,7 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"SampleStatusNeedsInput SampleStatus = \"needs_input\"",
 		"Active bool `json:\"active,omitzero\"`",
 		"Count int64 `json:\"count,omitzero\"`",
-		"Enabled *bool `json:\"enabled,omitzero\"`",
+		"Enabled bool `json:\"enabled,omitzero\"`",
 		"Labels map[string]string `json:\"labels,omitzero\"`",
 		"Metadata Nested `json:\"metadata,omitzero\"`",
 		"Items []*Nested `json:\"items,omitzero\"`",

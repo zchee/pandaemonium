@@ -95,9 +95,9 @@ func decodeGeneratedAccount(raw jsontext.Value) (Account, error) {
 
 // AccountLoginCompletedNotification is generated from the AccountLoginCompletedNotification schema definition.
 type AccountLoginCompletedNotification struct {
-	Error   *string `json:"error,omitzero"`
-	LoginID *string `json:"loginId,omitzero"`
-	Success bool    `json:"success"`
+	Error   string `json:"error,omitzero"`
+	LoginID string `json:"loginId,omitzero"`
+	Success bool   `json:"success"`
 }
 
 // AccountRateLimitsUpdatedNotification sparse rolling rate-limit update.
@@ -137,7 +137,7 @@ func (value *AccountUpdatedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder
 // ActivePermissionProfile is generated from the ActivePermissionProfile schema definition.
 type ActivePermissionProfile struct {
 	// Extends parent profile identifier from the selected permissions profile's `extends` setting, when present.
-	Extends *string `json:"extends,omitzero"`
+	Extends string `json:"extends,omitzero"`
 
 	// ID identifier from `default_permissions` or the implicit built-in default, such as `:workspace` or a user-defined `[permissions.<id>]` profile.
 	ID string `json:"id"`
@@ -182,7 +182,7 @@ const (
 // AdditionalFileSystemPermissions is generated from the AdditionalFileSystemPermissions schema definition.
 type AdditionalFileSystemPermissions struct {
 	Entries          []FileSystemSandboxEntry `json:"entries,omitzero"`
-	GlobScanMaxDepth *uint                    `json:"globScanMaxDepth,omitzero"`
+	GlobScanMaxDepth uint                     `json:"globScanMaxDepth,omitzero"`
 
 	// Read this will be removed in favor of `entries`.
 	Read []string `json:"read,omitzero"`
@@ -193,7 +193,7 @@ type AdditionalFileSystemPermissions struct {
 
 // AdditionalNetworkPermissions is generated from the AdditionalNetworkPermissions schema definition.
 type AdditionalNetworkPermissions struct {
-	Enabled *bool `json:"enabled,omitzero"`
+	Enabled bool `json:"enabled,omitzero"`
 }
 
 // AgentMessageDeltaNotification is generated from the AgentMessageDeltaNotification schema definition.
@@ -209,27 +209,27 @@ type AgentPath = string
 
 // AnalyticsConfig is generated from the AnalyticsConfig schema definition.
 type AnalyticsConfig struct {
-	Enabled *bool `json:"enabled,omitzero"`
+	Enabled bool `json:"enabled,omitzero"`
 }
 
 // AppBranding app metadata returned by app-list APIs.
 type AppBranding struct {
-	Category          *string `json:"category,omitzero"`
-	Developer         *string `json:"developer,omitzero"`
-	IsDiscoverableApp bool    `json:"isDiscoverableApp"`
-	PrivacyPolicy     *string `json:"privacyPolicy,omitzero"`
-	TermsOfService    *string `json:"termsOfService,omitzero"`
-	Website           *string `json:"website,omitzero"`
+	Category          string `json:"category,omitzero"`
+	Developer         string `json:"developer,omitzero"`
+	IsDiscoverableApp bool   `json:"isDiscoverableApp"`
+	PrivacyPolicy     string `json:"privacyPolicy,omitzero"`
+	TermsOfService    string `json:"termsOfService,omitzero"`
+	Website           string `json:"website,omitzero"`
 }
 
 // AppConfig is generated from the AppConfig schema definition.
 type AppConfig struct {
 	ApprovalsReviewer        ApprovalsReviewer `json:"approvals_reviewer,omitzero"`
 	DefaultToolsApprovalMode AppToolApproval   `json:"default_tools_approval_mode,omitzero"`
-	DefaultToolsEnabled      *bool             `json:"default_tools_enabled,omitzero"`
-	DestructiveEnabled       *bool             `json:"destructive_enabled,omitzero"`
+	DefaultToolsEnabled      bool              `json:"default_tools_enabled,omitzero"`
+	DestructiveEnabled       bool              `json:"destructive_enabled,omitzero"`
 	Enabled                  bool              `json:"enabled,omitzero"`
-	OpenWorldEnabled         *bool             `json:"open_world_enabled,omitzero"`
+	OpenWorldEnabled         bool              `json:"open_world_enabled,omitzero"`
 	Tools                    AppToolsConfig    `json:"tools,omitzero"`
 }
 
@@ -237,17 +237,17 @@ type AppConfig struct {
 type AppInfo struct {
 	AppMetadata         AppMetadata `json:"appMetadata,omitzero"`
 	Branding            AppBranding `json:"branding,omitzero"`
-	Description         *string     `json:"description,omitzero"`
-	DistributionChannel *string     `json:"distributionChannel,omitzero"`
+	Description         string      `json:"description,omitzero"`
+	DistributionChannel string      `json:"distributionChannel,omitzero"`
 	ID                  string      `json:"id"`
-	InstallURL          *string     `json:"installUrl,omitzero"`
+	InstallURL          string      `json:"installUrl,omitzero"`
 	IsAccessible        bool        `json:"isAccessible,omitzero"`
 
 	// IsEnabled reports whether this app is enabled in config.toml. Example: ```toml [apps.bad_app] enabled = false ```
 	IsEnabled          bool              `json:"isEnabled,omitzero"`
 	Labels             map[string]string `json:"labels,omitzero"`
-	LogoURL            *string           `json:"logoUrl,omitzero"`
-	LogoURLDark        *string           `json:"logoUrlDark,omitzero"`
+	LogoURL            string            `json:"logoUrl,omitzero"`
+	LogoURLDark        string            `json:"logoUrlDark,omitzero"`
 	Name               string            `json:"name"`
 	PluginDisplayNames []string          `json:"pluginDisplayNames,omitzero"`
 }
@@ -260,17 +260,17 @@ type AppListUpdatedNotification struct {
 // AppMetadata is generated from the AppMetadata schema definition.
 type AppMetadata struct {
 	Categories                 []string        `json:"categories,omitzero"`
-	Developer                  *string         `json:"developer,omitzero"`
-	FirstPartyRequiresInstall  *bool           `json:"firstPartyRequiresInstall,omitzero"`
-	FirstPartyType             *string         `json:"firstPartyType,omitzero"`
+	Developer                  string          `json:"developer,omitzero"`
+	FirstPartyRequiresInstall  bool            `json:"firstPartyRequiresInstall,omitzero"`
+	FirstPartyType             string          `json:"firstPartyType,omitzero"`
 	Review                     AppReview       `json:"review,omitzero"`
 	Screenshots                []AppScreenshot `json:"screenshots,omitzero"`
-	SeoDescription             *string         `json:"seoDescription,omitzero"`
-	ShowInComposerWhenUnlinked *bool           `json:"showInComposerWhenUnlinked,omitzero"`
+	SeoDescription             string          `json:"seoDescription,omitzero"`
+	ShowInComposerWhenUnlinked bool            `json:"showInComposerWhenUnlinked,omitzero"`
 	SubCategories              []string        `json:"subCategories,omitzero"`
-	Version                    *string         `json:"version,omitzero"`
-	VersionID                  *string         `json:"versionId,omitzero"`
-	VersionNotes               *string         `json:"versionNotes,omitzero"`
+	Version                    string          `json:"version,omitzero"`
+	VersionID                  string          `json:"versionId,omitzero"`
+	VersionNotes               string          `json:"versionNotes,omitzero"`
 }
 
 // AppReview is generated from the AppReview schema definition.
@@ -280,18 +280,18 @@ type AppReview struct {
 
 // AppScreenshot is generated from the AppScreenshot schema definition.
 type AppScreenshot struct {
-	FileID     *string `json:"fileId,omitzero"`
-	URL        *string `json:"url,omitzero"`
-	UserPrompt string  `json:"userPrompt"`
+	FileID     string `json:"fileId,omitzero"`
+	URL        string `json:"url,omitzero"`
+	UserPrompt string `json:"userPrompt"`
 }
 
 // AppSummary app metadata summary for plugin responses.
 type AppSummary struct {
-	Description *string `json:"description,omitzero"`
-	ID          string  `json:"id"`
-	InstallURL  *string `json:"installUrl,omitzero"`
-	Name        string  `json:"name"`
-	NeedsAuth   bool    `json:"needsAuth"`
+	Description string `json:"description,omitzero"`
+	ID          string `json:"id"`
+	InstallURL  string `json:"installUrl,omitzero"`
+	Name        string `json:"name"`
+	NeedsAuth   bool   `json:"needsAuth"`
 }
 
 // AppToolApproval is generated from the AppToolApproval schema definition.
@@ -309,7 +309,7 @@ const (
 // AppToolConfig is generated from the AppToolConfig schema definition.
 type AppToolConfig struct {
 	ApprovalMode AppToolApproval `json:"approval_mode,omitzero"`
-	Enabled      *bool           `json:"enabled,omitzero"`
+	Enabled      bool            `json:"enabled,omitzero"`
 }
 
 // AppToolsConfig is generated from the AppToolsConfig schema definition.
@@ -342,16 +342,16 @@ type AppsDefaultConfig struct {
 // AppsListParams list available apps/connectors.
 type AppsListParams struct {
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// ForceRefetch when true, bypass app caches and fetch the latest data from sources.
 	ForceRefetch bool `json:"forceRefetch,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// ThreadID optional thread id used to evaluate app feature gating from that thread's config.
-	ThreadID *string `json:"threadId,omitzero"`
+	ThreadID string `json:"threadId,omitzero"`
 }
 
 // AppsListResponse app list response.
@@ -359,7 +359,7 @@ type AppsListResponse struct {
 	Data []AppInfo `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // AskForApproval is generated from the AskForApproval schema definition.
@@ -599,9 +599,9 @@ const (
 
 // ClientInfo is generated from the ClientInfo schema definition.
 type ClientInfo struct {
-	Name    string  `json:"name"`
-	Title   *string `json:"title,omitzero"`
-	Version string  `json:"version"`
+	Name    string `json:"name"`
+	Title   string `json:"title,omitzero"`
+	Version string `json:"version"`
 }
 
 // ClientRequest requests from the client to the server.
@@ -2631,7 +2631,7 @@ const (
 
 // HTTPConnectionFailed is generated from the HTTPConnectionFailed schema definition.
 type HTTPConnectionFailed struct {
-	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+	HTTPStatusCode int64 `json:"httpStatusCode,omitzero"`
 }
 
 // HTTPConnectionFailedCodexErrorInfo is generated from the HttpConnectionFailedCodexErrorInfo schema definition.
@@ -2643,7 +2643,7 @@ func (HTTPConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
 
 // ResponseStreamConnectionFailed is generated from the ResponseStreamConnectionFailed schema definition.
 type ResponseStreamConnectionFailed struct {
-	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+	HTTPStatusCode int64 `json:"httpStatusCode,omitzero"`
 }
 
 // ResponseStreamConnectionFailedCodexErrorInfo failed to connect to the response SSE stream.
@@ -2655,7 +2655,7 @@ func (ResponseStreamConnectionFailedCodexErrorInfo) isCodexErrorInfo() {}
 
 // ResponseStreamDisconnected is generated from the ResponseStreamDisconnected schema definition.
 type ResponseStreamDisconnected struct {
-	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+	HTTPStatusCode int64 `json:"httpStatusCode,omitzero"`
 }
 
 // ResponseStreamDisconnectedCodexErrorInfo represents a response SSE stream disconnected in the middle of a turn before completion.
@@ -2667,7 +2667,7 @@ func (ResponseStreamDisconnectedCodexErrorInfo) isCodexErrorInfo() {}
 
 // ResponseTooManyFailedAttempts is generated from the ResponseTooManyFailedAttempts schema definition.
 type ResponseTooManyFailedAttempts struct {
-	HTTPStatusCode *int64 `json:"httpStatusCode,omitzero"`
+	HTTPStatusCode int64 `json:"httpStatusCode,omitzero"`
 }
 
 // ResponseTooManyFailedAttemptsCodexErrorInfo reached the retry limit for responses.
@@ -2769,7 +2769,7 @@ func decodeGeneratedCodexErrorInfo(raw jsontext.Value) (CodexErrorInfo, error) {
 
 // CollabAgentState is generated from the CollabAgentState schema definition.
 type CollabAgentState struct {
-	Message *string           `json:"message,omitzero"`
+	Message string            `json:"message,omitzero"`
 	Status  CollabAgentStatus `json:"status"`
 }
 
@@ -2838,7 +2838,7 @@ type CollaborationModeListResponse struct {
 // CollaborationModeMask collaboration mode preset metadata for clients.
 type CollaborationModeMask struct {
 	Mode            ModeKind        `json:"mode,omitzero"`
-	Model           *string         `json:"model,omitzero"`
+	Model           string          `json:"model,omitzero"`
 	Name            string          `json:"name"`
 	ReasoningEffort ReasoningEffort `json:"reasoning_effort,omitzero"`
 }
@@ -2878,19 +2878,19 @@ func (ReadCommandAction) isCommandAction() {}
 
 // ListFilesCommandAction is generated from the ListFilesCommandAction schema definition.
 type ListFilesCommandAction struct {
-	Command string  `json:"command"`
-	Path    *string `json:"path,omitzero"`
-	Type    string  `json:"type"`
+	Command string `json:"command"`
+	Path    string `json:"path,omitzero"`
+	Type    string `json:"type"`
 }
 
 func (ListFilesCommandAction) isCommandAction() {}
 
 // SearchCommandAction is generated from the SearchCommandAction schema definition.
 type SearchCommandAction struct {
-	Command string  `json:"command"`
-	Path    *string `json:"path,omitzero"`
-	Query   *string `json:"query,omitzero"`
-	Type    string  `json:"type"`
+	Command string `json:"command"`
+	Path    string `json:"path,omitzero"`
+	Query   string `json:"query,omitzero"`
+	Type    string `json:"type"`
 }
 
 func (SearchCommandAction) isCommandAction() {}
@@ -3044,7 +3044,7 @@ type CommandExecParams struct {
 	Command []string `json:"command"`
 
 	// Cwd optional working directory. Defaults to the server cwd.
-	Cwd *string `json:"cwd,omitzero"`
+	Cwd string `json:"cwd,omitzero"`
 
 	// DisableOutputCap disables stdout/stderr capture truncation for this request.
 	//
@@ -3064,17 +3064,17 @@ type CommandExecParams struct {
 	// OutputBytesCap optional per-stream stdout/stderr capture cap in bytes.
 	//
 	// When omitted, the server default applies. Cannot be combined with `disableOutputCap`.
-	OutputBytesCap *uint `json:"outputBytesCap,omitzero"`
+	OutputBytesCap uint `json:"outputBytesCap,omitzero"`
 
 	// PermissionProfile optional active permissions profile id for this command.
 	//
 	// Defaults to the user's configured permissions when omitted. Cannot be combined with `sandboxPolicy`.
-	PermissionProfile *string `json:"permissionProfile,omitzero"`
+	PermissionProfile string `json:"permissionProfile,omitzero"`
 
 	// ProcessID optional client-supplied, connection-scoped process id.
 	//
 	// Required for `tty`, `streamStdin`, `streamStdoutStderr`, and follow-up `command/exec/write`, `command/exec/resize`, and `command/exec/terminate` calls. When omitted, buffered execution gets an internal id that is not exposed to the client.
-	ProcessID *string `json:"processId,omitzero"`
+	ProcessID string `json:"processId,omitzero"`
 
 	// SandboxPolicy optional sandbox policy for this command.
 	//
@@ -3097,7 +3097,7 @@ type CommandExecParams struct {
 	// TimeoutMs optional timeout in milliseconds.
 	//
 	// When omitted, the server default applies. Cannot be combined with `disableTimeout`.
-	TimeoutMs *int64 `json:"timeoutMs,omitzero"`
+	TimeoutMs int64 `json:"timeoutMs,omitzero"`
 
 	// TTY enables PTY mode.
 	//
@@ -3108,18 +3108,18 @@ type CommandExecParams struct {
 func (value *CommandExecParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Command            []string                `json:"command"`
-		Cwd                *string                 `json:"cwd,omitzero"`
+		Cwd                string                  `json:"cwd,omitzero"`
 		DisableOutputCap   bool                    `json:"disableOutputCap,omitzero"`
 		DisableTimeout     bool                    `json:"disableTimeout,omitzero"`
 		Env                map[string]*string      `json:"env,omitzero"`
-		OutputBytesCap     *uint                   `json:"outputBytesCap,omitzero"`
-		PermissionProfile  *string                 `json:"permissionProfile,omitzero"`
-		ProcessID          *string                 `json:"processId,omitzero"`
+		OutputBytesCap     uint                    `json:"outputBytesCap,omitzero"`
+		PermissionProfile  string                  `json:"permissionProfile,omitzero"`
+		ProcessID          string                  `json:"processId,omitzero"`
 		SandboxPolicy      jsontext.Value          `json:"sandboxPolicy,omitzero"`
 		Size               CommandExecTerminalSize `json:"size,omitzero"`
 		StreamStdin        bool                    `json:"streamStdin,omitzero"`
 		StreamStdoutStderr bool                    `json:"streamStdoutStderr,omitzero"`
-		TimeoutMs          *int64                  `json:"timeoutMs,omitzero"`
+		TimeoutMs          int64                   `json:"timeoutMs,omitzero"`
 		TTY                bool                    `json:"tty,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -3202,7 +3202,7 @@ type CommandExecWriteParams struct {
 	CloseStdin bool `json:"closeStdin,omitzero"`
 
 	// DeltaBase64 optional base64-encoded stdin bytes to write.
-	DeltaBase64 *string `json:"deltaBase64,omitzero"`
+	DeltaBase64 string `json:"deltaBase64,omitzero"`
 
 	// ProcessID client-supplied, connection-scoped `processId` from the original `command/exec` request.
 	ProcessID string `json:"processId"`
@@ -3254,7 +3254,7 @@ type CommandMigration struct {
 
 // ComputerUseRequirements is generated from the ComputerUseRequirements schema definition.
 type ComputerUseRequirements struct {
-	AllowLockedComputerUse *bool `json:"allowLockedComputerUse,omitzero"`
+	AllowLockedComputerUse bool `json:"allowLockedComputerUse,omitzero"`
 }
 
 // ConfigPayload is generated from the Config schema definition.
@@ -3265,24 +3265,24 @@ type ConfigPayload struct {
 	// ApprovalsReviewer [UNSTABLE] Optional default for where approval requests are routed for review.
 	ApprovalsReviewer               ApprovalsReviewer          `json:"approvals_reviewer,omitzero"`
 	Apps                            AppsConfig                 `json:"apps,omitzero"`
-	CompactPrompt                   *string                    `json:"compact_prompt,omitzero"`
+	CompactPrompt                   string                     `json:"compact_prompt,omitzero"`
 	Desktop                         map[string]jsontext.Value  `json:"desktop,omitzero"`
-	DeveloperInstructions           *string                    `json:"developer_instructions,omitzero"`
+	DeveloperInstructions           string                     `json:"developer_instructions,omitzero"`
 	ForcedChatGPTWorkspaceID        ForcedChatGPTWorkspaceIDs  `json:"forced_chatgpt_workspace_id,omitzero"`
 	ForcedLoginMethod               ForcedLoginMethod          `json:"forced_login_method,omitzero"`
-	Instructions                    *string                    `json:"instructions,omitzero"`
-	Model                           *string                    `json:"model,omitzero"`
-	ModelAutoCompactTokenLimit      *int64                     `json:"model_auto_compact_token_limit,omitzero"`
+	Instructions                    string                     `json:"instructions,omitzero"`
+	Model                           string                     `json:"model,omitzero"`
+	ModelAutoCompactTokenLimit      int64                      `json:"model_auto_compact_token_limit,omitzero"`
 	ModelAutoCompactTokenLimitScope AutoCompactTokenLimitScope `json:"model_auto_compact_token_limit_scope,omitzero"`
-	ModelContextWindow              *int64                     `json:"model_context_window,omitzero"`
-	ModelProvider                   *string                    `json:"model_provider,omitzero"`
+	ModelContextWindow              int64                      `json:"model_context_window,omitzero"`
+	ModelProvider                   string                     `json:"model_provider,omitzero"`
 	ModelReasoningEffort            ReasoningEffort            `json:"model_reasoning_effort,omitzero"`
 	ModelReasoningSummary           ReasoningSummary           `json:"model_reasoning_summary,omitzero"`
 	ModelVerbosity                  Verbosity                  `json:"model_verbosity,omitzero"`
-	ReviewModel                     *string                    `json:"review_model,omitzero"`
+	ReviewModel                     string                     `json:"review_model,omitzero"`
 	SandboxMode                     SandboxMode                `json:"sandbox_mode,omitzero"`
 	SandboxWorkspaceWrite           SandboxWorkspaceWrite      `json:"sandbox_workspace_write,omitzero"`
-	ServiceTier                     *string                    `json:"service_tier,omitzero"`
+	ServiceTier                     string                     `json:"service_tier,omitzero"`
 	Tools                           ToolsV2                    `json:"tools,omitzero"`
 	WebSearch                       WebSearchMode              `json:"web_search,omitzero"`
 }
@@ -3293,24 +3293,24 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		ApprovalPolicy                  jsontext.Value            `json:"approval_policy,omitzero"`
 		ApprovalsReviewer               ApprovalsReviewer         `json:"approvals_reviewer,omitzero"`
 		Apps                            AppsConfig                `json:"apps,omitzero"`
-		CompactPrompt                   *string                   `json:"compact_prompt,omitzero"`
+		CompactPrompt                   string                    `json:"compact_prompt,omitzero"`
 		Desktop                         map[string]jsontext.Value `json:"desktop,omitzero"`
-		DeveloperInstructions           *string                   `json:"developer_instructions,omitzero"`
+		DeveloperInstructions           string                    `json:"developer_instructions,omitzero"`
 		ForcedChatGPTWorkspaceID        jsontext.Value            `json:"forced_chatgpt_workspace_id,omitzero"`
 		ForcedLoginMethod               ForcedLoginMethod         `json:"forced_login_method,omitzero"`
-		Instructions                    *string                   `json:"instructions,omitzero"`
-		Model                           *string                   `json:"model,omitzero"`
-		ModelAutoCompactTokenLimit      *int64                    `json:"model_auto_compact_token_limit,omitzero"`
+		Instructions                    string                    `json:"instructions,omitzero"`
+		Model                           string                    `json:"model,omitzero"`
+		ModelAutoCompactTokenLimit      int64                     `json:"model_auto_compact_token_limit,omitzero"`
 		ModelAutoCompactTokenLimitScope jsontext.Value            `json:"model_auto_compact_token_limit_scope,omitzero"`
-		ModelContextWindow              *int64                    `json:"model_context_window,omitzero"`
-		ModelProvider                   *string                   `json:"model_provider,omitzero"`
+		ModelContextWindow              int64                     `json:"model_context_window,omitzero"`
+		ModelProvider                   string                    `json:"model_provider,omitzero"`
 		ModelReasoningEffort            ReasoningEffort           `json:"model_reasoning_effort,omitzero"`
 		ModelReasoningSummary           jsontext.Value            `json:"model_reasoning_summary,omitzero"`
 		ModelVerbosity                  Verbosity                 `json:"model_verbosity,omitzero"`
-		ReviewModel                     *string                   `json:"review_model,omitzero"`
+		ReviewModel                     string                    `json:"review_model,omitzero"`
 		SandboxMode                     SandboxMode               `json:"sandbox_mode,omitzero"`
 		SandboxWorkspaceWrite           SandboxWorkspaceWrite     `json:"sandbox_workspace_write,omitzero"`
-		ServiceTier                     *string                   `json:"service_tier,omitzero"`
+		ServiceTier                     string                    `json:"service_tier,omitzero"`
 		Tools                           ToolsV2                   `json:"tools,omitzero"`
 		WebSearch                       WebSearchMode             `json:"web_search,omitzero"`
 	}
@@ -3379,10 +3379,10 @@ func (value *ConfigPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // ConfigBatchWriteParams is generated from the ConfigBatchWriteParams schema definition.
 type ConfigBatchWriteParams struct {
 	Edits           []ConfigEdit `json:"edits"`
-	ExpectedVersion *string      `json:"expectedVersion,omitzero"`
+	ExpectedVersion string       `json:"expectedVersion,omitzero"`
 
 	// FilePath path to the config file to write; defaults to the user's `config.toml` when omitted.
-	FilePath *string `json:"filePath,omitzero"`
+	FilePath string `json:"filePath,omitzero"`
 
 	// ReloadUserConfig when true, hot-reload the updated user config into all loaded threads after writing.
 	ReloadUserConfig bool `json:"reloadUserConfig,omitzero"`
@@ -3398,7 +3398,7 @@ type ConfigEdit struct {
 // ConfigLayer is generated from the ConfigLayer schema definition.
 type ConfigLayer struct {
 	Config         jsontext.Value    `json:"config"`
-	DisabledReason *string           `json:"disabledReason,omitzero"`
+	DisabledReason string            `json:"disabledReason,omitzero"`
 	Name           ConfigLayerSource `json:"name"`
 	Version        string            `json:"version"`
 }
@@ -3406,7 +3406,7 @@ type ConfigLayer struct {
 func (value *ConfigLayer) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Config         jsontext.Value `json:"config"`
-		DisabledReason *string        `json:"disabledReason,omitzero"`
+		DisabledReason string         `json:"disabledReason,omitzero"`
 		Name           jsontext.Value `json:"name"`
 		Version        string         `json:"version"`
 	}
@@ -3514,8 +3514,8 @@ type UserConfigLayerSource struct {
 	File string `json:"file"`
 
 	// Profile names of the selected profile-v2 config layered on top of the base user config, when this layer represents one.
-	Profile *string `json:"profile,omitzero"`
-	Type    string  `json:"type"`
+	Profile string `json:"profile,omitzero"`
+	Type    string `json:"type"`
 }
 
 func (UserConfigLayerSource) isConfigLayerSource() {}
@@ -3616,8 +3616,8 @@ func decodeGeneratedConfigLayerSource(raw jsontext.Value) (ConfigLayerSource, er
 // ConfigReadParams is generated from the ConfigReadParams schema definition.
 type ConfigReadParams struct {
 	// Cwd optional working directory to resolve project config layers. If specified, return the effective config as seen from that directory (i.e., including any project layers between `cwd` and the project/repo root).
-	Cwd           *string `json:"cwd,omitzero"`
-	IncludeLayers bool    `json:"includeLayers,omitzero"`
+	Cwd           string `json:"cwd,omitzero"`
+	IncludeLayers bool   `json:"includeLayers,omitzero"`
 }
 
 // ConfigReadResponse is generated from the ConfigReadResponse schema definition.
@@ -3629,8 +3629,8 @@ type ConfigReadResponse struct {
 
 // ConfigRequirements is generated from the ConfigRequirements schema definition.
 type ConfigRequirements struct {
-	AllowAppshots                        *bool                     `json:"allowAppshots,omitzero"`
-	AllowManagedHooksOnly                *bool                     `json:"allowManagedHooksOnly,omitzero"`
+	AllowAppshots                        bool                      `json:"allowAppshots,omitzero"`
+	AllowManagedHooksOnly                bool                      `json:"allowManagedHooksOnly,omitzero"`
 	AllowedApprovalPolicies              []AskForApproval          `json:"allowedApprovalPolicies,omitzero"`
 	AllowedApprovalsReviewers            []ApprovalsReviewer       `json:"allowedApprovalsReviewers,omitzero"`
 	AllowedPermissions                   []string                  `json:"allowedPermissions,omitzero"`
@@ -3646,8 +3646,8 @@ type ConfigRequirements struct {
 
 func (value *ConfigRequirements) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		AllowAppshots                        *bool                     `json:"allowAppshots,omitzero"`
-		AllowManagedHooksOnly                *bool                     `json:"allowManagedHooksOnly,omitzero"`
+		AllowAppshots                        bool                      `json:"allowAppshots,omitzero"`
+		AllowManagedHooksOnly                bool                      `json:"allowManagedHooksOnly,omitzero"`
 		AllowedApprovalPolicies              []jsontext.Value          `json:"allowedApprovalPolicies,omitzero"`
 		AllowedApprovalsReviewers            []ApprovalsReviewer       `json:"allowedApprovalsReviewers,omitzero"`
 		AllowedPermissions                   []string                  `json:"allowedPermissions,omitzero"`
@@ -3700,10 +3700,10 @@ type ConfigRequirementsReadResponse struct {
 
 // ConfigValueWriteParams is generated from the ConfigValueWriteParams schema definition.
 type ConfigValueWriteParams struct {
-	ExpectedVersion *string `json:"expectedVersion,omitzero"`
+	ExpectedVersion string `json:"expectedVersion,omitzero"`
 
 	// FilePath path to the config file to write; defaults to the user's `config.toml` when omitted.
-	FilePath      *string        `json:"filePath,omitzero"`
+	FilePath      string         `json:"filePath,omitzero"`
 	KeyPath       string         `json:"keyPath"`
 	MergeStrategy MergeStrategy  `json:"mergeStrategy"`
 	Value         jsontext.Value `json:"value"`
@@ -3712,10 +3712,10 @@ type ConfigValueWriteParams struct {
 // ConfigWarningNotification is generated from the ConfigWarningNotification schema definition.
 type ConfigWarningNotification struct {
 	// Details optional extra guidance or error details.
-	Details *string `json:"details,omitzero"`
+	Details string `json:"details,omitzero"`
 
 	// Path optional path to the config file that triggered the warning.
-	Path *string `json:"path,omitzero"`
+	Path string `json:"path,omitzero"`
 
 	// RangeValue optional range for the error location inside the config file.
 	RangeValue TextRange `json:"range,omitzero"`
@@ -3758,12 +3758,12 @@ func (value *RawConfiguredHookHandler) UnmarshalJSONFrom(dec *jsontext.Decoder) 
 
 // CommandConfiguredHookHandler is generated from the CommandConfiguredHookHandler schema definition.
 type CommandConfiguredHookHandler struct {
-	Async          bool    `json:"async"`
-	Command        string  `json:"command"`
-	CommandWindows *string `json:"commandWindows,omitzero"`
-	StatusMessage  *string `json:"statusMessage,omitzero"`
-	TimeoutSec     *uint64 `json:"timeoutSec,omitzero"`
-	Type           string  `json:"type"`
+	Async          bool   `json:"async"`
+	Command        string `json:"command"`
+	CommandWindows string `json:"commandWindows,omitzero"`
+	StatusMessage  string `json:"statusMessage,omitzero"`
+	TimeoutSec     uint64 `json:"timeoutSec,omitzero"`
+	Type           string `json:"type"`
 }
 
 func (CommandConfiguredHookHandler) isConfiguredHookHandler() {}
@@ -3818,13 +3818,13 @@ func decodeGeneratedConfiguredHookHandler(raw jsontext.Value) (ConfiguredHookHan
 // ConfiguredHookMatcherGroup is generated from the ConfiguredHookMatcherGroup schema definition.
 type ConfiguredHookMatcherGroup struct {
 	Hooks   []ConfiguredHookHandler `json:"hooks"`
-	Matcher *string                 `json:"matcher,omitzero"`
+	Matcher string                  `json:"matcher,omitzero"`
 }
 
 func (value *ConfiguredHookMatcherGroup) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Hooks   []jsontext.Value `json:"hooks"`
-		Matcher *string          `json:"matcher,omitzero"`
+		Matcher string           `json:"matcher,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -3936,15 +3936,15 @@ type ContextCompactedNotification struct {
 
 // CreditsSnapshot is generated from the CreditsSnapshot schema definition.
 type CreditsSnapshot struct {
-	Balance    *string `json:"balance,omitzero"`
-	HasCredits bool    `json:"hasCredits"`
-	Unlimited  bool    `json:"unlimited"`
+	Balance    string `json:"balance,omitzero"`
+	HasCredits bool   `json:"hasCredits"`
+	Unlimited  bool   `json:"unlimited"`
 }
 
 // DeprecationNoticeNotification is generated from the DeprecationNoticeNotification schema definition.
 type DeprecationNoticeNotification struct {
 	// Details optional extra guidance, such as migration steps or rationale.
-	Details *string `json:"details,omitzero"`
+	Details string `json:"details,omitzero"`
 
 	// Summary concise summary of what is deprecated.
 	Summary string `json:"summary"`
@@ -4034,7 +4034,7 @@ type DynamicToolSpec struct {
 	Description  string         `json:"description"`
 	InputSchema  jsontext.Value `json:"inputSchema"`
 	Name         string         `json:"name"`
-	Namespace    *string        `json:"namespace,omitzero"`
+	Namespace    string         `json:"namespace,omitzero"`
 }
 
 // EnvironmentAddParams is generated from the EnvironmentAddParams schema definition.
@@ -4057,16 +4057,16 @@ type ErrorNotification struct {
 // ExperimentalFeature is generated from the ExperimentalFeature schema definition.
 type ExperimentalFeature struct {
 	// Announcement copy shown to users when the feature is introduced. Null when this feature is not in beta.
-	Announcement *string `json:"announcement,omitzero"`
+	Announcement string `json:"announcement,omitzero"`
 
 	// DefaultEnabled reports whether this feature is enabled by default.
 	DefaultEnabled bool `json:"defaultEnabled"`
 
 	// Description short summary describing what the feature does. Null when this feature is not in beta.
-	Description *string `json:"description,omitzero"`
+	Description string `json:"description,omitzero"`
 
 	// DisplayName user-facing display name shown in the experimental features UI. Null when this feature is not in beta.
-	DisplayName *string `json:"displayName,omitzero"`
+	DisplayName string `json:"displayName,omitzero"`
 
 	// Enabled reports whether this feature is currently enabled in the loaded config.
 	Enabled bool `json:"enabled"`
@@ -4080,10 +4080,10 @@ type ExperimentalFeature struct {
 
 func (value *ExperimentalFeature) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Announcement   *string        `json:"announcement,omitzero"`
+		Announcement   string         `json:"announcement,omitzero"`
 		DefaultEnabled bool           `json:"defaultEnabled"`
-		Description    *string        `json:"description,omitzero"`
-		DisplayName    *string        `json:"displayName,omitzero"`
+		Description    string         `json:"description,omitzero"`
+		DisplayName    string         `json:"displayName,omitzero"`
 		Enabled        bool           `json:"enabled"`
 		Name           string         `json:"name"`
 		Stage          jsontext.Value `json:"stage"`
@@ -4126,13 +4126,13 @@ type ExperimentalFeatureEnablementSetResponse struct {
 // ExperimentalFeatureListParams is generated from the ExperimentalFeatureListParams schema definition.
 type ExperimentalFeatureListParams struct {
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// ThreadID optional loaded thread id. Pass this when showing feature state for an existing thread so enablement is computed from that thread's refreshed config, including project-local config for the thread's cwd.
-	ThreadID *string `json:"threadId,omitzero"`
+	ThreadID string `json:"threadId,omitzero"`
 }
 
 // ExperimentalFeatureListResponse is generated from the ExperimentalFeatureListResponse schema definition.
@@ -4140,7 +4140,7 @@ type ExperimentalFeatureListResponse struct {
 	Data []ExperimentalFeature `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ExperimentalFeatureStage is generated from the ExperimentalFeatureStage schema definition.
@@ -4235,7 +4235,7 @@ type ExternalAgentConfigImportResponse struct{}
 // ExternalAgentConfigMigrationItem is generated from the ExternalAgentConfigMigrationItem schema definition.
 type ExternalAgentConfigMigrationItem struct {
 	// Cwd null or empty means home-scoped migration; non-empty means repo-scoped migration.
-	Cwd         *string                              `json:"cwd,omitzero"`
+	Cwd         string                               `json:"cwd,omitzero"`
 	Description string                               `json:"description"`
 	Details     MigrationDetails                     `json:"details,omitzero"`
 	ItemType    ExternalAgentConfigMigrationItemType `json:"itemType"`
@@ -4270,9 +4270,9 @@ type FeedbackUploadParams struct {
 	Classification string            `json:"classification"`
 	ExtraLogFiles  []string          `json:"extraLogFiles,omitzero"`
 	IncludeLogs    bool              `json:"includeLogs,omitzero"`
-	Reason         *string           `json:"reason,omitzero"`
+	Reason         string            `json:"reason,omitzero"`
 	Tags           map[string]string `json:"tags,omitzero"`
-	ThreadID       *string           `json:"threadId,omitzero"`
+	ThreadID       string            `json:"threadId,omitzero"`
 }
 
 // FeedbackUploadResponse is generated from the FeedbackUploadResponse schema definition.
@@ -4477,8 +4477,8 @@ func (MinimalFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // KindFileSystemSpecialPath is generated from the KindFileSystemSpecialPath schema definition.
 type KindFileSystemSpecialPath struct {
-	Kind    string  `json:"kind"`
-	Subpath *string `json:"subpath,omitzero"`
+	Kind    string `json:"kind"`
+	Subpath string `json:"subpath,omitzero"`
 }
 
 func (KindFileSystemSpecialPath) isFileSystemSpecialPath() {}
@@ -4499,9 +4499,9 @@ func (SlashTmpFileSystemSpecialPath) isFileSystemSpecialPath() {}
 
 // FileSystemSpecialPathKind is generated from the FileSystemSpecialPathKind schema definition.
 type FileSystemSpecialPathKind struct {
-	Kind    string  `json:"kind"`
-	Path    string  `json:"path"`
-	Subpath *string `json:"subpath,omitzero"`
+	Kind    string `json:"kind"`
+	Path    string `json:"path"`
+	Subpath string `json:"subpath,omitzero"`
 }
 
 func (FileSystemSpecialPathKind) isFileSystemSpecialPath() {}
@@ -4675,7 +4675,7 @@ type FSCreateDirectoryParams struct {
 	Path string `json:"path"`
 
 	// Recursive reports whether parent directories should also be created. Defaults to `true`.
-	Recursive *bool `json:"recursive,omitzero"`
+	Recursive bool `json:"recursive,omitzero"`
 }
 
 // FSCreateDirectoryResponse successful response for `fs/createDirectory`.
@@ -4744,13 +4744,13 @@ type FSReadFileResponse struct {
 // FSRemoveParams removes a file or directory tree from the host filesystem.
 type FSRemoveParams struct {
 	// Force reports whether missing paths should be ignored. Defaults to `true`.
-	Force *bool `json:"force,omitzero"`
+	Force bool `json:"force,omitzero"`
 
 	// Path absolute path to remove.
 	Path string `json:"path"`
 
 	// Recursive reports whether directory removal should recurse. Defaults to `true`.
-	Recursive *bool `json:"recursive,omitzero"`
+	Recursive bool `json:"recursive,omitzero"`
 }
 
 // FSRemoveResponse successful response for `fs/remove`.
@@ -4944,7 +4944,7 @@ const (
 
 // FuzzyFileSearchParams is generated from the FuzzyFileSearchParams schema definition.
 type FuzzyFileSearchParams struct {
-	CancellationToken *string  `json:"cancellationToken,omitzero"`
+	CancellationToken string   `json:"cancellationToken,omitzero"`
 	Query             string   `json:"query"`
 	Roots             []string `json:"roots"`
 }
@@ -5034,14 +5034,14 @@ func (value *GetAccountResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 
 // GitInfo is generated from the GitInfo schema definition.
 type GitInfo struct {
-	Branch    *string `json:"branch,omitzero"`
-	OriginURL *string `json:"originUrl,omitzero"`
-	Sha       *string `json:"sha,omitzero"`
+	Branch    string `json:"branch,omitzero"`
+	OriginURL string `json:"originUrl,omitzero"`
+	Sha       string `json:"sha,omitzero"`
 }
 
 // GuardianApprovalReview [UNSTABLE] Temporary approval auto-review payload used by `item/autoApprovalReview/*` notifications. This shape is expected to change soon.
 type GuardianApprovalReview struct {
-	Rationale         *string                      `json:"rationale,omitzero"`
+	Rationale         string                       `json:"rationale,omitzero"`
 	RiskLevel         GuardianRiskLevel            `json:"riskLevel,omitzero"`
 	Status            GuardianApprovalReviewStatus `json:"status"`
 	UserAuthorization GuardianUserAuthorization    `json:"userAuthorization,omitzero"`
@@ -5113,12 +5113,12 @@ func (NetworkAccessGuardianApprovalReviewAction) isGuardianApprovalReviewAction(
 
 // MCPToolCallGuardianApprovalReviewAction is generated from the McpToolCallGuardianApprovalReviewAction schema definition.
 type MCPToolCallGuardianApprovalReviewAction struct {
-	ConnectorID   *string `json:"connectorId,omitzero"`
-	ConnectorName *string `json:"connectorName,omitzero"`
-	Server        string  `json:"server"`
-	ToolName      string  `json:"toolName"`
-	ToolTitle     *string `json:"toolTitle,omitzero"`
-	Type          string  `json:"type"`
+	ConnectorID   string `json:"connectorId,omitzero"`
+	ConnectorName string `json:"connectorName,omitzero"`
+	Server        string `json:"server"`
+	ToolName      string `json:"toolName"`
+	ToolTitle     string `json:"toolTitle,omitzero"`
+	Type          string `json:"type"`
 }
 
 func (MCPToolCallGuardianApprovalReviewAction) isGuardianApprovalReviewAction() {}
@@ -5126,7 +5126,7 @@ func (MCPToolCallGuardianApprovalReviewAction) isGuardianApprovalReviewAction() 
 // RequestPermissionsGuardianApprovalReviewAction is generated from the RequestPermissionsGuardianApprovalReviewAction schema definition.
 type RequestPermissionsGuardianApprovalReviewAction struct {
 	Permissions RequestPermissionProfile `json:"permissions"`
-	Reason      *string                  `json:"reason,omitzero"`
+	Reason      string                   `json:"reason,omitzero"`
 	Type        string                   `json:"type"`
 }
 
@@ -5250,7 +5250,7 @@ type GuardianWarningNotification struct {
 type HookCompletedNotification struct {
 	Run      HookRunSummary `json:"run"`
 	ThreadID string         `json:"threadId"`
-	TurnID   *string        `json:"turnId,omitzero"`
+	TurnID   string         `json:"turnId,omitzero"`
 }
 
 // HookErrorInfo is generated from the HookErrorInfo schema definition.
@@ -5309,7 +5309,7 @@ const (
 
 // HookMetadata is generated from the HookMetadata schema definition.
 type HookMetadata struct {
-	Command       *string         `json:"command,omitzero"`
+	Command       string          `json:"command,omitzero"`
 	CurrentHash   string          `json:"currentHash"`
 	DisplayOrder  int64           `json:"displayOrder"`
 	Enabled       bool            `json:"enabled"`
@@ -5317,11 +5317,11 @@ type HookMetadata struct {
 	HandlerType   HookHandlerType `json:"handlerType"`
 	IsManaged     bool            `json:"isManaged"`
 	Key           string          `json:"key"`
-	Matcher       *string         `json:"matcher,omitzero"`
-	PluginID      *string         `json:"pluginId,omitzero"`
+	Matcher       string          `json:"matcher,omitzero"`
+	PluginID      string          `json:"pluginId,omitzero"`
 	Source        HookSource      `json:"source"`
 	SourcePath    string          `json:"sourcePath"`
-	StatusMessage *string         `json:"statusMessage,omitzero"`
+	StatusMessage string          `json:"statusMessage,omitzero"`
 	TimeoutSec    uint64          `json:"timeoutSec"`
 	TrustStatus   HookTrustStatus `json:"trustStatus"`
 }
@@ -5377,9 +5377,9 @@ const (
 
 // HookRunSummary is generated from the HookRunSummary schema definition.
 type HookRunSummary struct {
-	CompletedAt   *int64            `json:"completedAt,omitzero"`
+	CompletedAt   int64             `json:"completedAt,omitzero"`
 	DisplayOrder  int64             `json:"displayOrder"`
-	DurationMs    *int64            `json:"durationMs,omitzero"`
+	DurationMs    int64             `json:"durationMs,omitzero"`
 	Entries       []HookOutputEntry `json:"entries"`
 	EventName     HookEventName     `json:"eventName"`
 	ExecutionMode HookExecutionMode `json:"executionMode"`
@@ -5390,7 +5390,7 @@ type HookRunSummary struct {
 	SourcePath    string            `json:"sourcePath"`
 	StartedAt     int64             `json:"startedAt"`
 	Status        HookRunStatus     `json:"status"`
-	StatusMessage *string           `json:"statusMessage,omitzero"`
+	StatusMessage string            `json:"statusMessage,omitzero"`
 }
 
 // HookScope is generated from the HookScope schema definition.
@@ -5435,7 +5435,7 @@ const (
 type HookStartedNotification struct {
 	Run      HookRunSummary `json:"run"`
 	ThreadID string         `json:"threadId"`
-	TurnID   *string        `json:"turnId,omitzero"`
+	TurnID   string         `json:"turnId,omitzero"`
 }
 
 // HookTrustStatus is generated from the HookTrustStatus schema definition.
@@ -5609,9 +5609,9 @@ type ItemGuardianApprovalReviewCompletedNotification struct {
 	// In most cases, one review maps to one target item. The exceptions are - execve reviews, where a single command may contain multiple execve calls to review (only possible when using the shell_zsh_fork feature) - network policy reviews, where there is no target item
 	//
 	// A network call is triggered by a CommandExecution item, so having a target_item_id set to the CommandExecution item would be misleading because the review is about the network call, not the command execution. Therefore, target_item_id is set to None for network policy reviews.
-	TargetItemID *string `json:"targetItemId,omitzero"`
-	ThreadID     string  `json:"threadId"`
-	TurnID       string  `json:"turnId"`
+	TargetItemID string `json:"targetItemId,omitzero"`
+	ThreadID     string `json:"threadId"`
+	TurnID       string `json:"turnId"`
 }
 
 func (value *ItemGuardianApprovalReviewCompletedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -5622,7 +5622,7 @@ func (value *ItemGuardianApprovalReviewCompletedNotification) UnmarshalJSONFrom(
 		Review         GuardianApprovalReview   `json:"review"`
 		ReviewID       string                   `json:"reviewId"`
 		StartedAtMs    int64                    `json:"startedAtMs"`
-		TargetItemID   *string                  `json:"targetItemId,omitzero"`
+		TargetItemID   string                   `json:"targetItemId,omitzero"`
 		ThreadID       string                   `json:"threadId"`
 		TurnID         string                   `json:"turnId"`
 	}
@@ -5665,9 +5665,9 @@ type ItemGuardianApprovalReviewStartedNotification struct {
 	// In most cases, one review maps to one target item. The exceptions are - execve reviews, where a single command may contain multiple execve calls to review (only possible when using the shell_zsh_fork feature) - network policy reviews, where there is no target item
 	//
 	// A network call is triggered by a CommandExecution item, so having a target_item_id set to the CommandExecution item would be misleading because the review is about the network call, not the command execution. Therefore, target_item_id is set to None for network policy reviews.
-	TargetItemID *string `json:"targetItemId,omitzero"`
-	ThreadID     string  `json:"threadId"`
-	TurnID       string  `json:"turnId"`
+	TargetItemID string `json:"targetItemId,omitzero"`
+	ThreadID     string `json:"threadId"`
+	TurnID       string `json:"turnId"`
 }
 
 func (value *ItemGuardianApprovalReviewStartedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
@@ -5676,7 +5676,7 @@ func (value *ItemGuardianApprovalReviewStartedNotification) UnmarshalJSONFrom(de
 		Review       GuardianApprovalReview `json:"review"`
 		ReviewID     string                 `json:"reviewId"`
 		StartedAtMs  int64                  `json:"startedAtMs"`
-		TargetItemID *string                `json:"targetItemId,omitzero"`
+		TargetItemID string                 `json:"targetItemId,omitzero"`
 		ThreadID     string                 `json:"threadId"`
 		TurnID       string                 `json:"turnId"`
 	}
@@ -5739,14 +5739,14 @@ func (value *ItemStartedNotification) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 // ListMCPServerStatusParams is generated from the ListMcpServerStatusParams schema definition.
 type ListMCPServerStatusParams struct {
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Detail controls how much MCP inventory data to fetch for each server. Defaults to `Full` when omitted.
 	Detail MCPServerStatusDetail `json:"detail,omitzero"`
 
 	// Limit optional page size; defaults to a server-defined value.
-	Limit    *int32  `json:"limit,omitzero"`
-	ThreadID *string `json:"threadId,omitzero"`
+	Limit    int32  `json:"limit,omitzero"`
+	ThreadID string `json:"threadId,omitzero"`
 }
 
 // ListMCPServerStatusResponse is generated from the ListMcpServerStatusResponse schema definition.
@@ -5754,17 +5754,17 @@ type ListMCPServerStatusResponse struct {
 	Data []MCPServerStatus `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ExecLocalShellAction is generated from the ExecLocalShellAction schema definition.
 type ExecLocalShellAction struct {
 	Command          []string          `json:"command"`
 	Env              map[string]string `json:"env,omitzero"`
-	TimeoutMs        *uint64           `json:"timeout_ms,omitzero"`
+	TimeoutMs        uint64            `json:"timeout_ms,omitzero"`
 	Type             string            `json:"type"`
-	User             *string           `json:"user,omitzero"`
-	WorkingDirectory *string           `json:"working_directory,omitzero"`
+	User             string            `json:"user,omitzero"`
+	WorkingDirectory string            `json:"working_directory,omitzero"`
 }
 
 // LocalShellAction is generated from the LocalShellAction schema definition.
@@ -5841,8 +5841,8 @@ type ChatGPTAuthTokensv2LoginAccountParams struct {
 	// ChatGPTPlanType optional plan type supplied by the client.
 	//
 	// When `null`, Codex attempts to derive the plan type from access-token claims. If unavailable, the plan defaults to `unknown`.
-	ChatGPTPlanType *string `json:"chatgptPlanType,omitzero"`
-	Type            string  `json:"type"`
+	ChatGPTPlanType string `json:"chatgptPlanType,omitzero"`
+	Type            string `json:"type"`
 }
 
 func (ChatGPTAuthTokensv2LoginAccountParams) isLoginAccountParams() {}
@@ -6001,13 +6001,13 @@ type ManagedHooksRequirements struct {
 	SubagentStart     []ConfiguredHookMatcherGroup `json:"SubagentStart"`
 	SubagentStop      []ConfiguredHookMatcherGroup `json:"SubagentStop"`
 	UserPromptSubmit  []ConfiguredHookMatcherGroup `json:"UserPromptSubmit"`
-	ManagedDir        *string                      `json:"managedDir,omitzero"`
-	WindowsManagedDir *string                      `json:"windowsManagedDir,omitzero"`
+	ManagedDir        string                       `json:"managedDir,omitzero"`
+	WindowsManagedDir string                       `json:"windowsManagedDir,omitzero"`
 }
 
 // MarketplaceAddParams is generated from the MarketplaceAddParams schema definition.
 type MarketplaceAddParams struct {
-	RefName     *string  `json:"refName,omitzero"`
+	RefName     string   `json:"refName,omitzero"`
 	Source      string   `json:"source"`
 	SparsePaths []string `json:"sparsePaths,omitzero"`
 }
@@ -6021,7 +6021,7 @@ type MarketplaceAddResponse struct {
 
 // MarketplaceInterface is generated from the MarketplaceInterface schema definition.
 type MarketplaceInterface struct {
-	DisplayName *string `json:"displayName,omitzero"`
+	DisplayName string `json:"displayName,omitzero"`
 }
 
 // MarketplaceLoadErrorInfo is generated from the MarketplaceLoadErrorInfo schema definition.
@@ -6037,8 +6037,8 @@ type MarketplaceRemoveParams struct {
 
 // MarketplaceRemoveResponse is generated from the MarketplaceRemoveResponse schema definition.
 type MarketplaceRemoveResponse struct {
-	InstalledRoot   *string `json:"installedRoot,omitzero"`
-	MarketplaceName string  `json:"marketplaceName"`
+	InstalledRoot   string `json:"installedRoot,omitzero"`
+	MarketplaceName string `json:"marketplaceName"`
 }
 
 // MarketplaceUpgradeErrorInfo is generated from the MarketplaceUpgradeErrorInfo schema definition.
@@ -6049,7 +6049,7 @@ type MarketplaceUpgradeErrorInfo struct {
 
 // MarketplaceUpgradeParams is generated from the MarketplaceUpgradeParams schema definition.
 type MarketplaceUpgradeParams struct {
-	MarketplaceName *string `json:"marketplaceName,omitzero"`
+	MarketplaceName string `json:"marketplaceName,omitzero"`
 }
 
 // MarketplaceUpgradeResponse is generated from the MarketplaceUpgradeResponse schema definition.
@@ -6075,9 +6075,9 @@ const (
 
 // MCPResourceReadParams is generated from the McpResourceReadParams schema definition.
 type MCPResourceReadParams struct {
-	Server   string  `json:"server"`
-	ThreadID *string `json:"threadId,omitzero"`
-	URI      string  `json:"uri"`
+	Server   string `json:"server"`
+	ThreadID string `json:"threadId,omitzero"`
+	URI      string `json:"uri"`
 }
 
 // MCPResourceReadResponse is generated from the McpResourceReadResponse schema definition.
@@ -6111,12 +6111,12 @@ func (value *MCPResourceReadResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) e
 
 // MCPServerInfo presentation metadata advertised by an initialized MCP server.
 type MCPServerInfo struct {
-	Description *string          `json:"description,omitzero"`
+	Description string           `json:"description,omitzero"`
 	Icons       []jsontext.Value `json:"icons,omitzero"`
 	Name        string           `json:"name"`
-	Title       *string          `json:"title,omitzero"`
+	Title       string           `json:"title,omitzero"`
 	Version     string           `json:"version"`
-	WebsiteURL  *string          `json:"websiteUrl,omitzero"`
+	WebsiteURL  string           `json:"websiteUrl,omitzero"`
 }
 
 // MCPServerMigration is generated from the McpServerMigration schema definition.
@@ -6126,16 +6126,16 @@ type MCPServerMigration struct {
 
 // MCPServerOAuthLoginCompletedNotification is generated from the McpServerOauthLoginCompletedNotification schema definition.
 type MCPServerOAuthLoginCompletedNotification struct {
-	Error   *string `json:"error,omitzero"`
-	Name    string  `json:"name"`
-	Success bool    `json:"success"`
+	Error   string `json:"error,omitzero"`
+	Name    string `json:"name"`
+	Success bool   `json:"success"`
 }
 
 // MCPServerOAuthLoginParams is generated from the McpServerOauthLoginParams schema definition.
 type MCPServerOAuthLoginParams struct {
 	Name        string   `json:"name"`
 	Scopes      []string `json:"scopes,omitzero"`
-	TimeoutSecs *int64   `json:"timeoutSecs,omitzero"`
+	TimeoutSecs int64    `json:"timeoutSecs,omitzero"`
 }
 
 // MCPServerOAuthLoginResponse is generated from the McpServerOauthLoginResponse schema definition.
@@ -6182,7 +6182,7 @@ const (
 
 // MCPServerStatusUpdatedNotification is generated from the McpServerStatusUpdatedNotification schema definition.
 type MCPServerStatusUpdatedNotification struct {
-	Error  *string               `json:"error,omitzero"`
+	Error  string                `json:"error,omitzero"`
 	Name   string                `json:"name"`
 	Status MCPServerStartupState `json:"status"`
 }
@@ -6200,7 +6200,7 @@ type MCPServerToolCallParams struct {
 type MCPServerToolCallResponse struct {
 	Meta              jsontext.Value   `json:"_meta,omitzero"`
 	Content           []jsontext.Value `json:"content"`
-	IsError           *bool            `json:"isError,omitzero"`
+	IsError           bool             `json:"isError,omitzero"`
 	StructuredContent jsontext.Value   `json:"structuredContent,omitzero"`
 }
 
@@ -6330,13 +6330,13 @@ type MigrationDetails struct {
 // MockExperimentalMethodParams is generated from the MockExperimentalMethodParams schema definition.
 type MockExperimentalMethodParams struct {
 	// Value test-only payload field.
-	Value *string `json:"value,omitzero"`
+	Value string `json:"value,omitzero"`
 }
 
 // MockExperimentalMethodResponse is generated from the MockExperimentalMethodResponse schema definition.
 type MockExperimentalMethodResponse struct {
 	// Echoed echoes the input `value`.
-	Echoed *string `json:"echoed,omitzero"`
+	Echoed string `json:"echoed,omitzero"`
 }
 
 // ModeKind initial collaboration mode to use when the TUI starts.
@@ -6357,7 +6357,7 @@ type Model struct {
 	DefaultReasoningEffort ReasoningEffort      `json:"defaultReasoningEffort"`
 
 	// DefaultServiceTier catalog default service tier id for this model, when one is configured.
-	DefaultServiceTier        *string                 `json:"defaultServiceTier,omitzero"`
+	DefaultServiceTier        string                  `json:"defaultServiceTier,omitzero"`
 	Description               string                  `json:"description"`
 	DisplayName               string                  `json:"displayName"`
 	Hidden                    bool                    `json:"hidden"`
@@ -6368,7 +6368,7 @@ type Model struct {
 	ServiceTiers              []ModelServiceTier      `json:"serviceTiers,omitzero"`
 	SupportedReasoningEfforts []ReasoningEffortOption `json:"supportedReasoningEfforts"`
 	SupportsPersonality       bool                    `json:"supportsPersonality,omitzero"`
-	Upgrade                   *string                 `json:"upgrade,omitzero"`
+	Upgrade                   string                  `json:"upgrade,omitzero"`
 	UpgradeInfo               ModelUpgradeInfo        `json:"upgradeInfo,omitzero"`
 }
 
@@ -6377,7 +6377,7 @@ func (value *Model) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		AdditionalSpeedTiers      []string                `json:"additionalSpeedTiers,omitzero"`
 		AvailabilityNux           ModelAvailabilityNux    `json:"availabilityNux,omitzero"`
 		DefaultReasoningEffort    ReasoningEffort         `json:"defaultReasoningEffort"`
-		DefaultServiceTier        *string                 `json:"defaultServiceTier,omitzero"`
+		DefaultServiceTier        string                  `json:"defaultServiceTier,omitzero"`
 		Description               string                  `json:"description"`
 		DisplayName               string                  `json:"displayName"`
 		Hidden                    bool                    `json:"hidden"`
@@ -6388,7 +6388,7 @@ func (value *Model) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		ServiceTiers              []ModelServiceTier      `json:"serviceTiers,omitzero"`
 		SupportedReasoningEfforts []ReasoningEffortOption `json:"supportedReasoningEfforts"`
 		SupportsPersonality       bool                    `json:"supportsPersonality,omitzero"`
-		Upgrade                   *string                 `json:"upgrade,omitzero"`
+		Upgrade                   string                  `json:"upgrade,omitzero"`
 		UpgradeInfo               ModelUpgradeInfo        `json:"upgradeInfo,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -6434,13 +6434,13 @@ type ModelAvailabilityNux struct {
 // ModelListParams is generated from the ModelListParams schema definition.
 type ModelListParams struct {
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// IncludeHidden when true, include models that are hidden from the default picker list.
-	IncludeHidden *bool `json:"includeHidden,omitzero"`
+	IncludeHidden bool `json:"includeHidden,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 }
 
 // ModelListResponse is generated from the ModelListResponse schema definition.
@@ -6448,7 +6448,7 @@ type ModelListResponse struct {
 	Data []Model `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ModelProviderCapabilitiesReadParams is generated from the ModelProviderCapabilitiesReadParams schema definition.
@@ -6487,10 +6487,10 @@ type ModelServiceTier struct {
 
 // ModelUpgradeInfo is generated from the ModelUpgradeInfo schema definition.
 type ModelUpgradeInfo struct {
-	MigrationMarkdown *string `json:"migrationMarkdown,omitzero"`
-	Model             string  `json:"model"`
-	ModelLink         *string `json:"modelLink,omitzero"`
-	UpgradeCopy       *string `json:"upgradeCopy,omitzero"`
+	MigrationMarkdown string `json:"migrationMarkdown,omitzero"`
+	Model             string `json:"model"`
+	ModelLink         string `json:"modelLink,omitzero"`
+	UpgradeCopy       string `json:"upgradeCopy,omitzero"`
 }
 
 // ModelVerification is generated from the ModelVerification schema definition.
@@ -6544,28 +6544,28 @@ const (
 
 // NetworkRequirements is generated from the NetworkRequirements schema definition.
 type NetworkRequirements struct {
-	AllowLocalBinding *bool `json:"allowLocalBinding,omitzero"`
+	AllowLocalBinding bool `json:"allowLocalBinding,omitzero"`
 
 	// AllowUnixSockets legacy compatibility view derived from `unix_sockets`.
 	AllowUnixSockets   []string `json:"allowUnixSockets,omitzero"`
-	AllowUpstreamProxy *bool    `json:"allowUpstreamProxy,omitzero"`
+	AllowUpstreamProxy bool     `json:"allowUpstreamProxy,omitzero"`
 
 	// AllowedDomains legacy compatibility view derived from `domains`.
 	AllowedDomains                   []string `json:"allowedDomains,omitzero"`
-	DangerouslyAllowAllUnixSockets   *bool    `json:"dangerouslyAllowAllUnixSockets,omitzero"`
-	DangerouslyAllowNonLoopbackProxy *bool    `json:"dangerouslyAllowNonLoopbackProxy,omitzero"`
+	DangerouslyAllowAllUnixSockets   bool     `json:"dangerouslyAllowAllUnixSockets,omitzero"`
+	DangerouslyAllowNonLoopbackProxy bool     `json:"dangerouslyAllowNonLoopbackProxy,omitzero"`
 
 	// DeniedDomains legacy compatibility view derived from `domains`.
 	DeniedDomains []string `json:"deniedDomains,omitzero"`
 
 	// Domains canonical network permission map for `experimental_network`.
 	Domains  map[string]NetworkDomainPermission `json:"domains,omitzero"`
-	Enabled  *bool                              `json:"enabled,omitzero"`
-	HTTPPort *int64                             `json:"httpPort,omitzero"`
+	Enabled  bool                               `json:"enabled,omitzero"`
+	HTTPPort int64                              `json:"httpPort,omitzero"`
 
 	// ManagedAllowedDomainsOnly when true, only managed allowlist entries are respected while managed network enforcement is active.
-	ManagedAllowedDomainsOnly *bool  `json:"managedAllowedDomainsOnly,omitzero"`
-	SocksPort                 *int64 `json:"socksPort,omitzero"`
+	ManagedAllowedDomainsOnly bool  `json:"managedAllowedDomainsOnly,omitzero"`
+	SocksPort                 int64 `json:"socksPort,omitzero"`
 
 	// UnixSockets canonical unix socket permission map for `experimental_network`.
 	UnixSockets map[string]NetworkUnixSocketPermission `json:"unixSockets,omitzero"`
@@ -6651,8 +6651,8 @@ func (DeletePatchChangeKind) isPatchChangeKind() {}
 
 // UpdatePatchChangeKind is generated from the UpdatePatchChangeKind schema definition.
 type UpdatePatchChangeKind struct {
-	MovePath *string `json:"move_path,omitzero"`
-	Type     string  `json:"type"`
+	MovePath string `json:"move_path,omitzero"`
+	Type     string `json:"type"`
 }
 
 func (UpdatePatchChangeKind) isPatchChangeKind() {}
@@ -6693,13 +6693,13 @@ func decodeGeneratedPatchChangeKind(raw jsontext.Value) (PatchChangeKind, error)
 // PermissionProfileListParams is generated from the PermissionProfileListParams schema definition.
 type PermissionProfileListParams struct {
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Cwd optional working directory to resolve project config layers.
-	Cwd *string `json:"cwd,omitzero"`
+	Cwd string `json:"cwd,omitzero"`
 
 	// Limit optional page size; defaults to the full result set.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 }
 
 // PermissionProfileListResponse is generated from the PermissionProfileListResponse schema definition.
@@ -6707,13 +6707,13 @@ type PermissionProfileListResponse struct {
 	Data []PermissionProfileSummary `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. If None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // PermissionProfileSummary is generated from the PermissionProfileSummary schema definition.
 type PermissionProfileSummary struct {
 	// Description optional user-facing description for display in clients.
-	Description *string `json:"description,omitzero"`
+	Description string `json:"description,omitzero"`
 
 	// ID available permission profile identifier.
 	ID string `json:"id"`
@@ -6834,10 +6834,10 @@ func decodeGeneratedPluginAvailability(raw jsontext.Value) (PluginAvailability, 
 // PluginDetail is generated from the PluginDetail schema definition.
 type PluginDetail struct {
 	Apps            []AppSummary        `json:"apps"`
-	Description     *string             `json:"description,omitzero"`
+	Description     string              `json:"description,omitzero"`
 	Hooks           []PluginHookSummary `json:"hooks"`
 	MarketplaceName string              `json:"marketplaceName"`
-	MarketplacePath *string             `json:"marketplacePath,omitzero"`
+	MarketplacePath string              `json:"marketplacePath,omitzero"`
 	MCPServers      []string            `json:"mcpServers"`
 	Skills          []SkillSummary      `json:"skills"`
 	Summary         PluginSummary       `json:"summary"`
@@ -6851,9 +6851,9 @@ type PluginHookSummary struct {
 
 // PluginInstallParams is generated from the PluginInstallParams schema definition.
 type PluginInstallParams struct {
-	MarketplacePath       *string `json:"marketplacePath,omitzero"`
-	PluginName            string  `json:"pluginName"`
-	RemoteMarketplaceName *string `json:"remoteMarketplaceName,omitzero"`
+	MarketplacePath       string `json:"marketplacePath,omitzero"`
+	PluginName            string `json:"pluginName"`
+	RemoteMarketplaceName string `json:"remoteMarketplaceName,omitzero"`
 }
 
 // PluginInstallPolicy is generated from the PluginInstallPolicy schema definition.
@@ -6891,37 +6891,37 @@ type PluginInstalledResponse struct {
 
 // PluginInterface is generated from the PluginInterface schema definition.
 type PluginInterface struct {
-	BrandColor   *string  `json:"brandColor,omitzero"`
+	BrandColor   string   `json:"brandColor,omitzero"`
 	Capabilities []string `json:"capabilities"`
-	Category     *string  `json:"category,omitzero"`
+	Category     string   `json:"category,omitzero"`
 
 	// ComposerIcon local composer icon path, resolved from the installed plugin package.
-	ComposerIcon *string `json:"composerIcon,omitzero"`
+	ComposerIcon string `json:"composerIcon,omitzero"`
 
 	// ComposerIconURL remote composer icon URL from the plugin catalog.
-	ComposerIconURL *string `json:"composerIconUrl,omitzero"`
+	ComposerIconURL string `json:"composerIconUrl,omitzero"`
 
 	// DefaultPrompt starter prompts for the plugin. Capped at 3 entries with a maximum of 128 characters per entry.
 	DefaultPrompt []string `json:"defaultPrompt,omitzero"`
-	DeveloperName *string  `json:"developerName,omitzero"`
-	DisplayName   *string  `json:"displayName,omitzero"`
+	DeveloperName string   `json:"developerName,omitzero"`
+	DisplayName   string   `json:"displayName,omitzero"`
 
 	// Logo local logo path, resolved from the installed plugin package.
-	Logo *string `json:"logo,omitzero"`
+	Logo string `json:"logo,omitzero"`
 
 	// LogoURL remote logo URL from the plugin catalog.
-	LogoURL          *string `json:"logoUrl,omitzero"`
-	LongDescription  *string `json:"longDescription,omitzero"`
-	PrivacyPolicyURL *string `json:"privacyPolicyUrl,omitzero"`
+	LogoURL          string `json:"logoUrl,omitzero"`
+	LongDescription  string `json:"longDescription,omitzero"`
+	PrivacyPolicyURL string `json:"privacyPolicyUrl,omitzero"`
 
 	// ScreenshotURLs remote screenshot URLs from the plugin catalog.
 	ScreenshotURLs []string `json:"screenshotUrls"`
 
 	// Screenshots local screenshot paths, resolved from the installed plugin package.
 	Screenshots       []string `json:"screenshots"`
-	ShortDescription  *string  `json:"shortDescription,omitzero"`
-	TermsOfServiceURL *string  `json:"termsOfServiceUrl,omitzero"`
-	WebsiteURL        *string  `json:"websiteUrl,omitzero"`
+	ShortDescription  string   `json:"shortDescription,omitzero"`
+	TermsOfServiceURL string   `json:"termsOfServiceUrl,omitzero"`
+	WebsiteURL        string   `json:"websiteUrl,omitzero"`
 }
 
 // PluginListMarketplaceKind is generated from the PluginListMarketplaceKind schema definition.
@@ -6960,15 +6960,15 @@ type PluginMarketplaceEntry struct {
 	Name           string               `json:"name"`
 
 	// Path local marketplace file path when the marketplace is backed by a local file. Remote-only catalog marketplaces do not have a local path.
-	Path    *string         `json:"path,omitzero"`
+	Path    string          `json:"path,omitzero"`
 	Plugins []PluginSummary `json:"plugins"`
 }
 
 // PluginReadParams is generated from the PluginReadParams schema definition.
 type PluginReadParams struct {
-	MarketplacePath       *string `json:"marketplacePath,omitzero"`
-	PluginName            string  `json:"pluginName"`
-	RemoteMarketplaceName *string `json:"remoteMarketplaceName,omitzero"`
+	MarketplacePath       string `json:"marketplacePath,omitzero"`
+	PluginName            string `json:"pluginName"`
+	RemoteMarketplaceName string `json:"remoteMarketplaceName,omitzero"`
 }
 
 // PluginReadResponse is generated from the PluginReadResponse schema definition.
@@ -6983,26 +6983,26 @@ type PluginShareCheckoutParams struct {
 
 // PluginShareCheckoutResponse is generated from the PluginShareCheckoutResponse schema definition.
 type PluginShareCheckoutResponse struct {
-	MarketplaceName string  `json:"marketplaceName"`
-	MarketplacePath string  `json:"marketplacePath"`
-	PluginID        string  `json:"pluginId"`
-	PluginName      string  `json:"pluginName"`
-	PluginPath      string  `json:"pluginPath"`
-	RemotePluginID  string  `json:"remotePluginId"`
-	RemoteVersion   *string `json:"remoteVersion,omitzero"`
+	MarketplaceName string `json:"marketplaceName"`
+	MarketplacePath string `json:"marketplacePath"`
+	PluginID        string `json:"pluginId"`
+	PluginName      string `json:"pluginName"`
+	PluginPath      string `json:"pluginPath"`
+	RemotePluginID  string `json:"remotePluginId"`
+	RemoteVersion   string `json:"remoteVersion,omitzero"`
 }
 
 // PluginShareContext is generated from the PluginShareContext schema definition.
 type PluginShareContext struct {
-	CreatorAccountUserID *string                    `json:"creatorAccountUserId,omitzero"`
-	CreatorName          *string                    `json:"creatorName,omitzero"`
+	CreatorAccountUserID string                     `json:"creatorAccountUserId,omitzero"`
+	CreatorName          string                     `json:"creatorName,omitzero"`
 	Discoverability      PluginShareDiscoverability `json:"discoverability,omitzero"`
 	RemotePluginID       string                     `json:"remotePluginId"`
 
 	// RemoteVersion version of the remote shared plugin release when available.
-	RemoteVersion   *string                `json:"remoteVersion,omitzero"`
+	RemoteVersion   string                 `json:"remoteVersion,omitzero"`
 	SharePrincipals []PluginSharePrincipal `json:"sharePrincipals,omitzero"`
-	ShareURL        *string                `json:"shareUrl,omitzero"`
+	ShareURL        string                 `json:"shareUrl,omitzero"`
 }
 
 // PluginShareDeleteParams is generated from the PluginShareDeleteParams schema definition.
@@ -7027,7 +7027,7 @@ const (
 
 // PluginShareListItem is generated from the PluginShareListItem schema definition.
 type PluginShareListItem struct {
-	LocalPluginPath *string       `json:"localPluginPath,omitzero"`
+	LocalPluginPath string        `json:"localPluginPath,omitzero"`
 	Plugin          PluginSummary `json:"plugin"`
 }
 
@@ -7075,7 +7075,7 @@ const (
 type PluginShareSaveParams struct {
 	Discoverability PluginShareDiscoverability `json:"discoverability,omitzero"`
 	PluginPath      string                     `json:"pluginPath"`
-	RemotePluginID  *string                    `json:"remotePluginId,omitzero"`
+	RemotePluginID  string                     `json:"remotePluginId,omitzero"`
 	ShareTargets    []PluginShareTarget        `json:"shareTargets,omitzero"`
 }
 
@@ -7134,7 +7134,7 @@ type PluginSkillReadParams struct {
 
 // PluginSkillReadResponse is generated from the PluginSkillReadResponse schema definition.
 type PluginSkillReadResponse struct {
-	Contents *string `json:"contents,omitzero"`
+	Contents string `json:"contents,omitzero"`
 }
 
 // PluginSource is generated from the PluginSource schema definition.
@@ -7170,11 +7170,11 @@ func (LocalPluginSource) isPluginSource() {}
 
 // GitPluginSource is generated from the GitPluginSource schema definition.
 type GitPluginSource struct {
-	Path    *string `json:"path,omitzero"`
-	RefName *string `json:"refName,omitzero"`
-	Sha     *string `json:"sha,omitzero"`
-	Type    string  `json:"type"`
-	URL     string  `json:"url"`
+	Path    string `json:"path,omitzero"`
+	RefName string `json:"refName,omitzero"`
+	Sha     string `json:"sha,omitzero"`
+	Type    string `json:"type"`
+	URL     string `json:"url"`
 }
 
 func (GitPluginSource) isPluginSource() {}
@@ -7233,11 +7233,11 @@ type PluginSummary struct {
 	Keywords       []string            `json:"keywords,omitzero"`
 
 	// LocalVersion version of the locally materialized plugin package when available.
-	LocalVersion *string `json:"localVersion,omitzero"`
-	Name         string  `json:"name"`
+	LocalVersion string `json:"localVersion,omitzero"`
+	Name         string `json:"name"`
 
 	// RemotePluginID backend remote plugin identifier when available.
-	RemotePluginID *string `json:"remotePluginId,omitzero"`
+	RemotePluginID string `json:"remotePluginId,omitzero"`
 
 	// ShareContext remote sharing context associated with this plugin when available.
 	ShareContext PluginShareContext `json:"shareContext,omitzero"`
@@ -7254,9 +7254,9 @@ func (value *PluginSummary) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		Installed      bool                `json:"installed"`
 		InterfaceValue PluginInterface     `json:"interface,omitzero"`
 		Keywords       []string            `json:"keywords,omitzero"`
-		LocalVersion   *string             `json:"localVersion,omitzero"`
+		LocalVersion   string              `json:"localVersion,omitzero"`
 		Name           string              `json:"name"`
-		RemotePluginID *string             `json:"remotePluginId,omitzero"`
+		RemotePluginID string              `json:"remotePluginId,omitzero"`
 		ShareContext   PluginShareContext  `json:"shareContext,omitzero"`
 		Source         jsontext.Value      `json:"source"`
 	}
@@ -7469,7 +7469,7 @@ type ProcessSpawnParams struct {
 	// OutputBytesCap optional per-stream stdout/stderr capture cap in bytes.
 	//
 	// When omitted, the server default applies. Set to `null` to disable the cap.
-	OutputBytesCap *uint `json:"outputBytesCap,omitzero"`
+	OutputBytesCap uint `json:"outputBytesCap,omitzero"`
 
 	// ProcessHandle client-supplied, connection-scoped process handle.
 	//
@@ -7490,7 +7490,7 @@ type ProcessSpawnParams struct {
 	// TimeoutMs optional timeout in milliseconds.
 	//
 	// When omitted, the server default applies. Set to `null` to disable the timeout.
-	TimeoutMs *int64 `json:"timeoutMs,omitzero"`
+	TimeoutMs int64 `json:"timeoutMs,omitzero"`
 
 	// TTY enables PTY mode.
 	//
@@ -7516,7 +7516,7 @@ type ProcessWriteStdinParams struct {
 	CloseStdin bool `json:"closeStdin,omitzero"`
 
 	// DeltaBase64 optional base64-encoded stdin bytes to write.
-	DeltaBase64 *string `json:"deltaBase64,omitzero"`
+	DeltaBase64 string `json:"deltaBase64,omitzero"`
 
 	// ProcessHandle client-supplied, connection-scoped `processHandle` from `process/spawn`.
 	ProcessHandle string `json:"processHandle"`
@@ -7545,8 +7545,8 @@ const (
 type RateLimitSnapshot struct {
 	Credits              CreditsSnapshot           `json:"credits,omitzero"`
 	IndividualLimit      SpendControlLimitSnapshot `json:"individualLimit,omitzero"`
-	LimitID              *string                   `json:"limitId,omitzero"`
-	LimitName            *string                   `json:"limitName,omitzero"`
+	LimitID              string                    `json:"limitId,omitzero"`
+	LimitName            string                    `json:"limitName,omitzero"`
 	PlanType             PlanType                  `json:"planType,omitzero"`
 	Primary              RateLimitWindow           `json:"primary,omitzero"`
 	RateLimitReachedType RateLimitReachedType      `json:"rateLimitReachedType,omitzero"`
@@ -7555,9 +7555,9 @@ type RateLimitSnapshot struct {
 
 // RateLimitWindow is generated from the RateLimitWindow schema definition.
 type RateLimitWindow struct {
-	ResetsAt           *int64 `json:"resetsAt,omitzero"`
-	UsedPercent        int32  `json:"usedPercent"`
-	WindowDurationMins *int64 `json:"windowDurationMins,omitzero"`
+	ResetsAt           int64 `json:"resetsAt,omitzero"`
+	UsedPercent        int32 `json:"usedPercent"`
+	WindowDurationMins int64 `json:"windowDurationMins,omitzero"`
 }
 
 // RawResponseItemCompletedNotification is generated from the RawResponseItemCompletedNotification schema definition.
@@ -7851,14 +7851,14 @@ type ReasoningTextDeltaNotification struct {
 
 // RemoteControlClient is generated from the RemoteControlClient schema definition.
 type RemoteControlClient struct {
-	AppVersion  *string `json:"appVersion,omitzero"`
-	ClientID    string  `json:"clientId"`
-	DeviceModel *string `json:"deviceModel,omitzero"`
-	DeviceType  *string `json:"deviceType,omitzero"`
-	DisplayName *string `json:"displayName,omitzero"`
-	LastSeenAt  *int64  `json:"lastSeenAt,omitzero"`
-	OsVersion   *string `json:"osVersion,omitzero"`
-	Platform    *string `json:"platform,omitzero"`
+	AppVersion  string `json:"appVersion,omitzero"`
+	ClientID    string `json:"clientId"`
+	DeviceModel string `json:"deviceModel,omitzero"`
+	DeviceType  string `json:"deviceType,omitzero"`
+	DisplayName string `json:"displayName,omitzero"`
+	LastSeenAt  int64  `json:"lastSeenAt,omitzero"`
+	OsVersion   string `json:"osVersion,omitzero"`
+	Platform    string `json:"platform,omitzero"`
 }
 
 // RemoteControlClientsListOrder is generated from the RemoteControlClientsListOrder schema definition.
@@ -7873,16 +7873,16 @@ const (
 
 // RemoteControlClientsListParams is generated from the RemoteControlClientsListParams schema definition.
 type RemoteControlClientsListParams struct {
-	Cursor        *string                       `json:"cursor,omitzero"`
+	Cursor        string                        `json:"cursor,omitzero"`
 	EnvironmentID string                        `json:"environmentId"`
-	Limit         *int32                        `json:"limit,omitzero"`
+	Limit         int32                         `json:"limit,omitzero"`
 	Order         RemoteControlClientsListOrder `json:"order,omitzero"`
 }
 
 // RemoteControlClientsListResponse is generated from the RemoteControlClientsListResponse schema definition.
 type RemoteControlClientsListResponse struct {
 	Data       []RemoteControlClient `json:"data"`
-	NextCursor *string               `json:"nextCursor,omitzero"`
+	NextCursor string                `json:"nextCursor,omitzero"`
 }
 
 // RemoteControlClientsRevokeParams is generated from the RemoteControlClientsRevokeParams schema definition.
@@ -7910,7 +7910,7 @@ const (
 
 // RemoteControlDisableResponse is generated from the RemoteControlDisableResponse schema definition.
 type RemoteControlDisableResponse struct {
-	EnvironmentID  *string                       `json:"environmentId,omitzero"`
+	EnvironmentID  string                        `json:"environmentId,omitzero"`
 	InstallationID string                        `json:"installationId"`
 	ServerName     string                        `json:"serverName"`
 	Status         RemoteControlConnectionStatus `json:"status"`
@@ -7918,7 +7918,7 @@ type RemoteControlDisableResponse struct {
 
 // RemoteControlEnableResponse is generated from the RemoteControlEnableResponse schema definition.
 type RemoteControlEnableResponse struct {
-	EnvironmentID  *string                       `json:"environmentId,omitzero"`
+	EnvironmentID  string                        `json:"environmentId,omitzero"`
 	InstallationID string                        `json:"installationId"`
 	ServerName     string                        `json:"serverName"`
 	Status         RemoteControlConnectionStatus `json:"status"`
@@ -7931,15 +7931,15 @@ type RemoteControlPairingStartParams struct {
 
 // RemoteControlPairingStartResponse is generated from the RemoteControlPairingStartResponse schema definition.
 type RemoteControlPairingStartResponse struct {
-	EnvironmentID     string  `json:"environmentId"`
-	ExpiresAt         int64   `json:"expiresAt"`
-	ManualPairingCode *string `json:"manualPairingCode,omitzero"`
-	PairingCode       string  `json:"pairingCode"`
+	EnvironmentID     string `json:"environmentId"`
+	ExpiresAt         int64  `json:"expiresAt"`
+	ManualPairingCode string `json:"manualPairingCode,omitzero"`
+	PairingCode       string `json:"pairingCode"`
 }
 
 // RemoteControlStatusChangedNotification current remote-control connection status and remote identity exposed to clients.
 type RemoteControlStatusChangedNotification struct {
-	EnvironmentID  *string                       `json:"environmentId,omitzero"`
+	EnvironmentID  string                        `json:"environmentId,omitzero"`
 	InstallationID string                        `json:"installationId"`
 	ServerName     string                        `json:"serverName"`
 	Status         RemoteControlConnectionStatus `json:"status"`
@@ -7947,7 +7947,7 @@ type RemoteControlStatusChangedNotification struct {
 
 // RemoteControlStatusReadResponse is generated from the RemoteControlStatusReadResponse schema definition.
 type RemoteControlStatusReadResponse struct {
-	EnvironmentID  *string                       `json:"environmentId,omitzero"`
+	EnvironmentID  string                        `json:"environmentId,omitzero"`
 	InstallationID string                        `json:"installationId"`
 	ServerName     string                        `json:"serverName"`
 	Status         RemoteControlConnectionStatus `json:"status"`
@@ -7974,12 +7974,12 @@ const (
 type Resource struct {
 	Meta        jsontext.Value   `json:"_meta,omitzero"`
 	Annotations jsontext.Value   `json:"annotations,omitzero"`
-	Description *string          `json:"description,omitzero"`
+	Description string           `json:"description,omitzero"`
 	Icons       []jsontext.Value `json:"icons,omitzero"`
-	MimeType    *string          `json:"mimeType,omitzero"`
+	MimeType    string           `json:"mimeType,omitzero"`
 	Name        string           `json:"name"`
-	Size        *int64           `json:"size,omitzero"`
-	Title       *string          `json:"title,omitzero"`
+	Size        int64            `json:"size,omitzero"`
+	Title       string           `json:"title,omitzero"`
 	URI         string           `json:"uri"`
 }
 
@@ -8009,7 +8009,7 @@ func (value *RawResourceContent) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 // ResourceContentText is generated from the ResourceContentText schema definition.
 type ResourceContentText struct {
 	Meta     jsontext.Value `json:"_meta,omitzero"`
-	MimeType *string        `json:"mimeType,omitzero"`
+	MimeType string         `json:"mimeType,omitzero"`
 	Text     string         `json:"text"`
 
 	// URI represents an URI of this resource.
@@ -8022,7 +8022,7 @@ func (ResourceContentText) isResourceContent() {}
 type ResourceContentBlob struct {
 	Meta     jsontext.Value `json:"_meta,omitzero"`
 	Blob     string         `json:"blob"`
-	MimeType *string        `json:"mimeType,omitzero"`
+	MimeType string         `json:"mimeType,omitzero"`
 
 	// URI represents an URI of this resource.
 	URI string `json:"uri"`
@@ -8061,10 +8061,10 @@ func decodeGeneratedResourceContent(raw jsontext.Value) (ResourceContent, error)
 // ResourceTemplate represents a template description for resources available on the server.
 type ResourceTemplate struct {
 	Annotations jsontext.Value `json:"annotations,omitzero"`
-	Description *string        `json:"description,omitzero"`
-	MimeType    *string        `json:"mimeType,omitzero"`
+	Description string         `json:"description,omitzero"`
+	MimeType    string         `json:"mimeType,omitzero"`
 	Name        string         `json:"name"`
-	Title       *string        `json:"title,omitzero"`
+	Title       string         `json:"title,omitzero"`
 	URITemplate string         `json:"uriTemplate"`
 }
 
@@ -8094,7 +8094,7 @@ func (value *RawResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // MessageResponseItem is generated from the MessageResponseItem schema definition.
 type MessageResponseItem struct {
 	Content []ContentItem `json:"content"`
-	ID      *string       `json:"id,omitzero"`
+	ID      string        `json:"id,omitzero"`
 	Phase   MessagePhase  `json:"phase,omitzero"`
 	Role    string        `json:"role"`
 	Type    string        `json:"type"`
@@ -8103,7 +8103,7 @@ type MessageResponseItem struct {
 func (value *MessageResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Content []jsontext.Value `json:"content"`
-		ID      *string          `json:"id,omitzero"`
+		ID      string           `json:"id,omitzero"`
 		Phase   jsontext.Value   `json:"phase,omitzero"`
 		Role    string           `json:"role"`
 		Type    string           `json:"type"`
@@ -8145,7 +8145,7 @@ func (MessageResponseItem) isResponseItem() {}
 // ReasoningResponseItem is generated from the ReasoningResponseItem schema definition.
 type ReasoningResponseItem struct {
 	Content          []ReasoningItemContent          `json:"content,omitzero"`
-	EncryptedContent *string                         `json:"encrypted_content,omitzero"`
+	EncryptedContent string                          `json:"encrypted_content,omitzero"`
 	Summary          []ReasoningItemReasoningSummary `json:"summary"`
 	Type             string                          `json:"type"`
 }
@@ -8153,7 +8153,7 @@ type ReasoningResponseItem struct {
 func (value *ReasoningResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Content          []jsontext.Value                `json:"content,omitzero"`
-		EncryptedContent *string                         `json:"encrypted_content,omitzero"`
+		EncryptedContent string                          `json:"encrypted_content,omitzero"`
 		Summary          []ReasoningItemReasoningSummary `json:"summary"`
 		Type             string                          `json:"type"`
 	}
@@ -8187,10 +8187,10 @@ type LocalShellCallResponseItem struct {
 	Action LocalShellAction `json:"action"`
 
 	// CallID sets when using the Responses API.
-	CallID *string `json:"call_id,omitzero"`
+	CallID string `json:"call_id,omitzero"`
 
 	// ID legacy id field retained for compatibility with older payloads.
-	ID     *string          `json:"id,omitzero"`
+	ID     string           `json:"id,omitzero"`
 	Status LocalShellStatus `json:"status"`
 	Type   string           `json:"type"`
 }
@@ -8199,12 +8199,12 @@ func (LocalShellCallResponseItem) isResponseItem() {}
 
 // FunctionCallResponseItem is generated from the FunctionCallResponseItem schema definition.
 type FunctionCallResponseItem struct {
-	Arguments string  `json:"arguments"`
-	CallID    string  `json:"call_id"`
-	ID        *string `json:"id,omitzero"`
-	Name      string  `json:"name"`
-	Namespace *string `json:"namespace,omitzero"`
-	Type      string  `json:"type"`
+	Arguments string `json:"arguments"`
+	CallID    string `json:"call_id"`
+	ID        string `json:"id,omitzero"`
+	Name      string `json:"name"`
+	Namespace string `json:"namespace,omitzero"`
+	Type      string `json:"type"`
 }
 
 func (FunctionCallResponseItem) isResponseItem() {}
@@ -8212,10 +8212,10 @@ func (FunctionCallResponseItem) isResponseItem() {}
 // ToolSearchCallResponseItem is generated from the ToolSearchCallResponseItem schema definition.
 type ToolSearchCallResponseItem struct {
 	Arguments jsontext.Value `json:"arguments"`
-	CallID    *string        `json:"call_id,omitzero"`
+	CallID    string         `json:"call_id,omitzero"`
 	Execution string         `json:"execution"`
-	ID        *string        `json:"id,omitzero"`
-	Status    *string        `json:"status,omitzero"`
+	ID        string         `json:"id,omitzero"`
+	Status    string         `json:"status,omitzero"`
 	Type      string         `json:"type"`
 }
 
@@ -8255,12 +8255,12 @@ func (FunctionCallOutputResponseItem) isResponseItem() {}
 
 // CustomToolCallResponseItem is generated from the CustomToolCallResponseItem schema definition.
 type CustomToolCallResponseItem struct {
-	CallID string  `json:"call_id"`
-	ID     *string `json:"id,omitzero"`
-	Input  string  `json:"input"`
-	Name   string  `json:"name"`
-	Status *string `json:"status,omitzero"`
-	Type   string  `json:"type"`
+	CallID string `json:"call_id"`
+	ID     string `json:"id,omitzero"`
+	Input  string `json:"input"`
+	Name   string `json:"name"`
+	Status string `json:"status,omitzero"`
+	Type   string `json:"type"`
 }
 
 func (CustomToolCallResponseItem) isResponseItem() {}
@@ -8268,7 +8268,7 @@ func (CustomToolCallResponseItem) isResponseItem() {}
 // CustomToolCallOutputResponseItem is generated from the CustomToolCallOutputResponseItem schema definition.
 type CustomToolCallOutputResponseItem struct {
 	CallID string                 `json:"call_id"`
-	Name   *string                `json:"name,omitzero"`
+	Name   string                 `json:"name,omitzero"`
 	Output FunctionCallOutputBody `json:"output"`
 	Type   string                 `json:"type"`
 }
@@ -8276,7 +8276,7 @@ type CustomToolCallOutputResponseItem struct {
 func (value *CustomToolCallOutputResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		CallID string         `json:"call_id"`
-		Name   *string        `json:"name,omitzero"`
+		Name   string         `json:"name,omitzero"`
 		Output jsontext.Value `json:"output"`
 		Type   string         `json:"type"`
 	}
@@ -8302,7 +8302,7 @@ func (CustomToolCallOutputResponseItem) isResponseItem() {}
 
 // ToolSearchOutputResponseItem is generated from the ToolSearchOutputResponseItem schema definition.
 type ToolSearchOutputResponseItem struct {
-	CallID    *string          `json:"call_id,omitzero"`
+	CallID    string           `json:"call_id,omitzero"`
 	Execution string           `json:"execution"`
 	Status    string           `json:"status"`
 	Tools     []jsontext.Value `json:"tools"`
@@ -8314,16 +8314,16 @@ func (ToolSearchOutputResponseItem) isResponseItem() {}
 // WebSearchCallResponseItem is generated from the WebSearchCallResponseItem schema definition.
 type WebSearchCallResponseItem struct {
 	Action ResponsesAPIWebSearchAction `json:"action,omitzero"`
-	ID     *string                     `json:"id,omitzero"`
-	Status *string                     `json:"status,omitzero"`
+	ID     string                      `json:"id,omitzero"`
+	Status string                      `json:"status,omitzero"`
 	Type   string                      `json:"type"`
 }
 
 func (value *WebSearchCallResponseItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		Action jsontext.Value `json:"action,omitzero"`
-		ID     *string        `json:"id,omitzero"`
-		Status *string        `json:"status,omitzero"`
+		ID     string         `json:"id,omitzero"`
+		Status string         `json:"status,omitzero"`
 		Type   string         `json:"type"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -8348,11 +8348,11 @@ func (WebSearchCallResponseItem) isResponseItem() {}
 
 // ImageGenerationCallResponseItem is generated from the ImageGenerationCallResponseItem schema definition.
 type ImageGenerationCallResponseItem struct {
-	ID            string  `json:"id"`
-	Result        string  `json:"result"`
-	RevisedPrompt *string `json:"revised_prompt,omitzero"`
-	Status        string  `json:"status"`
-	Type          string  `json:"type"`
+	ID            string `json:"id"`
+	Result        string `json:"result"`
+	RevisedPrompt string `json:"revised_prompt,omitzero"`
+	Status        string `json:"status"`
+	Type          string `json:"type"`
 }
 
 func (ImageGenerationCallResponseItem) isResponseItem() {}
@@ -8374,8 +8374,8 @@ func (CompactionTriggerResponseItem) isResponseItem() {}
 
 // ContextCompactionResponseItem is generated from the ContextCompactionResponseItem schema definition.
 type ContextCompactionResponseItem struct {
-	EncryptedContent *string `json:"encrypted_content,omitzero"`
-	Type             string  `json:"type"`
+	EncryptedContent string `json:"encrypted_content,omitzero"`
+	Type             string `json:"type"`
 }
 
 func (ContextCompactionResponseItem) isResponseItem() {}
@@ -8518,7 +8518,7 @@ func (value *RawResponsesAPIWebSearchAction) UnmarshalJSONFrom(dec *jsontext.Dec
 // SearchResponsesAPIWebSearchAction is generated from the SearchResponsesApiWebSearchAction schema definition.
 type SearchResponsesAPIWebSearchAction struct {
 	Queries []string `json:"queries,omitzero"`
-	Query   *string  `json:"query,omitzero"`
+	Query   string   `json:"query,omitzero"`
 	Type    string   `json:"type"`
 }
 
@@ -8526,17 +8526,17 @@ func (SearchResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // OpenPageResponsesAPIWebSearchAction is generated from the OpenPageResponsesApiWebSearchAction schema definition.
 type OpenPageResponsesAPIWebSearchAction struct {
-	Type string  `json:"type"`
-	URL  *string `json:"url,omitzero"`
+	Type string `json:"type"`
+	URL  string `json:"url,omitzero"`
 }
 
 func (OpenPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
 
 // FindInPageResponsesAPIWebSearchAction is generated from the FindInPageResponsesApiWebSearchAction schema definition.
 type FindInPageResponsesAPIWebSearchAction struct {
-	Pattern *string `json:"pattern,omitzero"`
-	Type    string  `json:"type"`
-	URL     *string `json:"url,omitzero"`
+	Pattern string `json:"pattern,omitzero"`
+	Type    string `json:"type"`
+	URL     string `json:"url,omitzero"`
 }
 
 func (FindInPageResponsesAPIWebSearchAction) isResponsesAPIWebSearchAction() {}
@@ -8680,8 +8680,8 @@ type CommitReviewTarget struct {
 	Sha string `json:"sha"`
 
 	// Title optional human-readable label (e.g., commit subject) for UIs.
-	Title *string `json:"title,omitzero"`
-	Type  string  `json:"type"`
+	Title string `json:"title,omitzero"`
+	Type  string `json:"type"`
 }
 
 func (CommitReviewTarget) isReviewTarget() {}
@@ -9900,9 +9900,9 @@ type ServerRequestResolvedNotification struct {
 
 // SessionMigration is generated from the SessionMigration schema definition.
 type SessionMigration struct {
-	Cwd   string  `json:"cwd"`
-	Path  string  `json:"path"`
-	Title *string `json:"title,omitzero"`
+	Cwd   string `json:"cwd"`
+	Path  string `json:"path"`
+	Title string `json:"title,omitzero"`
 }
 
 // SessionSource is generated from the SessionSource schema definition.
@@ -10025,7 +10025,7 @@ func decodeGeneratedSessionSource(raw jsontext.Value) (SessionSource, error) {
 
 // Settings for a collaboration mode.
 type Settings struct {
-	DeveloperInstructions *string         `json:"developer_instructions,omitzero"`
+	DeveloperInstructions string          `json:"developer_instructions,omitzero"`
 	Model                 string          `json:"model"`
 	ReasoningEffort       ReasoningEffort `json:"reasoning_effort,omitzero"`
 }
@@ -10043,12 +10043,12 @@ type SkillErrorInfo struct {
 
 // SkillInterface is generated from the SkillInterface schema definition.
 type SkillInterface struct {
-	BrandColor       *string `json:"brandColor,omitzero"`
-	DefaultPrompt    *string `json:"defaultPrompt,omitzero"`
-	DisplayName      *string `json:"displayName,omitzero"`
-	IconLarge        *string `json:"iconLarge,omitzero"`
-	IconSmall        *string `json:"iconSmall,omitzero"`
-	ShortDescription *string `json:"shortDescription,omitzero"`
+	BrandColor       string `json:"brandColor,omitzero"`
+	DefaultPrompt    string `json:"defaultPrompt,omitzero"`
+	DisplayName      string `json:"displayName,omitzero"`
+	IconLarge        string `json:"iconLarge,omitzero"`
+	IconSmall        string `json:"iconSmall,omitzero"`
+	ShortDescription string `json:"shortDescription,omitzero"`
 }
 
 // SkillMetadata is generated from the SkillMetadata schema definition.
@@ -10062,7 +10062,7 @@ type SkillMetadata struct {
 	Scope          SkillScope        `json:"scope"`
 
 	// ShortDescription legacy short_description from SKILL.md. Prefer SKILL.json interface.short_description.
-	ShortDescription *string `json:"shortDescription,omitzero"`
+	ShortDescription string `json:"shortDescription,omitzero"`
 }
 
 // SkillScope is generated from the SkillScope schema definition.
@@ -10085,18 +10085,18 @@ type SkillSummary struct {
 	Enabled          bool           `json:"enabled"`
 	InterfaceValue   SkillInterface `json:"interface,omitzero"`
 	Name             string         `json:"name"`
-	Path             *string        `json:"path,omitzero"`
-	ShortDescription *string        `json:"shortDescription,omitzero"`
+	Path             string         `json:"path,omitzero"`
+	ShortDescription string         `json:"shortDescription,omitzero"`
 }
 
 // SkillToolDependency is generated from the SkillToolDependency schema definition.
 type SkillToolDependency struct {
-	Command     *string `json:"command,omitzero"`
-	Description *string `json:"description,omitzero"`
-	Transport   *string `json:"transport,omitzero"`
-	Type        string  `json:"type"`
-	URL         *string `json:"url,omitzero"`
-	Value       string  `json:"value"`
+	Command     string `json:"command,omitzero"`
+	Description string `json:"description,omitzero"`
+	Transport   string `json:"transport,omitzero"`
+	Type        string `json:"type"`
+	URL         string `json:"url,omitzero"`
+	Value       string `json:"value"`
 }
 
 // SkillsChangedNotification notification emitted when watched local skill files change.
@@ -10109,10 +10109,10 @@ type SkillsConfigWriteParams struct {
 	Enabled bool `json:"enabled"`
 
 	// Name name-based selector.
-	Name *string `json:"name,omitzero"`
+	Name string `json:"name,omitzero"`
 
 	// Path path-based selector.
-	Path *string `json:"path,omitzero"`
+	Path string `json:"path,omitzero"`
 }
 
 // SkillsConfigWriteResponse is generated from the SkillsConfigWriteResponse schema definition.
@@ -10206,9 +10206,9 @@ const (
 
 // ThreadSpawn is generated from the ThreadSpawn schema definition.
 type ThreadSpawn struct {
-	AgentNickname  *string    `json:"agent_nickname,omitzero"`
+	AgentNickname  string     `json:"agent_nickname,omitzero"`
 	AgentPath      *AgentPath `json:"agent_path,omitzero"`
-	AgentRole      *string    `json:"agent_role,omitzero"`
+	AgentRole      string     `json:"agent_role,omitzero"`
 	Depth          int32      `json:"depth"`
 	ParentThreadID ThreadID   `json:"parent_thread_id"`
 }
@@ -10287,7 +10287,7 @@ type TextElement struct {
 	ByteRange ByteRange `json:"byteRange"`
 
 	// Placeholder optional human-readable placeholder for the element, displayed in the UI.
-	Placeholder *string `json:"placeholder,omitzero"`
+	Placeholder string `json:"placeholder,omitzero"`
 }
 
 // TextPosition is generated from the TextPosition schema definition.
@@ -10308,10 +10308,10 @@ type TextRange struct {
 // ThreadPayload is generated from the Thread schema definition.
 type ThreadPayload struct {
 	// AgentNickname optional random unique nickname assigned to an AgentControl-spawned sub-agent.
-	AgentNickname *string `json:"agentNickname,omitzero"`
+	AgentNickname string `json:"agentNickname,omitzero"`
 
 	// AgentRole optional role (agent_role) assigned to an AgentControl-spawned sub-agent.
-	AgentRole *string `json:"agentRole,omitzero"`
+	AgentRole string `json:"agentRole,omitzero"`
 
 	// CliVersion version of the CLI that created the thread.
 	CliVersion string `json:"cliVersion"`
@@ -10326,7 +10326,7 @@ type ThreadPayload struct {
 	Ephemeral bool `json:"ephemeral"`
 
 	// ForkedFromID source thread id when this thread was created by forking another thread.
-	ForkedFromID *string `json:"forkedFromId,omitzero"`
+	ForkedFromID string `json:"forkedFromId,omitzero"`
 
 	// GitInfo optional Git metadata captured when the thread was created.
 	GitInfo GitInfo `json:"gitInfo,omitzero"`
@@ -10336,13 +10336,13 @@ type ThreadPayload struct {
 	ModelProvider string `json:"modelProvider"`
 
 	// Name optional user-facing thread title.
-	Name *string `json:"name,omitzero"`
+	Name string `json:"name,omitzero"`
 
 	// ParentThreadID represents an ID of the parent thread. This will only be set if this thread is a subagent.
-	ParentThreadID *string `json:"parentThreadId,omitzero"`
+	ParentThreadID string `json:"parentThreadId,omitzero"`
 
 	// Path [UNSTABLE] Path to the thread on disk.
-	Path *string `json:"path,omitzero"`
+	Path string `json:"path,omitzero"`
 
 	// Preview usually the first user message in the thread, if available.
 	Preview string `json:"preview"`
@@ -10368,19 +10368,19 @@ type ThreadPayload struct {
 
 func (value *ThreadPayload) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		AgentNickname  *string        `json:"agentNickname,omitzero"`
-		AgentRole      *string        `json:"agentRole,omitzero"`
+		AgentNickname  string         `json:"agentNickname,omitzero"`
+		AgentRole      string         `json:"agentRole,omitzero"`
 		CliVersion     string         `json:"cliVersion"`
 		CreatedAt      int64          `json:"createdAt"`
 		Cwd            string         `json:"cwd"`
 		Ephemeral      bool           `json:"ephemeral"`
-		ForkedFromID   *string        `json:"forkedFromId,omitzero"`
+		ForkedFromID   string         `json:"forkedFromId,omitzero"`
 		GitInfo        GitInfo        `json:"gitInfo,omitzero"`
 		ID             string         `json:"id"`
 		ModelProvider  string         `json:"modelProvider"`
-		Name           *string        `json:"name,omitzero"`
-		ParentThreadID *string        `json:"parentThreadId,omitzero"`
-		Path           *string        `json:"path,omitzero"`
+		Name           string         `json:"name,omitzero"`
+		ParentThreadID string         `json:"parentThreadId,omitzero"`
+		Path           string         `json:"path,omitzero"`
 		Preview        string         `json:"preview"`
 		SessionID      string         `json:"sessionId"`
 		Source         jsontext.Value `json:"source"`
@@ -10510,29 +10510,29 @@ type ThreadForkParams struct {
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this thread and subsequent turns.
 	ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
-	BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
+	BaseInstructions      string                    `json:"baseInstructions,omitzero"`
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
-	Cwd                   *string                   `json:"cwd,omitzero"`
-	DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
+	Cwd                   string                    `json:"cwd,omitzero"`
+	DeveloperInstructions string                    `json:"developerInstructions,omitzero"`
 	Ephemeral             bool                      `json:"ephemeral,omitzero"`
 
 	// ExcludeTurns when true, return only thread metadata and live fork state without populating `thread.turns`. This is useful when the client plans to call `thread/turns/list` immediately after forking.
 	ExcludeTurns bool `json:"excludeTurns,omitzero"`
 
 	// Model configuration overrides for the forked thread, if any.
-	Model         *string `json:"model,omitzero"`
-	ModelProvider *string `json:"modelProvider,omitzero"`
+	Model         string `json:"model,omitzero"`
+	ModelProvider string `json:"modelProvider,omitzero"`
 
 	// Path [UNSTABLE] Specify the rollout path to fork from. If specified, the thread_id param will be ignored.
-	Path *string `json:"path,omitzero"`
+	Path string `json:"path,omitzero"`
 
 	// Permissions named profile id for the forked thread. Cannot be combined with `sandbox`.
-	Permissions *string `json:"permissions,omitzero"`
+	Permissions string `json:"permissions,omitzero"`
 
 	// RuntimeWorkspaceRoots replaces the thread's runtime workspace roots. Relative paths are resolved against the effective cwd for the thread.
 	RuntimeWorkspaceRoots []string    `json:"runtimeWorkspaceRoots,omitzero"`
 	Sandbox               SandboxMode `json:"sandbox,omitzero"`
-	ServiceTier           *string     `json:"serviceTier,omitzero"`
+	ServiceTier           string      `json:"serviceTier,omitzero"`
 	ThreadID              string      `json:"threadId"`
 
 	// ThreadSource optional client-supplied analytics source classification for this forked thread.
@@ -10543,19 +10543,19 @@ func (value *ThreadForkParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ApprovalPolicy        jsontext.Value            `json:"approvalPolicy,omitzero"`
 		ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
-		BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
+		BaseInstructions      string                    `json:"baseInstructions,omitzero"`
 		Config                map[string]jsontext.Value `json:"config,omitzero"`
-		Cwd                   *string                   `json:"cwd,omitzero"`
-		DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
+		Cwd                   string                    `json:"cwd,omitzero"`
+		DeveloperInstructions string                    `json:"developerInstructions,omitzero"`
 		Ephemeral             bool                      `json:"ephemeral,omitzero"`
 		ExcludeTurns          bool                      `json:"excludeTurns,omitzero"`
-		Model                 *string                   `json:"model,omitzero"`
-		ModelProvider         *string                   `json:"modelProvider,omitzero"`
-		Path                  *string                   `json:"path,omitzero"`
-		Permissions           *string                   `json:"permissions,omitzero"`
+		Model                 string                    `json:"model,omitzero"`
+		ModelProvider         string                    `json:"modelProvider,omitzero"`
+		Path                  string                    `json:"path,omitzero"`
+		Permissions           string                    `json:"permissions,omitzero"`
 		RuntimeWorkspaceRoots []string                  `json:"runtimeWorkspaceRoots,omitzero"`
 		Sandbox               SandboxMode               `json:"sandbox,omitzero"`
-		ServiceTier           *string                   `json:"serviceTier,omitzero"`
+		ServiceTier           string                    `json:"serviceTier,omitzero"`
 		ThreadID              string                    `json:"threadId"`
 		ThreadSource          ThreadSource              `json:"threadSource,omitzero"`
 	}
@@ -10611,7 +10611,7 @@ type ThreadForkResponse struct {
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `activePermissionProfile` for profile provenance.
 	Sandbox     SandboxPolicy `json:"sandbox"`
-	ServiceTier *string       `json:"serviceTier,omitzero"`
+	ServiceTier string        `json:"serviceTier,omitzero"`
 	Thread      ThreadPayload `json:"thread"`
 }
 
@@ -10627,7 +10627,7 @@ func (value *ThreadForkResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 		ReasoningEffort         ReasoningEffort         `json:"reasoningEffort,omitzero"`
 		RuntimeWorkspaceRoots   []string                `json:"runtimeWorkspaceRoots,omitzero"`
 		Sandbox                 jsontext.Value          `json:"sandbox"`
-		ServiceTier             *string                 `json:"serviceTier,omitzero"`
+		ServiceTier             string                  `json:"serviceTier,omitzero"`
 		Thread                  ThreadPayload           `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -10671,7 +10671,7 @@ type ThreadGoal struct {
 	Status          ThreadGoalStatus `json:"status"`
 	ThreadID        string           `json:"threadId"`
 	TimeUsedSeconds int64            `json:"timeUsedSeconds"`
-	TokenBudget     *int64           `json:"tokenBudget,omitzero"`
+	TokenBudget     int64            `json:"tokenBudget,omitzero"`
 	TokensUsed      int64            `json:"tokensUsed"`
 	UpdatedAt       int64            `json:"updatedAt"`
 }
@@ -10703,10 +10703,10 @@ type ThreadGoalGetResponse struct {
 
 // ThreadGoalSetParams is generated from the ThreadGoalSetParams schema definition.
 type ThreadGoalSetParams struct {
-	Objective   *string          `json:"objective,omitzero"`
+	Objective   string           `json:"objective,omitzero"`
 	Status      ThreadGoalStatus `json:"status,omitzero"`
 	ThreadID    string           `json:"threadId"`
-	TokenBudget *int64           `json:"tokenBudget,omitzero"`
+	TokenBudget int64            `json:"tokenBudget,omitzero"`
 }
 
 // ThreadGoalSetResponse is generated from the ThreadGoalSetResponse schema definition.
@@ -10736,7 +10736,7 @@ const (
 type ThreadGoalUpdatedNotification struct {
 	Goal     ThreadGoal `json:"goal"`
 	ThreadID string     `json:"threadId"`
-	TurnID   *string    `json:"turnId,omitzero"`
+	TurnID   string     `json:"turnId,omitzero"`
 }
 
 // ThreadID is generated from the ThreadId schema definition.
@@ -10792,7 +10792,7 @@ func (value *RawThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 
 // UserMessageThreadItem is generated from the UserMessageThreadItem schema definition.
 type UserMessageThreadItem struct {
-	ClientID *string     `json:"clientId,omitzero"`
+	ClientID string      `json:"clientId,omitzero"`
 	Content  []UserInput `json:"content"`
 	ID       string      `json:"id"`
 	Type     string      `json:"type"`
@@ -10800,7 +10800,7 @@ type UserMessageThreadItem struct {
 
 func (value *UserMessageThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		ClientID *string          `json:"clientId,omitzero"`
+		ClientID string           `json:"clientId,omitzero"`
 		Content  []jsontext.Value `json:"content"`
 		ID       string           `json:"id"`
 		Type     string           `json:"type"`
@@ -10899,7 +10899,7 @@ func (ReasoningThreadItem) isThreadItem() {}
 // CommandExecutionThreadItem is generated from the CommandExecutionThreadItem schema definition.
 type CommandExecutionThreadItem struct {
 	// AggregatedOutput represents a command's output, aggregated from stdout and stderr.
-	AggregatedOutput *string `json:"aggregatedOutput,omitzero"`
+	AggregatedOutput string `json:"aggregatedOutput,omitzero"`
 
 	// Command represents a command to be executed.
 	Command string `json:"command"`
@@ -10911,14 +10911,14 @@ type CommandExecutionThreadItem struct {
 	Cwd string `json:"cwd"`
 
 	// DurationMs represents a duration of the command execution in milliseconds.
-	DurationMs *int64 `json:"durationMs,omitzero"`
+	DurationMs int64 `json:"durationMs,omitzero"`
 
 	// ExitCode represents a command's exit code.
-	ExitCode *int32 `json:"exitCode,omitzero"`
+	ExitCode int32  `json:"exitCode,omitzero"`
 	ID       string `json:"id"`
 
 	// ProcessID identifier for the underlying PTY process (when available).
-	ProcessID *string                `json:"processId,omitzero"`
+	ProcessID string                 `json:"processId,omitzero"`
 	Source    CommandExecutionSource `json:"source,omitzero"`
 	Status    CommandExecutionStatus `json:"status"`
 	Type      string                 `json:"type"`
@@ -10926,14 +10926,14 @@ type CommandExecutionThreadItem struct {
 
 func (value *CommandExecutionThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		AggregatedOutput *string                `json:"aggregatedOutput,omitzero"`
+		AggregatedOutput string                 `json:"aggregatedOutput,omitzero"`
 		Command          string                 `json:"command"`
 		CommandActions   []jsontext.Value       `json:"commandActions"`
 		Cwd              string                 `json:"cwd"`
-		DurationMs       *int64                 `json:"durationMs,omitzero"`
-		ExitCode         *int32                 `json:"exitCode,omitzero"`
+		DurationMs       int64                  `json:"durationMs,omitzero"`
+		ExitCode         int32                  `json:"exitCode,omitzero"`
 		ID               string                 `json:"id"`
-		ProcessID        *string                `json:"processId,omitzero"`
+		ProcessID        string                 `json:"processId,omitzero"`
 		Source           CommandExecutionSource `json:"source,omitzero"`
 		Status           CommandExecutionStatus `json:"status"`
 		Type             string                 `json:"type"`
@@ -10985,11 +10985,11 @@ type MCPToolCallThreadItem struct {
 	Arguments jsontext.Value `json:"arguments"`
 
 	// DurationMs represents a duration of the MCP tool call in milliseconds.
-	DurationMs        *int64            `json:"durationMs,omitzero"`
+	DurationMs        int64             `json:"durationMs,omitzero"`
 	Error             MCPToolCallError  `json:"error,omitzero"`
 	ID                string            `json:"id"`
-	MCPAppResourceURI *string           `json:"mcpAppResourceUri,omitzero"`
-	PluginID          *string           `json:"pluginId,omitzero"`
+	MCPAppResourceURI string            `json:"mcpAppResourceUri,omitzero"`
+	PluginID          string            `json:"pluginId,omitzero"`
 	Result            MCPToolCallResult `json:"result,omitzero"`
 	Server            string            `json:"server"`
 	Status            MCPToolCallStatus `json:"status"`
@@ -11005,11 +11005,11 @@ type DynamicToolCallThreadItem struct {
 	ContentItems []DynamicToolCallOutputContentItem `json:"contentItems,omitzero"`
 
 	// DurationMs represents a duration of the dynamic tool call in milliseconds.
-	DurationMs *int64                `json:"durationMs,omitzero"`
+	DurationMs int64                 `json:"durationMs,omitzero"`
 	ID         string                `json:"id"`
-	Namespace  *string               `json:"namespace,omitzero"`
+	Namespace  string                `json:"namespace,omitzero"`
 	Status     DynamicToolCallStatus `json:"status"`
-	Success    *bool                 `json:"success,omitzero"`
+	Success    bool                  `json:"success,omitzero"`
 	Tool       string                `json:"tool"`
 	Type       string                `json:"type"`
 }
@@ -11018,11 +11018,11 @@ func (value *DynamicToolCallThreadItem) UnmarshalJSONFrom(dec *jsontext.Decoder)
 	var raw struct {
 		Arguments    jsontext.Value        `json:"arguments"`
 		ContentItems []jsontext.Value      `json:"contentItems,omitzero"`
-		DurationMs   *int64                `json:"durationMs,omitzero"`
+		DurationMs   int64                 `json:"durationMs,omitzero"`
 		ID           string                `json:"id"`
-		Namespace    *string               `json:"namespace,omitzero"`
+		Namespace    string                `json:"namespace,omitzero"`
 		Status       DynamicToolCallStatus `json:"status"`
-		Success      *bool                 `json:"success,omitzero"`
+		Success      bool                  `json:"success,omitzero"`
 		Tool         string                `json:"tool"`
 		Type         string                `json:"type"`
 	}
@@ -11065,10 +11065,10 @@ type CollabAgentToolCallThreadItem struct {
 	ID string `json:"id"`
 
 	// Model requested for the spawned agent, when applicable.
-	Model *string `json:"model,omitzero"`
+	Model string `json:"model,omitzero"`
 
 	// Prompt text sent as part of the collab tool call, when available.
-	Prompt *string `json:"prompt,omitzero"`
+	Prompt string `json:"prompt,omitzero"`
 
 	// ReasoningEffort reasoning effort requested for the spawned agent, when applicable.
 	ReasoningEffort ReasoningEffort `json:"reasoningEffort,omitzero"`
@@ -11135,12 +11135,12 @@ func (ImageViewThreadItem) isThreadItem() {}
 
 // ImageGenerationThreadItem is generated from the ImageGenerationThreadItem schema definition.
 type ImageGenerationThreadItem struct {
-	ID            string  `json:"id"`
-	Result        string  `json:"result"`
-	RevisedPrompt *string `json:"revisedPrompt,omitzero"`
-	SavedPath     *string `json:"savedPath,omitzero"`
-	Status        string  `json:"status"`
-	Type          string  `json:"type"`
+	ID            string `json:"id"`
+	Result        string `json:"result"`
+	RevisedPrompt string `json:"revisedPrompt,omitzero"`
+	SavedPath     string `json:"savedPath,omitzero"`
+	Status        string `json:"status"`
+	Type          string `json:"type"`
 }
 
 func (ImageGenerationThreadItem) isThreadItem() {}
@@ -11333,22 +11333,22 @@ func decodeGeneratedThreadListCwdFilter(raw jsontext.Value) (ThreadListCwdFilter
 // ThreadListParams is generated from the ThreadListParams schema definition.
 type ThreadListParams struct {
 	// Archived optional archived filter; when set to true, only archived threads are returned. If false or null, only non-archived threads are returned.
-	Archived *bool `json:"archived,omitzero"`
+	Archived bool `json:"archived,omitzero"`
 
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Cwd optional cwd filter or filters; when set, only threads whose session cwd exactly matches one of these paths are returned.
 	Cwd ThreadListCwdFilter `json:"cwd,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// ModelProviders optional provider filter; when set, only sessions recorded under these providers are returned. When present but empty, includes all providers.
 	ModelProviders []string `json:"modelProviders,omitzero"`
 
 	// SearchTerm optional substring filter for the extracted thread title.
-	SearchTerm *string `json:"searchTerm,omitzero"`
+	SearchTerm string `json:"searchTerm,omitzero"`
 
 	// SortDirection optional sort direction; defaults to descending (newest first).
 	SortDirection SortDirection `json:"sortDirection,omitzero"`
@@ -11365,12 +11365,12 @@ type ThreadListParams struct {
 
 func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Archived       *bool              `json:"archived,omitzero"`
-		Cursor         *string            `json:"cursor,omitzero"`
+		Archived       bool               `json:"archived,omitzero"`
+		Cursor         string             `json:"cursor,omitzero"`
 		Cwd            jsontext.Value     `json:"cwd,omitzero"`
-		Limit          *int32             `json:"limit,omitzero"`
+		Limit          int32              `json:"limit,omitzero"`
 		ModelProviders []string           `json:"modelProviders,omitzero"`
-		SearchTerm     *string            `json:"searchTerm,omitzero"`
+		SearchTerm     string             `json:"searchTerm,omitzero"`
 		SortDirection  SortDirection      `json:"sortDirection,omitzero"`
 		SortKey        ThreadSortKey      `json:"sortKey,omitzero"`
 		SourceKinds    []ThreadSourceKind `json:"sourceKinds,omitzero"`
@@ -11403,20 +11403,20 @@ func (value *ThreadListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 // ThreadListResponse is generated from the ThreadListResponse schema definition.
 type ThreadListResponse struct {
 	// BackwardsCursor opaque cursor to pass as `cursor` when reversing `sortDirection`. This is only populated when the page contains at least one thread. Use it with the opposite `sortDirection`; for timestamp sorts it anchors at the start of the page timestamp so same-second updates are not skipped.
-	BackwardsCursor *string         `json:"backwardsCursor,omitzero"`
+	BackwardsCursor string          `json:"backwardsCursor,omitzero"`
 	Data            []ThreadPayload `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ThreadLoadedListParams is generated from the ThreadLoadedListParams schema definition.
 type ThreadLoadedListParams struct {
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Limit optional page size; defaults to no limit.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 }
 
 // ThreadLoadedListResponse is generated from the ThreadLoadedListResponse schema definition.
@@ -11425,7 +11425,7 @@ type ThreadLoadedListResponse struct {
 	Data []string `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ThreadMemoryMode is generated from the ThreadMemoryMode schema definition.
@@ -11450,13 +11450,13 @@ type ThreadMemoryModeSetResponse struct{}
 // ThreadMetadataGitInfoUpdateParams is generated from the ThreadMetadataGitInfoUpdateParams schema definition.
 type ThreadMetadataGitInfoUpdateParams struct {
 	// Branch omits to leave the stored branch unchanged, set to `null` to clear it, or provide a non-empty string to replace it.
-	Branch *string `json:"branch,omitzero"`
+	Branch string `json:"branch,omitzero"`
 
 	// OriginURL omits to leave the stored origin URL unchanged, set to `null` to clear it, or provide a non-empty string to replace it.
-	OriginURL *string `json:"originUrl,omitzero"`
+	OriginURL string `json:"originUrl,omitzero"`
 
 	// Sha omits to leave the stored commit unchanged, set to `null` to clear it, or provide a non-empty string to replace it.
-	Sha *string `json:"sha,omitzero"`
+	Sha string `json:"sha,omitzero"`
 }
 
 // ThreadMetadataUpdateParams is generated from the ThreadMetadataUpdateParams schema definition.
@@ -11473,8 +11473,8 @@ type ThreadMetadataUpdateResponse struct {
 
 // ThreadNameUpdatedNotification is generated from the ThreadNameUpdatedNotification schema definition.
 type ThreadNameUpdatedNotification struct {
-	ThreadID   string  `json:"threadId"`
-	ThreadName *string `json:"threadName,omitzero"`
+	ThreadID   string `json:"threadId"`
+	ThreadName string `json:"threadName,omitzero"`
 }
 
 // ThreadReadParams is generated from the ThreadReadParams schema definition.
@@ -11509,17 +11509,17 @@ type ThreadRealtimeAppendTextResponse struct{}
 
 // ThreadRealtimeAudioChunk thread realtime audio chunk.
 type ThreadRealtimeAudioChunk struct {
-	Data              string  `json:"data"`
-	ItemID            *string `json:"itemId,omitzero"`
-	NumChannels       int64   `json:"numChannels"`
-	SampleRate        int32   `json:"sampleRate"`
-	SamplesPerChannel *int32  `json:"samplesPerChannel,omitzero"`
+	Data              string `json:"data"`
+	ItemID            string `json:"itemId,omitzero"`
+	NumChannels       int64  `json:"numChannels"`
+	SampleRate        int32  `json:"sampleRate"`
+	SamplesPerChannel int32  `json:"samplesPerChannel,omitzero"`
 }
 
 // ThreadRealtimeClosedNotification emitted when thread realtime transport closes.
 type ThreadRealtimeClosedNotification struct {
-	Reason   *string `json:"reason,omitzero"`
-	ThreadID string  `json:"threadId"`
+	Reason   string `json:"reason,omitzero"`
+	ThreadID string `json:"threadId"`
 }
 
 // ThreadRealtimeErrorNotification emitted when thread realtime encounters an error.
@@ -11558,8 +11558,8 @@ type ThreadRealtimeSDPNotification struct {
 type ThreadRealtimeStartParams struct {
 	// OutputModality selects text or audio output for the realtime session. Transport and voice stay independent so clients can choose how they connect separately from what the model emits.
 	OutputModality    RealtimeOutputModality       `json:"outputModality"`
-	Prompt            *string                      `json:"prompt,omitzero"`
-	RealtimeSessionID *string                      `json:"realtimeSessionId,omitzero"`
+	Prompt            string                       `json:"prompt,omitzero"`
+	RealtimeSessionID string                       `json:"realtimeSessionId,omitzero"`
 	ThreadID          string                       `json:"threadId"`
 	Transport         ThreadRealtimeStartTransport `json:"transport,omitzero"`
 	Voice             RealtimeVoice                `json:"voice,omitzero"`
@@ -11568,8 +11568,8 @@ type ThreadRealtimeStartParams struct {
 func (value *ThreadRealtimeStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		OutputModality    RealtimeOutputModality `json:"outputModality"`
-		Prompt            *string                `json:"prompt,omitzero"`
-		RealtimeSessionID *string                `json:"realtimeSessionId,omitzero"`
+		Prompt            string                 `json:"prompt,omitzero"`
+		RealtimeSessionID string                 `json:"realtimeSessionId,omitzero"`
 		ThreadID          string                 `json:"threadId"`
 		Transport         jsontext.Value         `json:"transport,omitzero"`
 		Voice             RealtimeVoice          `json:"voice,omitzero"`
@@ -11665,7 +11665,7 @@ func decodeGeneratedThreadRealtimeStartTransport(raw jsontext.Value) (ThreadReal
 
 // ThreadRealtimeStartedNotification emitted when thread realtime startup is accepted.
 type ThreadRealtimeStartedNotification struct {
-	RealtimeSessionID *string                     `json:"realtimeSessionId,omitzero"`
+	RealtimeSessionID string                      `json:"realtimeSessionId,omitzero"`
 	ThreadID          string                      `json:"threadId"`
 	Version           RealtimeConversationVersion `json:"version"`
 }
@@ -11701,7 +11701,7 @@ type ThreadResumeInitialTurnsPageParams struct {
 	ItemsView TurnItemsView `json:"itemsView,omitzero"`
 
 	// Limit optional turn page size.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// SortDirection optional turn pagination direction; defaults to descending.
 	SortDirection SortDirection `json:"sortDirection,omitzero"`
@@ -11710,7 +11710,7 @@ type ThreadResumeInitialTurnsPageParams struct {
 func (value *ThreadResumeInitialTurnsPageParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ItemsView     jsontext.Value `json:"itemsView,omitzero"`
-		Limit         *int32         `json:"limit,omitzero"`
+		Limit         int32          `json:"limit,omitzero"`
 		SortDirection SortDirection  `json:"sortDirection,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -11742,10 +11742,10 @@ type ThreadResumeParams struct {
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this thread and subsequent turns.
 	ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
-	BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
+	BaseInstructions      string                    `json:"baseInstructions,omitzero"`
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
-	Cwd                   *string                   `json:"cwd,omitzero"`
-	DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
+	Cwd                   string                    `json:"cwd,omitzero"`
+	DeveloperInstructions string                    `json:"developerInstructions,omitzero"`
 
 	// ExcludeTurns when true, return only thread metadata and live-resume state without populating `thread.turns`. This is useful when the client plans to call `thread/turns/list` immediately after resuming.
 	ExcludeTurns bool `json:"excludeTurns,omitzero"`
@@ -11757,20 +11757,20 @@ type ThreadResumeParams struct {
 	InitialTurnsPage ThreadResumeInitialTurnsPageParams `json:"initialTurnsPage,omitzero"`
 
 	// Model configuration overrides for the resumed thread, if any.
-	Model         *string `json:"model,omitzero"`
-	ModelProvider *string `json:"modelProvider,omitzero"`
+	Model         string `json:"model,omitzero"`
+	ModelProvider string `json:"modelProvider,omitzero"`
 
 	// Path [UNSTABLE] Specify the rollout path to resume from. If specified for a non-running thread, the thread_id param will be ignored. If thread_id identifies a running thread, the path must match the active rollout path.
-	Path *string `json:"path,omitzero"`
+	Path string `json:"path,omitzero"`
 
 	// Permissions named profile id for the resumed thread. Cannot be combined with `sandbox`.
-	Permissions *string     `json:"permissions,omitzero"`
+	Permissions string      `json:"permissions,omitzero"`
 	Personality Personality `json:"personality,omitzero"`
 
 	// RuntimeWorkspaceRoots replaces the thread's runtime workspace roots. Relative paths are resolved against the effective cwd for the thread.
 	RuntimeWorkspaceRoots []string    `json:"runtimeWorkspaceRoots,omitzero"`
 	Sandbox               SandboxMode `json:"sandbox,omitzero"`
-	ServiceTier           *string     `json:"serviceTier,omitzero"`
+	ServiceTier           string      `json:"serviceTier,omitzero"`
 	ThreadID              string      `json:"threadId"`
 }
 
@@ -11778,21 +11778,21 @@ func (value *ThreadResumeParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 	var raw struct {
 		ApprovalPolicy        jsontext.Value                     `json:"approvalPolicy,omitzero"`
 		ApprovalsReviewer     ApprovalsReviewer                  `json:"approvalsReviewer,omitzero"`
-		BaseInstructions      *string                            `json:"baseInstructions,omitzero"`
+		BaseInstructions      string                             `json:"baseInstructions,omitzero"`
 		Config                map[string]jsontext.Value          `json:"config,omitzero"`
-		Cwd                   *string                            `json:"cwd,omitzero"`
-		DeveloperInstructions *string                            `json:"developerInstructions,omitzero"`
+		Cwd                   string                             `json:"cwd,omitzero"`
+		DeveloperInstructions string                             `json:"developerInstructions,omitzero"`
 		ExcludeTurns          bool                               `json:"excludeTurns,omitzero"`
 		History               []jsontext.Value                   `json:"history,omitzero"`
 		InitialTurnsPage      ThreadResumeInitialTurnsPageParams `json:"initialTurnsPage,omitzero"`
-		Model                 *string                            `json:"model,omitzero"`
-		ModelProvider         *string                            `json:"modelProvider,omitzero"`
-		Path                  *string                            `json:"path,omitzero"`
-		Permissions           *string                            `json:"permissions,omitzero"`
+		Model                 string                             `json:"model,omitzero"`
+		ModelProvider         string                             `json:"modelProvider,omitzero"`
+		Path                  string                             `json:"path,omitzero"`
+		Permissions           string                             `json:"permissions,omitzero"`
 		Personality           Personality                        `json:"personality,omitzero"`
 		RuntimeWorkspaceRoots []string                           `json:"runtimeWorkspaceRoots,omitzero"`
 		Sandbox               SandboxMode                        `json:"sandbox,omitzero"`
-		ServiceTier           *string                            `json:"serviceTier,omitzero"`
+		ServiceTier           string                             `json:"serviceTier,omitzero"`
 		ThreadID              string                             `json:"threadId"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -11864,7 +11864,7 @@ type ThreadResumeResponse struct {
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `activePermissionProfile` for profile provenance.
 	Sandbox     SandboxPolicy `json:"sandbox"`
-	ServiceTier *string       `json:"serviceTier,omitzero"`
+	ServiceTier string        `json:"serviceTier,omitzero"`
 	Thread      ThreadPayload `json:"thread"`
 }
 
@@ -11881,7 +11881,7 @@ func (value *ThreadResumeResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		ReasoningEffort         ReasoningEffort         `json:"reasoningEffort,omitzero"`
 		RuntimeWorkspaceRoots   []string                `json:"runtimeWorkspaceRoots,omitzero"`
 		Sandbox                 jsontext.Value          `json:"sandbox"`
-		ServiceTier             *string                 `json:"serviceTier,omitzero"`
+		ServiceTier             string                  `json:"serviceTier,omitzero"`
 		Thread                  ThreadPayload           `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -11939,13 +11939,13 @@ type ThreadRollbackResponse struct {
 // ThreadSearchParams is generated from the ThreadSearchParams schema definition.
 type ThreadSearchParams struct {
 	// Archived optional archived filter; when set to true, only archived threads are returned. If false or null, only non-archived threads are returned.
-	Archived *bool `json:"archived,omitzero"`
+	Archived bool `json:"archived,omitzero"`
 
 	// Cursor opaque pagination cursor returned by a previous call.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Limit optional page size; defaults to a reasonable server-side value.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// SearchTerm required substring/full-text query for thread search.
 	SearchTerm string `json:"searchTerm"`
@@ -11963,11 +11963,11 @@ type ThreadSearchParams struct {
 // ThreadSearchResponse is generated from the ThreadSearchResponse schema definition.
 type ThreadSearchResponse struct {
 	// BackwardsCursor opaque cursor to pass as `cursor` when reversing `sortDirection`. This is only populated when the page contains at least one thread. Use it with the opposite `sortDirection`; for timestamp sorts it anchors at the start of the page timestamp so same-second updates are not skipped.
-	BackwardsCursor *string              `json:"backwardsCursor,omitzero"`
+	BackwardsCursor string               `json:"backwardsCursor,omitzero"`
 	Data            []ThreadSearchResult `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ThreadSearchResult is generated from the ThreadSearchResult schema definition.
@@ -11997,7 +11997,7 @@ type ThreadSettings struct {
 	ModelProvider           string                  `json:"modelProvider"`
 	Personality             Personality             `json:"personality,omitzero"`
 	SandboxPolicy           SandboxPolicy           `json:"sandboxPolicy"`
-	ServiceTier             *string                 `json:"serviceTier,omitzero"`
+	ServiceTier             string                  `json:"serviceTier,omitzero"`
 	Summary                 ReasoningSummary        `json:"summary,omitzero"`
 }
 
@@ -12013,7 +12013,7 @@ func (value *ThreadSettings) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		ModelProvider           string                  `json:"modelProvider"`
 		Personality             Personality             `json:"personality,omitzero"`
 		SandboxPolicy           jsontext.Value          `json:"sandboxPolicy"`
-		ServiceTier             *string                 `json:"serviceTier,omitzero"`
+		ServiceTier             string                  `json:"serviceTier,omitzero"`
 		Summary                 jsontext.Value          `json:"summary,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -12072,16 +12072,16 @@ type ThreadSettingsUpdateParams struct {
 	CollaborationMode CollaborationMode `json:"collaborationMode,omitzero"`
 
 	// Cwd overrides the working directory for subsequent turns.
-	Cwd *string `json:"cwd,omitzero"`
+	Cwd string `json:"cwd,omitzero"`
 
 	// Effort overrides the reasoning effort for subsequent turns.
 	Effort ReasoningEffort `json:"effort,omitzero"`
 
 	// Model overrides the model for subsequent turns.
-	Model *string `json:"model,omitzero"`
+	Model string `json:"model,omitzero"`
 
 	// Permissions selects a named permissions profile id for subsequent turns. Cannot be combined with `sandboxPolicy`.
-	Permissions *string `json:"permissions,omitzero"`
+	Permissions string `json:"permissions,omitzero"`
 
 	// Personality overrides the personality for subsequent turns.
 	Personality Personality `json:"personality,omitzero"`
@@ -12090,7 +12090,7 @@ type ThreadSettingsUpdateParams struct {
 	SandboxPolicy SandboxPolicy `json:"sandboxPolicy,omitzero"`
 
 	// ServiceTier overrides the service tier for subsequent turns. `null` clears the current service tier; omission leaves it unchanged.
-	ServiceTier *string `json:"serviceTier,omitzero"`
+	ServiceTier string `json:"serviceTier,omitzero"`
 
 	// Summary overrides the reasoning summary for subsequent turns.
 	Summary  ReasoningSummary `json:"summary,omitzero"`
@@ -12102,13 +12102,13 @@ func (value *ThreadSettingsUpdateParams) UnmarshalJSONFrom(dec *jsontext.Decoder
 		ApprovalPolicy    jsontext.Value    `json:"approvalPolicy,omitzero"`
 		ApprovalsReviewer ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
 		CollaborationMode CollaborationMode `json:"collaborationMode,omitzero"`
-		Cwd               *string           `json:"cwd,omitzero"`
+		Cwd               string            `json:"cwd,omitzero"`
 		Effort            ReasoningEffort   `json:"effort,omitzero"`
-		Model             *string           `json:"model,omitzero"`
-		Permissions       *string           `json:"permissions,omitzero"`
+		Model             string            `json:"model,omitzero"`
+		Permissions       string            `json:"permissions,omitzero"`
 		Personality       Personality       `json:"personality,omitzero"`
 		SandboxPolicy     jsontext.Value    `json:"sandboxPolicy,omitzero"`
-		ServiceTier       *string           `json:"serviceTier,omitzero"`
+		ServiceTier       string            `json:"serviceTier,omitzero"`
 		Summary           jsontext.Value    `json:"summary,omitzero"`
 		ThreadID          string            `json:"threadId"`
 	}
@@ -12227,35 +12227,35 @@ type ThreadStartParams struct {
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this thread and subsequent turns.
 	ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
-	BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
+	BaseInstructions      string                    `json:"baseInstructions,omitzero"`
 	Config                map[string]jsontext.Value `json:"config,omitzero"`
-	Cwd                   *string                   `json:"cwd,omitzero"`
-	DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
+	Cwd                   string                    `json:"cwd,omitzero"`
+	DeveloperInstructions string                    `json:"developerInstructions,omitzero"`
 	DynamicTools          []DynamicToolSpec         `json:"dynamicTools,omitzero"`
 
 	// Environments optional sticky environments for this thread.
 	//
 	// Omitted selects the default environment when environment access is enabled. Empty disables environment access for turns that do not provide a turn override. Non-empty selects the first environment as the current turn environment.
 	Environments []TurnEnvironmentParams `json:"environments,omitzero"`
-	Ephemeral    *bool                   `json:"ephemeral,omitzero"`
+	Ephemeral    bool                    `json:"ephemeral,omitzero"`
 
 	// ExperimentalRawEvents if true, opt into emitting raw Responses API items on the event stream. This is for internal use only (e.g. Codex Cloud).
 	ExperimentalRawEvents bool `json:"experimentalRawEvents,omitzero"`
 
 	// MockExperimentalField test-only experimental field used to validate experimental gating and schema filtering behavior in a stable way.
-	MockExperimentalField *string `json:"mockExperimentalField,omitzero"`
-	Model                 *string `json:"model,omitzero"`
-	ModelProvider         *string `json:"modelProvider,omitzero"`
+	MockExperimentalField string `json:"mockExperimentalField,omitzero"`
+	Model                 string `json:"model,omitzero"`
+	ModelProvider         string `json:"modelProvider,omitzero"`
 
 	// Permissions named profile id for this thread. Cannot be combined with `sandbox`.
-	Permissions *string     `json:"permissions,omitzero"`
+	Permissions string      `json:"permissions,omitzero"`
 	Personality Personality `json:"personality,omitzero"`
 
 	// RuntimeWorkspaceRoots replaces the thread's runtime workspace roots. Relative paths are resolved against the effective cwd for the thread.
 	RuntimeWorkspaceRoots []string          `json:"runtimeWorkspaceRoots,omitzero"`
 	Sandbox               SandboxMode       `json:"sandbox,omitzero"`
-	ServiceName           *string           `json:"serviceName,omitzero"`
-	ServiceTier           *string           `json:"serviceTier,omitzero"`
+	ServiceName           string            `json:"serviceName,omitzero"`
+	ServiceTier           string            `json:"serviceTier,omitzero"`
 	SessionStartSource    ThreadStartSource `json:"sessionStartSource,omitzero"`
 
 	// ThreadSource optional client-supplied analytics source classification for this thread.
@@ -12266,23 +12266,23 @@ func (value *ThreadStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		ApprovalPolicy        jsontext.Value            `json:"approvalPolicy,omitzero"`
 		ApprovalsReviewer     ApprovalsReviewer         `json:"approvalsReviewer,omitzero"`
-		BaseInstructions      *string                   `json:"baseInstructions,omitzero"`
+		BaseInstructions      string                    `json:"baseInstructions,omitzero"`
 		Config                map[string]jsontext.Value `json:"config,omitzero"`
-		Cwd                   *string                   `json:"cwd,omitzero"`
-		DeveloperInstructions *string                   `json:"developerInstructions,omitzero"`
+		Cwd                   string                    `json:"cwd,omitzero"`
+		DeveloperInstructions string                    `json:"developerInstructions,omitzero"`
 		DynamicTools          []DynamicToolSpec         `json:"dynamicTools,omitzero"`
 		Environments          []TurnEnvironmentParams   `json:"environments,omitzero"`
-		Ephemeral             *bool                     `json:"ephemeral,omitzero"`
+		Ephemeral             bool                      `json:"ephemeral,omitzero"`
 		ExperimentalRawEvents bool                      `json:"experimentalRawEvents,omitzero"`
-		MockExperimentalField *string                   `json:"mockExperimentalField,omitzero"`
-		Model                 *string                   `json:"model,omitzero"`
-		ModelProvider         *string                   `json:"modelProvider,omitzero"`
-		Permissions           *string                   `json:"permissions,omitzero"`
+		MockExperimentalField string                    `json:"mockExperimentalField,omitzero"`
+		Model                 string                    `json:"model,omitzero"`
+		ModelProvider         string                    `json:"modelProvider,omitzero"`
+		Permissions           string                    `json:"permissions,omitzero"`
 		Personality           Personality               `json:"personality,omitzero"`
 		RuntimeWorkspaceRoots []string                  `json:"runtimeWorkspaceRoots,omitzero"`
 		Sandbox               SandboxMode               `json:"sandbox,omitzero"`
-		ServiceName           *string                   `json:"serviceName,omitzero"`
-		ServiceTier           *string                   `json:"serviceTier,omitzero"`
+		ServiceName           string                    `json:"serviceName,omitzero"`
+		ServiceTier           string                    `json:"serviceTier,omitzero"`
 		SessionStartSource    ThreadStartSource         `json:"sessionStartSource,omitzero"`
 		ThreadSource          ThreadSource              `json:"threadSource,omitzero"`
 	}
@@ -12342,7 +12342,7 @@ type ThreadStartResponse struct {
 
 	// Sandbox legacy sandbox policy retained for compatibility. Experimental clients should prefer `activePermissionProfile` for profile provenance.
 	Sandbox     SandboxPolicy `json:"sandbox"`
-	ServiceTier *string       `json:"serviceTier,omitzero"`
+	ServiceTier string        `json:"serviceTier,omitzero"`
 	Thread      ThreadPayload `json:"thread"`
 }
 
@@ -12358,7 +12358,7 @@ func (value *ThreadStartResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		ReasoningEffort         ReasoningEffort         `json:"reasoningEffort,omitzero"`
 		RuntimeWorkspaceRoots   []string                `json:"runtimeWorkspaceRoots,omitzero"`
 		Sandbox                 jsontext.Value          `json:"sandbox"`
-		ServiceTier             *string                 `json:"serviceTier,omitzero"`
+		ServiceTier             string                  `json:"serviceTier,omitzero"`
 		Thread                  ThreadPayload           `json:"thread"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -12531,7 +12531,7 @@ func (value *ThreadStatusChangedNotification) UnmarshalJSONFrom(dec *jsontext.De
 // ThreadTokenUsage is generated from the ThreadTokenUsage schema definition.
 type ThreadTokenUsage struct {
 	Last               TokenUsageBreakdown `json:"last"`
-	ModelContextWindow *int64              `json:"modelContextWindow,omitzero"`
+	ModelContextWindow int64               `json:"modelContextWindow,omitzero"`
 	Total              TokenUsageBreakdown `json:"total"`
 }
 
@@ -12545,10 +12545,10 @@ type ThreadTokenUsageUpdatedNotification struct {
 // ThreadTurnsItemsListParams is generated from the ThreadTurnsItemsListParams schema definition.
 type ThreadTurnsItemsListParams struct {
 	// Cursor opaque cursor to pass to the next call to continue after the last item.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// Limit optional item page size.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// SortDirection optional item pagination direction; defaults to ascending.
 	SortDirection SortDirection `json:"sortDirection,omitzero"`
@@ -12559,18 +12559,18 @@ type ThreadTurnsItemsListParams struct {
 // ThreadTurnsItemsListResponse is generated from the ThreadTurnsItemsListResponse schema definition.
 type ThreadTurnsItemsListResponse struct {
 	// BackwardsCursor opaque cursor to pass as `cursor` when reversing `sortDirection`. This is only populated when the page contains at least one item.
-	BackwardsCursor *string      `json:"backwardsCursor,omitzero"`
+	BackwardsCursor string       `json:"backwardsCursor,omitzero"`
 	Data            []ThreadItem `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last item. if None, there are no more items to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 func (value *ThreadTurnsItemsListResponse) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		BackwardsCursor *string          `json:"backwardsCursor,omitzero"`
+		BackwardsCursor string           `json:"backwardsCursor,omitzero"`
 		Data            []jsontext.Value `json:"data"`
-		NextCursor      *string          `json:"nextCursor,omitzero"`
+		NextCursor      string           `json:"nextCursor,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -12597,13 +12597,13 @@ func (value *ThreadTurnsItemsListResponse) UnmarshalJSONFrom(dec *jsontext.Decod
 // ThreadTurnsListParams is generated from the ThreadTurnsListParams schema definition.
 type ThreadTurnsListParams struct {
 	// Cursor opaque cursor to pass to the next call to continue after the last turn.
-	Cursor *string `json:"cursor,omitzero"`
+	Cursor string `json:"cursor,omitzero"`
 
 	// ItemsView how much item detail to include for each returned turn; defaults to summary.
 	ItemsView TurnItemsView `json:"itemsView,omitzero"`
 
 	// Limit optional turn page size.
-	Limit *int32 `json:"limit,omitzero"`
+	Limit int32 `json:"limit,omitzero"`
 
 	// SortDirection optional turn pagination direction; defaults to descending.
 	SortDirection SortDirection `json:"sortDirection,omitzero"`
@@ -12612,9 +12612,9 @@ type ThreadTurnsListParams struct {
 
 func (value *ThreadTurnsListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		Cursor        *string        `json:"cursor,omitzero"`
+		Cursor        string         `json:"cursor,omitzero"`
 		ItemsView     jsontext.Value `json:"itemsView,omitzero"`
-		Limit         *int32         `json:"limit,omitzero"`
+		Limit         int32          `json:"limit,omitzero"`
 		SortDirection SortDirection  `json:"sortDirection,omitzero"`
 		ThreadID      string         `json:"threadId"`
 	}
@@ -12640,11 +12640,11 @@ func (value *ThreadTurnsListParams) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 // ThreadTurnsListResponse is generated from the ThreadTurnsListResponse schema definition.
 type ThreadTurnsListResponse struct {
 	// BackwardsCursor opaque cursor to pass as `cursor` when reversing `sortDirection`. This is only populated when the page contains at least one turn. Use it with the opposite `sortDirection` to include the anchor turn again and catch updates to that turn.
-	BackwardsCursor *string `json:"backwardsCursor,omitzero"`
-	Data            []Turn  `json:"data"`
+	BackwardsCursor string `json:"backwardsCursor,omitzero"`
+	Data            []Turn `json:"data"`
 
 	// NextCursor opaque cursor to pass to the next call to continue after the last turn. if None, there are no more turns to return.
-	NextCursor *string `json:"nextCursor,omitzero"`
+	NextCursor string `json:"nextCursor,omitzero"`
 }
 
 // ThreadUnarchiveParams is generated from the ThreadUnarchiveParams schema definition.
@@ -12697,12 +12697,12 @@ type TokenUsageBreakdown struct {
 type Tool struct {
 	Meta         jsontext.Value   `json:"_meta,omitzero"`
 	Annotations  jsontext.Value   `json:"annotations,omitzero"`
-	Description  *string          `json:"description,omitzero"`
+	Description  string           `json:"description,omitzero"`
 	Icons        []jsontext.Value `json:"icons,omitzero"`
 	InputSchema  jsontext.Value   `json:"inputSchema"`
 	Name         string           `json:"name"`
 	OutputSchema jsontext.Value   `json:"outputSchema,omitzero"`
-	Title        *string          `json:"title,omitzero"`
+	Title        string           `json:"title,omitzero"`
 }
 
 // ToolsV2 is generated from the ToolsV2 schema definition.
@@ -12713,10 +12713,10 @@ type ToolsV2 struct {
 // Turn is generated from the Turn schema definition.
 type Turn struct {
 	// CompletedAt unix timestamp (in seconds) when the turn completed.
-	CompletedAt *int64 `json:"completedAt,omitzero"`
+	CompletedAt int64 `json:"completedAt,omitzero"`
 
 	// DurationMs duration between turn start and completion in milliseconds, if known.
-	DurationMs *int64 `json:"durationMs,omitzero"`
+	DurationMs int64 `json:"durationMs,omitzero"`
 
 	// Error only populated when the Turn's status is failed.
 	Error TurnError `json:"error,omitzero"`
@@ -12729,19 +12729,19 @@ type Turn struct {
 	ItemsView TurnItemsView `json:"itemsView,omitzero"`
 
 	// StartedAt unix timestamp (in seconds) when the turn started.
-	StartedAt *int64     `json:"startedAt,omitzero"`
+	StartedAt int64      `json:"startedAt,omitzero"`
 	Status    TurnStatus `json:"status"`
 }
 
 func (value *Turn) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		CompletedAt *int64           `json:"completedAt,omitzero"`
-		DurationMs  *int64           `json:"durationMs,omitzero"`
+		CompletedAt int64            `json:"completedAt,omitzero"`
+		DurationMs  int64            `json:"durationMs,omitzero"`
 		Error       TurnError        `json:"error,omitzero"`
 		ID          string           `json:"id"`
 		Items       []jsontext.Value `json:"items"`
 		ItemsView   jsontext.Value   `json:"itemsView,omitzero"`
-		StartedAt   *int64           `json:"startedAt,omitzero"`
+		StartedAt   int64            `json:"startedAt,omitzero"`
 		Status      TurnStatus       `json:"status"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -12800,14 +12800,14 @@ type TurnEnvironmentParams struct {
 
 // TurnError is generated from the TurnError schema definition.
 type TurnError struct {
-	AdditionalDetails *string        `json:"additionalDetails,omitzero"`
+	AdditionalDetails string         `json:"additionalDetails,omitzero"`
 	CodexErrorInfo    CodexErrorInfo `json:"codexErrorInfo,omitzero"`
 	Message           string         `json:"message"`
 }
 
 func (value *TurnError) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
-		AdditionalDetails *string        `json:"additionalDetails,omitzero"`
+		AdditionalDetails string         `json:"additionalDetails,omitzero"`
 		CodexErrorInfo    jsontext.Value `json:"codexErrorInfo,omitzero"`
 		Message           string         `json:"message"`
 	}
@@ -12913,7 +12913,7 @@ const (
 
 // TurnPlanUpdatedNotification is generated from the TurnPlanUpdatedNotification schema definition.
 type TurnPlanUpdatedNotification struct {
-	Explanation *string        `json:"explanation,omitzero"`
+	Explanation string         `json:"explanation,omitzero"`
 	Plan        []TurnPlanStep `json:"plan"`
 	ThreadID    string         `json:"threadId"`
 	TurnID      string         `json:"turnId"`
@@ -12929,7 +12929,7 @@ type TurnStartParams struct {
 
 	// ApprovalsReviewer overrides where approval requests are routed for review on this turn and subsequent turns.
 	ApprovalsReviewer   ApprovalsReviewer `json:"approvalsReviewer,omitzero"`
-	ClientUserMessageID *string           `json:"clientUserMessageId,omitzero"`
+	ClientUserMessageID string            `json:"clientUserMessageId,omitzero"`
 
 	// CollaborationMode sets a pre-set collaboration mode. Takes precedence over model, reasoning_effort, and developer instructions if set.
 	//
@@ -12937,7 +12937,7 @@ type TurnStartParams struct {
 	CollaborationMode CollaborationMode `json:"collaborationMode,omitzero"`
 
 	// Cwd overrides the working directory for this turn and subsequent turns.
-	Cwd *string `json:"cwd,omitzero"`
+	Cwd string `json:"cwd,omitzero"`
 
 	// Effort overrides the reasoning effort for this turn and subsequent turns.
 	Effort ReasoningEffort `json:"effort,omitzero"`
@@ -12949,13 +12949,13 @@ type TurnStartParams struct {
 	Input        []UserInput             `json:"input"`
 
 	// Model overrides the model for this turn and subsequent turns.
-	Model *string `json:"model,omitzero"`
+	Model string `json:"model,omitzero"`
 
 	// OutputSchema optional JSON Schema used to constrain the final assistant message for this turn.
 	OutputSchema jsontext.Value `json:"outputSchema,omitzero"`
 
 	// Permissions selects a named permissions profile id for this turn and subsequent turns. Cannot be combined with `sandboxPolicy`.
-	Permissions *string `json:"permissions,omitzero"`
+	Permissions string `json:"permissions,omitzero"`
 
 	// Personality overrides the personality for this turn and subsequent turns.
 	Personality Personality `json:"personality,omitzero"`
@@ -12970,7 +12970,7 @@ type TurnStartParams struct {
 	SandboxPolicy SandboxPolicy `json:"sandboxPolicy,omitzero"`
 
 	// ServiceTier overrides the service tier for this turn and subsequent turns.
-	ServiceTier *string `json:"serviceTier,omitzero"`
+	ServiceTier string `json:"serviceTier,omitzero"`
 
 	// Summary overrides the reasoning summary for this turn and subsequent turns.
 	Summary  ReasoningSummary `json:"summary,omitzero"`
@@ -12982,20 +12982,20 @@ func (value *TurnStartParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		AdditionalContext          map[string]AdditionalContextEntry `json:"additionalContext,omitzero"`
 		ApprovalPolicy             jsontext.Value                    `json:"approvalPolicy,omitzero"`
 		ApprovalsReviewer          ApprovalsReviewer                 `json:"approvalsReviewer,omitzero"`
-		ClientUserMessageID        *string                           `json:"clientUserMessageId,omitzero"`
+		ClientUserMessageID        string                            `json:"clientUserMessageId,omitzero"`
 		CollaborationMode          CollaborationMode                 `json:"collaborationMode,omitzero"`
-		Cwd                        *string                           `json:"cwd,omitzero"`
+		Cwd                        string                            `json:"cwd,omitzero"`
 		Effort                     ReasoningEffort                   `json:"effort,omitzero"`
 		Environments               []TurnEnvironmentParams           `json:"environments,omitzero"`
 		Input                      []jsontext.Value                  `json:"input"`
-		Model                      *string                           `json:"model,omitzero"`
+		Model                      string                            `json:"model,omitzero"`
 		OutputSchema               jsontext.Value                    `json:"outputSchema,omitzero"`
-		Permissions                *string                           `json:"permissions,omitzero"`
+		Permissions                string                            `json:"permissions,omitzero"`
 		Personality                Personality                       `json:"personality,omitzero"`
 		ResponsesapiClientMetadata map[string]string                 `json:"responsesapiClientMetadata,omitzero"`
 		RuntimeWorkspaceRoots      []string                          `json:"runtimeWorkspaceRoots,omitzero"`
 		SandboxPolicy              jsontext.Value                    `json:"sandboxPolicy,omitzero"`
-		ServiceTier                *string                           `json:"serviceTier,omitzero"`
+		ServiceTier                string                            `json:"serviceTier,omitzero"`
 		Summary                    jsontext.Value                    `json:"summary,omitzero"`
 		ThreadID                   string                            `json:"threadId"`
 	}
@@ -13090,7 +13090,7 @@ const (
 type TurnSteerParams struct {
 	// AdditionalContext optional client-provided context fragments keyed by an opaque source identifier.
 	AdditionalContext   map[string]AdditionalContextEntry `json:"additionalContext,omitzero"`
-	ClientUserMessageID *string                           `json:"clientUserMessageId,omitzero"`
+	ClientUserMessageID string                            `json:"clientUserMessageId,omitzero"`
 
 	// ExpectedTurnID required active turn id precondition. The request fails when it does not match the currently active turn.
 	ExpectedTurnID string      `json:"expectedTurnId"`
@@ -13104,7 +13104,7 @@ type TurnSteerParams struct {
 func (value *TurnSteerParams) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	var raw struct {
 		AdditionalContext          map[string]AdditionalContextEntry `json:"additionalContext,omitzero"`
-		ClientUserMessageID        *string                           `json:"clientUserMessageId,omitzero"`
+		ClientUserMessageID        string                            `json:"clientUserMessageId,omitzero"`
 		ExpectedTurnID             string                            `json:"expectedTurnId"`
 		Input                      []jsontext.Value                  `json:"input"`
 		ResponsesapiClientMetadata map[string]string                 `json:"responsesapiClientMetadata,omitzero"`
@@ -13142,9 +13142,9 @@ type TurnSteerResponse struct {
 
 // TurnsPage is generated from the TurnsPage schema definition.
 type TurnsPage struct {
-	BackwardsCursor *string `json:"backwardsCursor,omitzero"`
-	Data            []Turn  `json:"data"`
-	NextCursor      *string `json:"nextCursor,omitzero"`
+	BackwardsCursor string `json:"backwardsCursor,omitzero"`
+	Data            []Turn `json:"data"`
+	NextCursor      string `json:"nextCursor,omitzero"`
 }
 
 // UserInput is generated from the UserInput schema definition.
@@ -13280,7 +13280,7 @@ type WarningNotification struct {
 	Message string `json:"message"`
 
 	// ThreadID optional thread target when the warning applies to a specific thread.
-	ThreadID *string `json:"threadId,omitzero"`
+	ThreadID string `json:"threadId,omitzero"`
 }
 
 // WebSearchAction is generated from the WebSearchAction schema definition.
@@ -13309,7 +13309,7 @@ func (value *RawWebSearchAction) UnmarshalJSONFrom(dec *jsontext.Decoder) error 
 // SearchWebSearchAction is generated from the SearchWebSearchAction schema definition.
 type SearchWebSearchAction struct {
 	Queries []string `json:"queries,omitzero"`
-	Query   *string  `json:"query,omitzero"`
+	Query   string   `json:"query,omitzero"`
 	Type    string   `json:"type"`
 }
 
@@ -13317,17 +13317,17 @@ func (SearchWebSearchAction) isWebSearchAction() {}
 
 // OpenPageWebSearchAction is generated from the OpenPageWebSearchAction schema definition.
 type OpenPageWebSearchAction struct {
-	Type string  `json:"type"`
-	URL  *string `json:"url,omitzero"`
+	Type string `json:"type"`
+	URL  string `json:"url,omitzero"`
 }
 
 func (OpenPageWebSearchAction) isWebSearchAction() {}
 
 // FindInPageWebSearchAction is generated from the FindInPageWebSearchAction schema definition.
 type FindInPageWebSearchAction struct {
-	Pattern *string `json:"pattern,omitzero"`
-	Type    string  `json:"type"`
-	URL     *string `json:"url,omitzero"`
+	Pattern string `json:"pattern,omitzero"`
+	Type    string `json:"type"`
+	URL     string `json:"url,omitzero"`
 }
 
 func (FindInPageWebSearchAction) isWebSearchAction() {}
@@ -13392,10 +13392,10 @@ const (
 
 // WebSearchLocation is generated from the WebSearchLocation schema definition.
 type WebSearchLocation struct {
-	City     *string `json:"city,omitzero"`
-	Country  *string `json:"country,omitzero"`
-	Region   *string `json:"region,omitzero"`
-	Timezone *string `json:"timezone,omitzero"`
+	City     string `json:"city,omitzero"`
+	Country  string `json:"country,omitzero"`
+	Region   string `json:"region,omitzero"`
+	Timezone string `json:"timezone,omitzero"`
 }
 
 // WebSearchMode is generated from the WebSearchMode schema definition.
@@ -13436,7 +13436,7 @@ type WindowsSandboxReadinessResponse struct {
 
 // WindowsSandboxSetupCompletedNotification is generated from the WindowsSandboxSetupCompletedNotification schema definition.
 type WindowsSandboxSetupCompletedNotification struct {
-	Error   *string                 `json:"error,omitzero"`
+	Error   string                  `json:"error,omitzero"`
 	Mode    WindowsSandboxSetupMode `json:"mode"`
 	Success bool                    `json:"success"`
 }
@@ -13453,7 +13453,7 @@ const (
 
 // WindowsSandboxSetupStartParams is generated from the WindowsSandboxSetupStartParams schema definition.
 type WindowsSandboxSetupStartParams struct {
-	Cwd  *string                 `json:"cwd,omitzero"`
+	Cwd  string                  `json:"cwd,omitzero"`
 	Mode WindowsSandboxSetupMode `json:"mode"`
 }
 

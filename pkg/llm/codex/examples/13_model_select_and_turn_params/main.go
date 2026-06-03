@@ -36,7 +36,7 @@ func main() {
 	defer client.Close()
 
 	includeHidden := true
-	models, err := client.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
+	models, err := client.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -49,7 +49,7 @@ func main() {
 	fmt.Println("selected.effort:", selectedEffort)
 
 	thread, err := client.ThreadStart(ctx, &codex.ThreadStartParams{
-		Model: &selectedModel.Model,
+		Model: selectedModel.Model,
 		Config: map[string]jsontext.Value{
 			"model_reasoning_effort": exampleutil.MustJSONValue(selectedEffort),
 		},
@@ -60,7 +60,7 @@ func main() {
 	first, err := thread.Run(
 		ctx,
 		"Give one short sentence about reliable production releases.",
-		&codex.TurnStartParams{Model: &selectedModel.Model, Effort: selectedEffort},
+		&codex.TurnStartParams{Model: selectedModel.Model, Effort: selectedEffort},
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -79,9 +79,9 @@ func main() {
 		ctx,
 		"Return JSON for a safe feature-flag rollout plan.",
 		&codex.TurnStartParams{
-			Cwd:           &cwd,
+			Cwd:           cwd,
 			Effort:        selectedEffort,
-			Model:         &selectedModel.Model,
+			Model:         selectedModel.Model,
 			OutputSchema:  exampleutil.OutputSchema(),
 			Personality:   personality,
 			SandboxPolicy: sandbox,

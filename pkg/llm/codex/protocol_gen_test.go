@@ -37,10 +37,10 @@ func TestGeneratedProtocolTypesJSON(t *testing.T) {
 		"success: command exec params preserve wire fields": {
 			value: CommandExecParams{
 				Command:            []string{"printf", "hello"},
-				Cwd:                new("/tmp/work"),
+				Cwd:                "/tmp/work",
 				Env:                map[string]*string{"EMPTY": nil, "FOO": new("bar")},
 				StreamStdoutStderr: true,
-				TimeoutMs:          new(int64(2500)),
+				TimeoutMs:          2500,
 			},
 			want: `{"command":["printf","hello"],"cwd":"/tmp/work","env":{"EMPTY":null,"FOO":"bar"},"streamStdoutStderr":true,"timeoutMs":2500}`,
 		},
@@ -134,13 +134,13 @@ func TestGeneratedProtocolTypesDecode(t *testing.T) {
 		input string
 		want  CommandExecParams
 	}{
-		"success: optional nullable fields decode into pointers and maps": {
+		"success: optional nullable fields decode into values and maps": {
 			input: `{"command":["echo","ok"],"disableTimeout":true,"env":{"FOO":"bar","REMOVE":null},"timeoutMs":123}`,
 			want: CommandExecParams{
 				Command:        []string{"echo", "ok"},
 				DisableTimeout: true,
 				Env:            map[string]*string{"FOO": new("bar"), "REMOVE": nil},
-				TimeoutMs:      new(int64(123)),
+				TimeoutMs:      123,
 			},
 		},
 	}
@@ -337,7 +337,7 @@ func TestGeneratedProtocolClientRequestDecode(t *testing.T) {
 		if request.ID != "req-1" || request.Method != RequestMethodModelList {
 			t.Fatalf("decoded request identity = (%q, %q), want (req-1, model/list)", request.ID, request.Method)
 		}
-		if request.Params.IncludeHidden == nil || !*request.Params.IncludeHidden {
+		if !request.Params.IncludeHidden {
 			t.Fatalf("IncludeHidden = %#v, want true pointer", request.Params.IncludeHidden)
 		}
 	})
@@ -472,7 +472,7 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 					if !ok {
 						t.Fatalf("CodexErrorInfo = %#v (%T), want HTTPConnectionFailedCodexErrorInfo", got, got)
 					}
-					if value.HTTPConnectionFailed.HTTPStatusCode == nil || *value.HTTPConnectionFailed.HTTPStatusCode != 429 {
+					if value.HTTPConnectionFailed.HTTPStatusCode != 429 {
 						t.Fatalf("HTTPStatusCode = %#v, want 429", value.HTTPConnectionFailed.HTTPStatusCode)
 					}
 				},
@@ -485,7 +485,7 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 					if !ok {
 						t.Fatalf("CodexErrorInfo = %#v (%T), want ResponseStreamConnectionFailedCodexErrorInfo", got, got)
 					}
-					if value.ResponseStreamConnectionFailed.HTTPStatusCode == nil || *value.ResponseStreamConnectionFailed.HTTPStatusCode != 503 {
+					if value.ResponseStreamConnectionFailed.HTTPStatusCode != 503 {
 						t.Fatalf("HTTPStatusCode = %#v, want 503", value.ResponseStreamConnectionFailed.HTTPStatusCode)
 					}
 				},
@@ -498,7 +498,7 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 					if !ok {
 						t.Fatalf("CodexErrorInfo = %#v (%T), want ResponseStreamDisconnectedCodexErrorInfo", got, got)
 					}
-					if value.ResponseStreamDisconnected.HTTPStatusCode == nil || *value.ResponseStreamDisconnected.HTTPStatusCode != 502 {
+					if value.ResponseStreamDisconnected.HTTPStatusCode != 502 {
 						t.Fatalf("HTTPStatusCode = %#v, want 502", value.ResponseStreamDisconnected.HTTPStatusCode)
 					}
 				},
@@ -511,7 +511,7 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 					if !ok {
 						t.Fatalf("CodexErrorInfo = %#v (%T), want ResponseTooManyFailedAttemptsCodexErrorInfo", got, got)
 					}
-					if value.ResponseTooManyFailedAttempts.HTTPStatusCode == nil || *value.ResponseTooManyFailedAttempts.HTTPStatusCode != 500 {
+					if value.ResponseTooManyFailedAttempts.HTTPStatusCode != 500 {
 						t.Fatalf("HTTPStatusCode = %#v, want 500", value.ResponseTooManyFailedAttempts.HTTPStatusCode)
 					}
 				},
@@ -629,10 +629,10 @@ func TestGeneratedProtocolTypesDecodeInterfaceUnionParity(t *testing.T) {
 		if threadSpawn.ParentThreadID != "parent-thread" {
 			t.Fatalf("ThreadSpawn.ParentThreadID = %q, want parent-thread", threadSpawn.ParentThreadID)
 		}
-		if threadSpawn.AgentNickname == nil || *threadSpawn.AgentNickname != "reviewer" {
+		if threadSpawn.AgentNickname != "reviewer" {
 			t.Fatalf("ThreadSpawn.AgentNickname = %#v, want reviewer", threadSpawn.AgentNickname)
 		}
-		if threadSpawn.AgentRole == nil || *threadSpawn.AgentRole != "critic" {
+		if threadSpawn.AgentRole != "critic" {
 			t.Fatalf("ThreadSpawn.AgentRole = %#v, want critic", threadSpawn.AgentRole)
 		}
 	})

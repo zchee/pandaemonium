@@ -514,7 +514,7 @@ func TestClientStreamTextYieldsAgentMessageDeltasForTargetTurn(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	model := "gpt-5.4"
-	deltas := collectAgentMessageDeltas(t, client.StreamText(t.Context(), "thr_stream_text", "hello", &TurnStartParams{Model: &model}))
+	deltas := collectAgentMessageDeltas(t, client.StreamText(t.Context(), "thr_stream_text", "hello", &TurnStartParams{Model: model}))
 	if diff := gocmp.Diff([]string{"alpha", "beta"}, deltas); diff != "" {
 		t.Fatalf("stream text deltas mismatch (-want +got):\n%s", diff)
 	}
@@ -781,7 +781,7 @@ func TestClientProtocolQueuesNotificationsAndHandlesServerRequests(t *testing.T)
 	defer func() { _ = client.Close() }()
 
 	model := "gpt-5.4"
-	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: &model})
+	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
@@ -796,7 +796,7 @@ func TestClientProtocolQueuesNotificationsAndHandlesServerRequests(t *testing.T)
 		t.Fatalf("notification method = %q, want thread/started", notification.Method)
 	}
 
-	models, err := client.ModelList(t.Context(), &ModelListParams{IncludeHidden: new(true)})
+	models, err := client.ModelList(t.Context(), &ModelListParams{IncludeHidden: true})
 	if err != nil {
 		t.Fatalf("ModelList() error = %v", err)
 	}
@@ -813,7 +813,7 @@ func TestClientPreservesUnknownNotificationPayloads(t *testing.T) {
 	defer func() { _ = client.Close() }()
 
 	model := "gpt-5.4"
-	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: &model})
+	started, err := client.ThreadStart(t.Context(), &ThreadStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("ThreadStart() error = %v", err)
 	}
@@ -1128,7 +1128,7 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	model := "gpt-5.4"
 
 	thread := &Thread{client: client, id: "thr_run"}
-	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: &model})
+	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("Run() error = %v", err)
 	}
@@ -1148,7 +1148,7 @@ func TestThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 		t.Fatalf("active turn consumers = %v, want released after successful Run", got)
 	}
 
-	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: &model})
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("Turn() after successful Run error = %v", err)
 	}
@@ -1169,7 +1169,7 @@ func TestStreamThreadRunCollectsFinalResponseAndUsage(t *testing.T) {
 	if thread.ID() != "thr_run" {
 		t.Fatalf("StreamThread.ID() = %q, want thr_run", thread.ID())
 	}
-	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: &model})
+	result, err := thread.Run(t.Context(), "hello", &TurnStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("StreamThread.Run() error = %v", err)
 	}
@@ -1196,7 +1196,7 @@ func TestStreamThreadRunStreamYieldsNotificationsAndReleasesConsumer(t *testing.
 	model := "gpt-5.4"
 
 	thread := streamThreadForTest(client, "thr_run")
-	notifications, err := collectStream(thread.RunStream(t.Context(), "hello", &TurnStartParams{Model: &model}))
+	notifications, err := collectStream(thread.RunStream(t.Context(), "hello", &TurnStartParams{Model: model}))
 	if err != nil {
 		t.Fatalf("StreamThread.RunStream() error = %v", err)
 	}
@@ -1332,7 +1332,7 @@ func TestThreadRunReleasesConsumerAfterFailure(t *testing.T) {
 		t.Fatalf("active turn consumers = %v, want released after failed Run", got)
 	}
 
-	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: &model})
+	nextHandle, err := thread.Turn(t.Context(), "follow-up", &TurnStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("Turn() after failed Run error = %v", err)
 	}

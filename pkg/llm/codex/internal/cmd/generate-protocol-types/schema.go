@@ -91,13 +91,13 @@ func (g *generator) typeForSchemaWithNullability(def *jsonschema.Schema, optiona
 	}
 	switch {
 	case includesType(def, "string"):
-		return pointerIfOptional("string", nullable)
+		return pointerIfOptional("string", nullable && !optional)
 	case includesType(def, "boolean"):
-		return pointerIfOptional("bool", nullable)
+		return pointerIfOptional("bool", nullable && !optional)
 	case includesType(def, "integer"):
-		return pointerIfOptional(integerType(def.Format), nullable)
+		return pointerIfOptional(integerType(def.Format), nullable && !optional)
 	case includesType(def, "number"):
-		return pointerIfOptional("float64", nullable)
+		return pointerIfOptional("float64", nullable && !optional)
 	default:
 		return "jsontext.Value"
 	}
@@ -108,10 +108,7 @@ func (g *generator) typeForRef(ref string, optional, nullable bool) string {
 	if !optional && !nullable {
 		return typ
 	}
-	if optional && !nullable && g.refPrimitiveAliasOmittable(ref) {
-		return typ
-	}
-	if optional && g.refZeroValueOmittable(ref) {
+	if optional && (g.refPrimitiveAliasOmittable(ref) || g.refZeroValueOmittable(ref)) {
 		return typ
 	}
 	if optional || nullable {

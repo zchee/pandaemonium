@@ -149,7 +149,7 @@ func TestAppServerStreamingPortLowLevelStreamAllowsParallelModelList(t *testing.
 	}
 
 	includeHidden := true
-	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {
 		t.Fatalf("Models() while stream is active error = %v", err)
 	}

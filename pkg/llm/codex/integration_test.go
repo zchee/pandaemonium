@@ -65,7 +65,7 @@ func TestRealCodexAppServerInitializeAndModelList(t *testing.T) {
 	}
 
 	includeHidden := true
-	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {
 		t.Fatalf("Models(includeHidden=true) real app-server error = %v", err)
 	}

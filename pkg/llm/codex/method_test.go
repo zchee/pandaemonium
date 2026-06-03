@@ -44,7 +44,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "thread/name/set", call: func() error { _, err := client.ThreadSetName(ctx, "thread", "name"); return err }},
 		{name: "thread/goal/set", call: func() error {
 			objective := "ship the schema bump"
-			_, err := client.ThreadGoalSet(ctx, "thread", &ThreadGoalSetParams{Objective: &objective})
+			_, err := client.ThreadGoalSet(ctx, "thread", &ThreadGoalSetParams{Objective: objective})
 			return err
 		}},
 		{name: "thread/goal/get", call: func() error {
@@ -167,7 +167,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "turn/interrupt", call: func() error { _, err := client.TurnInterrupt(ctx, "thread", "turn"); return err }},
 		{name: "review/start", call: func() error { _, err := client.ReviewStart(ctx, &ReviewStartParams{ThreadID: "thread"}); return err }},
 		{name: "model/list", call: func() error {
-			_, err := client.ModelList(ctx, &ModelListParams{IncludeHidden: new(true)})
+			_, err := client.ModelList(ctx, &ModelListParams{IncludeHidden: true})
 			return err
 		}},
 		{name: "modelProvider/capabilities/read", call: func() error {
@@ -191,7 +191,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if got.InstallationID != "install-method" || got.ServerName != "server-method" || got.Status != RemoteControlConnectionStatusConnected || got.EnvironmentID == nil || *got.EnvironmentID != "env-method" {
+			if got.InstallationID != "install-method" || got.ServerName != "server-method" || got.Status != RemoteControlConnectionStatusConnected || got.EnvironmentID != "env-method" {
 				t.Fatalf("RemoteControlEnable() = %#v, want connected env-method", got)
 			}
 			return nil
@@ -211,7 +211,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if got.Status != RemoteControlConnectionStatusConnected || got.InstallationID != "install-method" || got.ServerName != "server-method" || got.EnvironmentID == nil || *got.EnvironmentID != "env-method" {
+			if got.Status != RemoteControlConnectionStatusConnected || got.InstallationID != "install-method" || got.ServerName != "server-method" || got.EnvironmentID != "env-method" {
 				t.Fatalf("RemoteControlStatusRead() = %#v, want connected server-method", got)
 			}
 			return nil
@@ -221,7 +221,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			if err != nil {
 				return err
 			}
-			if got.EnvironmentID != "env-method" || got.PairingCode != "pair-method" || got.ManualPairingCode == nil || *got.ManualPairingCode != "manual-method" {
+			if got.EnvironmentID != "env-method" || got.PairingCode != "pair-method" || got.ManualPairingCode != "manual-method" {
 				t.Fatalf("RemoteControlPairingStart() = %#v, want env and pairing codes", got)
 			}
 			return nil
@@ -230,13 +230,13 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			limit := int32(10)
 			got, err := client.RemoteControlClientList(ctx, &RemoteControlClientsListParams{
 				EnvironmentID: "env-method",
-				Limit:         &limit,
+				Limit:         limit,
 				Order:         RemoteControlClientsListOrderAsc,
 			})
 			if err != nil {
 				return err
 			}
-			if len(got.Data) != 1 || got.Data[0].ClientID != "client-method" || got.NextCursor == nil || *got.NextCursor != "cursor-method" {
+			if len(got.Data) != 1 || got.Data[0].ClientID != "client-method" || got.NextCursor != "cursor-method" {
 				t.Fatalf("RemoteControlClientList() = %#v, want one client and cursor", got)
 			}
 			return nil
@@ -312,7 +312,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		}},
 		{name: "process/writeStdin", call: func() error {
 			delta := "b2s="
-			_, err := client.ProcessWriteStdin(ctx, &ProcessWriteStdinParams{ProcessHandle: "process-handle", DeltaBase64: &delta})
+			_, err := client.ProcessWriteStdin(ctx, &ProcessWriteStdinParams{ProcessHandle: "process-handle", DeltaBase64: delta})
 			return err
 		}},
 		{name: "process/kill", call: func() error {

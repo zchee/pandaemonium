@@ -85,9 +85,13 @@ func (h *AppServerProcessHandle) WriteStdin(ctx context.Context, deltaBase64 *st
 	if h == nil || h.client == nil || h.processHandle == "" {
 		return ProcessWriteStdinResponse{}, errProcessHandleNil
 	}
+	delta := ""
+	if deltaBase64 != nil {
+		delta = *deltaBase64
+	}
 	return h.client.ProcessWriteStdin(ctx, &ProcessWriteStdinParams{
 		ProcessHandle: h.processHandle,
-		DeltaBase64:   deltaBase64,
+		DeltaBase64:   delta,
 		CloseStdin:    closeStdin,
 	})
 }

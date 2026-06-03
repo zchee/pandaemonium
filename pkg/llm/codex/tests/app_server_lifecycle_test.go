@@ -42,7 +42,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 			t.Fatalf("Thread.Read(includeTurns=true) error = %v", err)
 		}
 
-		if named.Thread.Name == nil || *named.Thread.Name != "sdk integration thread" {
+		if named.Thread.Name != "sdk integration thread" {
 			t.Fatalf("Thread.Read().Thread.Name = %#v, want sdk integration thread", named.Thread.Name)
 		}
 	})
@@ -69,11 +69,11 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		}
 
 		showArchived := true
-		activeList, err := sdk.ThreadList(ctx, &codex.ThreadListParams{Archived: new(bool)})
+		activeList, err := sdk.ThreadList(ctx, &codex.ThreadListParams{Archived: false})
 		if err != nil {
 			t.Fatalf("ThreadList(archived=false) error = %v", err)
 		}
-		archivedList, err := sdk.ThreadList(ctx, &codex.ThreadListParams{Archived: &showArchived})
+		archivedList, err := sdk.ThreadList(ctx, &codex.ThreadListParams{Archived: showArchived})
 		if err != nil {
 			t.Fatalf("ThreadList(archived=true) error = %v", err)
 		}
@@ -158,7 +158,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 
 		got := map[string]any{
 			"run_final_response": runResult.FinalResponse,
-			"named_thread":       stringValue(named.Thread.Name),
+			"named_thread":       named.Thread.Name,
 			"resumed_id":         resumed.ID(),
 			"forked_is_distinct": forked.ID() != thread.ID(),
 			"archive_response":   archiveResponse,
@@ -251,7 +251,7 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		sdk, ctx := newLifecycleCodex(t)
 
 		includeHidden := true
-		models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
+		models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 		if err != nil {
 			t.Fatalf("Models(includeHidden=true) error = %v", err)
 		}

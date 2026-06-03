@@ -85,7 +85,7 @@ func BoolEnv(name string) bool {
 func DefaultThreadParams() *codex.ThreadStartParams {
 	reasoningEffort := jsontext.Value(`"high"`)
 	return &codex.ThreadStartParams{
-		Model: new(defaultModel),
+		Model: defaultModel,
 		Config: map[string]jsontext.Value{
 			"model_reasoning_effort": reasoningEffort,
 		},
@@ -289,7 +289,7 @@ func PickHighestModel(models []codex.Model, preferred string) (codex.Model, bool
 		knownNames[model.Model] = struct{}{}
 	}
 	candidates := slices.DeleteFunc(slices.Clone(visible), func(model codex.Model) bool {
-		return model.Upgrade != nil && *model.Upgrade != "" && containsKey(knownNames, *model.Upgrade)
+		return model.Upgrade != "" && containsKey(knownNames, model.Upgrade)
 	})
 	if len(candidates) == 0 {
 		candidates = visible

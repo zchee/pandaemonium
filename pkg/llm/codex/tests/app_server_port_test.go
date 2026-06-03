@@ -57,7 +57,7 @@ func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {
 		codex.LocalImageInput{Path: "/tmp/codex.png"},
 		codex.SkillInput{Name: "demo", Path: "/tmp/demo/SKILL.md"},
 		codex.MentionInput{Name: "README", Path: "/tmp/README.md"},
-	}, &codex.TurnStartParams{Model: &model})
+	}, &codex.TurnStartParams{Model: model})
 	if err != nil {
 		t.Fatalf("Thread.Run() with normalized inputs error = %v", err)
 	}
@@ -110,7 +110,7 @@ func TestAppServerHarnessLifecycleApprovalsAndInputsPort(t *testing.T) {
 		t.Fatalf("ThreadList() error = %v", err)
 	}
 	includeHidden := true
-	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {
 		t.Fatalf("Models() error = %v", err)
 	}

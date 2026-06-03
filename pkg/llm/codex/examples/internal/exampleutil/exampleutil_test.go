@@ -201,7 +201,7 @@ func TestPickHighestModel(t *testing.T) {
 	}{
 		"success: preferred visible model wins": {
 			models: []codex.Model{
-				{ID: "old", Model: "gpt-5.3", Upgrade: new("gpt-5.4")},
+				{ID: "old", Model: "gpt-5.3", Upgrade: "gpt-5.4"},
 				{ID: "preferred", Model: "gpt-5.4"},
 				{ID: "hidden", Model: "gpt-9", Hidden: true},
 			},
@@ -211,7 +211,7 @@ func TestPickHighestModel(t *testing.T) {
 		},
 		"success: upgraded model is skipped when preferred is absent": {
 			models: []codex.Model{
-				{ID: "old", Model: "gpt-5.3", Upgrade: new("gpt-5.4")},
+				{ID: "old", Model: "gpt-5.3", Upgrade: "gpt-5.4"},
 				{ID: "new", Model: "gpt-5.4"},
 			},
 			preferred: "missing",

@@ -101,7 +101,7 @@ func TestExamplesPublicAppServerLifecyclePort(t *testing.T) {
 		t.Fatalf("metadata label = %q, want codex-examples-test 1.2.3", got)
 	}
 	includeHidden := true
-	models, err := client.Models(t.Context(), &codex.ModelListParams{IncludeHidden: &includeHidden})
+	models, err := client.Models(t.Context(), &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {
 		t.Fatalf("Models() error = %v", err)
 	}

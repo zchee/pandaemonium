@@ -38,7 +38,7 @@ func TestRealAppServerIntegrationInitializeAndModelListPort(t *testing.T) {
 	assertRealInitializedMetadata(t, sdk.Metadata())
 
 	includeHidden := true
-	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: &includeHidden})
+	models, err := sdk.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {
 		t.Fatalf("Models(includeHidden=true) real app-server error = %v", err)
 	}
@@ -381,7 +381,7 @@ func realIntegrationThreadParams() *codex.ThreadStartParams {
 		model = "gpt-5.4"
 	}
 	return &codex.ThreadStartParams{
-		Model: &model,
+		Model: model,
 		Config: map[string]jsontext.Value{
 			"model_reasoning_effort": jsontext.Value(`"high"`),
 		},

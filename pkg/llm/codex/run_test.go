@@ -82,7 +82,7 @@ func TestMergeParamsPreservesBaseThreadTurnFieldsWhenTypedParamsAreZero(t *testi
 	t.Parallel()
 
 	model := "gpt-test"
-	got, err := mergeParamsBaseWins(&TurnStartParams{Model: &model}, Object{
+	got, err := mergeParamsBaseWins(&TurnStartParams{Model: model}, Object{
 		"threadId": "thread-1",
 		"input": []Object{
 			{"type": "text", "text": "hello"},

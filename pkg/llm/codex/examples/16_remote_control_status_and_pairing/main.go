@@ -47,8 +47,8 @@ func main() {
 			log.Fatal(err)
 		}
 		fmt.Println("remote-control.enabled.status:", enabled.Status)
-		if enabled.EnvironmentID != nil {
-			environmentID = *enabled.EnvironmentID
+		if enabled.EnvironmentID != "" {
+			environmentID = enabled.EnvironmentID
 		}
 	} else {
 		fmt.Println("remote-control.enable: skipped (set CODEX_EXAMPLE_ENABLE_REMOTE_CONTROL=1)")
@@ -60,15 +60,15 @@ func main() {
 		limit := int32(5)
 		clients, err := remote.Clients(ctx, &codex.RemoteControlClientsListParams{
 			EnvironmentID: environmentID,
-			Limit:         &limit,
+			Limit:         limit,
 			Order:         codex.RemoteControlClientsListOrderDesc,
 		})
 		if err != nil {
 			log.Fatal(err)
 		}
 		fmt.Println("remote-control.clients.count:", len(clients.Data))
-		if clients.NextCursor != nil {
-			fmt.Println("remote-control.clients.next_cursor:", *clients.NextCursor)
+		if clients.NextCursor != "" {
+			fmt.Println("remote-control.clients.next_cursor:", clients.NextCursor)
 		}
 	}
 
@@ -80,8 +80,8 @@ func main() {
 		fmt.Println("remote-control.pairing.environment:", pairing.EnvironmentID)
 		fmt.Println("remote-control.pairing.expires_at:", pairing.ExpiresAt)
 		fmt.Println("remote-control.pairing.code:", pairing.PairingCode)
-		if pairing.ManualPairingCode != nil {
-			fmt.Println("remote-control.pairing.manual_code:", *pairing.ManualPairingCode)
+		if pairing.ManualPairingCode != "" {
+			fmt.Println("remote-control.pairing.manual_code:", pairing.ManualPairingCode)
 		}
 	} else {
 		fmt.Println("remote-control.pairing: skipped (set CODEX_EXAMPLE_START_PAIRING=1)")
@@ -89,8 +89,5 @@ func main() {
 }
 
 func environmentIDFromStatus(status codex.RemoteControlStatusReadResponse) string {
-	if status.EnvironmentID == nil {
-		return ""
-	}
-	return *status.EnvironmentID
+	return status.EnvironmentID
 }

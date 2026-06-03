@@ -96,7 +96,7 @@ func TestLoginNotificationRouterQueuesPendingBeforeWaiter(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForLoginCompleted() error = %v", err)
 	}
-	if completed.LoginID == nil || *completed.LoginID != loginID || !completed.Success {
+	if completed.LoginID != loginID || !completed.Success {
 		t.Fatalf("completed = %#v, want successful login %q", completed, loginID)
 	}
 	if got := activeLoginConsumers(client); len(got) != 0 {
@@ -121,7 +121,7 @@ func TestLoginNotificationRouterIsolatesAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForLoginCompleted(login-target) error = %v", err)
 	}
-	if completed.LoginID == nil || *completed.LoginID != "login-target" {
+	if completed.LoginID != "login-target" {
 		t.Fatalf("target completion login id = %#v, want login-target", completed.LoginID)
 	}
 	if pending := pendingLoginNotifications(client, "login-other"); len(pending) != 1 {
@@ -132,7 +132,7 @@ func TestLoginNotificationRouterIsolatesAttempts(t *testing.T) {
 	if err != nil {
 		t.Fatalf("WaitForLoginCompleted(login-other) error = %v", err)
 	}
-	if other.LoginID == nil || *other.LoginID != "login-other" {
+	if other.LoginID != "login-other" {
 		t.Fatalf("other completion login id = %#v, want login-other", other.LoginID)
 	}
 }
@@ -201,7 +201,7 @@ func TestLoginNotificationRouterContextCancellationReleasesWaiter(t *testing.T) 
 	if err != nil {
 		t.Fatalf("second WaitForLoginCompleted() error = %v", err)
 	}
-	if completed.LoginID == nil || *completed.LoginID != "login-cancel-context" {
+	if completed.LoginID != "login-cancel-context" {
 		t.Fatalf("second completion login id = %#v, want login-cancel-context", completed.LoginID)
 	}
 }
@@ -314,7 +314,7 @@ func TestCodexLoginHandlesUseAccountMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("browser Wait() error = %v", err)
 	}
-	if browserCompleted.LoginID == nil || *browserCompleted.LoginID != browser.LoginID() {
+	if browserCompleted.LoginID != browser.LoginID() {
 		t.Fatalf("browser completion login id = %#v, want %s", browserCompleted.LoginID, browser.LoginID())
 	}
 	browserCancel, err := browser.Cancel(t.Context())
@@ -341,7 +341,7 @@ func TestCodexLoginHandlesUseAccountMethods(t *testing.T) {
 	if err != nil {
 		t.Fatalf("device Wait() error = %v", err)
 	}
-	if deviceCompleted.LoginID == nil || *deviceCompleted.LoginID != device.LoginID() {
+	if deviceCompleted.LoginID != device.LoginID() {
 		t.Fatalf("device completion login id = %#v, want %s", deviceCompleted.LoginID, device.LoginID())
 	}
 	deviceCancel, err := device.Cancel(t.Context())
@@ -372,7 +372,7 @@ func loginCompletedNotification(t *testing.T, loginID string) Notification {
 	return Notification{
 		Method: NotificationMethodAccountLoginCompleted,
 		Params: mustJSON(t, AccountLoginCompletedNotification{
-			LoginID: &loginID,
+			LoginID: loginID,
 			Success: true,
 		}),
 	}

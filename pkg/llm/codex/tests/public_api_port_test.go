@@ -183,7 +183,7 @@ func TestGeneratedProtocolPublicBehaviorPort(t *testing.T) {
 
 	searchTerm := "needle"
 	limit := int32(5)
-	params := codex.ThreadListParams{SearchTerm: &searchTerm, Limit: &limit}
+	params := codex.ThreadListParams{SearchTerm: searchTerm, Limit: limit}
 	encoded, err := json.Marshal(params)
 	if err != nil {
 		t.Fatalf("json.Marshal(ThreadListParams) error = %v", err)
