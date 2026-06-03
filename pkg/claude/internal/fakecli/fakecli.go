@@ -184,10 +184,10 @@ func (f *FakeCLI) Inject(lines ...string) {
 // injected into the read buffer. This is what lets a test auto-answer the
 // initialize control_request by echoing its request_id.
 //
-// matcher and respond run synchronously inside WriteJSON under the FakeCLI
-// mutex, so they must be cheap and must not block on anything outside the
-// FakeCLI. Multiple hooks are evaluated in registration order; all matching
-// hooks fire (frame advancement is unaffected).
+// matcher runs synchronously inside WriteJSON while FakeCLI chooses matching
+// hooks. respond runs after the mutex is released, so it may inspect FakeCLI
+// state without deadlocking. Multiple hooks are evaluated in registration
+// order; all matching hooks fire (frame advancement is unaffected).
 func (f *FakeCLI) OnWrite(matcher func([]byte) bool, respond func() []string) {
 	f.mu.Lock()
 	f.onWrite = append(f.onWrite, writeHook{matcher: matcher, respond: respond})

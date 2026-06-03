@@ -37,7 +37,6 @@ import (
 	"log"
 	"os"
 
-	"github.com/go-json-experiment/json"
 	goredis "github.com/redis/go-redis/v9"
 
 	"github.com/zchee/pandaemonium/pkg/claude"
@@ -71,11 +70,10 @@ func (s *redisSessionStore) Save(ctx context.Context, sess *claude.Session) erro
 	if sess == nil || sess.ID == "" {
 		return errors.New("save: session must have a non-empty ID")
 	}
-	raw, _ := json.Marshal([]any{}) // simplified: no message serde
 	return s.client.HSet(
 		ctx, sessionKey(sess.ID),
 		"parent_id", sess.ParentID,
-		"messages", string(raw),
+		"messages", "[]", // simplified: no message serde
 	).Err()
 }
 

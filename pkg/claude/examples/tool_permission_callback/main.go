@@ -52,7 +52,9 @@ func permissionCallback(_ context.Context, toolName string, input jsontext.Value
 			Command string `json:"command"`
 		}
 		if len(input) > 0 {
-			_ = json.Unmarshal(input, &inp)
+			if err := json.Unmarshal(input, &inp); err != nil {
+				return nil, err
+			}
 		}
 		if strings.HasPrefix(inp.Command, "ls") || strings.HasPrefix(inp.Command, "echo") {
 			return claude.PermissionResultAllow{}, nil

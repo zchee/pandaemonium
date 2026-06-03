@@ -118,9 +118,14 @@ func TestSandboxSettings_DefaultTrueBoolsOmitWhenNil(t *testing.T) {
 		AutoAllowBashIfSandboxed: new(false),
 		AllowUnsandboxedCommands: new(true),
 	}
-	data2, _ := json.Marshal(in2)
+	data2, err := json.Marshal(in2)
+	if err != nil {
+		t.Fatalf("marshal explicit settings: %v", err)
+	}
 	var got2 map[string]any
-	_ = json.Unmarshal(data2, &got2)
+	if err := json.Unmarshal(data2, &got2); err != nil {
+		t.Fatalf("unmarshal explicit settings: %v", err)
+	}
 	if got2["autoAllowBashIfSandboxed"] != false {
 		t.Errorf("BoolPtr(false) must send false; got %v", got2["autoAllowBashIfSandboxed"])
 	}

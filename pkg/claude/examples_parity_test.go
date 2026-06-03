@@ -167,7 +167,9 @@ func TestExampleParity_Hooks(t *testing.T) {
 			Command string `json:"command"`
 		}
 		if len(event.ToolInput) > 0 {
-			_ = json.Unmarshal(event.ToolInput, &inp)
+			if err := json.Unmarshal(event.ToolInput, &inp); err != nil {
+				return HookDecision{}, err
+			}
 		}
 		for _, pat := range dangerousPatterns {
 			if strings.Contains(inp.Command, pat) {
@@ -215,7 +217,10 @@ func TestExampleParity_Hooks(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			input, _ := json.Marshal(map[string]string{"command": tt.command})
+			input, err := json.Marshal(map[string]string{"command": tt.command})
+			if err != nil {
+				t.Fatalf("json.Marshal(command) = %v", err)
+			}
 			event := HookEvent{
 				Kind:      HookEventPreToolUse,
 				ToolName:  "Bash",
@@ -256,7 +261,9 @@ func TestExampleParity_ToolPermissionCallback(t *testing.T) {
 				Command string `json:"command"`
 			}
 			if len(input) > 0 {
-				_ = json.Unmarshal(input, &inp)
+				if err := json.Unmarshal(input, &inp); err != nil {
+					return nil, err
+				}
 			}
 			if strings.HasPrefix(inp.Command, "ls") || strings.HasPrefix(inp.Command, "echo") {
 				return PermissionResultAllow{}, nil

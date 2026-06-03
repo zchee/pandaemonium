@@ -50,7 +50,9 @@ func bashGuard(ctx context.Context, event claude.HookEvent) (claude.HookDecision
 		Command string `json:"command"`
 	}
 	if len(event.ToolInput) > 0 {
-		_ = json.Unmarshal(event.ToolInput, &input)
+		if err := json.Unmarshal(event.ToolInput, &input); err != nil {
+			return claude.HookDecision{}, err
+		}
 	}
 
 	for _, pat := range dangerousPatterns {
