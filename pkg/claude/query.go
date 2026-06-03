@@ -38,7 +38,7 @@ import (
 // opts may be nil; a nil Options is equivalent to a zero-value Options.
 func Query(ctx context.Context, prompt string, opts *Options) iter.Seq2[Message, error] {
 	return func(yield func(Message, error) bool) {
-		cli, err := NewClient(ctx, opts)
+		cli, err := NewClient(opts)
 		if err != nil {
 			yield(nil, err)
 			return

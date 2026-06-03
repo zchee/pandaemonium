@@ -24,7 +24,7 @@ import (
 func TestClientFork_RequiresSessionStore(t *testing.T) {
 	t.Parallel()
 
-	c, err := NewClient(t.Context(), nil)
+	c, err := NewClient(nil)
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -43,7 +43,7 @@ func TestClientFork_RequiresActiveSession(t *testing.T) {
 	t.Parallel()
 
 	store := NewInMemorySessionStore()
-	c, err := NewClient(t.Context(), &Options{SessionStore: store})
+	c, err := NewClient(&Options{SessionStore: store})
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -70,7 +70,7 @@ func TestClientFork_SnapshotsHistory(t *testing.T) {
 		t.Fatalf("Save() error = %v", err)
 	}
 
-	c, err := NewClient(t.Context(), &Options{SessionStore: store})
+	c, err := NewClient(&Options{SessionStore: store})
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -111,7 +111,7 @@ func TestClientFork_DoesNotMutateParentTransport(t *testing.T) {
 		t.Fatalf("Save() error = %v", err)
 	}
 
-	c, err := NewClient(t.Context(), &Options{SessionStore: store})
+	c, err := NewClient(&Options{SessionStore: store})
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -150,7 +150,7 @@ func TestClientFork_ChildOptsAreIndependent(t *testing.T) {
 		Model:        "claude-opus-4-5",
 		MaxTurns:     3,
 	}
-	c, err := NewClient(t.Context(), parentOpts)
+	c, err := NewClient(parentOpts)
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -182,7 +182,7 @@ func TestClientFork_ResumeFlagInLaunchArgs(t *testing.T) {
 		t.Fatalf("Save() error = %v", err)
 	}
 
-	c, err := NewClient(t.Context(), &Options{SessionStore: store})
+	c, err := NewClient(&Options{SessionStore: store})
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -208,7 +208,7 @@ func TestClientFork_StoreNotFoundPropagatesError(t *testing.T) {
 
 	store := NewInMemorySessionStore()
 	// Do NOT save session "nonexistent" — Fork should get ErrSessionNotFound from the store.
-	c, err := NewClient(t.Context(), &Options{SessionStore: store})
+	c, err := NewClient(&Options{SessionStore: store})
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}
@@ -238,7 +238,7 @@ func TestClientFork_OptionsIsolation(t *testing.T) {
 		AllowedTools: []string{"Read"},
 		Env:          map[string]string{"PARENT": "1"},
 	}
-	c, err := NewClient(t.Context(), parentOpts)
+	c, err := NewClient(parentOpts)
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}

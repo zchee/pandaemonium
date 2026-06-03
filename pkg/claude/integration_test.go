@@ -85,7 +85,7 @@ func TestRealCLI_MultiTurn(t *testing.T) {
 		CLIPath: claudeBin,
 	}
 
-	cli, err := claude.NewClient(ctx, opts)
+	cli, err := claude.NewClient(opts)
 	if err != nil {
 		t.Fatalf("NewClient() error = %v", err)
 	}

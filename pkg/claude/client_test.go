@@ -177,7 +177,7 @@ func TestNewClient_Validate(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			cli, err := NewClient(t.Context(), tt.opts)
+			cli, err := NewClient(tt.opts)
 			if (err != nil) != tt.wantErr {
 				t.Fatalf("NewClient() error = %v, wantErr %v", err, tt.wantErr)
 			}
