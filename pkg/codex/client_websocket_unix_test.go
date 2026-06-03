@@ -364,6 +364,7 @@ func TestClientStartUnixWebSocketHelperProcessExitDoesNotHang(t *testing.T) {
 
 func newUnixWebSocketRoundTripServer(t *testing.T, expectedAuth string) string {
 	t.Helper()
+	ctx := t.Context()
 
 	socketPath := filepath.Join(shortTempDir(t), "roundtrip.sock")
 	ln, err := net.Listen("unix", socketPath)
@@ -379,7 +380,7 @@ func newUnixWebSocketRoundTripServer(t *testing.T, expectedAuth string) string {
 			t.Errorf("websocket.Accept() unix error = %v", err)
 			return
 		}
-		go handleWebSocketRoundTrip(t, conn)
+		go handleWebSocketRoundTrip(ctx, t, conn)
 	})}
 	done := make(chan error, 1)
 	go func() {

@@ -122,12 +122,53 @@ func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
 			if notification.Method != "unknown/global" {
 				t.Fatalf("NextNotification().Method = %q, want unknown/global", notification.Method)
 			}
+
+			if err := client.Close(); err != nil {
+				t.Fatalf("Client.Close() error = %v", err)
+			}
+			if _, err := client.RequestRaw(ctx, "test/echo", Object{"message": "after-close"}); err == nil {
+				t.Fatal("RequestRaw() after Client.Close() error = nil, want transport closed error")
+			} else if _, ok := errors.AsType[*TransportClosedError](err); !ok {
+				t.Fatalf("RequestRaw() after Client.Close() error = %v (%T), want *TransportClosedError", err, err)
+			}
 		})
+	}
+}
+
+func TestDialWebSocketSignedBearerAuthFailureIsRedacted(t *testing.T) {
+	wrongBearer := "wrong-signed-bearer"
+	sharedSecretFile := writeTempFile(t, "shared-secret\n")
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if got := r.Header.Get("Authorization"); got != "Bearer expected-signed-bearer" {
+			http.Error(w, "unauthorized", http.StatusUnauthorized)
+			return
+		}
+		t.Fatalf("Authorization header matched unexpectedly; want mismatch to exercise unauthorized response")
+	}))
+	t.Cleanup(srv.Close)
+
+	ctx, cancel := context.WithTimeout(t.Context(), 2*time.Second)
+	t.Cleanup(cancel)
+	_, err := dialWebSocket(ctx, "ws"+strings.TrimPrefix(srv.URL, "http"), &WebSocketConfig{
+		AuthMode:          WebSocketAuthSignedBearerToken,
+		SharedSecretFile:  sharedSecretFile,
+		ClientBearerToken: wrongBearer,
+		DialTimeout:       100 * time.Millisecond,
+	}, nil, "")
+	if err == nil {
+		t.Fatal("dialWebSocket() error = nil, want websocket auth failure")
+	}
+	if !strings.Contains(err.Error(), "401 Unauthorized") && !strings.Contains(err.Error(), "unauthorized") {
+		t.Fatalf("dialWebSocket() error = %v, want unauthorized response context", err)
+	}
+	if strings.Contains(err.Error(), wrongBearer) {
+		t.Fatal("dialWebSocket() error leaks bearer token")
 	}
 }
 
 func newWebSocketRoundTripServer(t *testing.T, expectedAuth string) (*httptest.Server, string) {
 	t.Helper()
+	ctx := t.Context()
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if got := r.Header.Get("Authorization"); got != expectedAuth {
 			t.Errorf("Authorization header = %q, want %q", got, expectedAuth)
@@ -137,21 +178,20 @@ func newWebSocketRoundTripServer(t *testing.T, expectedAuth string) (*httptest.S
 			t.Errorf("websocket.Accept() error = %v", err)
 			return
 		}
-		go handleWebSocketRoundTrip(t, conn)
+		go handleWebSocketRoundTrip(ctx, t, conn)
 	}))
 	return srv, "ws" + strings.TrimPrefix(srv.URL, "http")
 }
 
-func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
+func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket.Conn) {
 	t.Helper()
 	defer conn.Close(websocket.StatusNormalClosure, "")
 
-	ctx := context.Background()
 	sentGlobalNotification := false
 	for {
 		typ, payload, err := conn.Read(ctx)
 		if err != nil {
-			if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+			if webSocketRoundTripStopped(ctx, err) {
 				return
 			}
 			t.Errorf("websocket Read() error = %v", err)
@@ -183,6 +223,9 @@ func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
 					ServerInfo: &ServerInfo{Name: "ws-test", Version: "1.2.3"},
 				}),
 			}); err != nil {
+				if webSocketRoundTripStopped(ctx, err) {
+					return
+				}
 				t.Errorf("write initialize response error = %v", err)
 				return
 			}
@@ -196,6 +239,9 @@ func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
 				Method: "item/commandExecution/requestApproval",
 				Params: mustJSONValue(t, Object{"reason": "approve"}),
 			}); err != nil {
+				if webSocketRoundTripStopped(ctx, err) {
+					return
+				}
 				t.Errorf("write server request error = %v", err)
 				return
 			}
@@ -203,6 +249,9 @@ func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
 				Method: "unknown/global",
 				Params: mustJSONValue(t, Object{"scope": "global"}),
 			}); err != nil {
+				if webSocketRoundTripStopped(ctx, err) {
+					return
+				}
 				t.Errorf("write notification error = %v", err)
 				return
 			}
@@ -211,6 +260,9 @@ func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
 				ID:     msg.ID,
 				Result: mustJSONValue(t, Object{"echo": "hello"}),
 			}); err != nil {
+				if webSocketRoundTripStopped(ctx, err) {
+					return
+				}
 				t.Errorf("write echo response error = %v", err)
 				return
 			}
@@ -219,6 +271,15 @@ func handleWebSocketRoundTrip(t *testing.T, conn *websocket.Conn) {
 			return
 		}
 	}
+}
+
+func webSocketRoundTripStopped(ctx context.Context, err error) bool {
+	if ctx.Err() != nil {
+		return true
+	}
+	return errors.Is(err, context.Canceled) ||
+		errors.Is(err, io.EOF) ||
+		websocket.CloseStatus(err) == websocket.StatusNormalClosure
 }
 
 func writeServerRPC(ctx context.Context, conn *websocket.Conn, msg rpcMessage) error {
