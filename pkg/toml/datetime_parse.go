@@ -35,7 +35,7 @@ var fixedOffsetZoneCache [2][24][60]atomic.Pointer[time.Location]
 
 // parseDateTimeValue parses raw as the most specific TOML datetime form it matches.
 func parseDateTimeValue(raw []byte) (any, dateTimeKind, error) {
-	if t, _, err := parseOffsetDateTime(raw); err == nil {
+	if t, err := parseOffsetDateTime(raw); err == nil {
 		return t, dateTimeKindOffset, nil
 	}
 	if dt, err := parseLocalDateTime(raw); err == nil {
@@ -104,25 +104,25 @@ func parseDateTimeAsTime(raw []byte, span [2]int, opts ...Option) (time.Time, er
 	}
 }
 
-func parseOffsetDateTime(raw []byte) (time.Time, int8, error) {
+func parseOffsetDateTime(raw []byte) (time.Time, error) {
 	date, timeStart, err := parseDatePrefix(raw)
 	if err != nil {
-		return time.Time{}, 0, err
+		return time.Time{}, err
 	}
 	if timeStart >= len(raw) || !isDateTimeSeparator(raw[timeStart]) {
-		return time.Time{}, 0, fmt.Errorf("toml: missing datetime separator")
+		return time.Time{}, fmt.Errorf("toml: missing datetime separator")
 	}
 	clock, next, err := parseTimePrefix(raw[timeStart+1:])
 	if err != nil {
-		return time.Time{}, 0, err
+		return time.Time{}, err
 	}
 	off := timeStart + 1 + next
 	if off >= len(raw) {
-		return time.Time{}, 0, fmt.Errorf("toml: missing datetime offset")
+		return time.Time{}, fmt.Errorf("toml: missing datetime offset")
 	}
 	loc, err := parseZone(raw[off:])
 	if err != nil {
-		return time.Time{}, 0, err
+		return time.Time{}, err
 	}
 	t := time.Date(
 		date.Year,
@@ -131,7 +131,7 @@ func parseOffsetDateTime(raw []byte) (time.Time, int8, error) {
 		clock.Hour, clock.Minute, clock.Second, clock.Nanosecond,
 		loc,
 	)
-	return t, clock.nanoDigits, nil
+	return t, nil
 }
 
 func parseLocalDateTime(raw []byte) (LocalDateTime, error) {

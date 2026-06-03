@@ -183,7 +183,7 @@ func ParseLocalTime(text []byte) (LocalTime, error) {
 
 // ParseOffsetDateTime parses a TOML offset date-time into time.Time.
 func ParseOffsetDateTime(text []byte) (time.Time, error) {
-	v, _, err := parseOffsetDateTime(text)
+	v, err := parseOffsetDateTime(text)
 	if err != nil {
 		return time.Time{}, err
 	}

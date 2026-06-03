@@ -209,10 +209,9 @@ func skipNextValue(dec *Decoder) error {
 }
 
 func skipValueToken(dec *Decoder, tok Token) error {
-	depth := 0
+	depth := 1
 	switch tok.Kind {
 	case TokenKindArrayStart, TokenKindInlineTableStart:
-		depth = 1
 	case TokenKindValueString, TokenKindValueInteger, TokenKindValueFloat, TokenKindValueBool, TokenKindValueDatetime:
 		return nil
 	default:
