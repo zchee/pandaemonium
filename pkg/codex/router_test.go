@@ -388,6 +388,76 @@ func TestTurnNotificationRouterAllowsConcurrentDifferentTurnConsumers(t *testing
 	})
 }
 
+func TestTurnNotificationRouterProcessClosedNilErrorFallback(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		call func(*turnNotificationRouter) error
+	}{
+		"success: next process": {
+			call: func(router *turnNotificationRouter) error {
+				_, err := router.nextProcess(t.Context(), "process-closed")
+				return err
+			},
+		},
+		"success: register process": {
+			call: func(router *turnNotificationRouter) error {
+				_, err := router.registerProcess("process-closed")
+				return err
+			},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			router := newTurnNotificationRouter()
+			router.close(nil)
+
+			err := tt.call(router)
+			assertProcessRouterClosedError(t, err)
+		})
+	}
+}
+
+func assertProcessRouterClosedError(t *testing.T, err error) {
+	t.Helper()
+	var closedErr *TransportClosedError
+	if !errors.As(err, &closedErr) {
+		t.Fatalf("process router closed error = %v (%T), want *TransportClosedError", err, err)
+	}
+	if closedErr.Message != "process notification router closed" {
+		t.Fatalf("TransportClosedError.Message = %q, want process notification router closed", closedErr.Message)
+	}
+}
+
+func TestTurnNotificationRouterProcessCloseNilErrorUnblocksActiveWaiter(t *testing.T) {
+	synctest.Test(t, func(t *testing.T) {
+		router := newTurnNotificationRouter()
+		if _, err := router.registerProcess("process-waiting"); err != nil {
+			t.Fatalf("registerProcess() error = %v", err)
+		}
+
+		errs := make(chan error, 1)
+		go func() {
+			_, err := router.nextProcess(t.Context(), "process-waiting")
+			errs <- err
+		}()
+		synctest.Wait()
+
+		router.close(nil)
+		synctest.Wait()
+
+		select {
+		case err := <-errs:
+			assertProcessRouterClosedError(t, err)
+		default:
+			t.Fatal("nextProcess() waiter remained blocked after router.close(nil)")
+		}
+	})
+}
+
 func assertActiveTurnConsumers(t *testing.T, client *Client, want ...string) {
 	t.Helper()
 	got := activeTurnConsumers(client)

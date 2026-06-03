@@ -272,12 +272,5 @@ func dialRemoteWebSocketURL(ctx context.Context, endpointURL string, cfg *WebSoc
 	if err != nil {
 		return nil, websocketDialError("remote app-server websocket dial failed", resp, err)
 	}
-	if resp == nil {
-		return conn, nil
-	}
-	if resp.StatusCode != http.StatusSwitchingProtocols {
-		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
-		return nil, fmt.Errorf("remote app-server websocket dial failed: %s", resp.Status)
-	}
 	return conn, nil
 }

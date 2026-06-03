@@ -115,7 +115,7 @@ func (r *turnNotificationRouter) nextLogin(ctx context.Context, loginID string) 
 func (r *turnNotificationRouter) nextProcess(ctx context.Context, processHandle string) (Notification, error) {
 	r.mu.Lock()
 	if r.closed {
-		err := r.err
+		err := processNotificationRouterClosedError(r.err)
 		r.mu.Unlock()
 		return Notification{}, err
 	}
@@ -198,7 +198,7 @@ func (r *turnNotificationRouter) registerProcess(processHandle string) (*notific
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.closed {
-		return nil, r.err
+		return nil, processNotificationRouterClosedError(r.err)
 	}
 	if _, ok := r.processQueues[processHandle]; ok {
 		return nil, fmt.Errorf("process consumer already active for %s", processHandle)
@@ -224,6 +224,13 @@ func (r *turnNotificationRouter) unregisterLogin(loginID string) {
 	r.mu.Lock()
 	delete(r.loginQueues, loginID)
 	r.mu.Unlock()
+}
+
+func processNotificationRouterClosedError(err error) error {
+	if err != nil {
+		return err
+	}
+	return &TransportClosedError{Message: "process notification router closed"}
 }
 
 func (r *turnNotificationRouter) unregisterProcess(processHandle string) {
@@ -411,8 +418,9 @@ func (r *turnNotificationRouter) close(err error) {
 	for _, queue := range loginQueues {
 		queue.close(err)
 	}
+	processErr := processNotificationRouterClosedError(err)
 	for _, queue := range processQueues {
-		queue.close(err)
+		queue.close(processErr)
 	}
 }
 
