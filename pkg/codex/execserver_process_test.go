@@ -167,6 +167,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		t.Fatalf("Initialize() sessionId = %q, want session-1", initResp.SessionID)
 	}
 
+	arg0 := "bash"
 	handle, err := client.ProcessStart(t.Context(), &ExecServerProcessStartParams{
 		ProcessID: "proc-1",
 		Argv:      []string{"/bin/sh", "-lc", "echo hello"},
@@ -181,7 +182,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		Env:       map[string]string{"FOO": "bar"},
 		TTY:       true,
 		PipeStdin: true,
-		Arg0:      func() *string { s := "bash"; return &s }(),
+		Arg0:      &arg0,
 	})
 	if err != nil {
 		t.Fatalf("ProcessStart() error = %v", err)
@@ -190,7 +191,8 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 		t.Fatalf("ProcessStart() handle id = %q, want %q", got, want)
 	}
 
-	readResp, err := handle.Read(t.Context(), &ExecServerProcessReadParams{AfterSeq: func() *uint64 { v := uint64(0); return &v }()})
+	afterSeq := uint64(0)
+	readResp, err := handle.Read(t.Context(), &ExecServerProcessReadParams{AfterSeq: &afterSeq})
 	if err != nil {
 		t.Fatalf("ProcessRead() error = %v", err)
 	}

@@ -314,13 +314,9 @@ func (c *ExecServerClient) Close() error {
 
 // Initialize sends initialize and then initialized.
 func (c *ExecServerClient) Initialize(ctx context.Context, params *ExecServerInitializeParams) (ExecServerInitializeResponse, error) {
-	raw, err := c.RequestRaw(ctx, ExecServerInitializeMethod, paramsOrEmpty(params))
+	response, err := request[ExecServerInitializeResponse](ctx, c, ExecServerInitializeMethod, paramsOrEmpty(params))
 	if err != nil {
 		return ExecServerInitializeResponse{}, err
-	}
-	var response ExecServerInitializeResponse
-	if err := json.Unmarshal(raw, &response); err != nil {
-		return ExecServerInitializeResponse{}, fmt.Errorf("decode %s response: %w", ExecServerInitializeMethod, err)
 	}
 	if err := c.Notify(ctx, ExecServerInitializedMethod, nil); err != nil {
 		return ExecServerInitializeResponse{}, err
