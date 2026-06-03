@@ -367,6 +367,41 @@ func (c *Client) ExperimentalFeatureEnablementSet(ctx context.Context, params *E
 	return Request[ExperimentalFeatureEnablementSetResponse](ctx, c, RequestMethodExperimentalFeatureEnablementSet, paramsOrEmpty(params))
 }
 
+// RemoteControlEnable calls remoteControl/enable.
+func (c *Client) RemoteControlEnable(ctx context.Context) (RemoteControlEnableResponse, error) {
+	return Request[RemoteControlEnableResponse](ctx, c, RequestMethodRemoteControlEnable, nil)
+}
+
+// RemoteControlDisable calls remoteControl/disable.
+func (c *Client) RemoteControlDisable(ctx context.Context) (RemoteControlDisableResponse, error) {
+	return Request[RemoteControlDisableResponse](ctx, c, RequestMethodRemoteControlDisable, nil)
+}
+
+// RemoteControlStatusRead calls remoteControl/status/read.
+func (c *Client) RemoteControlStatusRead(ctx context.Context) (RemoteControlStatusReadResponse, error) {
+	return Request[RemoteControlStatusReadResponse](ctx, c, RequestMethodRemoteControlStatusRead, nil)
+}
+
+// RemoteControlPairingStart calls remoteControl/pairing/start.
+func (c *Client) RemoteControlPairingStart(ctx context.Context, params *RemoteControlPairingStartParams) (RemoteControlPairingStartResponse, error) {
+	return Request[RemoteControlPairingStartResponse](ctx, c, RequestMethodRemoteControlPairingStart, paramsOrEmpty(params))
+}
+
+// RemoteControlClientList calls remoteControl/client/list.
+func (c *Client) RemoteControlClientList(ctx context.Context, params *RemoteControlClientsListParams) (RemoteControlClientsListResponse, error) {
+	return Request[RemoteControlClientsListResponse](ctx, c, RequestMethodRemoteControlClientList, paramsOrEmpty(params))
+}
+
+// RemoteControlClientRevoke calls remoteControl/client/revoke.
+func (c *Client) RemoteControlClientRevoke(ctx context.Context, params *RemoteControlClientsRevokeParams) (RemoteControlClientsRevokeResponse, error) {
+	return Request[RemoteControlClientsRevokeResponse](ctx, c, RequestMethodRemoteControlClientRevoke, paramsOrEmpty(params))
+}
+
+// EnvironmentAdd calls environment/add.
+func (c *Client) EnvironmentAdd(ctx context.Context, params *EnvironmentAddParams) (EnvironmentAddResponse, error) {
+	return Request[EnvironmentAddResponse](ctx, c, RequestMethodEnvironmentAdd, paramsOrEmpty(params))
+}
+
 // MCPServerOAuthLogin calls mcpServer/oauth/login.
 func (c *Client) MCPServerOAuthLogin(ctx context.Context, params *MCPServerOAuthLoginParams) (MCPServerOAuthLoginResponse, error) {
 	return Request[MCPServerOAuthLoginResponse](ctx, c, RequestMethodMCPServerOAuthLogin, paramsOrEmpty(params))
@@ -477,6 +512,26 @@ func (c *Client) HTTPRequestBodyDelta(ctx context.Context, params any) (jsontext
 // CommandExecResize calls command/exec/resize.
 func (c *Client) CommandExecResize(ctx context.Context, params *CommandExecResizeParams) (CommandExecResizeResponse, error) {
 	return Request[CommandExecResizeResponse](ctx, c, RequestMethodCommandExecResize, paramsOrEmpty(params))
+}
+
+// ProcessSpawn calls process/spawn.
+func (c *Client) ProcessSpawn(ctx context.Context, params *ProcessSpawnParams) (ProcessSpawnResponse, error) {
+	return Request[ProcessSpawnResponse](ctx, c, RequestMethodProcessSpawn, paramsOrEmpty(params))
+}
+
+// ProcessWriteStdin calls process/writeStdin.
+func (c *Client) ProcessWriteStdin(ctx context.Context, params *ProcessWriteStdinParams) (ProcessWriteStdinResponse, error) {
+	return Request[ProcessWriteStdinResponse](ctx, c, RequestMethodProcessWriteStdin, paramsOrEmpty(params))
+}
+
+// ProcessKill calls process/kill.
+func (c *Client) ProcessKill(ctx context.Context, params *ProcessKillParams) (ProcessKillResponse, error) {
+	return Request[ProcessKillResponse](ctx, c, RequestMethodProcessKill, paramsOrEmpty(params))
+}
+
+// ProcessResizePty calls process/resizePty.
+func (c *Client) ProcessResizePty(ctx context.Context, params *ProcessResizePtyParams) (ProcessResizePtyResponse, error) {
+	return Request[ProcessResizePtyResponse](ctx, c, RequestMethodProcessResizePty, paramsOrEmpty(params))
 }
 
 // ConfigRead calls config/read.

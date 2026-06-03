@@ -221,6 +221,14 @@ func TestGeneratedRequestMethodConstants(t *testing.T) {
 			got:  RequestMethodThreadMetadataUpdate,
 			want: "thread/metadata/update",
 		},
+		"success: remote control enable": {
+			got:  RequestMethodRemoteControlEnable,
+			want: "remoteControl/enable",
+		},
+		"success: process kill": {
+			got:  RequestMethodProcessKill,
+			want: "process/kill",
+		},
 		"success: camel-case mcp oauth method": {
 			got:  RequestMethodMCPServerOAuthLogin,
 			want: "mcpServer/oauth/login",
@@ -228,6 +236,26 @@ func TestGeneratedRequestMethodConstants(t *testing.T) {
 		"success: alpha9 fuzzy search method": {
 			got:  RequestMethodFuzzyFileSearch,
 			want: "fuzzyFileSearch",
+		},
+		"success: remote control status read method": {
+			got:  RequestMethodRemoteControlStatusRead,
+			want: "remoteControl/status/read",
+		},
+		"success: remote control client revoke method": {
+			got:  RequestMethodRemoteControlClientRevoke,
+			want: "remoteControl/client/revoke",
+		},
+		"success: environment add method": {
+			got:  RequestMethodEnvironmentAdd,
+			want: "environment/add",
+		},
+		"success: process spawn method": {
+			got:  RequestMethodProcessSpawn,
+			want: "process/spawn",
+		},
+		"success: process resize pty method": {
+			got:  RequestMethodProcessResizePty,
+			want: "process/resizePty",
 		},
 	}
 	for name, tt := range tests {
@@ -251,6 +279,18 @@ func TestGeneratedNotificationMethodConstants(t *testing.T) {
 		"success: top-level error method": {
 			got:  NotificationMethodError,
 			want: "error",
+		},
+		"success: remote control status changed method": {
+			got:  NotificationMethodRemoteControlStatusChanged,
+			want: "remoteControl/status/changed",
+		},
+		"success: process exited method": {
+			got:  NotificationMethodProcessExited,
+			want: "process/exited",
+		},
+		"success: process output delta method": {
+			got:  NotificationMethodProcessOutputDelta,
+			want: "process/outputDelta",
 		},
 		"success: item agent message delta method": {
 			got:  NotificationMethodItemAgentMessageDelta,

@@ -1596,6 +1596,13 @@ var methodWrapperMethods = []string{
 	RequestMethodExperimentalFeatureList,
 	RequestMethodPermissionProfileList,
 	RequestMethodExperimentalFeatureEnablementSet,
+	RequestMethodRemoteControlEnable,
+	RequestMethodRemoteControlDisable,
+	RequestMethodRemoteControlStatusRead,
+	RequestMethodRemoteControlPairingStart,
+	RequestMethodRemoteControlClientList,
+	RequestMethodRemoteControlClientRevoke,
+	RequestMethodEnvironmentAdd,
 	RequestMethodMCPServerOAuthLogin,
 	RequestMethodConfigMCPServerReload,
 	RequestMethodMCPServerStatusList,
@@ -1613,6 +1620,10 @@ var methodWrapperMethods = []string{
 	RequestMethodCommandExecWrite,
 	RequestMethodCommandExecTerminate,
 	RequestMethodCommandExecResize,
+	RequestMethodProcessSpawn,
+	RequestMethodProcessWriteStdin,
+	RequestMethodProcessKill,
+	RequestMethodProcessResizePty,
 	"http/request",
 	"http/request/bodyDelta",
 	RequestMethodConfigRead,
@@ -1645,6 +1656,10 @@ func handleMethodWrappersScenario(writer *bufio.Writer, req map[string]any, meth
 		writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": "unexpected params for " + method}})
 		return
 	}
+	if message := methodWrapperValidateParams(method, params); message != "" {
+		writeJSON(writer, Object{"id": id, "error": Object{"code": -32602, "message": message}})
+		return
+	}
 	switch method {
 	case RequestMethodAccountLoginStart:
 		writeJSON(writer, Object{"id": id, "result": Object{"type": "apiKey"}})
@@ -1656,6 +1671,29 @@ func handleMethodWrappersScenario(writer *bufio.Writer, req map[string]any, meth
 		writeJSON(writer, Object{"id": id, "result": Object{"cleared": true}})
 	case RequestMethodPermissionProfileList:
 		writeJSON(writer, Object{"id": id, "result": Object{"data": []Object{}}})
+	case RequestMethodRemoteControlEnable,
+		RequestMethodRemoteControlDisable,
+		RequestMethodRemoteControlStatusRead:
+		writeJSON(writer, Object{"id": id, "result": methodWrapperRemoteControlStatusResult(method)})
+	case RequestMethodRemoteControlPairingStart:
+		writeJSON(writer, Object{"id": id, "result": Object{
+			"environmentId":     "env-method",
+			"expiresAt":         int64(1710000000),
+			"manualPairingCode": "manual-method",
+			"pairingCode":       "pair-method",
+		}})
+	case RequestMethodRemoteControlClientList:
+		writeJSON(writer, Object{"id": id, "result": Object{
+			"data":       []Object{{"clientId": "client-method", "displayName": "test client"}},
+			"nextCursor": "cursor-method",
+		}})
+	case RequestMethodRemoteControlClientRevoke,
+		RequestMethodEnvironmentAdd,
+		RequestMethodProcessSpawn,
+		RequestMethodProcessWriteStdin,
+		RequestMethodProcessKill,
+		RequestMethodProcessResizePty:
+		writeJSON(writer, Object{"id": id, "result": Object{}})
 	case RequestMethodFuzzyFileSearch:
 		writeJSON(writer, Object{"id": id, "result": Object{"sessionId": "fuzzy-session"}})
 	default:
@@ -1675,10 +1713,72 @@ func methodWrapperThreadGoal() Object {
 	}
 }
 
+func methodWrapperValidateParams(method string, params map[string]any) string {
+	switch method {
+	case RequestMethodRemoteControlPairingStart:
+		if params["manualCode"] != true {
+			return "remoteControl/pairing/start missing manualCode"
+		}
+	case RequestMethodRemoteControlClientList:
+		if params["environmentId"] != "env-method" || fmt.Sprint(params["limit"]) != "10" || params["order"] != string(RemoteControlClientsListOrderAsc) {
+			return "remoteControl/client/list params mismatch"
+		}
+	case RequestMethodRemoteControlClientRevoke:
+		if params["environmentId"] != "env-method" || params["clientId"] != "client-method" {
+			return "remoteControl/client/revoke params mismatch"
+		}
+	case RequestMethodEnvironmentAdd:
+		if params["environmentId"] != "env-method" || params["execServerUrl"] != "ws://127.0.0.1:8765" {
+			return "environment/add params mismatch"
+		}
+	case RequestMethodProcessSpawn:
+		command, ok := params["command"].([]any)
+		if !ok || len(command) != 2 || command[0] != "echo" || command[1] != "ok" {
+			return "process/spawn command params mismatch"
+		}
+		if params["cwd"] != "/tmp" || params["processHandle"] != "process-handle" {
+			return "process/spawn identity params mismatch"
+		}
+	case RequestMethodProcessWriteStdin:
+		if params["processHandle"] != "process-handle" || params["deltaBase64"] != "b2s=" {
+			return "process/writeStdin params mismatch"
+		}
+	case RequestMethodProcessKill:
+		if params["processHandle"] != "process-handle" {
+			return "process/kill params mismatch"
+		}
+	case RequestMethodProcessResizePty:
+		if params["processHandle"] != "process-handle" {
+			return "process/resizePty processHandle mismatch"
+		}
+		size, ok := params["size"].(map[string]any)
+		if !ok || fmt.Sprint(size["cols"]) != "80" || fmt.Sprint(size["rows"]) != "24" {
+			return "process/resizePty size mismatch"
+		}
+	}
+	return ""
+}
+
+func methodWrapperRemoteControlStatusResult(method string) Object {
+	status := string(RemoteControlConnectionStatusConnected)
+	if method == RequestMethodRemoteControlDisable {
+		status = string(RemoteControlConnectionStatusDisabled)
+	}
+	return Object{
+		"environmentId":  "env-method",
+		"installationId": "install-method",
+		"serverName":     "server-method",
+		"status":         status,
+	}
+}
+
 func methodWrapperExpectsEmptyParams(method string) bool {
 	switch method {
 	case RequestMethodConfigMCPServerReload,
 		RequestMethodWindowsSandboxReadiness,
+		RequestMethodRemoteControlEnable,
+		RequestMethodRemoteControlDisable,
+		RequestMethodRemoteControlStatusRead,
 		RequestMethodAccountLogout,
 		RequestMethodAccountRateLimitsRead,
 		RequestMethodConfigRequirementsRead:

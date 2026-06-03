@@ -186,6 +186,69 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			_, err := client.ExperimentalFeatureEnablementSet(ctx, &ExperimentalFeatureEnablementSetParams{Enablement: map[string]bool{"feature": true}})
 			return err
 		}},
+		{name: "remoteControl/enable", call: func() error {
+			got, err := client.RemoteControlEnable(ctx)
+			if err != nil {
+				return err
+			}
+			if got.InstallationID != "install-method" || got.ServerName != "server-method" || got.Status != RemoteControlConnectionStatusConnected || got.EnvironmentID == nil || *got.EnvironmentID != "env-method" {
+				t.Fatalf("RemoteControlEnable() = %#v, want connected env-method", got)
+			}
+			return nil
+		}},
+		{name: "remoteControl/disable", call: func() error {
+			got, err := client.RemoteControlDisable(ctx)
+			if err != nil {
+				return err
+			}
+			if got.Status != RemoteControlConnectionStatusDisabled || got.InstallationID != "install-method" || got.ServerName != "server-method" {
+				t.Fatalf("RemoteControlDisable() = %#v, want disabled install-method", got)
+			}
+			return nil
+		}},
+		{name: "remoteControl/status/read", call: func() error {
+			got, err := client.RemoteControlStatusRead(ctx)
+			if err != nil {
+				return err
+			}
+			if got.Status != RemoteControlConnectionStatusConnected || got.InstallationID != "install-method" || got.ServerName != "server-method" || got.EnvironmentID == nil || *got.EnvironmentID != "env-method" {
+				t.Fatalf("RemoteControlStatusRead() = %#v, want connected server-method", got)
+			}
+			return nil
+		}},
+		{name: "remoteControl/pairing/start", call: func() error {
+			got, err := client.RemoteControlPairingStart(ctx, &RemoteControlPairingStartParams{ManualCode: true})
+			if err != nil {
+				return err
+			}
+			if got.EnvironmentID != "env-method" || got.PairingCode != "pair-method" || got.ManualPairingCode == nil || *got.ManualPairingCode != "manual-method" {
+				t.Fatalf("RemoteControlPairingStart() = %#v, want env and pairing codes", got)
+			}
+			return nil
+		}},
+		{name: "remoteControl/client/list", call: func() error {
+			limit := int32(10)
+			got, err := client.RemoteControlClientList(ctx, &RemoteControlClientsListParams{
+				EnvironmentID: "env-method",
+				Limit:         &limit,
+				Order:         RemoteControlClientsListOrderAsc,
+			})
+			if err != nil {
+				return err
+			}
+			if len(got.Data) != 1 || got.Data[0].ClientID != "client-method" || got.NextCursor == nil || *got.NextCursor != "cursor-method" {
+				t.Fatalf("RemoteControlClientList() = %#v, want one client and cursor", got)
+			}
+			return nil
+		}},
+		{name: "remoteControl/client/revoke", call: func() error {
+			_, err := client.RemoteControlClientRevoke(ctx, &RemoteControlClientsRevokeParams{EnvironmentID: "env-method", ClientID: "client-method"})
+			return err
+		}},
+		{name: "environment/add", call: func() error {
+			_, err := client.EnvironmentAdd(ctx, &EnvironmentAddParams{EnvironmentID: "env-method", ExecServerURL: "ws://127.0.0.1:8765"})
+			return err
+		}},
 		{name: "mcpServer/oauth/login", call: func() error {
 			_, err := client.MCPServerOAuthLogin(ctx, &MCPServerOAuthLoginParams{Name: "server"})
 			return err
@@ -237,6 +300,30 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		}},
 		{name: "command/exec/resize", call: func() error {
 			_, err := client.CommandExecResize(ctx, &CommandExecResizeParams{ProcessID: "process"})
+			return err
+		}},
+		{name: "process/spawn", call: func() error {
+			_, err := client.ProcessSpawn(ctx, &ProcessSpawnParams{
+				Command:       []string{"echo", "ok"},
+				Cwd:           "/tmp",
+				ProcessHandle: "process-handle",
+			})
+			return err
+		}},
+		{name: "process/writeStdin", call: func() error {
+			delta := "b2s="
+			_, err := client.ProcessWriteStdin(ctx, &ProcessWriteStdinParams{ProcessHandle: "process-handle", DeltaBase64: &delta})
+			return err
+		}},
+		{name: "process/kill", call: func() error {
+			_, err := client.ProcessKill(ctx, &ProcessKillParams{ProcessHandle: "process-handle"})
+			return err
+		}},
+		{name: "process/resizePty", call: func() error {
+			_, err := client.ProcessResizePty(ctx, &ProcessResizePtyParams{
+				ProcessHandle: "process-handle",
+				Size:          ProcessTerminalSize{Cols: 80, Rows: 24},
+			})
 			return err
 		}},
 		{name: "http/request", call: func() error {
