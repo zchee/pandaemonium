@@ -7,13 +7,13 @@ go 1.27
 replace github.com/zchee/pandaemonium => ../../../../..
 
 require (
-	github.com/go-json-experiment/json v0.0.0-20260520185125-572e7c383686
 	github.com/redis/go-redis/v9 v9.19.0
 	github.com/zchee/pandaemonium v0.0.0
 )
 
 require (
 	github.com/cespare/xxhash/v2 v2.3.0 // indirect
+	github.com/go-json-experiment/json v0.0.0-20260520185125-572e7c383686 // indirect
 	github.com/google/jsonschema-go v0.4.3 // indirect
 	github.com/modelcontextprotocol/go-sdk v1.6.0 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
