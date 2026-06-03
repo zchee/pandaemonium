@@ -292,6 +292,71 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 	}
 }
 
+func TestExecServerProcessClientCloseReleasesHandleQueues(t *testing.T) {
+	t.Parallel()
+
+	tr := newScriptTransport()
+	client := NewExecServerClient(tr)
+	t.Cleanup(func() {
+		_ = client.Close()
+	})
+
+	tr.onWrite = func(data []byte, tr *scriptTransport) error {
+		var req rpcMessage
+		if err := json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		switch req.Method {
+		case ExecServerInitializeMethod:
+			return tr.enqueueJSON(Object{"id": req.ID, "result": Object{"sessionId": "session-1"}})
+		case ExecServerInitializedMethod:
+			return nil
+		case ExecServerProcessStartMethod:
+			return tr.enqueueJSON(Object{"id": req.ID, "result": Object{"processId": "proc-close"}})
+		default:
+			return errors.New("unexpected request method: " + req.Method)
+		}
+	}
+
+	handle, err := client.ProcessStart(t.Context(), &ExecServerProcessStartParams{
+		ProcessID: "proc-close",
+		Argv:      []string{"/bin/sh"},
+		Cwd:       "/tmp",
+	})
+	if err != nil {
+		t.Fatalf("ProcessStart() error = %v", err)
+	}
+	if got, want := handle.ID(), ProcessID("proc-close"); got != want {
+		t.Fatalf("ProcessStart() handle id = %q, want %q", got, want)
+	}
+	assertExecServerProcessQueueCount(t, client, 1)
+
+	nextErr := make(chan error, 1)
+	go func() {
+		_, err := handle.NextNotification(t.Context())
+		nextErr <- err
+	}()
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	select {
+	case err := <-nextErr:
+		if err == nil {
+			t.Fatal("NextNotification() error = nil after Close, want transport closed error")
+		}
+		var closedErr *TransportClosedError
+		if !errors.As(err, &closedErr) {
+			t.Fatalf("NextNotification() error = %v (%T), want *TransportClosedError", err, err)
+		}
+	case <-time.After(2 * time.Second):
+		t.Fatal("timed out waiting for NextNotification() to unblock after Close")
+	}
+
+	assertExecServerProcessQueueCount(t, client, 0)
+}
+
 func TestExecServerProcessClosedNotificationRemovesQueue(t *testing.T) {
 	t.Parallel()
 
@@ -343,6 +408,105 @@ func TestExecServerProcessClosedNotificationRemovesQueue(t *testing.T) {
 		t.Fatalf("NextNotification() after closed error = %v, want io.EOF", err)
 	}
 	assertExecServerProcessQueueCount(t, client, 0)
+}
+
+func TestExecServerClientCloseUnblocksProcessNotificationWaiters(t *testing.T) {
+	t.Parallel()
+
+	client := NewExecServerClient(nil)
+	queue := client.ensureProcessQueue("proc-close")
+	handle := &ExecServerProcessHandle{client: client, processID: "proc-close", processQueue: queue}
+
+	waiterDone := make(chan error, 1)
+	go func() {
+		_, err := handle.NextNotification(context.Background())
+		waiterDone <- err
+	}()
+
+	if err := client.Close(); err != nil {
+		t.Fatalf("Close() error = %v", err)
+	}
+
+	select {
+	case err := <-waiterDone:
+		var closedErr *TransportClosedError
+		if !errors.As(err, &closedErr) {
+			t.Fatalf("NextNotification() after Close error = %v (%T), want *TransportClosedError", err, err)
+		}
+	case <-time.After(time.Second):
+		t.Fatal("timed out waiting for NextNotification to unblock after Close")
+	}
+	assertExecServerProcessQueueCount(t, client, 0)
+
+	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
+	t.Cleanup(cancel)
+	_, err := client.NextProcessNotification(ctx, "proc-after-close")
+	var closedErr *TransportClosedError
+	if !errors.As(err, &closedErr) {
+		t.Fatalf("NextProcessNotification() after Close error = %v (%T), want *TransportClosedError", err, err)
+	}
+}
+
+func TestExecServerProcessHandleNilHelpers(t *testing.T) {
+	t.Parallel()
+
+	var nilHandle *ExecServerProcessHandle
+	if got := nilHandle.ID(); got != "" {
+		t.Fatalf("nil handle ID() = %q, want empty", got)
+	}
+
+	tests := map[string]func(context.Context) error{
+		"Read": func(ctx context.Context) error {
+			_, err := nilHandle.Read(ctx, nil)
+
+			return err
+		},
+		"Write": func(ctx context.Context) error {
+			_, err := nilHandle.Write(ctx, nil)
+
+			return err
+		},
+		"Terminate": func(ctx context.Context) error {
+			_, err := nilHandle.Terminate(ctx)
+
+			return err
+		},
+		"NextNotification": func(ctx context.Context) error {
+			_, err := nilHandle.NextNotification(ctx)
+
+			return err
+		},
+		"zero Read": func(ctx context.Context) error {
+			_, err := (&ExecServerProcessHandle{}).Read(ctx, nil)
+
+			return err
+		},
+		"zero Write": func(ctx context.Context) error {
+			_, err := (&ExecServerProcessHandle{}).Write(ctx, nil)
+
+			return err
+		},
+		"zero Terminate": func(ctx context.Context) error {
+			_, err := (&ExecServerProcessHandle{}).Terminate(ctx)
+
+			return err
+		},
+		"zero NextNotification": func(ctx context.Context) error {
+			_, err := (&ExecServerProcessHandle{}).NextNotification(ctx)
+
+			return err
+		},
+	}
+
+	for name, run := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if err := run(t.Context()); !errors.Is(err, errProcessHandleNil) {
+				t.Fatalf("%s error = %v, want errProcessHandleNil", name, err)
+			}
+		})
+	}
 }
 
 // TestExecServerProcessMalformedNotificationFailsQueue verifies malformed

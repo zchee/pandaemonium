@@ -660,12 +660,20 @@ func (c *Client) nextLoginNotification(ctx context.Context, loginID string) (Not
 	return c.turnRouter.nextLogin(ctx, loginID)
 }
 
+func (c *Client) nextProcessNotification(ctx context.Context, processHandle string) (Notification, error) {
+	return c.turnRouter.nextProcess(ctx, processHandle)
+}
+
 func (c *Client) releaseTurnConsumer(turnID string) {
 	c.turnRouter.unregister(turnID)
 }
 
 func (c *Client) releaseLoginConsumer(loginID string) {
 	c.turnRouter.unregisterLogin(loginID)
+}
+
+func (c *Client) releaseProcessConsumer(processHandle string) {
+	c.turnRouter.unregisterProcess(processHandle)
 }
 
 func (c *Client) clearTurnPending(turnID string) {

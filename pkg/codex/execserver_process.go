@@ -271,6 +271,7 @@ type ExecServerClient struct {
 
 	processMu     sync.Mutex
 	processQueues map[ProcessID]*execServerProcessQueue
+	processErr    error
 	readDone      chan struct{}
 }
 
@@ -542,6 +543,13 @@ func (c *ExecServerClient) ensureProcessQueue(processID ProcessID) *execServerPr
 	c.processMu.Lock()
 	defer c.processMu.Unlock()
 
+	if c.processErr != nil {
+		queue := newExecServerProcessQueue()
+		queue.close(c.processErr)
+
+		return queue
+	}
+
 	queue := c.processQueues[processID]
 	if queue == nil {
 		queue = newExecServerProcessQueue()
@@ -577,6 +585,7 @@ func (c *ExecServerClient) deleteProcessQueue(processID ProcessID, queue *execSe
 func (c *ExecServerClient) closeAllProcessQueues(err error) {
 	c.processMu.Lock()
 	defer c.processMu.Unlock()
+	c.processErr = err
 	for _, queue := range c.processQueues {
 		queue.close(err)
 	}

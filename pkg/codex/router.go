@@ -40,6 +40,7 @@ type turnNotificationRouter struct {
 	loginQueues         map[string]*notificationQueue
 	pendingLogin        map[string][]Notification
 	pendingLoginDropped map[string]uint64
+	processQueues       map[string]*notificationQueue
 	closed              bool
 	err                 error
 }
@@ -53,6 +54,7 @@ func newTurnNotificationRouter() *turnNotificationRouter {
 		loginQueues:         map[string]*notificationQueue{},
 		pendingLogin:        map[string][]Notification{},
 		pendingLoginDropped: map[string]uint64{},
+		processQueues:       map[string]*notificationQueue{},
 	}
 }
 
@@ -106,6 +108,21 @@ func (r *turnNotificationRouter) nextLogin(ctx context.Context, loginID string) 
 	r.mu.Unlock()
 	if queue == nil {
 		return Notification{}, fmt.Errorf("login consumer is not active for %s", loginID)
+	}
+	return queue.next(ctx)
+}
+
+func (r *turnNotificationRouter) nextProcess(ctx context.Context, processHandle string) (Notification, error) {
+	r.mu.Lock()
+	if r.closed {
+		err := r.err
+		r.mu.Unlock()
+		return Notification{}, err
+	}
+	queue := r.processQueues[processHandle]
+	r.mu.Unlock()
+	if queue == nil {
+		return Notification{}, fmt.Errorf("process consumer is not active for %s", processHandle)
 	}
 	return queue.next(ctx)
 }
@@ -174,6 +191,23 @@ func (r *turnNotificationRouter) registerLogin(loginID string) (*notificationQue
 	return queue, nil
 }
 
+func (r *turnNotificationRouter) registerProcess(processHandle string) (*notificationQueue, error) {
+	if processHandle == "" {
+		return nil, fmt.Errorf("process notification router: empty process handle")
+	}
+	r.mu.Lock()
+	defer r.mu.Unlock()
+	if r.closed {
+		return nil, r.err
+	}
+	if _, ok := r.processQueues[processHandle]; ok {
+		return nil, fmt.Errorf("process consumer already active for %s", processHandle)
+	}
+	queue := newProcessNotificationQueue(processHandle)
+	r.processQueues[processHandle] = queue
+	return queue, nil
+}
+
 func (r *turnNotificationRouter) unregister(turnID string) {
 	if turnID == "" {
 		return
@@ -190,6 +224,19 @@ func (r *turnNotificationRouter) unregisterLogin(loginID string) {
 	r.mu.Lock()
 	delete(r.loginQueues, loginID)
 	r.mu.Unlock()
+}
+
+func (r *turnNotificationRouter) unregisterProcess(processHandle string) {
+	if processHandle == "" {
+		return
+	}
+	r.mu.Lock()
+	queue := r.processQueues[processHandle]
+	delete(r.processQueues, processHandle)
+	r.mu.Unlock()
+	if queue != nil {
+		queue.close(fmt.Errorf("process consumer closed for %s", processHandle))
+	}
 }
 
 func (r *turnNotificationRouter) clearPending(turnID string) {
@@ -217,6 +264,7 @@ func (r *turnNotificationRouter) route(notif Notification) error {
 		return r.routeLogin(notif, loginID)
 	}
 
+	processHandle := notificationProcessHandle(notif)
 	turnID := notificationTurnID(notif)
 
 	r.mu.Lock()
@@ -224,6 +272,14 @@ func (r *turnNotificationRouter) route(notif Notification) error {
 		err := r.err
 		r.mu.Unlock()
 		return err
+	}
+
+	if processHandle != "" {
+		if queue := r.processQueues[processHandle]; queue != nil {
+			queue.push(notif)
+			r.mu.Unlock()
+			return nil
+		}
 	}
 
 	// ── Global (no turn ID) ────────────────────────────────────────────────
@@ -333,12 +389,17 @@ func (r *turnNotificationRouter) close(err error) {
 	for _, queue := range r.loginQueues {
 		loginQueues = append(loginQueues, queue)
 	}
+	processQueues := make([]*notificationQueue, 0, len(r.processQueues))
+	for _, queue := range r.processQueues {
+		processQueues = append(processQueues, queue)
+	}
 	r.queues = map[string]*notificationQueue{}
 	r.pending = map[string][]Notification{}
 	r.pendingDropped = map[string]uint64{}
 	r.loginQueues = map[string]*notificationQueue{}
 	r.pendingLogin = map[string][]Notification{}
 	r.pendingLoginDropped = map[string]uint64{}
+	r.processQueues = map[string]*notificationQueue{}
 	r.mu.Unlock()
 
 	if global != nil {
@@ -348,6 +409,9 @@ func (r *turnNotificationRouter) close(err error) {
 		queue.close(err)
 	}
 	for _, queue := range loginQueues {
+		queue.close(err)
+	}
+	for _, queue := range processQueues {
 		queue.close(err)
 	}
 }

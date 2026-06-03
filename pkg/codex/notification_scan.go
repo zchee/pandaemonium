@@ -35,6 +35,21 @@ func notificationLoginID(notif Notification) (string, bool) {
 	return decodeNotificationLoginID(notif), true
 }
 
+func notificationProcessHandle(notif Notification) string {
+	switch notif.Method {
+	case NotificationMethodProcessExited, NotificationMethodProcessOutputDelta:
+	default:
+		return ""
+	}
+	var raw struct {
+		ProcessHandle string `json:"processHandle"`
+	}
+	if err := json.Unmarshal(notif.Params, &raw); err != nil {
+		return ""
+	}
+	return raw.ProcessHandle
+}
+
 type scannedTurn struct {
 	id      string
 	turnID  string

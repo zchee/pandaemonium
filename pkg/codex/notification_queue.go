@@ -51,6 +51,17 @@ func newLoginNotificationQueue(loginID string) *notificationQueue {
 	}
 }
 
+func newProcessNotificationQueue(processHandle string) *notificationQueue {
+	return &notificationQueue{
+		scopeID:  processHandle,
+		notifies: newNotificationRing(notificationQueueCapacity),
+		notify:   make(chan struct{}, 1),
+		dropError: func(scopeID string, dropped int) error {
+			return &ProcessNotificationDroppedError{ProcessHandle: scopeID, Dropped: dropped}
+		},
+	}
+}
+
 // push enqueues notification. On queue overflow the oldest entry is evicted and
 // the drop counter incremented. Never errors on overflow; only a closed queue
 // (q.err != nil) suppresses the push silently.

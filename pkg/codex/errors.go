@@ -24,6 +24,8 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 )
 
+var errClientNil = errors.New("codex client is nil")
+
 // AppServerError is the base error for SDK failures.
 type AppServerError struct {
 	Message string
@@ -79,6 +81,18 @@ type LoginNotificationDroppedError struct {
 
 func (e *LoginNotificationDroppedError) Error() string {
 	return fmt.Sprintf("login %s: %d notification(s) dropped due to queue overflow", e.LoginID, e.Dropped)
+}
+
+// ProcessNotificationDroppedError is returned by an app-server process
+// notification consumer when one or more notifications for the process handle
+// were dropped due to queue overflow.
+type ProcessNotificationDroppedError struct {
+	ProcessHandle string
+	Dropped       int
+}
+
+func (e *ProcessNotificationDroppedError) Error() string {
+	return fmt.Sprintf("process %s: %d notification(s) dropped due to queue overflow", e.ProcessHandle, e.Dropped)
 }
 
 // AppServerRPCError is a server-side JSON-RPC error.
