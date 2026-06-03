@@ -66,66 +66,66 @@ func NewExecServer(ctx context.Context, config *Config) (*ExecServer, error) {
 }
 
 // Metadata returns initialize metadata validated during construction.
-func (c *ExecServer) Metadata() InitializeResponse {
-	if c == nil {
+func (es *ExecServer) Metadata() InitializeResponse {
+	if es == nil {
 		return InitializeResponse{}
 	}
-	return c.metadata
+	return es.metadata
 }
 
 // SessionID returns the session id assigned by the exec-server during
 // initialization, or the empty string if the server did not assign one.
-func (c *ExecServer) SessionID() string {
-	if c == nil {
+func (es *ExecServer) SessionID() string {
+	if es == nil {
 		return ""
 	}
-	return c.sessionID
+	return es.sessionID
 }
 
 // CommandExec runs a standalone command (argv vector).
-func (c *ExecServer) CommandExec(ctx context.Context, params *CommandExecParams) (CommandExecResponse, error) {
-	if c == nil || c.client == nil {
+func (es *ExecServer) CommandExec(ctx context.Context, params *CommandExecParams) (CommandExecResponse, error) {
+	if es == nil || es.client == nil {
 		return CommandExecResponse{}, errExecServerNil
 	}
-	return c.client.CommandExec(ctx, params)
+	return es.client.CommandExec(ctx, params)
 }
 
 // CommandExecWrite writes stdin bytes to a running command/exec session.
-func (c *ExecServer) CommandExecWrite(ctx context.Context, params *CommandExecWriteParams) (CommandExecWriteResponse, error) {
-	if c == nil || c.client == nil {
+func (es *ExecServer) CommandExecWrite(ctx context.Context, params *CommandExecWriteParams) (CommandExecWriteResponse, error) {
+	if es == nil || es.client == nil {
 		return CommandExecWriteResponse{}, errExecServerNil
 	}
-	return c.client.CommandExecWrite(ctx, params)
+	return es.client.CommandExecWrite(ctx, params)
 }
 
 // CommandExecTerminate terminates a running command/exec session.
-func (c *ExecServer) CommandExecTerminate(ctx context.Context, params *CommandExecTerminateParams) (CommandExecTerminateResponse, error) {
-	if c == nil || c.client == nil {
+func (es *ExecServer) CommandExecTerminate(ctx context.Context, params *CommandExecTerminateParams) (CommandExecTerminateResponse, error) {
+	if es == nil || es.client == nil {
 		return CommandExecTerminateResponse{}, errExecServerNil
 	}
-	return c.client.CommandExecTerminate(ctx, params)
+	return es.client.CommandExecTerminate(ctx, params)
 }
 
 // CommandExecResize resizes a running command/exec PTY-backed session.
-func (c *ExecServer) CommandExecResize(ctx context.Context, params *CommandExecResizeParams) (CommandExecResizeResponse, error) {
-	if c == nil || c.client == nil {
+func (es *ExecServer) CommandExecResize(ctx context.Context, params *CommandExecResizeParams) (CommandExecResizeResponse, error) {
+	if es == nil || es.client == nil {
 		return CommandExecResizeResponse{}, errExecServerNil
 	}
-	return c.client.CommandExecResize(ctx, params)
+	return es.client.CommandExecResize(ctx, params)
 }
 
 // Client exposes the lower-level JSON-RPC client.
-func (c *ExecServer) Client() *Client {
-	if c == nil {
+func (es *ExecServer) Client() *Client {
+	if es == nil {
 		return nil
 	}
-	return c.client
+	return es.client
 }
 
 // Close terminates the exec-server process.
-func (c *ExecServer) Close() error {
-	if c == nil || c.client == nil {
+func (es *ExecServer) Close() error {
+	if es == nil || es.client == nil {
 		return nil
 	}
-	return c.client.Close()
+	return es.client.Close()
 }
