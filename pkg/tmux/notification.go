@@ -152,7 +152,7 @@ func (n Notification) ExtendedOutput() (ExtendedOutputNotification, bool, error)
 
 // maxAgeMillis is the largest %extended-output age in milliseconds that fits in
 // a time.Duration without overflow.
-const maxAgeMillis = int64(math.MaxInt64 / int64(time.Millisecond))
+const maxAgeMillis = math.MaxInt64 / int64(time.Millisecond)
 
 // SubscriptionChanged returns the typed form of a `%subscription-changed` notification.
 func (n Notification) SubscriptionChanged() (SubscriptionChangedNotification, bool, error) {
