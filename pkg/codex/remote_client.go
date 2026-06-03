@@ -150,7 +150,6 @@ const (
 type remoteEndpoint struct {
 	kind   remoteEndpointKind
 	rawURL string
-	url    *url.URL
 }
 
 func dialRemoteAppServer(ctx context.Context, cfg RemoteConfig) (*websocket.Conn, error) {
@@ -227,7 +226,6 @@ func validateRemoteConfig(cfg RemoteConfig) (remoteEndpoint, error) {
 	return remoteEndpoint{
 		kind:   remoteEndpointWebSocket,
 		rawURL: rawURL,
-		url:    parsed,
 	}, nil
 }
 

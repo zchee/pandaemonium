@@ -231,7 +231,8 @@ func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 	t.Parallel()
 
 	client := NewExecServerClient(nil)
-	handle := &ExecServerProcessHandle{client: client, processID: "proc-ordered"}
+	queue := client.ensureProcessQueue("proc-ordered")
+	handle := &ExecServerProcessHandle{client: client, processID: "proc-ordered", processQueue: queue}
 
 	routeErr := client.routeNotification(Notification{
 		Method: ExecServerProcessOutputMethod,
@@ -496,6 +497,15 @@ func TestExecServerProcessHandleNilHelpers(t *testing.T) {
 
 			return err
 		},
+		"missing queue NextNotification": func(ctx context.Context) error {
+			handle := &ExecServerProcessHandle{
+				client:    NewExecServerClient(nil),
+				processID: "proc-missing-queue",
+			}
+			_, err := handle.NextNotification(ctx)
+
+			return err
+		},
 	}
 
 	for name, run := range tests {
@@ -520,8 +530,8 @@ func TestExecServerProcessMalformedNotificationFailsQueue(t *testing.T) {
 		_ = client.Close()
 	})
 
-	handle := &ExecServerProcessHandle{client: client, processID: "proc-invalid"}
-	client.ensureProcessQueue("proc-invalid")
+	queue := client.ensureProcessQueue("proc-invalid")
+	handle := &ExecServerProcessHandle{client: client, processID: "proc-invalid", processQueue: queue}
 	err := tr.enqueueJSON(rpcMessage{
 		Method: ExecServerProcessOutputMethod,
 		Params: mustJSON(t, map[string]any{

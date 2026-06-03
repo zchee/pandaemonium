@@ -638,13 +638,10 @@ func (h *ExecServerProcessHandle) Terminate(ctx context.Context) (ExecServerProc
 
 // NextNotification waits for the next ordered process notification.
 func (h *ExecServerProcessHandle) NextNotification(ctx context.Context) (ExecServerProcessNotification, error) {
-	if h == nil || h.client == nil {
+	if h == nil || h.client == nil || h.processQueue == nil {
 		return nil, errProcessHandleNil
 	}
-	if h.processQueue != nil {
-		return h.client.nextProcessNotification(ctx, h.processID, h.processQueue)
-	}
-	return h.client.NextProcessNotification(ctx, h.processID)
+	return h.client.nextProcessNotification(ctx, h.processID, h.processQueue)
 }
 
 type execServerProcessQueue struct {

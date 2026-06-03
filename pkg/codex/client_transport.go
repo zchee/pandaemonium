@@ -33,7 +33,7 @@ import (
 	"github.com/coder/websocket"
 )
 
-// Transport reperesents a bidirectional JSON message Transport between the client and the app-server.
+// Transport represents a bidirectional JSON message Transport between the client and the app-server.
 type Transport interface {
 	io.Closer
 	WriteJSON(context.Context, []byte) error
@@ -426,72 +426,6 @@ func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
 		return nil, fmt.Errorf("websocket dial failed: %s", resp.Status)
-	}
-	return conn, nil
-}
-
-func dialRemoteWebSocket(ctx context.Context, endpoint string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocket.Conn, error) {
-	dialCtx := ctx
-	var cancel context.CancelFunc
-	if cfg != nil && cfg.DialTimeout > 0 {
-		dialCtx, cancel = context.WithTimeout(ctx, cfg.DialTimeout)
-	}
-	if cancel != nil {
-		defer cancel()
-	}
-
-	if strings.HasPrefix(strings.TrimSpace(endpoint), unixListenPrefix) {
-		socketPath, err := unixSocketPathFromListenURL(endpoint, env, cwd)
-		if err != nil {
-			return nil, err
-		}
-		httpClient := newUnixWebSocketHTTPClient(socketPath)
-		if transport, ok := httpClient.Transport.(*http.Transport); ok {
-			defer transport.CloseIdleConnections()
-		}
-		opts := &websocket.DialOptions{HTTPClient: httpClient}
-		conn, resp, err := websocket.Dial(dialCtx, "ws://localhost/", opts)
-		if err != nil {
-			return nil, websocketDialError(fmt.Sprintf("dial unix remote app-server websocket %q", socketPath), resp, err)
-		}
-		if resp == nil {
-			return conn, nil
-		}
-		if resp.StatusCode != http.StatusSwitchingProtocols {
-			if conn != nil {
-				_ = conn.Close(websocket.StatusProtocolError, resp.Status)
-			}
-			return nil, fmt.Errorf("dial unix remote app-server websocket %q failed: %s", socketPath, resp.Status)
-		}
-		return conn, nil
-	}
-
-	u, err := url.Parse(endpoint)
-	if err != nil {
-		return nil, err
-	}
-	token, err := websocketBearerToken(cfg)
-	if err != nil {
-		return nil, err
-	}
-	opts := &websocket.DialOptions{}
-	if token != "" {
-		opts.HTTPHeader = http.Header{
-			"Authorization": {fmt.Sprintf("Bearer %s", token)},
-		}
-	}
-	conn, resp, err := websocket.Dial(dialCtx, u.String(), opts)
-	if err != nil {
-		return nil, websocketDialError("remote app-server websocket dial failed", resp, err)
-	}
-	if resp == nil {
-		return conn, nil
-	}
-	if resp.StatusCode != http.StatusSwitchingProtocols {
-		if conn != nil {
-			_ = conn.Close(websocket.StatusProtocolError, resp.Status)
-		}
-		return nil, fmt.Errorf("remote app-server websocket dial failed: %s", resp.Status)
 	}
 	return conn, nil
 }
