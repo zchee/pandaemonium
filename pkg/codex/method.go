@@ -160,6 +160,11 @@ func (c *Client) SkillsList(ctx context.Context, params *SkillsListParams) (Skil
 	return Request[SkillsListResponse](ctx, c, RequestMethodSkillsList, paramsOrEmpty(params))
 }
 
+// SkillsExtraRootsSet calls skills/extraRoots/set.
+func (c *Client) SkillsExtraRootsSet(ctx context.Context, params *SkillsExtraRootsSetParams) (SkillsExtraRootsSetResponse, error) {
+	return Request[SkillsExtraRootsSetResponse](ctx, c, RequestMethodSkillsExtraRootsSet, paramsOrEmpty(params))
+}
+
 // HooksList calls hooks/list.
 func (c *Client) HooksList(ctx context.Context, params *HooksListParams) (HooksListResponse, error) {
 	return Request[HooksListResponse](ctx, c, RequestMethodHooksList, paramsOrEmpty(params))

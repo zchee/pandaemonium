@@ -1557,6 +1557,7 @@ var methodWrapperMethods = []string{
 	RequestMethodThreadRead,
 	RequestMethodThreadInjectItems,
 	RequestMethodSkillsList,
+	RequestMethodSkillsExtraRootsSet,
 	RequestMethodHooksList,
 	RequestMethodMarketplaceAdd,
 	RequestMethodMarketplaceRemove,

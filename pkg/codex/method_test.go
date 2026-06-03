@@ -84,6 +84,10 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			return err
 		}},
 		{name: "skills/list", call: func() error { _, err := client.SkillsList(ctx, &SkillsListParams{}); return err }},
+		{name: "skills/extraRoots/set", call: func() error {
+			_, err := client.SkillsExtraRootsSet(ctx, &SkillsExtraRootsSetParams{ExtraRoots: []string{"/tmp/skills"}})
+			return err
+		}},
 		{name: "hooks/list", call: func() error { _, err := client.HooksList(ctx, &HooksListParams{}); return err }},
 		{name: "marketplace/add", call: func() error {
 			_, err := client.MarketplaceAdd(ctx, &MarketplaceAddParams{Source: "source"})
