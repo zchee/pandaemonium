@@ -261,3 +261,55 @@ func TestPickHighestTurnEffort(t *testing.T) {
 		t.Fatalf("PickHighestTurnEffort() = %q, want %q", got, want)
 	}
 }
+
+func TestRemoteConfigFromEnv(t *testing.T) {
+	t.Run("success: websocket bearer token", func(t *testing.T) {
+		t.Setenv("CODEX_REMOTE_APP_SERVER_URL", "ws://127.0.0.1:12345")
+		t.Setenv("CODEX_REMOTE_APP_SERVER_BEARER_TOKEN", "token")
+		t.Setenv("CODEX_REMOTE_APP_SERVER_ALLOW_INSECURE_WS", "yes")
+
+		got, err := RemoteConfigFromEnv()
+		if err != nil {
+			t.Fatalf("RemoteConfigFromEnv() error = %v", err)
+		}
+		if got.URL != "ws://127.0.0.1:12345" {
+			t.Fatalf("URL = %q, want ws://127.0.0.1:12345", got.URL)
+		}
+		if got.BearerToken != "token" {
+			t.Fatalf("BearerToken = %q, want token", got.BearerToken)
+		}
+		if !got.AllowInsecureRemoteWebSocket {
+			t.Fatal("AllowInsecureRemoteWebSocket = false, want true")
+		}
+		if got.DialTimeout <= 0 {
+			t.Fatalf("DialTimeout = %s, want positive timeout", got.DialTimeout)
+		}
+	})
+
+	t.Run("error: missing url", func(t *testing.T) {
+		t.Setenv("CODEX_REMOTE_APP_SERVER_URL", "  ")
+
+		if _, err := RemoteConfigFromEnv(); err == nil {
+			t.Fatal("RemoteConfigFromEnv() error = nil, want missing URL error")
+		}
+	})
+}
+
+func TestBoolEnv(t *testing.T) {
+	for _, value := range []string{"1", "true", "TRUE", "yes", "on"} {
+		t.Run("true:"+value, func(t *testing.T) {
+			t.Setenv("CODEX_BOOL_ENV_TEST", value)
+			if !BoolEnv("CODEX_BOOL_ENV_TEST") {
+				t.Fatalf("BoolEnv(%q) = false, want true", value)
+			}
+		})
+	}
+	for _, value := range []string{"", "0", "false", "no", "off"} {
+		t.Run("false:"+value, func(t *testing.T) {
+			t.Setenv("CODEX_BOOL_ENV_TEST", value)
+			if BoolEnv("CODEX_BOOL_ENV_TEST") {
+				t.Fatalf("BoolEnv(%q) = true, want false", value)
+			}
+		})
+	}
+}

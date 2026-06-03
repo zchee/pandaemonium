@@ -52,6 +52,35 @@ func NewCodex(ctx context.Context) (*codex.Codex, error) {
 	return codex.NewCodex(ctx, &codex.Config{})
 }
 
+// RemoteConfigFromEnv returns a remote app-server config from example environment variables.
+func RemoteConfigFromEnv() (*codex.RemoteConfig, error) {
+	url := strings.TrimSpace(os.Getenv("CODEX_REMOTE_APP_SERVER_URL"))
+	if url == "" {
+		return nil, errors.New("CODEX_REMOTE_APP_SERVER_URL is required, for example ws://127.0.0.1:8080")
+	}
+
+	return &codex.RemoteConfig{
+		URL:                          url,
+		BearerToken:                  os.Getenv("CODEX_REMOTE_APP_SERVER_BEARER_TOKEN"),
+		BearerTokenFile:              os.Getenv("CODEX_REMOTE_APP_SERVER_BEARER_TOKEN_FILE"),
+		DialTimeout:                  10 * time.Second,
+		AllowInsecureRemoteWebSocket: BoolEnv("CODEX_REMOTE_APP_SERVER_ALLOW_INSECURE_WS"),
+		ClientName:                   "pandaemonium-examples",
+		ClientTitle:                  "pandaemonium examples",
+		ClientVersion:                "dev",
+	}, nil
+}
+
+// BoolEnv reports whether name is set to a true-like example flag.
+func BoolEnv(name string) bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv(name))) {
+	case "1", "true", "t", "yes", "y", "on":
+		return true
+	default:
+		return false
+	}
+}
+
 // DefaultThreadParams returns model and reasoning defaults shared by examples.
 func DefaultThreadParams() *codex.ThreadStartParams {
 	reasoningEffort := jsontext.Value(`"high"`)

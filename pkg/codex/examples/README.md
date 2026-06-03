@@ -42,7 +42,29 @@ go run ./pkg/codex/examples/11_cli_mini_app
 go run ./pkg/codex/examples/12_turn_params_kitchen_sink
 go run ./pkg/codex/examples/13_model_select_and_turn_params
 go run ./pkg/codex/examples/14_turn_controls
+go run ./pkg/codex/examples/15_remote_client_connect
+go run ./pkg/codex/examples/16_remote_control_status_and_pairing
+go run ./pkg/codex/examples/17_remote_process_spawn
 ```
+
+## Remote app-server examples
+
+The remote-control examples use an already-running app-server websocket when
+`CODEX_REMOTE_APP_SERVER_URL` is set. Supported URL forms are `ws://`, `wss://`,
+and `unix://`. Set `CODEX_REMOTE_APP_SERVER_BEARER_TOKEN` or
+`CODEX_REMOTE_APP_SERVER_BEARER_TOKEN_FILE` when the endpoint requires bearer
+auth. Plain `ws://` bearer auth is accepted only for loopback hosts unless
+`CODEX_REMOTE_APP_SERVER_ALLOW_INSECURE_WS=1` is set.
+
+`17_remote_process_spawn` runs commands on the machine that hosts the
+app-server. Pass argv after an optional `--`; when omitted it runs a small `sh -c` hello
+command. Set `CODEX_REMOTE_PROCESS_CWD` when the remote host should use a
+specific working directory.
+
+`16_remote_control_status_and_pairing` avoids mutating remote-control state by
+default. Set `CODEX_EXAMPLE_ENABLE_REMOTE_CONTROL=1` to call
+`remoteControl/enable`; set `CODEX_EXAMPLE_START_PAIRING=1` to start pairing
+and print the short-lived pairing code.
 
 ## Index
 
@@ -60,3 +82,6 @@ go run ./pkg/codex/examples/14_turn_controls
 - `12_turn_params_kitchen_sink/` - structured output and advanced turn params.
 - `13_model_select_and_turn_params/` - model selection plus per-turn params.
 - `14_turn_controls/` - best-effort `Steer` and `Interrupt` demos.
+- `15_remote_client_connect/` - connect to an existing app-server websocket.
+- `16_remote_control_status_and_pairing/` - inspect remote-control status and guarded pairing flows.
+- `17_remote_process_spawn/` - stream `process/spawn` output from an existing app-server host.

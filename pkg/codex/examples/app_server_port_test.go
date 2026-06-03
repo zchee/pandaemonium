@@ -49,6 +49,14 @@ var upstreamExampleNames = []string{
 	"14_turn_controls",
 }
 
+var remoteControlExampleNames = []string{
+	"15_remote_client_connect",
+	"16_remote_control_status_and_pairing",
+	"17_remote_process_spawn",
+}
+
+var exampleNames = append(slices.Clone(upstreamExampleNames), remoteControlExampleNames...)
+
 func TestExamplesReadmeIndexAndPublicImports(t *testing.T) {
 	t.Parallel()
 
@@ -60,7 +68,7 @@ func TestExamplesReadmeIndexAndPublicImports(t *testing.T) {
 	if !bytes.Contains(readme, []byte("rust-v0.137.0-alpha.4")) {
 		t.Fatalf("README missing upstream tag provenance")
 	}
-	for _, name := range upstreamExampleNames {
+	for _, name := range exampleNames {
 		mainPath := filepath.Join(root, name, "main.go")
 		source, err := os.ReadFile(mainPath)
 		if err != nil {
