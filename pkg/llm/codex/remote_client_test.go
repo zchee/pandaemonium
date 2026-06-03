@@ -248,8 +248,7 @@ func TestRemoteClientCloseUnblocksPendingRequest(t *testing.T) {
 		if err == nil {
 			t.Fatal("RequestRaw() error = nil, want transport closed")
 		}
-		var closedErr *TransportClosedError
-		if !errors.As(err, &closedErr) {
+		if _, ok := errors.AsType[*TransportClosedError](err); !ok {
 			t.Fatalf("RequestRaw() error = %T %v, want *TransportClosedError", err, err)
 		}
 	case <-ctx.Done():

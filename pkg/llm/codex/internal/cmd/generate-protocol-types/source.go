@@ -56,8 +56,7 @@ func readCodexVersion(codexBin string) (string, error) {
 		if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			return "", fmt.Errorf("run %s: timed out after 30s%s", command, commandOutputSuffix(output))
 		}
-		var execErr *exec.Error
-		if errors.As(err, &execErr) {
+		if _, ok := errors.AsType[*exec.Error](err); ok {
 			return "", fmt.Errorf("start %s: %w", command, err)
 		}
 		return "", fmt.Errorf("run %s: %w%s", command, err, commandOutputSuffix(output))

@@ -347,8 +347,7 @@ func TestExecServerProcessClientCloseReleasesHandleQueues(t *testing.T) {
 		if err == nil {
 			t.Fatal("NextNotification() error = nil after Close, want transport closed error")
 		}
-		var closedErr *TransportClosedError
-		if !errors.As(err, &closedErr) {
+		if _, ok := errors.AsType[*TransportClosedError](err); !ok {
 			t.Fatalf("NextNotification() error = %v (%T), want *TransportClosedError", err, err)
 		}
 	case <-time.After(2 * time.Second):
@@ -430,8 +429,7 @@ func TestExecServerClientCloseUnblocksProcessNotificationWaiters(t *testing.T) {
 
 	select {
 	case err := <-waiterDone:
-		var closedErr *TransportClosedError
-		if !errors.As(err, &closedErr) {
+		if _, ok := errors.AsType[*TransportClosedError](err); !ok {
 			t.Fatalf("NextNotification() after Close error = %v (%T), want *TransportClosedError", err, err)
 		}
 	case <-time.After(time.Second):
@@ -442,8 +440,7 @@ func TestExecServerClientCloseUnblocksProcessNotificationWaiters(t *testing.T) {
 	ctx, cancel := context.WithTimeout(t.Context(), time.Second)
 	t.Cleanup(cancel)
 	_, err := client.NextProcessNotification(ctx, "proc-after-close")
-	var closedErr *TransportClosedError
-	if !errors.As(err, &closedErr) {
+	if _, ok := errors.AsType[*TransportClosedError](err); !ok {
 		t.Fatalf("NextProcessNotification() after Close error = %v (%T), want *TransportClosedError", err, err)
 	}
 }

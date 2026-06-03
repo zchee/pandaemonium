@@ -90,7 +90,7 @@ func contractGenerationGoCommand() string {
 }
 
 func contractGenerationSourceBinary(generated []byte) (string, bool) {
-	for _, line := range strings.Split(string(generated), "\n") {
+	for line := range strings.SplitSeq(string(generated), "\n") {
 		version, ok := strings.CutPrefix(line, "// Source binary: ")
 		if ok {
 			return strings.TrimSpace(version), strings.TrimSpace(version) != ""
