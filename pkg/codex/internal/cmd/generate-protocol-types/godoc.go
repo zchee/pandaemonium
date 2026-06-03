@@ -356,7 +356,7 @@ func imperativeToThirdPerson(word string) (string, bool) {
 	if !looksLikeASCIIWord(stripped) {
 		return "", false
 	}
-	first, _ := utf8DecodeFirst(stripped)
+	first := utf8DecodeFirst(stripped)
 	if !unicode.IsUpper(first) {
 		return "", false
 	}
@@ -681,7 +681,7 @@ func isThirdPersonSingularVerb(word string) bool {
 	if isAcronymWord(stripped) {
 		return false
 	}
-	first, _ := utf8DecodeFirst(stripped)
+	first := utf8DecodeFirst(stripped)
 	if !unicode.IsUpper(first) {
 		return false
 	}
@@ -727,16 +727,15 @@ func startsWithIdentifier(line, name string) bool {
 	if rest == "" {
 		return true
 	}
-	next, _ := utf8DecodeFirst(rest)
+	next := utf8DecodeFirst(rest)
 	return next == ' ' || next == '\t' || next == '.' || next == ',' || next == ':' || next == ';' || next == '!' || next == '?'
 }
 
-func utf8DecodeFirst(value string) (rune, int) {
+func utf8DecodeFirst(value string) rune {
 	for _, r := range value {
-		size := len(string(r))
-		return r, size
+		return r
 	}
-	return 0, 0
+	return 0
 }
 
 func ensureSentenceTerminator(line string, isLast bool) string {
