@@ -117,7 +117,7 @@ func contractGenerationDiff(t *testing.T, checkedInPath, generatedPath string) s
 	t.Cleanup(cancel)
 	cmd := exec.CommandContext(
 		ctx, "diff", "-u",
-		"--label", "pkg/codex/protocol_gen.go",
+		"--label", "pkg/llm/codex/protocol_gen.go",
 		"--label", "regenerated protocol_gen.go",
 		checkedInPath,
 		generatedPath,
