@@ -1,4 +1,4 @@
-# pkg/codex Rust release update checklist
+# pkg/llm/codex Rust release update checklist
 
 ## 1. Establish live truth
 
@@ -10,8 +10,8 @@ git status --short --branch --untracked-files=all
 git remote -v
 git log -1 --oneline --decorate
 go list -m
-go list ./pkg/codex ./pkg/codex/tests ./pkg/codex/examples
-sed -n '1,120p' pkg/codex/generate.go
+go list ./pkg/llm/codex ./pkg/llm/codex/tests ./pkg/llm/codex/examples
+sed -n '1,120p' pkg/llm/codex/generate.go
 ```
 
 If any command shows the wrong repo/module/package, stop and resolve that before
@@ -19,8 +19,8 @@ editing.
 
 ## 2. Determine schema provenance
 
-Normal schema generation is local-Codex driven. `pkg/codex/generate.go` should
-invoke `pkg/codex/internal/cmd/generate-protocol-types` without an upstream
+Normal schema generation is local-Codex driven. `pkg/llm/codex/generate.go` should
+invoke `pkg/llm/codex/internal/cmd/generate-protocol-types` without an upstream
 `-schema` URL; when `-schema` is omitted, the generator runs:
 
 ```sh
@@ -51,7 +51,7 @@ git -C /path/to/openai/codex diff <old-tag>..<new-tag> -- codex-rs/app-server-pr
    command -v codex
    codex --version
    ```
-2. Run `go generate ./pkg/codex`. The generator should obtain the schema via
+2. Run `go generate ./pkg/llm/codex`. The generator should obtain the schema via
    `codex app-server generate-json-schema --experimental --out <tmpdir>` and
    use a stable generated-source label, not a temp path.
 3. Keep the checked-in `protocol_gen.go` `Source binary` header aligned with
@@ -59,8 +59,8 @@ git -C /path/to/openai/codex diff <old-tag>..<new-tag> -- codex-rs/app-server-pr
    mismatched binaries rather than silently accepting ambient drift.
 4. Inspect generated type changes:
    ```sh
-   git diff -- pkg/codex/generate.go pkg/codex/protocol_gen.go
-   go test -count=1 ./pkg/codex/...
+   git diff -- pkg/llm/codex/generate.go pkg/llm/codex/protocol_gen.go
+   go test -count=1 ./pkg/llm/codex/...
    ```
 4. If tests fail because generated output no longer satisfies rename, optional
    reference, or identity contracts, fix generator code/tests before accepting
@@ -74,19 +74,19 @@ generator. Do not reintroduce an upstream raw schema URL into the normal
 
 Relevant files are usually under:
 
-- `pkg/codex/internal/cmd/generate-protocol-types/main.go`
-- `pkg/codex/internal/cmd/generate-protocol-types/*_test.go`
-- `pkg/codex/protocol_gen_test.go`
-- `pkg/codex/public_types_test.go`
-- `pkg/codex/tests/app_server_contract_generation_test.go`
-- `pkg/codex/tests/app_server_public_api_signatures_test.go`
+- `pkg/llm/codex/internal/cmd/generate-protocol-types/main.go`
+- `pkg/llm/codex/internal/cmd/generate-protocol-types/*_test.go`
+- `pkg/llm/codex/protocol_gen_test.go`
+- `pkg/llm/codex/public_types_test.go`
+- `pkg/llm/codex/tests/app_server_contract_generation_test.go`
+- `pkg/llm/codex/tests/app_server_public_api_signatures_test.go`
 
 Workflow:
 
 1. Add or update generator/contract tests describing the intended output.
 2. Change the generator.
 3. Run the focused generator tests.
-4. Run `go generate ./pkg/codex`.
+4. Run `go generate ./pkg/llm/codex`.
 5. Run package tests and inspect `protocol_gen.go` for unexpected public names.
 
 ## 5. Public API and examples path
@@ -94,17 +94,17 @@ Workflow:
 If upstream adds/changes input, run, stream, login, approval, or transport
 behavior, inspect local hand-written surfaces before editing:
 
-- `pkg/codex/api.go`
-- `pkg/codex/input.go`
-- `pkg/codex/method.go`
-- `pkg/codex/run.go`
-- `pkg/codex/stream_api.go`
-- `pkg/codex/router.go`
-- `pkg/codex/notification*.go`
-- `pkg/codex/login.go`
-- `pkg/codex/examples/`
-- `pkg/codex/tests/public_api_port_test.go`
-- `pkg/codex/tests/app_server_public_api_signatures_test.go`
+- `pkg/llm/codex/api.go`
+- `pkg/llm/codex/input.go`
+- `pkg/llm/codex/method.go`
+- `pkg/llm/codex/run.go`
+- `pkg/llm/codex/stream_api.go`
+- `pkg/llm/codex/router.go`
+- `pkg/llm/codex/notification*.go`
+- `pkg/llm/codex/login.go`
+- `pkg/llm/codex/examples/`
+- `pkg/llm/codex/tests/public_api_port_test.go`
+- `pkg/llm/codex/tests/app_server_public_api_signatures_test.go`
 
 Preserve these contracts unless the task explicitly changes them:
 
@@ -120,8 +120,8 @@ Typical formatting/check sequence:
 ```sh
 gofmt -w <changed-go-files>
 gofumpt -w -extra <changed-go-files-or-dirs>
-go test -count=1 ./pkg/codex/...
-go test -race -count=1 -shuffle=on ./pkg/codex/...
+go test -count=1 ./pkg/llm/codex/...
+go test -race -count=1 -shuffle=on ./pkg/llm/codex/...
 go build ./...
 git diff --check
 ```
@@ -134,8 +134,8 @@ limitation and substitute validation.
 
 Keep one logical change per commit/report. A schema bump may include:
 
-- `pkg/codex/generate.go` when the generation command changes
-- `pkg/codex/protocol_gen.go`
+- `pkg/llm/codex/generate.go` when the generation command changes
+- `pkg/llm/codex/protocol_gen.go`
 - generator tests, contract tests, or examples required by the new schema
 - testdata/golden files required by public-type parity
 
