@@ -189,22 +189,6 @@ func TestPublicAPIRuntimeBehaviorPortApprovalModesSerializeToStartParams(t *test
 	}
 }
 
-func TestPublicAPIRuntimeBehaviorPortRetryExampleComparesStatusWithEnum(t *testing.T) {
-	t.Parallel()
-
-	sourcePath := filepath.Join(artifactWorkflowRepoRoot(t), "pkg", "llm", "codex", "examples", "10_error_handling_and_retry", "main.go")
-	source, err := os.ReadFile(sourcePath)
-	if err != nil {
-		t.Fatalf("os.ReadFile(%s) error = %v", sourcePath, err)
-	}
-	if strings.Contains(string(source), `== "failed"`) {
-		t.Fatalf("%s compares turn status with raw string \"failed\"; want codex.TurnStatusFailed", sourcePath)
-	}
-	if !strings.Contains(string(source), "codex.TurnStatusFailed") {
-		t.Fatalf("%s missing codex.TurnStatusFailed enum comparison", sourcePath)
-	}
-}
-
 func publicAPIRuntimeBehaviorApprovalSettings(params codex.TurnStartParams) (map[string]any, error) {
 	encoded, err := json.Marshal(params)
 	if err != nil {

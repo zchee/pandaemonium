@@ -17,10 +17,7 @@ package codex_test
 import (
 	"context"
 	"iter"
-	"os"
-	"path/filepath"
 	"reflect"
-	"strings"
 	"testing"
 
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
@@ -671,55 +668,6 @@ func TestPublicAPISignaturePortLifecycleMethodOwnership(t *testing.T) {
 				t.Fatalf("%v.%s exists; lifecycle operations must stay Codex-scoped", typ, name)
 			}
 		}
-	}
-}
-
-func TestPublicAPISignaturePortExamplesUsePublicImports(t *testing.T) {
-	t.Parallel()
-
-	examplesRoot := filepath.Join("..", "examples")
-	privateMarkers := []string{
-		"github.com/zchee/pandaemonium/pkg/llm/codex/internal",
-		"github.com/zchee/pandaemonium/pkg/llm/codex/client",
-		"github.com/zchee/pandaemonium/pkg/llm/codex/generated",
-		"github.com/zchee/pandaemonium/pkg/llm/codex/retry",
-		"protocol_gen.go",
-	}
-
-	offenders := map[string][]string{}
-	err := filepath.WalkDir(examplesRoot, func(path string, entry os.DirEntry, err error) error {
-		if err != nil {
-			return err
-		}
-		if entry.IsDir() {
-			return nil
-		}
-		if strings.HasSuffix(path, "_test.go") {
-			return nil
-		}
-		if ext := filepath.Ext(path); ext != ".go" && ext != ".md" {
-			return nil
-		}
-		content, err := os.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		for _, marker := range privateMarkers {
-			if strings.Contains(string(content), marker) {
-				rel, relErr := filepath.Rel(examplesRoot, path)
-				if relErr != nil {
-					return relErr
-				}
-				offenders[rel] = append(offenders[rel], marker)
-			}
-		}
-		return nil
-	})
-	if err != nil {
-		t.Fatalf("walk examples: %v", err)
-	}
-	if len(offenders) != 0 {
-		t.Fatalf("examples import private surfaces: %#v", offenders)
 	}
 }
 

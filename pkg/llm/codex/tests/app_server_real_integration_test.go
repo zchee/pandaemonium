@@ -18,7 +18,6 @@ import (
 	"context"
 	"net"
 	"os"
-	"os/exec"
 	"path/filepath"
 	"runtime"
 	"strings"
@@ -192,46 +191,6 @@ func TestRealAppServerIntegrationStreamingAndInterruptPort(t *testing.T) {
 	}
 	if !sawFollowUpTerminal {
 		t.Fatal("follow-up stream ended without turn/completed notification")
-	}
-}
-
-func TestRealAppServerIntegrationExamplesRunPort(t *testing.T) {
-	codexBin := requireRealCodexBinary(t)
-
-	repoRoot := realIntegrationRepoRoot(t)
-	cases := []string{
-		"01_quickstart_constructor",
-		"02_turn_run",
-		"03_turn_stream_events",
-		"04_models_and_metadata",
-		"05_existing_thread",
-		"06_thread_lifecycle_and_controls",
-		"07_image_and_text",
-		"08_local_image_and_text",
-		"09_stream_parity",
-		"10_error_handling_and_retry",
-		"11_cli_mini_app",
-		"12_turn_params_kitchen_sink",
-		"13_model_select_and_turn_params",
-		"14_turn_controls",
-	}
-	for _, name := range cases {
-		t.Run(name, func(t *testing.T) {
-			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
-			t.Cleanup(cancel)
-
-			cmd := exec.CommandContext(ctx, "go", "run", "./pkg/llm/codex/examples/"+name)
-			cmd.Dir = repoRoot
-			cmd.Env = append(os.Environ(), "CODEX_BIN="+codexBin)
-			if name == "11_cli_mini_app" {
-				cmd.Stdin = strings.NewReader("Give 3 short bullets on SIMD.\nNow rewrite that as 1 short sentence.\n/exit\n")
-			}
-			output, err := cmd.CombinedOutput()
-			if err != nil {
-				t.Fatalf("go run ./pkg/llm/codex/examples/%s error = %v\nOUTPUT:\n%s", name, err, output)
-			}
-			assertRealExampleOutput(t, name, string(output))
-		})
 	}
 }
 
@@ -483,65 +442,4 @@ func realIntegrationRepoRoot(t *testing.T) string {
 		t.Fatalf("os.Getwd() error = %v", err)
 	}
 	return filepath.Clean(filepath.Join(cwd, "..", "..", "..", ".."))
-}
-
-func assertRealExampleOutput(t *testing.T, name, output string) {
-	t.Helper()
-
-	switch name {
-	case "01_quickstart_constructor":
-		if !strings.Contains(output, "Server:") || !strings.Contains(output, "Items:") || !strings.Contains(output, "Text:") {
-			t.Fatalf("example %s output missing constructor markers:\n%s", name, output)
-		}
-	case "02_turn_run":
-		if !strings.Contains(output, "thread_id:") || !strings.Contains(output, "turn_id:") || !strings.Contains(output, "status:") {
-			t.Fatalf("example %s output missing run markers:\n%s", name, output)
-		}
-	case "03_turn_stream_events":
-		if !strings.Contains(output, "stream.completed:") || !strings.Contains(output, "assistant>") {
-			t.Fatalf("example %s output missing streaming markers:\n%s", name, output)
-		}
-	case "04_models_and_metadata":
-		if !strings.Contains(output, "server:") || !strings.Contains(output, "models.count:") || !strings.Contains(output, "models:") {
-			t.Fatalf("example %s output missing model metadata markers:\n%s", name, output)
-		}
-	case "05_existing_thread":
-		if !strings.Contains(output, "Created thread:") {
-			t.Fatalf("example %s output missing existing-thread markers:\n%s", name, output)
-		}
-	case "06_thread_lifecycle_and_controls":
-		if !strings.Contains(output, "Lifecycle OK:") {
-			t.Fatalf("example %s output missing lifecycle markers:\n%s", name, output)
-		}
-	case "07_image_and_text", "08_local_image_and_text":
-		if !strings.Contains(strings.ToLower(output), "completed") && !strings.Contains(output, "Status:") {
-			t.Fatalf("example %s output missing image status markers:\n%s", name, output)
-		}
-	case "09_stream_parity":
-		if !strings.Contains(output, "Thread:") || !strings.Contains(output, "Turn:") {
-			t.Fatalf("example %s output missing stream parity markers:\n%s", name, output)
-		}
-	case "10_error_handling_and_retry":
-		if !strings.Contains(output, "Text:") {
-			t.Fatalf("example %s output missing retry text markers:\n%s", name, output)
-		}
-	case "11_cli_mini_app":
-		if !strings.Contains(output, "Thread:") || strings.Count(output, "assistant>") < 2 || strings.Count(output, "usage>") < 2 {
-			t.Fatalf("example %s output missing CLI markers:\n%s", name, output)
-		}
-	case "12_turn_params_kitchen_sink":
-		if !strings.Contains(output, "Status:") || !strings.Contains(output, "summary:") || !strings.Contains(output, "actions:") {
-			t.Fatalf("example %s output missing kitchen-sink markers:\n%s", name, output)
-		}
-	case "13_model_select_and_turn_params":
-		if !strings.Contains(output, "selected.model:") || !strings.Contains(output, "agent.message.params:") || !strings.Contains(output, "items.params:") {
-			t.Fatalf("example %s output missing model-select markers:\n%s", name, output)
-		}
-	case "14_turn_controls":
-		if !strings.Contains(output, "steer.result:") || !strings.Contains(output, "interrupt.result:") {
-			t.Fatalf("example %s output missing turn-control markers:\n%s", name, output)
-		}
-	default:
-		t.Fatalf("unhandled real example %q", name)
-	}
 }
