@@ -77,6 +77,10 @@ func (g *generator) emitDefinition(out *bytes.Buffer, name string, def *jsonsche
 	}
 	goType := g.typeForSchema(def, false)
 	writeGodoc(out, "", goName, def.Description, fmt.Sprintf("%s is generated from the %s schema definition.", goName, name))
+	if _, ok := g.namedScalars[name]; ok && isScalarGoType(goType) {
+		fmt.Fprintf(out, "type %s %s\n", goName, goType)
+		return nil
+	}
 	if goType == "jsontext.Value" {
 		fmt.Fprintf(out, "type %s jsontext.Value\n", goName)
 		fmt.Fprintf(out, "\n")
@@ -92,6 +96,15 @@ func (g *generator) emitDefinition(out *bytes.Buffer, name string, def *jsonsche
 	}
 	fmt.Fprintf(out, "type %s = %s\n", goName, goType)
 	return nil
+}
+
+func isScalarGoType(goType string) bool {
+	switch goType {
+	case "bool", "float64", "int64", "string":
+		return true
+	default:
+		return false
+	}
 }
 
 func (g *generator) shouldEmitRawCodecWrapper(name string, def *jsonschema.Schema) bool {

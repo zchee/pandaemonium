@@ -138,7 +138,35 @@ func TestRealAppServerIntegrationStreamingAndInterruptPort(t *testing.T) {
 		t.Fatalf("StreamThread.Turn(interrupt) real app-server error = %v", err)
 	}
 	if _, err := interruptTurn.Interrupt(ctx); err != nil {
-		t.Fatalf("StreamTurnHandle.Interrupt() real app-server error = %v", err)
+		// The real service can finish this intentionally simple prompt before
+		// the interrupt request arrives. That still exercises the transport and
+		// should not fail the follow-up turn regression below.
+		if !strings.Contains(err.Error(), "no active turn to interrupt") {
+			t.Fatalf("StreamTurnHandle.Interrupt() real app-server error = %v", err)
+		}
+	}
+	interruptCtx, interruptCancel := context.WithTimeout(ctx, 45*time.Second)
+	defer interruptCancel()
+	sawInterruptTerminal := false
+	for event, err := range interruptTurn.Stream(interruptCtx) {
+		if err != nil {
+			t.Fatalf("interrupted Stream() real app-server error = %v", err)
+		}
+		completed, ok, err := event.TurnCompleted()
+		if err != nil {
+			t.Fatalf("interrupted Notification.TurnCompleted() error = %v", err)
+		}
+		if !ok {
+			continue
+		}
+		sawInterruptTerminal = true
+		if completed.Turn.Status != codex.TurnStatusCompleted && completed.Turn.Status != codex.TurnStatusFailed {
+			t.Fatalf("interrupted status = %q, want completed or failed", completed.Turn.Status)
+		}
+		break
+	}
+	if !sawInterruptTerminal {
+		t.Fatal("interrupted stream ended without turn/completed notification")
 	}
 
 	followUpTurn, err := streamThread.Turn(ctx, "Say ok only.", nil)
@@ -168,7 +196,7 @@ func TestRealAppServerIntegrationStreamingAndInterruptPort(t *testing.T) {
 }
 
 func TestRealAppServerIntegrationExamplesRunPort(t *testing.T) {
-	requireRealCodexBinary(t)
+	codexBin := requireRealCodexBinary(t)
 
 	repoRoot := realIntegrationRepoRoot(t)
 	cases := []string{
@@ -192,15 +220,15 @@ func TestRealAppServerIntegrationExamplesRunPort(t *testing.T) {
 			ctx, cancel := context.WithTimeout(t.Context(), 3*time.Minute)
 			t.Cleanup(cancel)
 
-			cmd := exec.CommandContext(ctx, "go", "run", "./pkg/codex/examples/"+name)
+			cmd := exec.CommandContext(ctx, "go", "run", "./pkg/llm/codex/examples/"+name)
 			cmd.Dir = repoRoot
-			cmd.Env = os.Environ()
+			cmd.Env = append(os.Environ(), "CODEX_BIN="+codexBin)
 			if name == "11_cli_mini_app" {
 				cmd.Stdin = strings.NewReader("Give 3 short bullets on SIMD.\nNow rewrite that as 1 short sentence.\n/exit\n")
 			}
 			output, err := cmd.CombinedOutput()
 			if err != nil {
-				t.Fatalf("go run ./pkg/codex/examples/%s error = %v\nOUTPUT:\n%s", name, err, output)
+				t.Fatalf("go run ./pkg/llm/codex/examples/%s error = %v\nOUTPUT:\n%s", name, err, output)
 			}
 			assertRealExampleOutput(t, name, string(output))
 		})
@@ -354,11 +382,41 @@ func requireRealCodexBinary(t *testing.T) string {
 	if os.Getenv(realAppServerIntegrationEnv) != "1" {
 		t.Skipf("set %s=1 to run real Codex app-server integration coverage", realAppServerIntegrationEnv)
 	}
-	codexBin, err := exec.LookPath("codex")
-	if err != nil {
-		t.Skipf("real Codex app-server integration requires codex binary on PATH: %v", err)
+	expectedVersion := realIntegrationGeneratedSourceBinary(t)
+	codexBin, probes := findCodexBinaryForGeneratedProvenance(t.Context(), expectedVersion)
+	if codexBin == "" {
+		if len(probes) == 0 {
+			t.Skip("real Codex app-server integration requires codex binary on PATH or in the local standalone release store")
+		}
+		t.Fatalf(
+			"real Codex app-server integration requires generated provenance %q; checked binaries:\n%s",
+			expectedVersion,
+			formatCodexBinaryProbes(probes),
+		)
 	}
 	return codexBin
+}
+
+func realIntegrationGeneratedSourceBinary(t *testing.T) string {
+	t.Helper()
+
+	generatedPath := filepath.Join(realIntegrationRepoRoot(t), "pkg", "llm", "codex", "protocol_gen.go")
+	generated, err := os.ReadFile(generatedPath)
+	if err != nil {
+		t.Fatalf("os.ReadFile(%s) error = %v", generatedPath, err)
+	}
+	for line := range strings.SplitSeq(string(generated), "\n") {
+		version, ok := strings.CutPrefix(line, "// Source binary: ")
+		if ok {
+			version = strings.TrimSpace(version)
+			if version == "" {
+				break
+			}
+			return version
+		}
+	}
+	t.Fatalf("%s is missing generated Source binary provenance", generatedPath)
+	return ""
 }
 
 func reserveRealIntegrationLoopbackPort(t *testing.T) string {
@@ -424,7 +482,7 @@ func realIntegrationRepoRoot(t *testing.T) string {
 	if err != nil {
 		t.Fatalf("os.Getwd() error = %v", err)
 	}
-	return filepath.Clean(filepath.Join(cwd, "..", "..", ".."))
+	return filepath.Clean(filepath.Join(cwd, "..", "..", "..", ".."))
 }
 
 func assertRealExampleOutput(t *testing.T, name, output string) {

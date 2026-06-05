@@ -1747,6 +1747,10 @@ func TestGenerateDescriptionGodoc(t *testing.T) {
 		"NoDescription": {
 			Type: "string",
 		},
+		"ReasoningEffort": {
+			Type:        "string",
+			Description: "ReasoningEffort is an open model reasoning effort value.",
+		},
 		"Sample": {
 			Type:        "object",
 			Description: "Sample carries demo data.\n\nIt has multiple paragraphs.",
@@ -1769,6 +1773,7 @@ func TestGenerateDescriptionGodoc(t *testing.T) {
 	got := string(gotBytes)
 	wantFragments := []string{
 		"// Aliased opaque identifier referencing an upstream record.\ntype Aliased = string",
+		"// ReasoningEffort is an open model reasoning effort value.\ntype ReasoningEffort string",
 		"// Status lifecycle state of the workflow.\ntype Status string",
 		"// NoDescription is generated from the NoDescription schema definition.",
 		"// Sample carries demo data.",

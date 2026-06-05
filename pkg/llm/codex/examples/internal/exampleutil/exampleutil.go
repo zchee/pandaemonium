@@ -49,7 +49,11 @@ func NewContext() (context.Context, context.CancelFunc) {
 
 // NewCodex starts the app-server using the process-backed Go SDK.
 func NewCodex(ctx context.Context) (*codex.Codex, error) {
-	return codex.NewCodex(ctx, &codex.Config{})
+	cfg := &codex.Config{}
+	if codexBin := strings.TrimSpace(os.Getenv("CODEX_BIN")); codexBin != "" {
+		cfg.CodexBin = codexBin
+	}
+	return codex.NewCodex(ctx, cfg)
 }
 
 // RemoteConfigFromEnv returns a remote app-server config from example environment variables.

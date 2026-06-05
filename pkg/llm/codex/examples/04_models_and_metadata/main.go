@@ -19,6 +19,7 @@ import (
 	"log"
 	"strings"
 
+	"github.com/zchee/pandaemonium/pkg/llm/codex"
 	"github.com/zchee/pandaemonium/pkg/llm/codex/examples/internal/exampleutil"
 )
 
@@ -33,7 +34,7 @@ func main() {
 	defer client.Close()
 
 	fmt.Println("server:", exampleutil.ServerLabel(client.Metadata()))
-	models, err := client.Models(ctx, nil)
+	models, err := client.Models(ctx, &codex.ModelListParams{})
 	if err != nil {
 		log.Fatal(err)
 	}

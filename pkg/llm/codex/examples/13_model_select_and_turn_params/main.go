@@ -60,7 +60,7 @@ func main() {
 	first, err := thread.Run(
 		ctx,
 		"Give one short sentence about reliable production releases.",
-		&codex.TurnStartParams{Model: selectedModel.Model, Effort: selectedEffort},
+		&codex.TurnStartParams{Model: selectedModel.Model, Effort: &selectedEffort},
 	)
 	if err != nil {
 		log.Fatal(err)
@@ -80,7 +80,7 @@ func main() {
 		"Return JSON for a safe feature-flag rollout plan.",
 		&codex.TurnStartParams{
 			Cwd:           cwd,
-			Effort:        selectedEffort,
+			Effort:        &selectedEffort,
 			Model:         selectedModel.Model,
 			OutputSchema:  exampleutil.OutputSchema(),
 			Personality:   personality,

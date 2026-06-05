@@ -29,11 +29,6 @@ import (
 const contractGenerationSchemaSource = "codex app-server generate-json-schema --experimental"
 
 func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
-	codexPath, err := exec.LookPath("codex")
-	if err != nil {
-		t.Fatalf("codex binary not on PATH; cannot verify app-server schema regeneration: %v", err)
-	}
-
 	repoRoot := artifactWorkflowRepoRoot(t)
 	packageRoot := filepath.Join(repoRoot, "pkg", "llm", "codex")
 	checkedInPath := filepath.Join(packageRoot, "protocol_gen.go")
@@ -47,15 +42,12 @@ func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 	if !ok {
 		t.Fatalf("%s is missing generated Source binary provenance", checkedInPath)
 	}
-	actualVersion, err := contractGenerationCodexVersion(t.Context(), codexPath)
-	if err != nil {
-		t.Fatalf("read codex version from %s error = %v", codexPath, err)
-	}
-	if actualVersion != expectedVersion {
+	codexPath, probes := findCodexBinaryForGeneratedProvenance(t.Context(), expectedVersion)
+	if codexPath == "" {
 		t.Fatalf(
-			"codex version %q does not match checked-in generated provenance %q; install the matching binary or regenerate protocol_gen.go with the intended codex",
-			actualVersion,
+			"codex binary matching checked-in generated provenance %q is required to verify app-server schema regeneration; checked binaries:\n%s",
 			expectedVersion,
+			formatCodexBinaryProbes(probes),
 		)
 	}
 
@@ -63,6 +55,7 @@ func TestContractGenerationPortGeneratedFilesAreUpToDate(t *testing.T) {
 	t.Cleanup(cancel)
 	cmd := exec.CommandContext(
 		ctx, contractGenerationGoCommand(), "run", "./internal/cmd/generate-protocol-types",
+		"-codex-bin", codexPath,
 		"-out", generatedPath,
 		"-package", "codex",
 	)
@@ -97,17 +90,6 @@ func contractGenerationSourceBinary(generated []byte) (string, bool) {
 		}
 	}
 	return "", false
-}
-
-func contractGenerationCodexVersion(ctx context.Context, codexPath string) (string, error) {
-	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
-	defer cancel()
-	cmd := exec.CommandContext(ctx, codexPath, "--version")
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(strings.SplitN(string(output), "\n", 2)[0]), nil
 }
 
 func contractGenerationDiff(t *testing.T, checkedInPath, generatedPath string) string {

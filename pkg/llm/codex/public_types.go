@@ -46,6 +46,21 @@ const (
 	ApprovalModeAutoReview ApprovalMode = "auto_review"
 )
 
+const (
+	// ReasoningEffortNone disables model reasoning when the selected model supports it.
+	ReasoningEffortNone ReasoningEffort = "none"
+	// ReasoningEffortMinimal requests minimal model reasoning.
+	ReasoningEffortMinimal ReasoningEffort = "minimal"
+	// ReasoningEffortLow requests low model reasoning.
+	ReasoningEffortLow ReasoningEffort = "low"
+	// ReasoningEffortMedium requests medium model reasoning.
+	ReasoningEffortMedium ReasoningEffort = "medium"
+	// ReasoningEffortHigh requests high model reasoning.
+	ReasoningEffortHigh ReasoningEffort = "high"
+	// ReasoningEffortXhigh requests extra-high model reasoning.
+	ReasoningEffortXhigh ReasoningEffort = "xhigh"
+)
+
 // NewAskForApprovalValue creates an AskForApproval root value from an enum arm.
 func NewAskForApprovalValue(value AskForApprovalValue) (AskForApproval, error) {
 	return newAskForApproval(value)

@@ -31,6 +31,7 @@ import (
 type generator struct {
 	definitions         map[string]*jsonschema.Schema
 	aliases             map[string]string
+	namedScalars        map[string]struct{}
 	packageName         string
 	typeNames           map[string]string
 	rawUnions           map[string]struct{}
@@ -105,6 +106,9 @@ func newGenerator(definitions map[string]*jsonschema.Schema) *generator {
 		aliases: map[string]string{
 			"AbsolutePathBuf": "string",
 			"RequestId":       "string",
+		},
+		namedScalars: map[string]struct{}{
+			"ReasoningEffort": {},
 		},
 		unionTagger: make(map[string]struct{}),
 		emittedType: make(map[string]struct{}),

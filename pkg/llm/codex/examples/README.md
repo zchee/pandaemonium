@@ -1,12 +1,12 @@
 # Codex Go SDK Examples
 
 These examples port the upstream Python SDK examples from
-`openai/codex` tag `rust-v0.137.0-alpha.5`, path `sdk/python/examples`, to the
+`openai/codex` tag `rust-v0.138.0-alpha.4`, path `sdk/python/examples`, to the
 Go SDK package in this module.
 
 Each numbered directory is a standalone `go run` command that uses public SDK
 exports from `github.com/zchee/pandaemonium/pkg/llm/codex`. Shared example-only
-helpers live under `pkg/codex/examples/internal/exampleutil`.
+helpers live under `pkg/llm/codex/examples/internal/exampleutil`.
 
 ## Prerequisites
 
@@ -28,23 +28,23 @@ are shorthand for `codex.TextInput{Text: ...}`. Use typed inputs such as
 From the repository root:
 
 ```bash
-go run ./pkg/codex/examples/01_quickstart_constructor
-go run ./pkg/codex/examples/02_turn_run
-go run ./pkg/codex/examples/03_turn_stream_events
-go run ./pkg/codex/examples/04_models_and_metadata
-go run ./pkg/codex/examples/05_existing_thread
-go run ./pkg/codex/examples/06_thread_lifecycle_and_controls
-go run ./pkg/codex/examples/07_image_and_text
-go run ./pkg/codex/examples/08_local_image_and_text
-go run ./pkg/codex/examples/09_stream_parity
-go run ./pkg/codex/examples/10_error_handling_and_retry
-go run ./pkg/codex/examples/11_cli_mini_app
-go run ./pkg/codex/examples/12_turn_params_kitchen_sink
-go run ./pkg/codex/examples/13_model_select_and_turn_params
-go run ./pkg/codex/examples/14_turn_controls
-go run ./pkg/codex/examples/15_remote_client_connect
-go run ./pkg/codex/examples/16_remote_control_status_and_pairing
-go run ./pkg/codex/examples/17_remote_process_spawn
+go run ./pkg/llm/codex/examples/01_quickstart_constructor
+go run ./pkg/llm/codex/examples/02_turn_run
+go run ./pkg/llm/codex/examples/03_turn_stream_events
+go run ./pkg/llm/codex/examples/04_models_and_metadata
+go run ./pkg/llm/codex/examples/05_existing_thread
+go run ./pkg/llm/codex/examples/06_thread_lifecycle_and_controls
+go run ./pkg/llm/codex/examples/07_image_and_text
+go run ./pkg/llm/codex/examples/08_local_image_and_text
+go run ./pkg/llm/codex/examples/09_stream_parity
+go run ./pkg/llm/codex/examples/10_error_handling_and_retry
+go run ./pkg/llm/codex/examples/11_cli_mini_app
+go run ./pkg/llm/codex/examples/12_turn_params_kitchen_sink
+go run ./pkg/llm/codex/examples/13_model_select_and_turn_params
+go run ./pkg/llm/codex/examples/14_turn_controls
+go run ./pkg/llm/codex/examples/15_remote_client_connect
+go run ./pkg/llm/codex/examples/16_remote_control_status_and_pairing
+go run ./pkg/llm/codex/examples/17_remote_process_spawn
 ```
 
 ## Remote app-server examples
