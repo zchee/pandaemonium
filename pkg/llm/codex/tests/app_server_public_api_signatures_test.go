@@ -132,6 +132,8 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 		_ codex.CancelLoginAccountResponse
 		_ codex.CancelLoginAccountStatus
 		_ codex.GetAccountResponse
+		_ codex.GetAccountTokenUsageResponse
+		_ codex.RemoteControlPairingStatusResponse
 		_ codex.InitializeResponse
 		_ codex.Object
 		_ codex.ModelListResponse
@@ -159,6 +161,7 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 		_ codex.Turn
 		_ codex.TurnCompletedNotification
 		_ codex.TurnInterruptResponse
+		_ codex.TurnModerationMetadataNotification
 		_ codex.TurnStatus
 		_ codex.TurnSteerResponse
 	)
@@ -171,6 +174,8 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 		"CancelLoginAccountResponse":          reflect.TypeFor[codex.CancelLoginAccountResponse](),
 		"CancelLoginAccountStatus":            reflect.TypeFor[codex.CancelLoginAccountStatus](),
 		"GetAccountResponse":                  reflect.TypeFor[codex.GetAccountResponse](),
+		"GetAccountTokenUsageResponse":        reflect.TypeFor[codex.GetAccountTokenUsageResponse](),
+		"RemoteControlPairingStatusResponse":  reflect.TypeFor[codex.RemoteControlPairingStatusResponse](),
 		"InitializeResponse":                  reflect.TypeFor[codex.InitializeResponse](),
 		"ModelListResponse":                   reflect.TypeFor[codex.ModelListResponse](),
 		"Notification":                        reflect.TypeFor[codex.Notification](),
@@ -197,6 +202,7 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 		"Turn":                                reflect.TypeFor[codex.Turn](),
 		"TurnCompletedNotification":           reflect.TypeFor[codex.TurnCompletedNotification](),
 		"TurnInterruptResponse":               reflect.TypeFor[codex.TurnInterruptResponse](),
+		"TurnModerationMetadataNotification":  reflect.TypeFor[codex.TurnModerationMetadataNotification](),
 		"TurnStatus":                          reflect.TypeFor[codex.TurnStatus](),
 		"TurnSteerResponse":                   reflect.TypeFor[codex.TurnSteerResponse](),
 	}
@@ -410,6 +416,29 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			},
 			out: []reflect.Type{
 				reflect.TypeFor[codex.AccountLoginCompletedNotification](),
+				errorType,
+			},
+		},
+		"success: Client AccountUsageRead": {
+			typ:  reflect.TypeFor[*codex.Client](),
+			name: "AccountUsageRead",
+			in: []reflect.Type{
+				contextType,
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.GetAccountTokenUsageResponse](),
+				errorType,
+			},
+		},
+		"success: Client RemoteControlPairingStatus": {
+			typ:  reflect.TypeFor[*codex.Client](),
+			name: "RemoteControlPairingStatus",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[*codex.RemoteControlPairingStatusParams](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.RemoteControlPairingStatusResponse](),
 				errorType,
 			},
 		},

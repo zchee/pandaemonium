@@ -40,6 +40,49 @@ func TestRemoteControlFacadeDelegatesToClient(t *testing.T) {
 	}
 }
 
+func TestRemoteControlFacadePairingStatusDelegatesToClient(t *testing.T) {
+	client := newRemoteControlPairingStatusFacadeTestClient(t)
+
+	got, err := client.RemoteControl().PairingStatus(t.Context(), &RemoteControlPairingStatusParams{
+		PairingCode:       "pair-facade",
+		ManualPairingCode: "manual-facade",
+	})
+	if err != nil {
+		t.Fatalf("Client.RemoteControl().PairingStatus() error = %v", err)
+	}
+	if !got.Claimed {
+		t.Fatalf("Client.RemoteControl().PairingStatus() = %#v, want claimed", got)
+	}
+}
+
+func newRemoteControlPairingStatusFacadeTestClient(t *testing.T) *Client {
+	t.Helper()
+
+	tr := newScriptTransport()
+	tr.onWrite = func(data []byte, tr *scriptTransport) error {
+		var req rpcMessage
+		if err := json.Unmarshal(data, &req); err != nil {
+			return err
+		}
+		if req.Method != RequestMethodRemoteControlPairingStatus {
+			t.Fatalf("request method = %q, want %s", req.Method, RequestMethodRemoteControlPairingStatus)
+		}
+		var params RemoteControlPairingStatusParams
+		if err := json.Unmarshal(req.Params, &params); err != nil {
+			return err
+		}
+		if params.PairingCode != "pair-facade" || params.ManualPairingCode != "manual-facade" {
+			t.Fatalf("request params = %#v, want facade pairing codes", params)
+		}
+		return tr.enqueueJSON(Object{
+			"id":     req.ID,
+			"result": RemoteControlPairingStatusResponse{Claimed: true},
+		})
+	}
+
+	return newScriptedClient(t, tr)
+}
+
 func newRemoteControlFacadeTestClient(t *testing.T) *Client {
 	t.Helper()
 

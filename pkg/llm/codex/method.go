@@ -387,6 +387,11 @@ func (c *Client) RemoteControlPairingStart(ctx context.Context, params *RemoteCo
 	return Request[RemoteControlPairingStartResponse](ctx, c, RequestMethodRemoteControlPairingStart, paramsOrEmpty(params))
 }
 
+// RemoteControlPairingStatus calls remoteControl/pairing/status.
+func (c *Client) RemoteControlPairingStatus(ctx context.Context, params *RemoteControlPairingStatusParams) (RemoteControlPairingStatusResponse, error) {
+	return Request[RemoteControlPairingStatusResponse](ctx, c, RequestMethodRemoteControlPairingStatus, paramsOrEmpty(params))
+}
+
 // RemoteControlClientList calls remoteControl/client/list.
 func (c *Client) RemoteControlClientList(ctx context.Context, params *RemoteControlClientsListParams) (RemoteControlClientsListResponse, error) {
 	return Request[RemoteControlClientsListResponse](ctx, c, RequestMethodRemoteControlClientList, paramsOrEmpty(params))
@@ -472,6 +477,11 @@ func (c *Client) AccountLogout(ctx context.Context) (LogoutAccountResponse, erro
 // AccountRateLimitsRead calls account/rateLimits/read.
 func (c *Client) AccountRateLimitsRead(ctx context.Context) (GetAccountRateLimitsResponse, error) {
 	return Request[GetAccountRateLimitsResponse](ctx, c, RequestMethodAccountRateLimitsRead, nil)
+}
+
+// AccountUsageRead calls account/usage/read.
+func (c *Client) AccountUsageRead(ctx context.Context) (GetAccountTokenUsageResponse, error) {
+	return Request[GetAccountTokenUsageResponse](ctx, c, RequestMethodAccountUsageRead, nil)
 }
 
 // AccountSendAddCreditsNudgeEmail calls account/sendAddCreditsNudgeEmail.

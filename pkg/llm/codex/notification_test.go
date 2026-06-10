@@ -357,11 +357,16 @@ func TestNotificationConvenienceHelpersCoverKnownMethods(t *testing.T) {
 		"thread/unarchived":                 newNotificationConvenienceCase(t, NotificationMethodThreadUnarchived, ThreadUnarchivedNotification{}, DecodeThreadUnarchivedNotification, Notification.ThreadUnarchived),
 		"turn/completed":                    newNotificationConvenienceCase(t, NotificationMethodTurnCompleted, TurnCompletedNotification{}, DecodeTurnCompletedNotification, Notification.TurnCompleted),
 		"turn/diff/updated":                 newNotificationConvenienceCase(t, NotificationMethodTurnDiffUpdated, TurnDiffUpdatedNotification{}, DecodeTurnDiffUpdatedNotification, Notification.TurnDiffUpdated),
-		"turn/plan/updated":                 newNotificationConvenienceCase(t, NotificationMethodTurnPlanUpdated, TurnPlanUpdatedNotification{}, DecodeTurnPlanUpdatedNotification, Notification.TurnPlanUpdated),
-		"turn/started":                      newNotificationConvenienceCase(t, NotificationMethodTurnStarted, TurnStartedNotification{}, DecodeTurnStartedNotification, Notification.TurnStarted),
-		"warning":                           newNotificationConvenienceCase(t, NotificationMethodWarning, WarningNotification{}, DecodeWarningNotification, Notification.Warning),
-		"windows/worldWritableWarning":      newNotificationConvenienceCase(t, NotificationMethodWindowsWorldWritableWarning, WindowsWorldWritableWarningNotification{}, DecodeWindowsWorldWritableWarningNotification, Notification.WindowsWorldWritableWarning),
-		"windowsSandbox/setupCompleted":     newNotificationConvenienceCase(t, NotificationMethodWindowsSandboxSetupCompleted, WindowsSandboxSetupCompletedNotification{}, DecodeWindowsSandboxSetupCompletedNotification, Notification.WindowsSandboxSetupCompleted),
+		"turn/moderationMetadata": newNotificationConvenienceCase(t, NotificationMethodTurnModerationMetadata, TurnModerationMetadataNotification{
+			Metadata: jsontext.Value(`{"category":"sensitive"}`),
+			ThreadID: "thread",
+			TurnID:   "turn",
+		}, DecodeTurnModerationMetadataNotification, Notification.TurnModerationMetadata),
+		"turn/plan/updated":             newNotificationConvenienceCase(t, NotificationMethodTurnPlanUpdated, TurnPlanUpdatedNotification{}, DecodeTurnPlanUpdatedNotification, Notification.TurnPlanUpdated),
+		"turn/started":                  newNotificationConvenienceCase(t, NotificationMethodTurnStarted, TurnStartedNotification{}, DecodeTurnStartedNotification, Notification.TurnStarted),
+		"warning":                       newNotificationConvenienceCase(t, NotificationMethodWarning, WarningNotification{}, DecodeWarningNotification, Notification.Warning),
+		"windows/worldWritableWarning":  newNotificationConvenienceCase(t, NotificationMethodWindowsWorldWritableWarning, WindowsWorldWritableWarningNotification{}, DecodeWindowsWorldWritableWarningNotification, Notification.WindowsWorldWritableWarning),
+		"windowsSandbox/setupCompleted": newNotificationConvenienceCase(t, NotificationMethodWindowsSandboxSetupCompleted, WindowsSandboxSetupCompletedNotification{}, DecodeWindowsSandboxSetupCompletedNotification, Notification.WindowsSandboxSetupCompleted),
 	}
 
 	coveredMethods := make([]string, 0, len(tests))

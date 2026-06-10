@@ -67,7 +67,7 @@ func TestExamplesReadmeIndexAndPublicImports(t *testing.T) {
 	if err != nil {
 		t.Fatalf("read examples README: %v", err)
 	}
-	if !bytes.Contains(readme, []byte("rust-v0.138.0-alpha.4")) {
+	if !bytes.Contains(readme, []byte("rust-v0.140.0-alpha.2")) {
 		t.Fatalf("README missing upstream tag provenance")
 	}
 	for _, name := range exampleNames {

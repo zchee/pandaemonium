@@ -67,6 +67,14 @@ func (r *RemoteControl) PairingStart(ctx context.Context, params *RemoteControlP
 	return r.client.RemoteControlPairingStart(ctx, params)
 }
 
+// PairingStatus calls remoteControl/pairing/status.
+func (r *RemoteControl) PairingStatus(ctx context.Context, params *RemoteControlPairingStatusParams) (RemoteControlPairingStatusResponse, error) {
+	if r == nil || r.client == nil {
+		return RemoteControlPairingStatusResponse{}, errClientNil
+	}
+	return r.client.RemoteControlPairingStatus(ctx, params)
+}
+
 // Clients lists paired remote-control clients.
 func (r *RemoteControl) Clients(ctx context.Context, params *RemoteControlClientsListParams) (RemoteControlClientsListResponse, error) {
 	if r == nil || r.client == nil {

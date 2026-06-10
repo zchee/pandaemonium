@@ -109,6 +109,7 @@ func newGenerator(definitions map[string]*jsonschema.Schema) *generator {
 		},
 		namedScalars: map[string]struct{}{
 			"ReasoningEffort": {},
+			"ThreadSource":    {},
 		},
 		unionTagger: make(map[string]struct{}),
 		emittedType: make(map[string]struct{}),

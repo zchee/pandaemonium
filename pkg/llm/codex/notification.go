@@ -128,6 +128,9 @@ var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodModelVerification: func(notif Notification) (any, bool, error) {
 		return DecodeNotificationAs[ModelVerificationNotification](notif, NotificationMethodModelVerification)
 	},
+	NotificationMethodTurnModerationMetadata: func(notif Notification) (any, bool, error) {
+		return DecodeNotificationAs[TurnModerationMetadataNotification](notif, NotificationMethodTurnModerationMetadata)
+	},
 	NotificationMethodProcessExited: func(notif Notification) (any, bool, error) {
 		return DecodeNotificationAs[ProcessExitedNotification](notif, NotificationMethodProcessExited)
 	},
@@ -580,6 +583,11 @@ func DecodeTurnPlanUpdatedNotification(notif Notification) (TurnPlanUpdatedNotif
 	return DecodeNotificationAs[TurnPlanUpdatedNotification](notif, NotificationMethodTurnPlanUpdated)
 }
 
+// DecodeTurnModerationMetadataNotification decodes the turn/moderationMetadata notification.
+func DecodeTurnModerationMetadataNotification(notif Notification) (TurnModerationMetadataNotification, bool, error) {
+	return DecodeNotificationAs[TurnModerationMetadataNotification](notif, NotificationMethodTurnModerationMetadata)
+}
+
 // DecodeTurnStartedNotification decodes the turn/started notification.
 func DecodeTurnStartedNotification(notif Notification) (TurnStartedNotification, bool, error) {
 	return DecodeNotificationAs[TurnStartedNotification](notif, NotificationMethodTurnStarted)
@@ -898,6 +906,11 @@ func (notif Notification) TurnDiffUpdated() (TurnDiffUpdatedNotification, bool, 
 // TurnPlanUpdated decodes the turn/plan/updated notification.
 func (notif Notification) TurnPlanUpdated() (TurnPlanUpdatedNotification, bool, error) {
 	return DecodeTurnPlanUpdatedNotification(notif)
+}
+
+// TurnModerationMetadata decodes the turn/moderationMetadata notification.
+func (notif Notification) TurnModerationMetadata() (TurnModerationMetadataNotification, bool, error) {
+	return DecodeTurnModerationMetadataNotification(notif)
 }
 
 // TurnStarted decodes the turn/started notification.

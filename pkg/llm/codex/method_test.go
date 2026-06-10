@@ -226,6 +226,19 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 			}
 			return nil
 		}},
+		{name: "remoteControl/pairing/status", call: func() error {
+			got, err := client.RemoteControlPairingStatus(ctx, &RemoteControlPairingStatusParams{
+				PairingCode:       "pair-method",
+				ManualPairingCode: "manual-method",
+			})
+			if err != nil {
+				return err
+			}
+			if !got.Claimed {
+				t.Fatalf("RemoteControlPairingStatus() = %#v, want claimed", got)
+			}
+			return nil
+		}},
 		{name: "remoteControl/client/list", call: func() error {
 			limit := int32(10)
 			got, err := client.RemoteControlClientList(ctx, &RemoteControlClientsListParams{
@@ -281,6 +294,16 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "account/login/cancel", call: func() error { _, err := client.AccountLoginCancel(ctx, &CancelLoginAccountParams{}); return err }},
 		{name: "account/logout", call: func() error { _, err := client.AccountLogout(ctx); return err }},
 		{name: "account/rateLimits/read", call: func() error { _, err := client.AccountRateLimitsRead(ctx); return err }},
+		{name: "account/usage/read", call: func() error {
+			got, err := client.AccountUsageRead(ctx)
+			if err != nil {
+				return err
+			}
+			if got.Summary.LifetimeTokens != 12345 || len(got.DailyUsageBuckets) != 1 || got.DailyUsageBuckets[0].Tokens != 2345 {
+				t.Fatalf("AccountUsageRead() = %#v, want summary and daily bucket", got)
+			}
+			return nil
+		}},
 		{name: "account/sendAddCreditsNudgeEmail", call: func() error {
 			_, err := client.AccountSendAddCreditsNudgeEmail(ctx, &SendAddCreditsNudgeEmailParams{})
 			return err

@@ -1600,6 +1600,7 @@ var methodWrapperMethods = []string{
 	RequestMethodRemoteControlDisable,
 	RequestMethodRemoteControlStatusRead,
 	RequestMethodRemoteControlPairingStart,
+	RequestMethodRemoteControlPairingStatus,
 	RequestMethodRemoteControlClientList,
 	RequestMethodRemoteControlClientRevoke,
 	RequestMethodEnvironmentAdd,
@@ -1614,6 +1615,7 @@ var methodWrapperMethods = []string{
 	RequestMethodAccountLoginCancel,
 	RequestMethodAccountLogout,
 	RequestMethodAccountRateLimitsRead,
+	RequestMethodAccountUsageRead,
 	RequestMethodAccountSendAddCreditsNudgeEmail,
 	RequestMethodFeedbackUpload,
 	RequestMethodCommandExec,
@@ -1663,6 +1665,11 @@ func handleMethodWrappersScenario(writer *bufio.Writer, req map[string]any, meth
 	switch method {
 	case RequestMethodAccountLoginStart:
 		writeJSON(writer, Object{"id": id, "result": Object{"type": "apiKey"}})
+	case RequestMethodAccountUsageRead:
+		writeJSON(writer, Object{"id": id, "result": Object{
+			"dailyUsageBuckets": []Object{{"startDate": "2026-06-10", "tokens": int64(2345)}},
+			"summary":           Object{"lifetimeTokens": int64(12345)},
+		}})
 	case RequestMethodThreadGoalSet:
 		writeJSON(writer, Object{"id": id, "result": Object{"goal": methodWrapperThreadGoal()}})
 	case RequestMethodThreadGoalGet:
@@ -1682,6 +1689,8 @@ func handleMethodWrappersScenario(writer *bufio.Writer, req map[string]any, meth
 			"manualPairingCode": "manual-method",
 			"pairingCode":       "pair-method",
 		}})
+	case RequestMethodRemoteControlPairingStatus:
+		writeJSON(writer, Object{"id": id, "result": Object{"claimed": true}})
 	case RequestMethodRemoteControlClientList:
 		writeJSON(writer, Object{"id": id, "result": Object{
 			"data":       []Object{{"clientId": "client-method", "displayName": "test client"}},
@@ -1718,6 +1727,10 @@ func methodWrapperValidateParams(method string, params map[string]any) string {
 	case RequestMethodRemoteControlPairingStart:
 		if params["manualCode"] != true {
 			return "remoteControl/pairing/start missing manualCode"
+		}
+	case RequestMethodRemoteControlPairingStatus:
+		if params["pairingCode"] != "pair-method" || params["manualPairingCode"] != "manual-method" {
+			return "remoteControl/pairing/status params mismatch"
 		}
 	case RequestMethodRemoteControlClientList:
 		if params["environmentId"] != "env-method" || fmt.Sprint(params["limit"]) != "10" || params["order"] != string(RemoteControlClientsListOrderAsc) {
@@ -1781,6 +1794,7 @@ func methodWrapperExpectsEmptyParams(method string) bool {
 		RequestMethodRemoteControlStatusRead,
 		RequestMethodAccountLogout,
 		RequestMethodAccountRateLimitsRead,
+		RequestMethodAccountUsageRead,
 		RequestMethodConfigRequirementsRead:
 		return true
 	default:

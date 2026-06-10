@@ -1308,6 +1308,7 @@ func TestValidPackageName(t *testing.T) {
 func TestGenerateRepresentativeTypes(t *testing.T) {
 	definitions := map[string]*jsonschema.Schema{
 		"SampleStatus": {Type: "string", Enum: []any{"ready", "needs_input"}},
+		"ThreadSource": {Type: "string"},
 		"Nested":       {Type: "object", Properties: map[string]*jsonschema.Schema{"id": {Type: "string"}}, Required: []string{"id"}},
 		"Sample": {
 			Type: "object",
@@ -1319,11 +1320,12 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 				"metadata": {
 					Ref: "#/definitions/Nested",
 				},
-				"items":   {Type: "array", Items: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}}},
-				"nested":  {AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}},
-				"status":  {Ref: "#/definitions/SampleStatus"},
-				"status2": {Ref: "#/definitions/SampleStatus"},
-				"title":   {Type: "string"},
+				"items":        {Type: "array", Items: &jsonschema.Schema{AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}}},
+				"nested":       {AnyOf: []*jsonschema.Schema{{Ref: "#/definitions/Nested"}, {Type: "null"}}},
+				"status":       {Ref: "#/definitions/SampleStatus"},
+				"status2":      {Ref: "#/definitions/SampleStatus"},
+				"threadSource": {Ref: "#/definitions/ThreadSource"},
+				"title":        {Type: "string"},
 			},
 			Required: []string{"status"},
 		},
@@ -1362,6 +1364,7 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"package protocol",
 		"type SampleStatus string",
 		"SampleStatusNeedsInput SampleStatus = \"needs_input\"",
+		"type ThreadSource string",
 		"Active bool `json:\"active,omitzero\"`",
 		"Count int64 `json:\"count,omitzero\"`",
 		"Enabled bool `json:\"enabled,omitzero\"`",
@@ -1371,6 +1374,7 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		"Nested Nested `json:\"nested,omitzero\"`",
 		"Status SampleStatus `json:\"status\"`",
 		"Status2 SampleStatus `json:\"status2,omitzero\"`",
+		"ThreadSource *ThreadSource `json:\"threadSource,omitzero\"`",
 		"Title string `json:\"title,omitzero\"`",
 		"UnionSlice []jsontext.Value `json:\"unionSlice\"`",
 		"NestedUnion []*SampleStatus `json:\"nestedUnion\"`",
@@ -1379,6 +1383,9 @@ func TestGenerateRepresentativeTypes(t *testing.T) {
 		if !strings.Contains(got, fragment) {
 			t.Fatalf("generated source missing %q:\n%s", fragment, got)
 		}
+	}
+	if unwanted := "type ThreadSource = string"; strings.Contains(got, unwanted) {
+		t.Fatalf("generated source uses alias for named scalar %q:\n%s", unwanted, got)
 	}
 }
 
