@@ -16,22 +16,22 @@
 
 #include "textflag.h"
 
-// Plan 9 ARM64 NEON implementation of the six scan kernels. Each kernel
-// loads 16 bytes per iteration via VLD1, computes a per-lane membership
-// mask via VCMEQ (or VCMHS for unsigned range tests), and narrows the
-// 16-byte 0xFF/0x00 mask to a 64-bit syndrome via VSHRN $4 reinterpreting
-// the mask as 8 halfwords. Each matched source byte contributes exactly
-// 4 bits to the syndrome at positions [4k:4k+3] for source lane k, so
-// RBIT+CLZ followed by an LSR $2 recovers the lane index of the first
-// match.
+// Plan 9 ARM64 NEON implementation of the scan kernels. Each kernel
+// uses two related shapes: older tail/specialized kernels may narrow a
+// single 16-byte 0xFF/0x00 mask via VSHRN $4, while hot paths use a
+// 32-byte dual-vector loop ported from internal/memchr/bytealg shapes.
+// The 32-byte path first OR-reduces masks with VADDP.D2 to keep the no-hit
+// path cheap, then reconstructs a precise magic-constant syndrome only
+// for the candidate block.
 //
-// "Find first non-match" kernels (ScanBareKey, SkipWhitespace) build the
-// membership mask, then invert with VNOT before VSHRN so the same
-// RBIT+CLZ sequence locates the first non-class byte.
+// "Find first non-match" kernels use the same RBIT+CLZ sequence as match
+// kernels after constructing an invalid-byte mask. ScanBareKey classifies
+// bytes with low/high-nibble VTBL lookups; SkipWhitespace builds a membership
+// mask with equality compares and then inverts it with VNOT.
 //
 // Common register layout (per-kernel deviations noted in comments):
 //
-//   R0 — current data pointer (post-incremented by 16 per main-loop iter)
+//   R0 — current data pointer (post-incremented by 16 or 32 per iter)
 //   R1 — remaining length
 //   R2 — saved original data pointer (for offset = R0 - R2)
 //   R3 — scratch (constants, byte values in tail)
@@ -52,69 +52,74 @@ TEXT ·scanBareKeyNEON(SB), NOSPLIT, $0-32
 	MOVD s_len+8(FP), R1
 	MOVD R0, R2
 
-	// Broadcast the eight class boundary bytes to V1..V8.
-	MOVD $'A', R3
-	VMOV R3, V1.B16
-	MOVD $'Z', R3
+	// Magic syndrome constant used only after a candidate 32-byte block hits.
+	MOVD $0x40100401, R5
+	VMOV R5, V15.S4
+
+	// Bare-key membership is a conjunction of high-nibble and low-nibble
+	// class bitsets. VTBL maps each nibble to its bitset; a byte is valid
+	// when lowMask & highMask is non-zero. The classes are:
+	//
+	//   bit 0: low nibble 0..9       with high 3      -> digits
+	//   bit 1: low nibble 1..15      with high 4 or 6 -> A-O / a-o
+	//   bit 2: low nibble 0..10      with high 5 or 7 -> P-Z / p-z
+	//   bit 3: low nibble 15         with high 5      -> underscore
+	//   bit 4: low nibble 13         with high 2      -> hyphen
+	//
+	// V0 = low-nibble bitset table, V1 = high-nibble bitset table,
+	// V2 = 0x0f mask, V14 = zero vector.
+	MOVD $0x0707070707070705, R3
+	VMOV R3, V0.D[0]
+	MOVD $0x0a02120202060707, R3
+	VMOV R3, V0.D[1]
+	VEOR V1.B16, V1.B16, V1.B16
+	MOVD $0x04020c0201100000, R3
+	VMOV R3, V1.D[0]
+	VEOR V14.B16, V14.B16, V14.B16
+	MOVD $0x0f, R3
 	VMOV R3, V2.B16
-	MOVD $'a', R3
-	VMOV R3, V3.B16
-	MOVD $'z', R3
-	VMOV R3, V4.B16
-	MOVD $'0', R3
-	VMOV R3, V5.B16
-	MOVD $'9', R3
-	VMOV R3, V6.B16
-	MOVD $'_', R3
-	VMOV R3, V7.B16
-	MOVD $'-', R3
-	VMOV R3, V8.B16
 
-bare_loop16:
-	CMP  $16, R1
-	BLT  bare_tail
-	VLD1 (R0), [V0.B16]
+bare_loop32:
+	CMP    $32, R1
+	BLT    bare_tail
+	VLD1.P (R0), [V12.B16, V13.B16]
+	SUB    $32, R1, R1
 
-	// isUpper = (V0 >= 'A') && (V0 <= 'Z')
-	VCMHS V1.B16, V0.B16, V9.B16  // V0 >= 'A'
-	VCMHS V0.B16, V2.B16, V10.B16 // 'Z' >= V0
-	VAND  V9.B16, V10.B16, V9.B16 // V9 = isUpper
+	// First 16 bytes invalid mask -> V9.
+	VAND  V2.B16, V12.B16, V3.B16
+	VUSHR $4, V12.B16, V4.B16
+	VTBL  V3.B16, [V0.B16], V9.B16
+	VTBL  V4.B16, [V1.B16], V10.B16
+	VAND  V10.B16, V9.B16, V9.B16
+	VCMEQ V14.B16, V9.B16, V9.B16
 
-	// isLower = (V0 >= 'a') && (V0 <= 'z')
-	VCMHS V3.B16, V0.B16, V10.B16
-	VCMHS V0.B16, V4.B16, V11.B16
-	VAND  V10.B16, V11.B16, V10.B16
-	VORR  V10.B16, V9.B16, V9.B16
+	// Second 16 bytes invalid mask -> V10.
+	VAND  V2.B16, V13.B16, V3.B16
+	VUSHR $4, V13.B16, V4.B16
+	VTBL  V3.B16, [V0.B16], V10.B16
+	VTBL  V4.B16, [V1.B16], V11.B16
+	VAND  V11.B16, V10.B16, V10.B16
+	VCMEQ V14.B16, V10.B16, V10.B16
 
-	// isDigit = (V0 >= '0') && (V0 <= '9')
-	VCMHS V5.B16, V0.B16, V10.B16
-	VCMHS V0.B16, V6.B16, V11.B16
-	VAND  V10.B16, V11.B16, V10.B16
-	VORR  V10.B16, V9.B16, V9.B16
+	VORR  V10.B16, V9.B16, V11.B16
+	VADDP V11.D2, V11.D2, V11.D2
+	VMOV  V11.D[0], R6
+	CBNZ  R6, bare_construct
+	CBNZ  R1, bare_loop32
+	B     bare_done
 
-	// is underscore or hyphen
-	VCMEQ V7.B16, V0.B16, V10.B16
-	VORR  V10.B16, V9.B16, V9.B16
-	VCMEQ V8.B16, V0.B16, V10.B16
-	VORR  V10.B16, V9.B16, V9.B16
-
-	// Want first NON-member: invert mask then locate first match.
-	VNOT  V9.B16, V9.B16
-	VSHRN $4, V9.H8, V12.B8
-	VMOV  V12.D[0], R4
-	CBNZ  R4, bare_found
-
-	ADD $16, R0
-	SUB $16, R1
-	B   bare_loop16
-
-bare_found:
-	RBIT R4, R4
-	CLZ  R4, R4
-	LSR  $2, R4, R4
-	ADD  R4, R0, R0
-	SUB  R2, R0, R0
-	MOVD R0, ret+24(FP)
+bare_construct:
+	VAND  V15.B16, V9.B16, V9.B16
+	VAND  V15.B16, V10.B16, V10.B16
+	VADDP V10.B16, V9.B16, V11.B16
+	VADDP V11.B16, V11.B16, V11.B16
+	VMOV  V11.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R2, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
 
 bare_tail:
@@ -170,33 +175,43 @@ TEXT ·scanBasicStringNEON(SB), NOSPLIT, $0-32
 	MOVD s_len+8(FP), R1
 	MOVD R0, R2
 
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
 	MOVD $'"', R3
 	VMOV R3, V1.B16
 	MOVD $'\\', R3
 	VMOV R3, V2.B16
 
-bstr_loop16:
-	CMP   $16, R1
-	BLT   bstr_tail
-	VLD1  (R0), [V0.B16]
-	VCMEQ V1.B16, V0.B16, V9.B16
-	VCMEQ V2.B16, V0.B16, V10.B16
-	VORR  V10.B16, V9.B16, V9.B16
-	VSHRN $4, V9.H8, V11.B8
-	VMOV  V11.D[0], R4
-	CBNZ  R4, bstr_found
+bstr_loop32:
+	CMP    $32, R1
+	BLT    bstr_tail
+	VLD1.P (R0), [V3.B16, V4.B16]
+	SUB    $32, R1, R1
+	VCMEQ  V1.B16, V3.B16, V6.B16
+	VCMEQ  V2.B16, V3.B16, V8.B16
+	VORR   V8.B16, V6.B16, V6.B16
+	VCMEQ  V1.B16, V4.B16, V7.B16
+	VCMEQ  V2.B16, V4.B16, V8.B16
+	VORR   V8.B16, V7.B16, V7.B16
+	VORR   V7.B16, V6.B16, V8.B16
+	VADDP  V8.D2, V8.D2, V8.D2
+	VMOV   V8.D[0], R6
+	CBNZ   R6, bstr_construct
+	CBNZ   R1, bstr_loop32
+	B      bstr_done
 
-	ADD $16, R0
-	SUB $16, R1
-	B   bstr_loop16
-
-bstr_found:
-	RBIT R4, R4
-	CLZ  R4, R4
-	LSR  $2, R4, R4
-	ADD  R4, R0, R0
-	SUB  R2, R0, R0
-	MOVD R0, ret+24(FP)
+bstr_construct:
+	VAND  V5.B16, V6.B16, V6.B16
+	VAND  V5.B16, V7.B16, V7.B16
+	VADDP V7.B16, V6.B16, V8.B16
+	VADDP V8.B16, V8.B16, V8.B16
+	VMOV  V8.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R2, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
 
 bstr_tail:
@@ -321,36 +336,45 @@ TEXT ·skipWhitespaceNEON(SB), NOSPLIT, $0-32
 	MOVD s_len+8(FP), R1
 	MOVD R0, R2
 
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
 	MOVD $' ', R3
 	VMOV R3, V1.B16
-	MOVD $'\t', R3
+	MOVD $9, R3
 	VMOV R3, V2.B16
 
-ws_loop16:
-	CMP   $16, R1
-	BLT   ws_tail
-	VLD1  (R0), [V0.B16]
-	VCMEQ V1.B16, V0.B16, V9.B16
-	VCMEQ V2.B16, V0.B16, V10.B16
-	VORR  V10.B16, V9.B16, V9.B16
+ws_loop32:
+	CMP    $32, R1
+	BLT    ws_tail
+	VLD1.P (R0), [V3.B16, V4.B16]
+	SUB    $32, R1, R1
+	VCMEQ  V1.B16, V3.B16, V6.B16
+	VCMEQ  V2.B16, V3.B16, V8.B16
+	VORR   V8.B16, V6.B16, V6.B16
+	VNOT   V6.B16, V6.B16
+	VCMEQ  V1.B16, V4.B16, V7.B16
+	VCMEQ  V2.B16, V4.B16, V8.B16
+	VORR   V8.B16, V7.B16, V7.B16
+	VNOT   V7.B16, V7.B16
+	VORR   V7.B16, V6.B16, V8.B16
+	VADDP  V8.D2, V8.D2, V8.D2
+	VMOV   V8.D[0], R6
+	CBNZ   R6, ws_construct
+	CBNZ   R1, ws_loop32
+	B      ws_done
 
-	// "find first non-member" — invert.
-	VNOT  V9.B16, V9.B16
-	VSHRN $4, V9.H8, V11.B8
-	VMOV  V11.D[0], R4
-	CBNZ  R4, ws_found
-
-	ADD $16, R0
-	SUB $16, R1
-	B   ws_loop16
-
-ws_found:
-	RBIT R4, R4
-	CLZ  R4, R4
-	LSR  $2, R4, R4
-	ADD  R4, R0, R0
-	SUB  R2, R0, R0
-	MOVD R0, ret+24(FP)
+ws_construct:
+	VAND  V5.B16, V6.B16, V6.B16
+	VAND  V5.B16, V7.B16, V7.B16
+	VADDP V7.B16, V6.B16, V8.B16
+	VADDP V8.B16, V8.B16, V8.B16
+	VMOV  V8.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R2, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
 
 ws_tail:
@@ -360,7 +384,7 @@ ws_tail_loop:
 	MOVBU (R0), R3
 	CMP   $' ', R3
 	BEQ   ws_tail_next
-	CMP   $'\t', R3
+	CMP   $9, R3
 	BEQ   ws_tail_next
 	SUB   R2, R0, R0
 	MOVD  R0, ret+24(FP)
@@ -461,31 +485,37 @@ TEXT ·validateUTF8NEONBulk(SB), NOSPLIT, $0-32
 	MOVD s_len+8(FP), R1
 	MOVD R0, R2
 
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
 	MOVD $0x80, R3
 	VMOV R3, V1.B16
 
-u8_loop16:
-	CMP  $16, R1
-	BLT  u8_tail
-	VLD1 (R0), [V0.B16]
+u8_loop32:
+	CMP    $32, R1
+	BLT    u8_tail
+	VLD1.P (R0), [V2.B16, V3.B16]
+	SUB    $32, R1, R1
+	VCMHS  V1.B16, V2.B16, V6.B16
+	VCMHS  V1.B16, V3.B16, V7.B16
+	VORR   V7.B16, V6.B16, V8.B16
+	VADDP  V8.D2, V8.D2, V8.D2
+	VMOV   V8.D[0], R6
+	CBNZ   R6, u8_construct
+	CBNZ   R1, u8_loop32
+	B      u8_done
 
-	// b >= 0x80 ⇔ high bit set; VCMHS gives 0xFF per lane that matches.
-	VCMHS V1.B16, V0.B16, V9.B16
-	VSHRN $4, V9.H8, V11.B8
-	VMOV  V11.D[0], R4
-	CBNZ  R4, u8_found
-
-	ADD $16, R0
-	SUB $16, R1
-	B   u8_loop16
-
-u8_found:
-	RBIT R4, R4
-	CLZ  R4, R4
-	LSR  $2, R4, R4
-	ADD  R4, R0, R0
-	SUB  R2, R0, R0
-	MOVD R0, ret+24(FP)
+u8_construct:
+	VAND  V5.B16, V6.B16, V6.B16
+	VAND  V5.B16, V7.B16, V7.B16
+	VADDP V7.B16, V6.B16, V8.B16
+	VADDP V8.B16, V8.B16, V8.B16
+	VMOV  V8.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R2, R0, R0
+	MOVD  R0, ret+24(FP)
 	RET
 
 u8_tail:
@@ -508,3 +538,406 @@ u8_match:
 	SUB  R2, R0, R0
 	MOVD R0, ret+24(FP)
 	RET
+
+// ============================================================================
+// scanBasicStringStrictNEON — first slow byte in single-line basic string body.
+// Stops at '"', '\\', DEL, or C0 control except tab; returns len(s) on miss.
+// Uses the 32-byte memchr syndrome shape so the no-hit path checks only the
+// OR-reduced compare masks and constructs the precise syndrome on hit.
+// ============================================================================
+
+// func scanBasicStringStrictNEON(s []byte) int
+TEXT ·scanBasicStringStrictNEON(SB), NOSPLIT, $0-32
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R11
+
+	CBZ R1, strict_drained
+
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
+	MOVD $'"', R3
+	VMOV R3, V0.B16
+	MOVD $'\\', R3
+	VMOV R3, V7.B16
+	MOVD $0x7f, R3
+	VMOV R3, V8.B16
+	MOVD $0x1f, R3
+	VMOV R3, V9.B16
+	MOVD $'\t', R3
+	VMOV R3, V10.B16
+
+strict_loop32:
+	CMP    $32, R1
+	BLT    strict_tail
+	VLD1.P (R0), [V1.B16, V2.B16]
+	SUB    $32, R1, R1
+
+	// First 16 bytes -> V3 mask.
+	VCMEQ V0.B16, V1.B16, V3.B16
+	VCMEQ V7.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V8.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMHS V1.B16, V9.B16, V12.B16   // byte <= 0x1f
+	VCMEQ V10.B16, V1.B16, V13.B16
+	VNOT  V13.B16, V13.B16
+	VAND  V13.B16, V12.B16, V12.B16 // control and not tab
+	VORR  V12.B16, V3.B16, V3.B16
+
+	// Second 16 bytes -> V4 mask.
+	VCMEQ V0.B16, V2.B16, V4.B16
+	VCMEQ V7.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V8.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMHS V2.B16, V9.B16, V12.B16
+	VCMEQ V10.B16, V2.B16, V13.B16
+	VNOT  V13.B16, V13.B16
+	VAND  V13.B16, V12.B16, V12.B16
+	VORR  V12.B16, V4.B16, V4.B16
+
+	VORR  V4.B16, V3.B16, V6.B16
+	VADDP V6.D2, V6.D2, V6.D2
+	VMOV  V6.D[0], R6
+	CBNZ  R6, strict_construct
+	CBNZ  R1, strict_loop32
+	B     strict_drained
+
+strict_construct:
+	VAND  V5.B16, V3.B16, V3.B16
+	VAND  V5.B16, V4.B16, V4.B16
+	VADDP V4.B16, V3.B16, V6.B16
+	VADDP V6.B16, V6.B16, V6.B16
+	VMOV  V6.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R11, R0, R0
+	MOVD  R0, ret+24(FP)
+	RET
+
+strict_tail:
+	CBZ R1, strict_drained
+
+strict_tail_loop:
+	MOVBU.P 1(R0), R3
+	CMP     $'"', R3
+	BEQ     strict_tail_match
+	CMP     $'\\', R3
+	BEQ     strict_tail_match
+	CMP     $0x7f, R3
+	BEQ     strict_tail_match
+	CMP     $0x20, R3
+	BHS     strict_tail_next
+	CMP     $'\t', R3
+	BEQ     strict_tail_next
+	B       strict_tail_match
+
+strict_tail_next:
+	SUBS $1, R1, R1
+	BNE  strict_tail_loop
+
+strict_drained:
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
+	RET
+
+strict_tail_match:
+	SUB  $1, R0, R0
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
+	RET
+
+// ============================================================================
+// scanCommentBodyNEON — first comment body terminator/control byte.
+// Stops at LF, CR, DEL, or C0 control except tab; returns len(s) on miss.
+// ============================================================================
+
+// func scanCommentBodyNEON(s []byte) int
+TEXT ·scanCommentBodyNEON(SB), NOSPLIT, $0-32
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R11
+
+	CBZ R1, cmt_drained
+
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
+	MOVD $0x7f, R3
+	VMOV R3, V8.B16
+	MOVD $0x1f, R3
+	VMOV R3, V9.B16
+	MOVD $'\t', R3
+	VMOV R3, V10.B16
+
+cmt_loop32:
+	CMP    $32, R1
+	BLT    cmt_tail
+	VLD1.P (R0), [V1.B16, V2.B16]
+	SUB    $32, R1, R1
+
+	VCMEQ V8.B16, V1.B16, V3.B16
+	VCMHS V1.B16, V9.B16, V12.B16
+	VCMEQ V10.B16, V1.B16, V13.B16
+	VNOT  V13.B16, V13.B16
+	VAND  V13.B16, V12.B16, V12.B16
+	VORR  V12.B16, V3.B16, V3.B16
+
+	VCMEQ V8.B16, V2.B16, V4.B16
+	VCMHS V2.B16, V9.B16, V12.B16
+	VCMEQ V10.B16, V2.B16, V13.B16
+	VNOT  V13.B16, V13.B16
+	VAND  V13.B16, V12.B16, V12.B16
+	VORR  V12.B16, V4.B16, V4.B16
+
+	VORR  V4.B16, V3.B16, V6.B16
+	VADDP V6.D2, V6.D2, V6.D2
+	VMOV  V6.D[0], R6
+	CBNZ  R6, cmt_construct
+	CBNZ  R1, cmt_loop32
+	B     cmt_drained
+
+cmt_construct:
+	VAND  V5.B16, V3.B16, V3.B16
+	VAND  V5.B16, V4.B16, V4.B16
+	VADDP V4.B16, V3.B16, V6.B16
+	VADDP V6.B16, V6.B16, V6.B16
+	VMOV  V6.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R11, R0, R0
+	MOVD  R0, ret+24(FP)
+	RET
+
+cmt_tail:
+	CBZ R1, cmt_drained
+
+cmt_tail_loop:
+	MOVBU.P 1(R0), R3
+	CMP     $0x7f, R3
+	BEQ     cmt_tail_match
+	CMP     $0x20, R3
+	BHS     cmt_tail_next
+	CMP     $'\t', R3
+	BEQ     cmt_tail_next
+	B       cmt_tail_match
+
+cmt_tail_next:
+	SUBS $1, R1, R1
+	BNE  cmt_tail_loop
+
+cmt_drained:
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
+	RET
+
+cmt_tail_match:
+	SUB  $1, R0, R0
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
+	RET
+
+// ============================================================================
+// scanBareValueEndNEON — first bare-value delimiter, or len(s) on miss.
+// Delimiters: space, tab, CR, LF, comma, ']', '}', '#', '='.
+// ============================================================================
+
+// func scanBareValueEndNEON(s []byte) int
+TEXT ·scanBareValueEndNEON(SB), NOSPLIT, $0-32
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD R0, R11
+
+	CBZ R1, bval_drained
+
+	MOVD $0x40100401, R5
+	VMOV R5, V5.S4
+	MOVD $' ', R3
+	VMOV R3, V0.B16
+	MOVD $'\t', R3
+	VMOV R3, V7.B16
+	MOVD $'\r', R3
+	VMOV R3, V8.B16
+	MOVD $'\n', R3
+	VMOV R3, V9.B16
+	MOVD $',', R3
+	VMOV R3, V10.B16
+	MOVD $']', R3
+	VMOV R3, V11.B16
+	MOVD $'}', R3
+	VMOV R3, V12.B16
+	MOVD $'#', R3
+	VMOV R3, V13.B16
+	MOVD $'=', R3
+	VMOV R3, V14.B16
+
+bval_loop32:
+	CMP    $32, R1
+	BLT    bval_tail
+	VLD1.P (R0), [V1.B16, V2.B16]
+	SUB    $32, R1, R1
+
+	VCMEQ V0.B16, V1.B16, V3.B16
+	VCMEQ V7.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V8.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V9.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V10.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V11.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V12.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V13.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+	VCMEQ V14.B16, V1.B16, V6.B16
+	VORR  V6.B16, V3.B16, V3.B16
+
+	VCMEQ V0.B16, V2.B16, V4.B16
+	VCMEQ V7.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V8.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V9.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V10.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V11.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V12.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V13.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+	VCMEQ V14.B16, V2.B16, V6.B16
+	VORR  V6.B16, V4.B16, V4.B16
+
+	VORR  V4.B16, V3.B16, V6.B16
+	VADDP V6.D2, V6.D2, V6.D2
+	VMOV  V6.D[0], R6
+	CBNZ  R6, bval_construct
+	CBNZ  R1, bval_loop32
+	B     bval_drained
+
+bval_construct:
+	VAND  V5.B16, V3.B16, V3.B16
+	VAND  V5.B16, V4.B16, V4.B16
+	VADDP V4.B16, V3.B16, V6.B16
+	VADDP V6.B16, V6.B16, V6.B16
+	VMOV  V6.D[0], R6
+	RBIT  R6, R6
+	CLZ   R6, R6
+	SUB   $32, R0, R0
+	ADD   R6>>1, R0, R0
+	SUB   R11, R0, R0
+	MOVD  R0, ret+24(FP)
+	RET
+
+bval_tail:
+	CBZ R1, bval_drained
+
+bval_tail_loop:
+	MOVBU.P 1(R0), R3
+	CMP     $' ', R3
+	BEQ     bval_tail_match
+	CMP     $'\t', R3
+	BEQ     bval_tail_match
+	CMP     $'\r', R3
+	BEQ     bval_tail_match
+	CMP     $'\n', R3
+	BEQ     bval_tail_match
+	CMP     $',', R3
+	BEQ     bval_tail_match
+	CMP     $']', R3
+	BEQ     bval_tail_match
+	CMP     $'}', R3
+	BEQ     bval_tail_match
+	CMP     $'#', R3
+	BEQ     bval_tail_match
+	CMP     $'=', R3
+	BEQ     bval_tail_match
+	SUBS    $1, R1, R1
+	BNE     bval_tail_loop
+
+bval_drained:
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
+	RET
+
+bval_tail_match:
+	SUB  $1, R0, R0
+	SUB  R11, R0, R0
+	MOVD R0, ret+24(FP)
+	RET
+
+// ============================================================================
+// countLinesNEON — count LF bytes. Mirrors internal/bytealg.Count's 32-byte
+// vector reduction with the needle hard-coded to '\n'.
+// ============================================================================
+
+// func countLinesNEON(s []byte) int
+TEXT ·countLinesNEON(SB), NOSPLIT, $0-32
+	MOVD s_base+0(FP), R0
+	MOVD s_len+8(FP), R1
+	MOVD $0, R11
+	CBZ  R1, cnt_done
+	CMP  $0x20, R1
+	BHS  cnt_head
+
+cnt_tail:
+	MOVBU.P 1(R0), R5
+	SUB     $1, R1, R1
+	CMP     $'\n', R5
+	CINC    EQ, R11, R11
+	CBNZ    R1, cnt_tail
+
+cnt_done:
+	MOVD R11, ret+24(FP)
+	RET
+
+cnt_head:
+	ANDS $0x1f, R0, R9
+	BEQ  cnt_chunk
+	BIC  $0x1f, R0, R3
+	ADD  $0x20, R3
+
+cnt_head_loop:
+	MOVBU.P 1(R0), R5
+	CMP     $'\n', R5
+	CINC    EQ, R11, R11
+	SUB     $1, R1, R1
+	CMP     R0, R3
+	BNE     cnt_head_loop
+
+cnt_chunk:
+	BIC  $0x1f, R1, R9
+	CBZ  R9, cnt_tail
+	ADD  R0, R9, R3
+	MOVD $1, R5
+	VMOV R5, V5.B16
+	MOVD $'\n', R2
+	VMOV R2, V0.B16
+	SUB  R9, R1, R1
+	VEOR V7.B8, V7.B8, V7.B8
+	VEOR V8.B8, V8.B8, V8.B8
+
+cnt_chunk_loop:
+	VLD1.P  (R0), [V1.B16, V2.B16]
+	CMP     R0, R3
+	VCMEQ   V0.B16, V1.B16, V3.B16
+	VCMEQ   V0.B16, V2.B16, V4.B16
+	VAND    V5.B16, V3.B16, V3.B16
+	VAND    V5.B16, V4.B16, V4.B16
+	VADDP   V4.B16, V3.B16, V6.B16
+	VUADDLV V6.B16, V7
+	VADD    V7, V8
+	BNE     cnt_chunk_loop
+	VMOV    V8.D[0], R6
+	ADD     R6, R11, R11
+	CBZ     R1, cnt_done
+	B       cnt_tail

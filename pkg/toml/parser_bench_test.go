@@ -32,7 +32,7 @@ func TestDecoder_NewDecoderBytes_AllocsPerRun(t *testing.T) {
 		t.Fatalf("NewDecoderBytes(%q) allocs/run = %.0f, want <= 1", parserBenchCorpusRel, constructorAllocs)
 	}
 
-	const maxTokenStreamAllocs = 6000
+	const maxTokenStreamAllocs = 16
 	tokenStreamAllocs := testing.AllocsPerRun(25, func() {
 		dec := NewDecoderBytes(sample)
 		for {

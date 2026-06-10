@@ -24,9 +24,11 @@ import (
 	"strings"
 	"sync"
 	"unicode/utf8"
+
+	"github.com/zchee/pandaemonium/pkg/toml/internal/scan"
 )
 
-type documentMap map[string]any
+type documentMap = map[string]any
 
 const documentMapHint = 4
 
@@ -48,19 +50,19 @@ var documentMapPool = sync.Pool{
 }
 
 func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMap, error) {
-	dec := NewDecoderBytes(data, opts...)
+	dec := NewDecoderBytes(data, decoderOptionsWithoutTokenPositions(opts)...)
 	root := newDocumentMap()
 	current := root
 	currentPath := []string(nil)
 	currentFilter := filter
 	inTable := false
-	declaredTables := make(map[string]string)
-	dottedKeyTables := make(map[string]string)
-	arrayTables := make(map[string]struct{})
-	arrayTableEpochs := make(map[string]int)
-	closedInlineTables := make(map[string]string)
+	var declaredTables map[string]string
+	var dottedKeyTables map[string]string
+	var arrayTables map[string]struct{}
+	var arrayTableEpochs map[string]int
+	var closedInlineTables map[string]string
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if errors.Is(err, io.EOF) {
 			return root, nil
 		}
@@ -80,25 +82,28 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 			encodedPathKey := encodedKeyPath(path)
 			declContext := declarationContext(path, arrayTableEpochs)
 			if _, ok := arrayTables[encodedPathKey]; ok {
-				return nil, semanticSyntaxError(tok, "cannot redefine array table as table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine array table as table")
 			}
 			if existingContext, ok := dottedKeyTables[encodedPathKey]; ok && existingContext == declContext {
-				return nil, semanticSyntaxError(tok, "cannot redefine dotted key table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine dotted key table")
 			}
 			if closedInlinePrefix(path, closedInlineTables, arrayTableEpochs) {
-				return nil, semanticSyntaxError(tok, "cannot extend inline table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot extend inline table")
 			}
 			if existingContext, ok := declaredTables[encodedPathKey]; ok && existingContext == declContext {
-				return nil, semanticSyntaxError(tok, "duplicate table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "duplicate table")
 			}
 			if nextFilter, ok := filter.lookupPath(path); ok {
-				next, err := ensureTable(root, path, tok)
+				next, err := ensureTableRaw(data, root, path, tok)
 				if err != nil {
 					return nil, bindErrorPath(err, pathKey)
 				}
 				current = next
 				currentPath = append(currentPath[:0], path...)
 				currentFilter = nextFilter
+				if declaredTables == nil {
+					declaredTables = make(map[string]string, documentMapHint)
+				}
 				declaredTables[encodedPathKey] = declContext
 			} else {
 				current = nil
@@ -115,16 +120,22 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 			pathKey := strings.Join(path, ".")
 			encodedPathKey := encodedKeyPath(path)
 			if _, ok := declaredTables[encodedPathKey]; ok {
-				return nil, semanticSyntaxError(tok, "cannot redefine table as array table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine table as array table")
 			}
 			declContext := declarationContext(path, arrayTableEpochs)
 			if existingContext, ok := dottedKeyTables[encodedPathKey]; ok && existingContext == declContext {
-				return nil, semanticSyntaxError(tok, "cannot redefine dotted key table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine dotted key table")
 			}
 			if closedInlinePrefix(path, closedInlineTables, arrayTableEpochs) {
-				return nil, semanticSyntaxError(tok, "cannot extend inline table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot extend inline table")
+			}
+			if arrayTables == nil {
+				arrayTables = make(map[string]struct{}, documentMapHint)
 			}
 			arrayTables[encodedPathKey] = struct{}{}
+			if arrayTableEpochs == nil {
+				arrayTableEpochs = make(map[string]int, documentMapHint)
+			}
 			arrayTableEpochs[encodedPathKey]++
 			if nextFilter, ok := filter.lookupPath(path); ok {
 				var next documentMap
@@ -133,9 +144,9 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 					if _, exists := root[path[0]]; !exists {
 						capacityHint = bytes.Count(data, tok.Bytes)
 					}
-					next, err = appendArrayTableKey(root, path[0], capacityHint, tok)
+					next, err = appendArrayTableKeyRaw(data, root, path[0], capacityHint, tok)
 				} else {
-					next, err = appendArrayTable(root, path, tok)
+					next, err = appendArrayTableRaw(data, root, path, tok)
 				}
 				if err != nil {
 					return nil, bindErrorPath(err, pathKey)
@@ -171,10 +182,10 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 				for i := len(currentPath) + 1; i < len(fullPath); i++ {
 					prefix := encodedKeyPath(fullPath[:i])
 					if _, ok := declaredTables[prefix]; ok {
-						return nil, semanticSyntaxError(tok, "cannot extend explicit table with dotted key")
+						return nil, semanticSyntaxErrorRaw(data, tok, "cannot extend explicit table with dotted key")
 					}
 					if existingContext, ok := closedInlineTables[prefix]; ok && existingContext == declarationContext(fullPath[:i], arrayTableEpochs) {
-						return nil, semanticSyntaxError(tok, "cannot extend inline table")
+						return nil, semanticSyntaxErrorRaw(data, tok, "cannot extend inline table")
 					}
 				}
 			}
@@ -182,43 +193,317 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 			if err != nil {
 				return nil, err
 			}
-			if err := assignUnique(current, key, value, tok); err != nil {
+			if err := assignUniqueRaw(data, current, key, value, tok); err != nil {
 				return nil, bindErrorPath(err, strings.Join(fullPath, "."))
 			}
-			markDottedKeyTables(dottedKeyTables, fullPath, len(currentPath), arrayTableEpochs)
-			markClosedValuePaths(closedInlineTables, fullPath, value, arrayTableEpochs)
+			dottedKeyTables = markDottedKeyTables(dottedKeyTables, fullPath, len(currentPath), arrayTableEpochs)
+			closedInlineTables = markClosedValuePaths(closedInlineTables, fullPath, value, arrayTableEpochs)
 		default:
 			if !inTable {
-				return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: [2]int{0, 1}}
+				return nil, syntaxErrorForRawToken(data, tok, "unexpected token")
 			}
 		}
 	}
 }
 
 func skipNextValue(dec *Decoder) error {
+	if ok, err := skipStructuralValueFast(dec); ok || err != nil {
+		return err
+	}
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if err != nil {
 			return err
 		}
 		if tok.Kind == TokenKindComment {
 			continue
 		}
-		return skipValueToken(dec, tok)
+		return skipRawValueToken(dec, tok)
 	}
 }
 
-func skipValueToken(dec *Decoder, tok Token) error {
+func skipStructuralValueFast(dec *Decoder) (bool, error) {
+	if dec == nil {
+		return false, nil
+	}
+	dec.skipSpaces()
+	if dec.off >= len(dec.buf) || dec.err != nil {
+		return false, dec.err
+	}
+	switch dec.buf[dec.off] {
+	case '[', '{':
+	default:
+		return false, nil
+	}
+	start := dec.off
+	end, err := dec.scanSkippedStructuralValue(start)
+	if err != nil {
+		return true, err
+	}
+	dec.advanceBytes(dec.buf[start:end])
+	dec.expectingValue = false
+	dec.valueNoNewline = false
+	if dec.innermostIsArray() {
+		dec.expectingValue = true
+	}
+	dec.needSeparator = len(dec.containerStack) > 0
+	dec.needLineEnd = len(dec.containerStack) == 0
+	return true, nil
+}
+
+type skippedContainerFrame struct {
+	kind  byte
+	state skippedContainerState
+}
+
+type skippedContainerState uint8
+
+const (
+	skippedArrayValue skippedContainerState = iota
+	skippedArraySeparator
+	skippedInlineKey
+	skippedInlineValue
+	skippedInlineSeparator
+)
+
+func (d *Decoder) scanSkippedStructuralValue(start int) (int, error) {
+	var stack [32]skippedContainerFrame
+	frames := stack[:0]
+	arrayDepth := d.arrayDepth
+	inlineDepth := d.inlineDepth
+	push := func(kind byte, off int) error {
+		state := skippedArrayValue
+		if kind == containerInline {
+			state = skippedInlineKey
+			inlineDepth++
+			if d.limits.MaxNestedDepth > 0 && inlineDepth > d.limits.MaxNestedDepth {
+				err := &LimitError{Limit: "MaxNestedDepth", Value: d.limits.MaxNestedDepth, Span: [2]int{off, off + 1}}
+				d.setErr(err)
+				return err
+			}
+		} else {
+			arrayDepth++
+			if d.limits.MaxNestedDepth > 0 && arrayDepth > d.limits.MaxNestedDepth {
+				err := &LimitError{Limit: "MaxNestedDepth", Value: d.limits.MaxNestedDepth, Span: [2]int{off, off + 1}}
+				d.setErr(err)
+				return err
+			}
+		}
+		frames = append(frames, skippedContainerFrame{kind: kind, state: state})
+		return nil
+	}
+	pop := func(kind byte) {
+		frames = frames[:len(frames)-1]
+		if kind == containerInline {
+			inlineDepth--
+		} else {
+			arrayDepth--
+		}
+	}
+	switch d.buf[start] {
+	case '[':
+		if err := push(containerArray, start); err != nil {
+			return 0, err
+		}
+	case '{':
+		if err := push(containerInline, start); err != nil {
+			return 0, err
+		}
+	default:
+		return 0, d.syntaxError("expected value", start)
+	}
+	i := start + 1
+	for len(frames) > 0 {
+		var err error
+		top := len(frames) - 1
+		if frames[top].state == skippedInlineValue {
+			i = skipSkippedInlineAssignmentSpace(d.buf, i)
+		} else {
+			i, err = d.skipSkippedStructuralSpace(i)
+		}
+		if err != nil {
+			return 0, err
+		}
+		if i >= len(d.buf) {
+			return 0, d.syntaxError("unterminated value", len(d.buf))
+		}
+		switch frames[top].state {
+		case skippedArrayValue:
+			if d.buf[i] == ']' {
+				pop(containerArray)
+				i++
+				continue
+			}
+			frames[top].state = skippedArraySeparator
+			next, err := d.scanSkippedValue(i, push)
+			if err != nil {
+				return 0, err
+			}
+			i = next
+		case skippedArraySeparator:
+			switch d.buf[i] {
+			case ',':
+				frames[top].state = skippedArrayValue
+				i++
+			case ']':
+				pop(containerArray)
+				i++
+			default:
+				return 0, d.syntaxError("expected array separator", i)
+			}
+		case skippedInlineKey:
+			if d.buf[i] == '}' {
+				pop(containerInline)
+				i++
+				continue
+			}
+			next, err := d.scanSkippedInlineKey(i)
+			if err != nil {
+				return 0, err
+			}
+			frames[top].state = skippedInlineValue
+			i = next
+		case skippedInlineValue:
+			frames[top].state = skippedInlineSeparator
+			next, err := d.scanSkippedValue(i, push)
+			if err != nil {
+				return 0, err
+			}
+			i = next
+		case skippedInlineSeparator:
+			switch d.buf[i] {
+			case ',':
+				frames[top].state = skippedInlineKey
+				i++
+			case '}':
+				pop(containerInline)
+				i++
+			default:
+				return 0, d.syntaxError("expected inline table separator", i)
+			}
+		}
+	}
+	return i, nil
+}
+
+func (d *Decoder) skipSkippedStructuralSpace(i int) (int, error) {
+	for i < len(d.buf) {
+		switch d.buf[i] {
+		case ' ', '\t', '\n':
+			i++
+		case '\r':
+			if i+1 < len(d.buf) && d.buf[i+1] == '\n' {
+				i += 2
+				continue
+			}
+			return 0, d.syntaxError("control character in value", i)
+		case '#':
+			end, err := d.scanSkippedComment(i)
+			if err != nil {
+				return 0, err
+			}
+			i = end
+		default:
+			return i, nil
+		}
+	}
+	return i, nil
+}
+
+func skipSkippedInlineAssignmentSpace(raw []byte, i int) int {
+	for i < len(raw) && (raw[i] == ' ' || raw[i] == '\t') {
+		i++
+	}
+	return i
+}
+
+func (d *Decoder) scanSkippedComment(start int) (int, error) {
+	return d.scanCommentEnd(start)
+}
+
+func (d *Decoder) scanSkippedValue(start int, push func(byte, int) error) (int, error) {
+	switch d.buf[start] {
+	case '[':
+		if err := push(containerArray, start); err != nil {
+			return 0, err
+		}
+		return start + 1, nil
+	case '{':
+		if err := push(containerInline, start); err != nil {
+			return 0, err
+		}
+		return start + 1, nil
+	case '"', '\'':
+		end, _, err := d.scanString(start)
+		if err != nil {
+			return 0, err
+		}
+		if len(d.buf[start:end]) > d.limits.MaxStringLength {
+			err := &LimitError{Limit: "MaxStringLength", Value: d.limits.MaxStringLength, Span: [2]int{start, end}}
+			d.setErr(err)
+			return 0, err
+		}
+		return end, nil
+	default:
+		end := scanBareValueEnd(d.buf[start:])
+		if end == 0 {
+			return 0, d.syntaxError("invalid value", start)
+		}
+		raw := d.buf[start : start+end]
+		if _, _, msg := classifyBareValue(raw); msg != "" {
+			return 0, d.syntaxError(msg, start)
+		}
+		return start + end, nil
+	}
+}
+
+func (d *Decoder) scanSkippedInlineKey(start int) (int, error) {
+	i := start
+	for i < len(d.buf) {
+		switch d.buf[i] {
+		case '=':
+			key := bytesTrimRightSpaces(d.buf[start:i])
+			if len(key) == 0 {
+				return 0, d.syntaxError("empty key", start)
+			}
+			if !isSimpleBareKey(key) {
+				if _, err := parseDottedKey(key); err != nil {
+					d.setErr(err)
+					return 0, err
+				}
+			}
+			if len(key) > d.limits.MaxKeyLength {
+				err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start, i}}
+				d.setErr(err)
+				return 0, err
+			}
+			return i + 1, nil
+		case '"', '\'':
+			next, err := d.scanQuoted(d.buf[i], i)
+			if err != nil {
+				return 0, err
+			}
+			i = next
+		case ',', '}', '\n', '\r', '#':
+			return 0, d.syntaxError("expected equals", i)
+		default:
+			i++
+		}
+	}
+	return 0, d.syntaxError("expected equals", i)
+}
+
+func skipRawValueToken(dec *Decoder, tok rawToken) error {
 	depth := 1
 	switch tok.Kind {
 	case TokenKindArrayStart, TokenKindInlineTableStart:
 	case TokenKindValueString, TokenKindValueInteger, TokenKindValueFloat, TokenKindValueBool, TokenKindValueDatetime:
 		return nil
 	default:
-		return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected value", Span: [2]int{0, 1}}
+		return decoderSyntaxErrorForRawToken(dec, tok, "expected value")
 	}
 	for depth > 0 {
-		next, err := dec.ReadToken()
+		next, err := dec.readToken()
 		if err != nil {
 			return err
 		}
@@ -234,29 +519,29 @@ func skipValueToken(dec *Decoder, tok Token) error {
 
 func parseNextValue(dec *Decoder) (any, error) {
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if err != nil {
 			return nil, err
 		}
 		if tok.Kind == TokenKindComment {
 			continue
 		}
-		return parseValueToken(dec, tok)
+		return parseRawValueToken(dec, tok)
 	}
 }
 
 func parseValueToken(dec *Decoder, tok Token) (any, error) {
+	return parseRawValueToken(dec, rawTokenFromToken(tok))
+}
+
+func parseRawValueToken(dec *Decoder, tok rawToken) (any, error) {
 	switch tok.Kind {
 	case TokenKindValueString:
 		return parseStringValue(tok.Bytes)
 	case TokenKindValueInteger:
-		return parseIntegerLiteral(tok.Bytes)
+		return rawTokenIntegerValue(dec, tok)
 	case TokenKindValueFloat:
-		if f, ok := parseSpecialFloatLiteral(tok.Bytes); ok {
-			return f, nil
-		}
-		text := normalizeNumericText(tok.Bytes, true)
-		return strconv.ParseFloat(text, 64)
+		return rawTokenFloatValue(dec, tok)
 	case TokenKindValueBool:
 		switch {
 		case bytes.Equal(tok.Bytes, trueLiteral):
@@ -264,7 +549,7 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 		case bytes.Equal(tok.Bytes, falseLiteral):
 			return false, nil
 		default:
-			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed boolean", Span: [2]int{0, len(tok.Bytes)}}
+			return nil, decoderSyntaxErrorForRawToken(dec, tok, "malformed boolean")
 		}
 	case TokenKindValueDatetime:
 		v, _, err := parseDateTimeValue(tok.Bytes)
@@ -274,14 +559,51 @@ func parseValueToken(dec *Decoder, tok Token) (any, error) {
 	case TokenKindInlineTableStart:
 		return parseInlineTableValue(dec)
 	default:
-		return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected value", Span: [2]int{0, 1}}
+		return nil, decoderSyntaxErrorForRawToken(dec, tok, "expected value")
 	}
+}
+
+func rawTokenIntegerValue(dec *Decoder, tok rawToken) (int64, error) {
+	if dec != nil {
+		return scalarIntegerValue(dec.tokenScalar, tok.Bytes)
+	}
+	return parseIntegerLiteral(tok.Bytes)
+}
+
+func scalarIntegerValue(scalar tokenScalar, raw []byte) (int64, error) {
+	if scalar.kind == tokenScalarInteger {
+		return int64(scalar.bits), nil
+	}
+	return parseIntegerLiteral(raw)
+}
+
+func rawTokenFloatValue(dec *Decoder, tok rawToken) (float64, error) {
+	scalar := tokenScalar{}
+	if dec != nil {
+		scalar = dec.tokenScalar
+	}
+	return scalarFloatValue(scalar, tok.Bytes, func() error {
+		return decoderSyntaxErrorForRawToken(dec, tok, "malformed special float")
+	})
+}
+
+func scalarFloatValue(scalar tokenScalar, raw []byte, malformedSpecial func() error) (float64, error) {
+	if scalar.kind == tokenScalarFloat {
+		return math.Float64frombits(scalar.bits), nil
+	}
+	if f, ok := parseSpecialFloatLiteral(raw); ok {
+		return f, nil
+	}
+	if isSpecialFloatFolded(raw) {
+		return 0, malformedSpecial()
+	}
+	return parseFloatLiteral(raw)
 }
 
 func parseArrayValue(dec *Decoder) ([]any, error) {
 	values := make([]any, 0, documentMapHint)
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if err != nil {
 			return nil, err
 		}
@@ -292,7 +614,7 @@ func parseArrayValue(dec *Decoder) ([]any, error) {
 		case TokenKindArrayEnd:
 			return values, nil
 		default:
-			v, err := parseValueToken(dec, tok)
+			v, err := parseRawValueToken(dec, tok)
 			if err != nil {
 				return nil, err
 			}
@@ -303,10 +625,11 @@ func parseArrayValue(dec *Decoder) ([]any, error) {
 
 func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 	m := newDocumentMap()
+	data := decoderSource(dec)
 	closedInlineTables := make(map[string]string)
 	arrayTableEpochs := map[string]int(nil)
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if err != nil {
 			return nil, err
 		}
@@ -322,46 +645,96 @@ func parseInlineTableValue(dec *Decoder) (documentMap, error) {
 				return nil, err
 			}
 			if closedInlinePrefix(key, closedInlineTables, arrayTableEpochs) {
-				return nil, semanticSyntaxError(tok, "cannot extend inline table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot extend inline table")
 			}
 			v, err := parseNextValue(dec)
 			if err != nil {
 				return nil, err
 			}
-			if err := assignUnique(m, key, v, tok); err != nil {
+			if err := assignUniqueRaw(data, m, key, v, tok); err != nil {
 				return nil, err
 			}
-			markClosedValuePaths(closedInlineTables, key, v, arrayTableEpochs)
+			closedInlineTables = markClosedValuePaths(closedInlineTables, key, v, arrayTableEpochs)
 		default:
-			return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected inline table key", Span: [2]int{0, 1}}
+			return nil, decoderSyntaxErrorForRawToken(dec, tok, "expected inline table key")
 		}
 	}
 }
 
+type stringValueKind uint8
+
+const (
+	stringValueMalformed stringValueKind = iota
+	stringValueLiteral
+	stringValueMultilineLiteral
+	stringValueBasic
+	stringValueMultilineBasic
+)
+
 func parseStringValue(raw []byte) (string, error) {
-	if len(raw) >= 6 && raw[0] == '\'' && raw[1] == '\'' && raw[2] == '\'' &&
-		raw[len(raw)-1] == '\'' && raw[len(raw)-2] == '\'' && raw[len(raw)-3] == '\'' {
-		body := trimInitialMultilineStringNewline(raw[3 : len(raw)-3])
-		if idx := prohibitedStringControlIndex(body, true); idx >= 0 {
-			return "", stringControlError(body, idx)
+	body, kind, err := stringValueBody(raw)
+	if err != nil {
+		return "", err
+	}
+	switch kind {
+	case stringValueLiteral:
+		if err := validateLiteralStringBody(body, false); err != nil {
+			return "", err
 		}
 		return string(body), nil
+	case stringValueMultilineLiteral:
+		if err := validateLiteralStringBody(body, true); err != nil {
+			return "", err
+		}
+		return string(body), nil
+	case stringValueBasic:
+		return parseBasicStringBody(body, false)
+	case stringValueMultilineBasic:
+		return parseBasicStringBody(body, true)
+	default:
+		return "", malformedStringError(raw)
+	}
+}
+
+func validateStringValue(raw []byte) error {
+	body, kind, err := stringValueBody(raw)
+	if err != nil {
+		return err
+	}
+	switch kind {
+	case stringValueLiteral:
+		return validateLiteralStringBody(body, false)
+	case stringValueMultilineLiteral:
+		return validateLiteralStringBody(body, true)
+	case stringValueBasic:
+		return validateBasicStringBody(body, false)
+	case stringValueMultilineBasic:
+		return validateBasicStringBody(body, true)
+	default:
+		return malformedStringError(raw)
+	}
+}
+
+func stringValueBody(raw []byte) ([]byte, stringValueKind, error) {
+	if len(raw) >= 6 && raw[0] == '\'' && raw[1] == '\'' && raw[2] == '\'' &&
+		raw[len(raw)-1] == '\'' && raw[len(raw)-2] == '\'' && raw[len(raw)-3] == '\'' {
+		return trimInitialMultilineStringNewline(raw[3 : len(raw)-3]), stringValueMultilineLiteral, nil
 	}
 	if len(raw) >= 6 && raw[0] == '"' && raw[1] == '"' && raw[2] == '"' &&
 		raw[len(raw)-1] == '"' && raw[len(raw)-2] == '"' && raw[len(raw)-3] == '"' {
-		return parseBasicStringBody(trimInitialMultilineStringNewline(raw[3:len(raw)-3]), true)
+		return trimInitialMultilineStringNewline(raw[3 : len(raw)-3]), stringValueMultilineBasic, nil
 	}
 	if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
-		body := raw[1 : len(raw)-1]
-		if idx := prohibitedStringControlIndex(body, false); idx >= 0 {
-			return "", stringControlError(body, idx)
-		}
-		return string(body), nil
+		return raw[1 : len(raw)-1], stringValueLiteral, nil
 	}
 	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' {
-		return parseBasicStringBody(raw[1:len(raw)-1], false)
+		return raw[1 : len(raw)-1], stringValueBasic, nil
 	}
-	return "", &SyntaxError{Line: 1, Col: 1, Msg: "malformed string", Span: [2]int{0, len(raw)}}
+	return nil, stringValueMalformed, malformedStringError(raw)
+}
+
+func malformedStringError(raw []byte) error {
+	return &SyntaxError{Line: 1, Col: 1, Msg: "malformed string", Span: [2]int{0, len(raw)}}
 }
 
 func trimInitialMultilineStringNewline(raw []byte) []byte {
@@ -374,72 +747,134 @@ func trimInitialMultilineStringNewline(raw []byte) []byte {
 	return raw
 }
 
+func validateLiteralStringBody(raw []byte, multiline bool) error {
+	return validateStringControls(raw, multiline)
+}
+
+func validateBasicStringBody(raw []byte, multiline bool) error {
+	return scanBasicStringBody(raw, multiline, nil)
+}
+
 func parseBasicStringBody(raw []byte, multiline bool) (string, error) {
-	if bytes.IndexByte(raw, '\\') < 0 {
-		if idx := prohibitedStringControlIndex(raw, multiline); idx >= 0 {
-			return "", stringControlError(raw, idx)
+	if !multiline && scan.ScanBasicStringStrict(raw) == len(raw) {
+		return string(raw), nil
+	}
+	if multiline && bytes.IndexByte(raw, '\\') < 0 {
+		if err := validateStringControls(raw, true); err != nil {
+			return "", err
 		}
 		return string(raw), nil
 	}
 	var b strings.Builder
 	b.Grow(len(raw))
+	if err := scanBasicStringBody(raw, multiline, &b); err != nil {
+		return "", err
+	}
+	return b.String(), nil
+}
+
+func scanBasicStringBody(raw []byte, multiline bool, b *strings.Builder) error {
 	for i := 0; i < len(raw); {
-		c := raw[i]
-		if c != '\\' {
-			if multiline && c == '\r' && i+1 < len(raw) && raw[i+1] == '\n' {
-				b.WriteByte('\r')
-				b.WriteByte('\n')
-				i += 2
+		if !multiline {
+			n := scan.ScanBasicStringStrict(raw[i:])
+			if n > 0 {
+				if b != nil {
+					b.Write(raw[i : i+n])
+				}
+				i += n
+				if i >= len(raw) {
+					return nil
+				}
+			}
+			c := raw[i]
+			if c != '\\' {
+				if prohibitedStringControl(c, false) {
+					return stringControlError(raw, i)
+				}
+				if b != nil {
+					b.WriteByte(c)
+				}
+				i++
 				continue
 			}
-			if prohibitedStringControl(c, multiline) {
-				return "", stringControlError(raw, i)
+		} else {
+			c := raw[i]
+			if c != '\\' {
+				if c == '\r' && i+1 < len(raw) && raw[i+1] == '\n' {
+					if b != nil {
+						b.WriteByte('\r')
+						b.WriteByte('\n')
+					}
+					i += 2
+					continue
+				}
+				if prohibitedStringControl(c, true) {
+					return stringControlError(raw, i)
+				}
+				if b != nil {
+					b.WriteByte(c)
+				}
+				i++
+				continue
 			}
-			b.WriteByte(c)
-			i++
-			continue
-		}
-		if multiline {
 			if next, ok := skipEscapedMultilineStringWhitespace(raw, i+1); ok {
 				i = next
 				continue
 			}
 		}
 		if i+1 >= len(raw) {
-			return "", &SyntaxError{Line: 1, Col: i + 1, Msg: "unterminated string escape", Span: [2]int{i, len(raw)}}
+			return &SyntaxError{Line: 1, Col: i + 1, Msg: "unterminated string escape", Span: [2]int{i, len(raw)}}
 		}
 		next := raw[i+1]
 		switch next {
 		case 'b':
-			b.WriteByte('\b')
+			if b != nil {
+				b.WriteByte('\b')
+			}
 			i += 2
 		case 't':
-			b.WriteByte('\t')
+			if b != nil {
+				b.WriteByte('\t')
+			}
 			i += 2
 		case 'n':
-			b.WriteByte('\n')
+			if b != nil {
+				b.WriteByte('\n')
+			}
 			i += 2
 		case 'f':
-			b.WriteByte('\f')
+			if b != nil {
+				b.WriteByte('\f')
+			}
 			i += 2
 		case 'r':
-			b.WriteByte('\r')
+			if b != nil {
+				b.WriteByte('\r')
+			}
 			i += 2
 		case 'e':
-			b.WriteByte(0x1b)
+			if b != nil {
+				b.WriteByte(0x1b)
+			}
 			i += 2
 		case '"':
-			b.WriteByte('"')
+			if b != nil {
+				b.WriteByte('"')
+			}
 			i += 2
 		case '\\':
-			b.WriteByte('\\')
+			if b != nil {
+				b.WriteByte('\\')
+			}
 			i += 2
 		case 'x':
 			r, err := parseUnicodeEscape(raw, i+2, 2)
 			if err != nil {
-				return "", err
+				return err
 			}
-			b.WriteRune(r)
+			if b != nil {
+				b.WriteRune(r)
+			}
 			i += 4
 		case 'u', 'U':
 			digits := 4
@@ -448,15 +883,24 @@ func parseBasicStringBody(raw []byte, multiline bool) (string, error) {
 			}
 			r, err := parseUnicodeEscape(raw, i+2, digits)
 			if err != nil {
-				return "", err
+				return err
 			}
-			b.WriteRune(r)
+			if b != nil {
+				b.WriteRune(r)
+			}
 			i += 2 + digits
 		default:
-			return "", &SyntaxError{Line: 1, Col: i + 1, Msg: "invalid string escape", Span: [2]int{i, min(i+2, len(raw))}}
+			return &SyntaxError{Line: 1, Col: i + 1, Msg: "invalid string escape", Span: [2]int{i, min(i+2, len(raw))}}
 		}
 	}
-	return b.String(), nil
+	return nil
+}
+
+func validateStringControls(raw []byte, multiline bool) error {
+	if idx := prohibitedStringControlIndex(raw, multiline); idx >= 0 {
+		return stringControlError(raw, idx)
+	}
+	return nil
 }
 
 func skipEscapedMultilineStringWhitespace(raw []byte, i int) (int, bool) {
@@ -494,14 +938,16 @@ func parseUnicodeEscape(raw []byte, start, digits int) (rune, error) {
 	if end > len(raw) {
 		return 0, &SyntaxError{Line: 1, Col: start + 1, Msg: "short unicode escape", Span: [2]int{start - 2, len(raw)}}
 	}
+	var v int64
 	for _, c := range raw[start:end] {
-		if !isHexDigit(c) {
+		n, ok := hexDigitValue(c)
+		if !ok {
 			return 0, &SyntaxError{Line: 1, Col: start + 1, Msg: "invalid unicode escape", Span: [2]int{start - 2, end}}
 		}
+		v = v<<4 | int64(n)
 	}
-	v, err := strconv.ParseInt(string(raw[start:end]), 16, 32)
-	if err != nil {
-		return 0, err
+	if v > maxParseInt32 {
+		return 0, &strconv.NumError{Func: "ParseInt", Num: string(raw[start:end]), Err: strconv.ErrRange}
 	}
 	r := rune(v)
 	if !utf8.ValidRune(r) {
@@ -510,8 +956,19 @@ func parseUnicodeEscape(raw []byte, start, digits int) (rune, error) {
 	return r, nil
 }
 
-func isHexDigit(c byte) bool {
-	return c >= '0' && c <= '9' || c >= 'A' && c <= 'F' || c >= 'a' && c <= 'f'
+const maxParseInt32 = 1<<31 - 1
+
+func hexDigitValue(c byte) (byte, bool) {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0', true
+	case c >= 'A' && c <= 'F':
+		return c - 'A' + 10, true
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10, true
+	default:
+		return 0, false
+	}
 }
 
 func prohibitedStringControlIndex(raw []byte, multiline bool) int {
@@ -649,22 +1106,17 @@ func parseDottedKey(raw []byte) ([]string, error) {
 	return parts, nil
 }
 
-func normalizeNumericText(raw []byte, lower bool) string {
+func appendNormalizedNumeric(dst, raw []byte, lower bool) ([]byte, bool) {
 	needsCopy := false
 	for _, b := range raw {
-		if b == '_' {
-			needsCopy = true
-			break
-		}
-		if lower && 'A' <= b && b <= 'Z' {
+		if b == '_' || (lower && 'A' <= b && b <= 'Z') {
 			needsCopy = true
 			break
 		}
 	}
 	if !needsCopy {
-		return string(raw)
+		return raw, false
 	}
-	buf := make([]byte, 0, len(raw))
 	for _, b := range raw {
 		if b == '_' {
 			continue
@@ -672,9 +1124,18 @@ func normalizeNumericText(raw []byte, lower bool) string {
 		if lower && 'A' <= b && b <= 'Z' {
 			b += 'a' - 'A'
 		}
-		buf = append(buf, b)
+		dst = append(dst, b)
 	}
-	return string(buf)
+	return dst, true
+}
+
+func parseFloatLiteral(raw []byte) (float64, error) {
+	var stack [128]byte
+	textBytes, copied := appendNormalizedNumeric(stack[:0], raw, true)
+	if !copied {
+		return strconv.ParseFloat(unsafeString(raw), 64)
+	}
+	return strconv.ParseFloat(unsafeString(textBytes), 64)
 }
 
 func parseSpecialFloatLiteral(raw []byte) (float64, bool) {
@@ -692,16 +1153,30 @@ func parseSpecialFloatLiteral(raw []byte) (float64, bool) {
 	}
 }
 
+func isSpecialFloatFolded(raw []byte) bool {
+	if len(raw) == 0 {
+		return false
+	}
+	if raw[0] == '+' || raw[0] == '-' {
+		raw = raw[1:]
+	}
+	if len(raw) != 3 {
+		return false
+	}
+	return lowerASCII(raw[0]) == 'i' && lowerASCII(raw[1]) == 'n' && lowerASCII(raw[2]) == 'f' ||
+		lowerASCII(raw[0]) == 'n' && lowerASCII(raw[1]) == 'a' && lowerASCII(raw[2]) == 'n'
+}
+
 func parseIntegerLiteral(raw []byte) (int64, error) {
-	text := normalizeNumericText(raw, false)
+	text := raw
 	sign := int64(1)
-	if strings.HasPrefix(text, "+") {
+	if len(text) > 0 && text[0] == '+' {
 		text = text[1:]
-	} else if strings.HasPrefix(text, "-") {
+	} else if len(text) > 0 && text[0] == '-' {
 		sign = -1
 		text = text[1:]
 	}
-	base := 10
+	base := byte(10)
 	if len(text) > 2 && text[0] == '0' {
 		switch text[1] {
 		case 'b', 'B':
@@ -715,24 +1190,62 @@ func parseIntegerLiteral(raw []byte) (int64, error) {
 			text = text[2:]
 		}
 	}
-	u, err := strconv.ParseUint(text, base, 64)
+	limit := uint64(math.MaxInt64)
+	if sign < 0 {
+		limit = 1 << 63
+	}
+	u, err := parseUintLiteralDigits(text, base, limit)
 	if err != nil {
 		return 0, err
 	}
 	if sign < 0 {
 		const minMagnitude = uint64(1) << 63
-		if u > minMagnitude {
-			return 0, strconv.ErrRange
-		}
 		if u == minMagnitude {
 			return math.MinInt64, nil
 		}
 		return -int64(u), nil
 	}
-	if u > math.MaxInt64 {
-		return 0, strconv.ErrRange
-	}
 	return int64(u), nil
+}
+
+func parseUintLiteralDigits(raw []byte, base byte, limit uint64) (uint64, error) {
+	if len(raw) == 0 {
+		return 0, strconv.ErrSyntax
+	}
+	var u uint64
+	sawDigit := false
+	for _, c := range raw {
+		if c == '_' {
+			continue
+		}
+		digit, ok := numericDigitValue(c)
+		if !ok || digit >= base {
+			return 0, strconv.ErrSyntax
+		}
+		sawDigit = true
+		d := uint64(digit)
+		if u > (limit-d)/uint64(base) {
+			return 0, strconv.ErrRange
+		}
+		u = u*uint64(base) + d
+	}
+	if !sawDigit {
+		return 0, strconv.ErrSyntax
+	}
+	return u, nil
+}
+
+func numericDigitValue(c byte) (byte, bool) {
+	switch {
+	case c >= '0' && c <= '9':
+		return c - '0', true
+	case c >= 'a' && c <= 'f':
+		return c - 'a' + 10, true
+	case c >= 'A' && c <= 'F':
+		return c - 'A' + 10, true
+	default:
+		return 0, false
+	}
 }
 
 func keyPath(raw []byte) ([]string, error) {
@@ -762,51 +1275,62 @@ func closedInlinePrefix(path []string, closed map[string]string, arrayTableEpoch
 	return false
 }
 
-func markClosedValuePaths(closed map[string]string, path []string, value any, arrayTableEpochs map[string]int) {
+func markClosedValuePaths(closed map[string]string, path []string, value any, arrayTableEpochs map[string]int) map[string]string {
 	key := encodedKeyPath(path)
 	switch v := value.(type) {
 	case documentMap:
+		if closed == nil {
+			closed = make(map[string]string, documentMapHint)
+		}
 		closed[key] = declarationContext(path, arrayTableEpochs)
 		for childKey, child := range v {
 			childPath := append(append([]string(nil), path...), childKey)
-			markClosedValuePaths(closed, childPath, child, arrayTableEpochs)
+			closed = markClosedValuePaths(closed, childPath, child, arrayTableEpochs)
 		}
 	case []any:
+		if closed == nil {
+			closed = make(map[string]string, documentMapHint)
+		}
 		closed[key] = declarationContext(path, arrayTableEpochs)
 		for _, child := range v {
 			if childMap, ok := child.(documentMap); ok {
 				for childKey, grandchild := range childMap {
 					childPath := append(append([]string(nil), path...), childKey)
-					markClosedValuePaths(closed, childPath, grandchild, arrayTableEpochs)
+					closed = markClosedValuePaths(closed, childPath, grandchild, arrayTableEpochs)
 				}
 			}
 		}
 	}
+	return closed
 }
 
-func markDottedKeyTables(dotted map[string]string, fullPath []string, currentPathLen int, arrayTableEpochs map[string]int) {
+func markDottedKeyTables(dotted map[string]string, fullPath []string, currentPathLen int, arrayTableEpochs map[string]int) map[string]string {
 	for i := currentPathLen + 1; i < len(fullPath); i++ {
+		if dotted == nil {
+			dotted = make(map[string]string, documentMapHint)
+		}
 		prefix := fullPath[:i]
 		dotted[encodedKeyPath(prefix)] = declarationContext(prefix, arrayTableEpochs)
 	}
+	return dotted
 }
 
 func encodedKeyPath(path []string) string {
-	var b strings.Builder
-	for i, part := range path {
-		if i > 0 {
-			b.WriteByte(0)
-		}
-		b.WriteString(part)
+	switch len(path) {
+	case 0:
+		return ""
+	case 1:
+		return path[0]
+	default:
+		return strings.Join(path, "\x00")
 	}
-	return b.String()
 }
 
-func semanticSyntaxError(tok Token, msg string) *SyntaxError {
-	return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: msg, Span: [2]int{0, 1}}
+func semanticSyntaxErrorRaw(data []byte, tok rawToken, msg string) *SyntaxError {
+	return syntaxErrorForRawToken(data, tok, msg)
 }
 
-func ensureTable(root documentMap, path []string, tok Token) (documentMap, error) {
+func ensureTableRaw(data []byte, root documentMap, path []string, tok rawToken) (documentMap, error) {
 	cur := root
 	for _, p := range path {
 		next, _ := cur[p].(documentMap)
@@ -819,7 +1343,7 @@ func ensureTable(root documentMap, path []string, tok Token) (documentMap, error
 		}
 		if next == nil {
 			if _, exists := cur[p]; exists {
-				return nil, semanticSyntaxError(tok, "cannot redefine value as table")
+				return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine value as table")
 			}
 			next = newDocumentMap()
 			cur[p] = next
@@ -829,11 +1353,11 @@ func ensureTable(root documentMap, path []string, tok Token) (documentMap, error
 	return cur, nil
 }
 
-func appendArrayTable(root documentMap, path []string, tok Token) (documentMap, error) {
+func appendArrayTableRaw(data []byte, root documentMap, path []string, tok rawToken) (documentMap, error) {
 	if len(path) == 0 {
 		return root, nil
 	}
-	parent, err := ensureTable(root, path[:len(path)-1], tok)
+	parent, err := ensureTableRaw(data, root, path[:len(path)-1], tok)
 	if err != nil {
 		return nil, err
 	}
@@ -842,19 +1366,19 @@ func appendArrayTable(root documentMap, path []string, tok Token) (documentMap, 
 	existing, exists := parent[name]
 	arr, _ := existing.([]any)
 	if exists && arr == nil {
-		return nil, semanticSyntaxError(tok, "cannot redefine value as array table")
+		return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine value as array table")
 	}
 	arr = append(arr, table)
 	parent[name] = arr
 	return table, nil
 }
 
-func appendArrayTableKey(root documentMap, name string, capacityHint int, tok Token) (documentMap, error) {
+func appendArrayTableKeyRaw(data []byte, root documentMap, name string, capacityHint int, tok rawToken) (documentMap, error) {
 	table := newDocumentMap()
 	arr, _ := root[name].([]any)
 	if arr == nil {
 		if _, exists := root[name]; exists {
-			return nil, semanticSyntaxError(tok, "cannot redefine value as array table")
+			return nil, semanticSyntaxErrorRaw(data, tok, "cannot redefine value as array table")
 		}
 	}
 	if arr == nil && capacityHint > 0 {
@@ -865,13 +1389,13 @@ func appendArrayTableKey(root documentMap, name string, capacityHint int, tok To
 	return table, nil
 }
 
-func assignUnique(root documentMap, path []string, value any, tok Token) error {
+func assignUniqueRaw(data []byte, root documentMap, path []string, value any, tok rawToken) error {
 	cur := root
 	for _, p := range path[:len(path)-1] {
 		next, _ := cur[p].(documentMap)
 		if next == nil {
 			if _, exists := cur[p]; exists {
-				return semanticSyntaxError(tok, "cannot redefine value as table")
+				return semanticSyntaxErrorRaw(data, tok, "cannot redefine value as table")
 			}
 			next = newDocumentMap()
 			cur[p] = next
@@ -880,7 +1404,7 @@ func assignUnique(root documentMap, path []string, value any, tok Token) error {
 	}
 	key := path[len(path)-1]
 	if _, exists := cur[key]; exists {
-		return semanticSyntaxError(tok, "duplicate key")
+		return semanticSyntaxErrorRaw(data, tok, "duplicate key")
 	}
 	cur[key] = value
 	return nil

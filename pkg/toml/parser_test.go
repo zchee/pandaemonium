@@ -61,6 +61,188 @@ func TestDecoderTokenStream_BasicKeyValue(t *testing.T) {
 	}
 }
 
+func TestDecoderTokenOffsets(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("name = \"Alice\"\nactive = true\n")
+	dec := NewDecoderBytes(input)
+	tokens := mustReadAllTokens(t, dec)
+	wants := []struct {
+		text   string
+		offset int
+	}{
+		{text: "name", offset: 0},
+		{text: "\"Alice\"", offset: len("name = ")},
+		{text: "active", offset: len("name = \"Alice\"\n")},
+		{text: "true", offset: len("name = \"Alice\"\nactive = ")},
+	}
+	if len(tokens) != len(wants) {
+		t.Fatalf("ReadToken count = %d, want %d: %#v", len(tokens), len(wants), tokens)
+	}
+	for i, want := range wants {
+		if string(tokens[i].Bytes) != want.text || tokens[i].Offset != want.offset {
+			t.Fatalf("token[%d] = (%q, offset %d), want (%q, offset %d)", i, tokens[i].Bytes, tokens[i].Offset, want.text, want.offset)
+		}
+	}
+}
+
+func TestDecoderTokenLineColCompatibilityFields(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("# top\r\nnext = true\n")
+	tokens := mustReadAllTokens(t, NewDecoderBytes(input))
+	wants := []struct {
+		name   string
+		index  int
+		offset int
+		line   int
+		col    int
+	}{
+		{name: "comment", index: 0, offset: 0, line: 1, col: 1},
+		{name: "key", index: 1, offset: len("# top\r\n"), line: 2, col: 1},
+		{name: "value", index: 2, offset: len("# top\r\nnext = "), line: 2, col: 8},
+	}
+	if len(tokens) != len(wants) {
+		t.Fatalf("ReadToken count = %d, want %d: %#v", len(tokens), len(wants), tokens)
+	}
+	for _, want := range wants {
+		got := tokens[want.index]
+		if got.Offset != want.offset || got.Line != want.line || got.Col != want.col {
+			t.Fatalf("%s token position = offset %d line %d col %d, want offset %d line %d col %d", want.name, got.Offset, got.Line, got.Col, want.offset, want.line, want.col)
+		}
+	}
+
+	_ = Token{Offset: 0, Line: 1, Col: 1}
+}
+
+func TestDecoderSyntaxErrorLineColumnAfterLazyAdvance(t *testing.T) {
+	t.Parallel()
+
+	_, err := readAllTokens(NewDecoderBytes([]byte("first = 1\nsecond = ")))
+	if err == nil {
+		t.Fatal("ReadToken() error = nil, want expected-value syntax error")
+	}
+	const want = "toml: expected value at line 2 col 10"
+	if got := err.Error(); got != want {
+		t.Fatalf("ReadToken() error = %q, want %q", got, want)
+	}
+}
+
+func TestDecoderCommentKernelPreservesCRLFAndControls(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success:comment stops before crlf", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("# top comment\r\nnext = 1\n")
+		tokens := mustReadAllTokens(t, NewDecoderBytes(input))
+		if len(tokens) < 3 {
+			t.Fatalf("token count = %d, want at least comment/key/value: %#v", len(tokens), tokens)
+		}
+		if got, want := publicToken(tokens[0]), (tokenPublic{Kind: TokenKindComment, Bytes: []byte("# top comment"), Offset: 0}); !slices.Equal(got.Bytes, want.Bytes) || got.Kind != want.Kind || got.Offset != want.Offset {
+			t.Fatalf("comment token = %#v, want %#v", got, want)
+		}
+		if got, want := publicToken(tokens[1]), (tokenPublic{Kind: TokenKindKey, Bytes: []byte("next"), Offset: len("# top comment\r\n")}); !slices.Equal(got.Bytes, want.Bytes) || got.Kind != want.Kind || got.Offset != want.Offset {
+			t.Fatalf("post-comment key = %#v, want %#v", got, want)
+		}
+	})
+
+	tests := map[string]string{
+		"error:lone_cr": "# bad\rnotlf",
+		"error:nul":     "# bad\x00\n",
+		"error:del":     "# bad\x7f\n",
+	}
+	for name, input := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			_, err := readAllTokens(NewDecoderBytes([]byte(input)))
+			if err == nil {
+				t.Fatal("ReadToken() error = nil, want comment control syntax error")
+			}
+			const want = "toml: control character in comment at line 1 col 6"
+			if got := err.Error(); got != want {
+				t.Fatalf("ReadToken() error = %q, want %q", got, want)
+			}
+		})
+	}
+}
+
+func TestDecoderBareValueKernelKeepsParserDatetimeSemantics(t *testing.T) {
+	t.Parallel()
+
+	t.Run("success:local datetime may contain one grammar space", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("when = 1979-05-27 07:32:00\nnext = true\n")
+		tokens := mustReadAllTokens(t, NewDecoderBytes(input))
+		if len(tokens) < 4 {
+			t.Fatalf("token count = %d, want key/value/key/value: %#v", len(tokens), tokens)
+		}
+		got := publicToken(tokens[1])
+		want := tokenPublic{Kind: TokenKindValueDatetime, Bytes: []byte("1979-05-27 07:32:00"), Offset: len("when = ")}
+		if !slices.Equal(got.Bytes, want.Bytes) || got.Kind != want.Kind || got.Offset != want.Offset {
+			t.Fatalf("datetime value = %#v, want %#v", got, want)
+		}
+	})
+
+	t.Run("success:hash delimiter starts comment without required space", func(t *testing.T) {
+		t.Parallel()
+		input := []byte("ok = true#inline\n")
+		tokens := mustReadAllTokens(t, NewDecoderBytes(input))
+		wants := []tokenPublic{
+			{Kind: TokenKindKey, Bytes: []byte("ok"), Offset: 0},
+			{Kind: TokenKindValueBool, Bytes: []byte("true"), Offset: len("ok = ")},
+			{Kind: TokenKindComment, Bytes: []byte("#inline"), Offset: len("ok = true")},
+		}
+		if len(tokens) != len(wants) {
+			t.Fatalf("token count = %d, want %d: %#v", len(tokens), len(wants), tokens)
+		}
+		for i, want := range wants {
+			got := publicToken(tokens[i])
+			if !slices.Equal(got.Bytes, want.Bytes) || got.Kind != want.Kind || got.Offset != want.Offset {
+				t.Fatalf("token[%d] = %#v, want %#v", i, got, want)
+			}
+		}
+	})
+}
+
+func TestLineColForOffsetUsesLFCountOnlyWithCRDisplayRule(t *testing.T) {
+	t.Parallel()
+
+	data := []byte("a\r\nb\rc\n")
+	tests := map[string]struct {
+		off      int
+		wantLine int
+		wantCol  int
+	}{
+		"success:start":          {off: 0, wantLine: 1, wantCol: 1},
+		"success:on_lf":          {off: len("a\r"), wantLine: 1, wantCol: 2},
+		"success:after_crlf":     {off: len("a\r\n"), wantLine: 2, wantCol: 1},
+		"success:after_lone_cr":  {off: len("a\r\nb\r"), wantLine: 2, wantCol: 2},
+		"success:after_final_lf": {off: len(data), wantLine: 3, wantCol: 1},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			gotLine, gotCol := lineColForOffset(data, tc.off)
+			if gotLine != tc.wantLine || gotCol != tc.wantCol {
+				t.Fatalf("lineColForOffset(%q, %d) = (%d,%d), want (%d,%d)", data, tc.off, gotLine, gotCol, tc.wantLine, tc.wantCol)
+			}
+		})
+	}
+}
+
+func TestParseDocumentSemanticErrorLineColumnFromTokenOffset(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseDocument([]byte("a = 1\nb = 2\na = 3\n"), nil, nil)
+	if err == nil {
+		t.Fatal("parseDocument() error = nil, want duplicate-key syntax error")
+	}
+	const want = "toml: duplicate key at line 3 col 1"
+	if got := err.Error(); got != want {
+		t.Fatalf("parseDocument() error = %q, want %q", got, want)
+	}
+}
+
 func TestHasBytePrefixForTripleQuotedStrings(t *testing.T) {
 	t.Parallel()
 
@@ -344,12 +526,22 @@ func TestDecoderDateTimeValueFormsRoundTrip(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 			got := readSingleValueToken(t, "when = "+tc.value)
-			want := Token{Kind: TokenKindValueDatetime, Bytes: []byte(tc.value), Line: 1, Col: 8}
-			if diff := gocmp.Diff(want, got); diff != "" {
+			want := Token{Kind: TokenKindValueDatetime, Bytes: []byte(tc.value), Offset: len("when = ")}
+			if diff := gocmp.Diff(publicToken(want), publicToken(got)); diff != "" {
 				t.Fatalf("datetime value token mismatch (-want +got):\n%s", diff)
 			}
 		})
 	}
+}
+
+type tokenPublic struct {
+	Kind   TokenKind
+	Bytes  []byte
+	Offset int
+}
+
+func publicToken(tok Token) tokenPublic {
+	return tokenPublic{Kind: tok.Kind, Bytes: tok.Bytes, Offset: tok.Offset}
 }
 
 func TestLooksLikeDateTimeFastRejectsNonDateTimeValues(t *testing.T) {
@@ -378,6 +570,66 @@ func TestLooksLikeDateTimeFastRejectsNonDateTimeValues(t *testing.T) {
 			}
 		})
 	}
+}
+
+func TestDecoderBareScalarClassificationAvoidsNormalizationAllocation(t *testing.T) {
+	tests := map[string]struct {
+		input string
+		kind  TokenKind
+	}{
+		"success: integer underscores":          {input: "v = 1_2_3\n", kind: TokenKindValueInteger},
+		"success: prefixed integer underscores": {input: "v = 0xdead_beef\n", kind: TokenKindValueInteger},
+		"success: float underscores exponent":   {input: "v = 1_2.3E+4\n", kind: TokenKindValueFloat},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			input := []byte(tc.input)
+			var got Token
+			valid := true
+			allocs := testing.AllocsPerRun(1000, func() {
+				dec := newAllocationHotPathDecoder(input)
+				if _, err := dec.ReadToken(); err != nil {
+					valid = false
+					return
+				}
+				tok, err := dec.ReadToken()
+				if err != nil {
+					valid = false
+					return
+				}
+				got = tok
+			})
+			if !valid {
+				t.Fatalf("ReadToken(%q) failed", tc.input)
+			}
+			if got.Kind != tc.kind {
+				t.Fatalf("ReadToken(%q) kind=%s, want %s", tc.input, got.Kind, tc.kind)
+			}
+			wantAllocs := 0.0
+			if tc.kind == TokenKindValueFloat {
+				wantAllocs = 1
+			}
+			if allocs > wantAllocs {
+				t.Fatalf("ReadToken(%q) allocs/run = %v, want <= %v", tc.input, allocs, wantAllocs)
+			}
+		})
+	}
+}
+
+func newAllocationHotPathDecoder(input []byte) Decoder {
+	dec := Decoder{
+		atLineStart: true,
+		buf:         input,
+		limits: Limits{
+			MaxNestedDepth:  DefaultMaxNestedDepth,
+			MaxKeyLength:    DefaultMaxKeyLength,
+			MaxStringLength: DefaultMaxStringLength,
+			MaxDocumentSize: DefaultMaxDocumentSize,
+		},
+	}
+	dec.skipBOM()
+	dec.decodeStart = dec.off
+	return dec
 }
 
 func TestDecoderDateTimeInvalidForms(t *testing.T) {

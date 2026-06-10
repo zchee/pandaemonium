@@ -35,19 +35,67 @@ var fixedOffsetZoneCache [2][24][60]atomic.Pointer[time.Location]
 
 // parseDateTimeValue parses raw as the most specific TOML datetime form it matches.
 func parseDateTimeValue(raw []byte) (any, dateTimeKind, error) {
-	if t, err := parseOffsetDateTime(raw); err == nil {
+	switch dateTimeShape(raw) {
+	case dateTimeKindOffset:
+		t, err := parseOffsetDateTime(raw)
+		if err != nil {
+			return nil, dateTimeKindInvalid, invalidDateTimeError(raw)
+		}
 		return t, dateTimeKindOffset, nil
-	}
-	if dt, err := parseLocalDateTime(raw); err == nil {
+	case dateTimeKindLocalDateTime:
+		dt, err := parseLocalDateTime(raw)
+		if err != nil {
+			return nil, dateTimeKindInvalid, invalidDateTimeError(raw)
+		}
 		return dt, dateTimeKindLocalDateTime, nil
-	}
-	if d, err := parseLocalDate(raw); err == nil {
+	case dateTimeKindLocalDate:
+		d, err := parseLocalDate(raw)
+		if err != nil {
+			return nil, dateTimeKindInvalid, invalidDateTimeError(raw)
+		}
 		return d, dateTimeKindLocalDate, nil
-	}
-	if lt, err := parseLocalTime(raw); err == nil {
+	case dateTimeKindLocalTime:
+		lt, err := parseLocalTime(raw)
+		if err != nil {
+			return nil, dateTimeKindInvalid, invalidDateTimeError(raw)
+		}
 		return lt, dateTimeKindLocalTime, nil
+	default:
+		return nil, dateTimeKindInvalid, invalidDateTimeError(raw)
 	}
-	return nil, dateTimeKindInvalid, fmt.Errorf("toml: invalid datetime %q", raw)
+}
+
+func dateTimeShape(raw []byte) dateTimeKind {
+	if hasDateShape(raw) {
+		if len(raw) == len("0000-00-00") {
+			return dateTimeKindLocalDate
+		}
+		if len(raw) > len("0000-00-00") && isDateTimeSeparator(raw[len("0000-00-00")]) {
+			if hasDateTimeOffsetSuffix(raw[len("0000-00-00")+1:]) {
+				return dateTimeKindOffset
+			}
+			return dateTimeKindLocalDateTime
+		}
+		return dateTimeKindInvalid
+	}
+	if hasTimeShape(raw) {
+		return dateTimeKindLocalTime
+	}
+	return dateTimeKindInvalid
+}
+
+func hasDateTimeOffsetSuffix(raw []byte) bool {
+	for i := len("00:00"); i < len(raw); i++ {
+		switch raw[i] {
+		case 'Z', 'z', '+', '-':
+			return true
+		}
+	}
+	return false
+}
+
+func invalidDateTimeError(raw []byte) error {
+	return fmt.Errorf("toml: invalid datetime %q", raw)
 }
 
 func parseDateTimeAsTime(raw []byte, span [2]int, opts ...Option) (time.Time, error) {

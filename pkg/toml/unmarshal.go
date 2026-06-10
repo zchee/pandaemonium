@@ -70,7 +70,8 @@ func unmarshalWithOptions(data []byte, dst any, opts UnmarshalOptions) error {
 }
 
 type bindConfig struct {
-	localAsUTC bool
+	localAsUTC  bool
+	copyStrings bool
 }
 
 func bindConfigFromOptions(opts []Option) bindConfig {
@@ -81,7 +82,7 @@ func bindConfigFromOptions(opts []Option) bindConfig {
 	for _, opt := range opts {
 		opt(decoder)
 	}
-	return bindConfig{localAsUTC: decoder.localAsUTC}
+	return bindConfig{localAsUTC: decoder.localAsUTC, copyStrings: decoder.copyStrings}
 }
 
 func canRecycleDocumentFor(t reflect.Type) bool {
@@ -369,39 +370,16 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 }
 
 func asDocumentMap(v any) (documentMap, bool) {
-	switch m := v.(type) {
-	case documentMap:
-		return m, true
-	case map[string]any:
-		return documentMap(m), true
-	default:
-		return nil, false
-	}
+	m, ok := v.(map[string]any)
+	return m, ok
 }
 
 func publicAnyValue(v any) any {
-	switch x := v.(type) {
-	case documentMap:
-		return publicAnyMap(x)
-	case map[string]any:
-		return publicAnyMap(x)
-	case []any:
-		out := make([]any, len(x))
-		for i, elem := range x {
-			out[i] = publicAnyValue(elem)
-		}
-		return out
-	default:
-		return v
-	}
+	return v
 }
 
 func publicAnyMap(m map[string]any) map[string]any {
-	out := make(map[string]any, len(m))
-	for k, v := range m {
-		out[k] = publicAnyValue(v)
-	}
-	return out
+	return m
 }
 
 func int64Value(v any) (int64, bool) {

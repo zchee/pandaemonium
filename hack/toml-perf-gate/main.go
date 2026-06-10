@@ -24,8 +24,8 @@
 // Lineage: mirrors hack/memchr-perf-gate. Diverges in two ways:
 //
 //  1. memchr-perf-gate runs one all-sizes pair; this tool runs one
-//     named scan at a time so the CI matrix dispatches six invocations
-//     (one per kernel) in parallel — matches the per-scan baseline
+//     named scan at a time so the CI matrix dispatches one invocation
+//     per kernel in parallel — matches the per-scan baseline
 //     declared in the AC-SIMD-5 table.
 //  2. memchr-perf-gate uses `benchstat -delta-test=utest -alpha=0.05`;
 //     this tool uses `benchstat -alpha=0.05` only because golang.org/x/
@@ -38,11 +38,13 @@
 //	  [--count=10] [--benchtime=5s] [--cpu=1] [--package=./pkg/toml/internal/scan/]
 //	  [--benchstat=benchstat]
 //	go run ./hack/toml-perf-gate --kind=parser --ratio=0.5
-//	go run ./hack/toml-perf-gate --kind=edit --ratio-edit=0.25
 //	go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3
+//	go run ./hack/toml-perf-gate --kind=marshal --ratio-marshal-pelletier=2.0
+//	go run ./hack/toml-perf-gate --kind=edit --ratio-edit=1.5
 //
 //	# Phase 4/5 gates:
 //	go run ./hack/toml-perf-gate --kind=facade ...
+//	go run ./hack/toml-perf-gate --kind=marshal ...
 //	go run ./hack/toml-perf-gate --kind=edit   ...
 //
 // Exit codes:
@@ -75,37 +77,44 @@ const (
 )
 
 // validScans is the set of scan names this gate recognizes; matches
-// the six kernels in pkg/toml/internal/scan/api.go and the
+// the ten kernels in pkg/toml/internal/scan/api.go and the
 // AC-SIMD-5 baseline table. Reject anything else with exitArg so a
 // typo on the command line never silently runs the wrong benchmark.
 var validScans = map[string]bool{
-	"LocateNewline":     true,
-	"ScanLiteralString": true,
-	"ScanBareKey":       true,
-	"ScanBasicString":   true,
-	"SkipWhitespace":    true,
-	"ValidateUTF8":      true,
+	"LocateNewline":         true,
+	"ScanLiteralString":     true,
+	"ScanBareKey":           true,
+	"ScanBasicString":       true,
+	"ScanBasicStringStrict": true,
+	"ScanCommentBody":       true,
+	"ScanBareValueEnd":      true,
+	"CountLines":            true,
+	"SkipWhitespace":        true,
+	"ValidateUTF8":          true,
 }
 
 // Flags. Most have Bench-protocol defaults; --kind and --scan have no
 // defaults to force the caller to be explicit.
 var (
-	flagKind            = flag.String("kind", "", "perf-gate kind: scan|facade|edit|parser (required)")
-	flagScan            = flag.String("scan", "", "scan name (for --kind=scan; required): one of "+sortedScanNames())
-	flagRatio           = flag.Float64("ratio", 1.0, "minimum SIMD/baseline throughput ratio that the lower 95% CI must exceed")
-	flagCount           = flag.Int("count", 10, "go test -count value (Bench protocol locks at 10 for CI)")
-	flagBenchtime       = flag.String("benchtime", "5s", "go test -benchtime value (Bench protocol locks at 5s for CI)")
-	flagCPU             = flag.Int("cpu", 1, "go test -cpu value (Bench protocol locks at 1)")
-	flagPackage         = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the scan benchmarks")
-	flagParserPkg       = flag.String("parser-package", "./pkg/toml/", "package import path containing parser/facade benchmarks")
-	flagFacadePkg       = flag.String("facade-package", "./pkg/toml/", "package import path containing Phase 4 facade benchmarks")
-	flagEditPkg         = flag.String("edit-package", "./pkg/toml/", "package import path containing Phase 5 Document edit benchmarks")
-	flagRatioBurntSushi = flag.Float64("ratio-burntsushi", 1.5, "minimum Pandaemonium/BurntSushi throughput ratio for --kind=facade")
-	flagRatioPelletier  = flag.Float64("ratio-pelletier", 1.3, "minimum Pandaemonium/pelletier throughput ratio for --kind=facade")
-	flagRatioEdit       = flag.Float64("ratio-edit", 0.25, "minimum Pandaemonium/pelletier Document edit throughput ratio for --kind=edit")
-	flagBenchstat       = flag.String("benchstat", "benchstat", "path to benchstat binary")
-	flagAlpha           = flag.Float64("alpha", 0.05, "benchstat -alpha (U-test significance threshold)")
-	flagBench           = flag.String("bench", "SmoketestUnmarshal", "benchmark stem for --kind=parser")
+	flagKind                  = flag.String("kind", "", "perf-gate kind: scan|facade|marshal|edit|parser (required)")
+	flagScan                  = flag.String("scan", "", "scan name (for --kind=scan; required): one of "+sortedScanNames())
+	flagRatio                 = flag.Float64("ratio", 1.0, "minimum SIMD/baseline throughput ratio that the lower 95% CI must exceed")
+	flagCount                 = flag.Int("count", 10, "go test -count value (Bench protocol locks at 10 for CI)")
+	flagBenchtime             = flag.String("benchtime", "5s", "go test -benchtime value (Bench protocol locks at 5s for CI)")
+	flagCPU                   = flag.Int("cpu", 1, "go test -cpu value (Bench protocol locks at 1)")
+	flagPackage               = flag.String("package", "./pkg/toml/internal/scan/", "package import path containing the scan benchmarks")
+	flagParserPkg             = flag.String("parser-package", "./pkg/toml/", "package import path containing parser benchmarks")
+	flagFacadePkg             = flag.String("facade-package", "./pkg/toml/benchmark", "package path or module directory containing Phase 4 facade benchmarks")
+	flagMarshalPkg            = flag.String("marshal-package", "./pkg/toml/benchmark", "package path or module directory containing Phase 4 marshal benchmarks")
+	flagEditPkg               = flag.String("edit-package", "./pkg/toml/benchmark", "package path or module directory containing Phase 5 Document edit benchmarks")
+	flagRatioBurntSushi       = flag.Float64("ratio-burntsushi", 1.5, "minimum Pandaemonium/BurntSushi throughput ratio for --kind=facade")
+	flagRatioPelletier        = flag.Float64("ratio-pelletier", 1.3, "minimum Pandaemonium/pelletier throughput ratio for --kind=facade")
+	flagRatioMapPelletier     = flag.Float64("ratio-map-pelletier", 1.0, "minimum Pandaemonium/pelletier throughput ratio for map-path sub-benchmarks under --kind=facade")
+	flagRatioMarshalPelletier = flag.Float64("ratio-marshal-pelletier", 2.0, "minimum Pandaemonium/pelletier throughput ratio for --kind=marshal")
+	flagRatioEdit             = flag.Float64("ratio-edit", 1.5, "minimum Pandaemonium/pelletier Document edit throughput ratio for --kind=edit")
+	flagBenchstat             = flag.String("benchstat", "benchstat", "path to benchstat binary")
+	flagAlpha                 = flag.Float64("alpha", 0.05, "benchstat -alpha (U-test significance threshold)")
+	flagBench                 = flag.String("bench", "SmoketestUnmarshal", "benchmark stem for --kind=parser")
 )
 
 func main() {
@@ -115,16 +124,18 @@ func main() {
 		runScanGate()
 	case "facade":
 		runFacadeGate()
+	case "marshal":
+		runMarshalGate()
 	case "edit":
 		runEditGate()
 	case "parser":
 		runParserSmoketest()
 	case "":
-		fmt.Fprintln(os.Stderr, "toml-perf-gate: --kind is required (one of: scan, facade, edit, parser)")
+		fmt.Fprintln(os.Stderr, "toml-perf-gate: --kind is required (one of: scan, facade, marshal, edit, parser)")
 		flag.Usage()
 		os.Exit(exitArg)
 	default:
-		fmt.Fprintf(os.Stderr, "toml-perf-gate: unknown --kind=%q (valid: scan, facade, edit, parser)\n", *flagKind)
+		fmt.Fprintf(os.Stderr, "toml-perf-gate: unknown --kind=%q (valid: scan, facade, marshal, edit, parser)\n", *flagKind)
 		os.Exit(exitArg)
 	}
 }
@@ -182,11 +193,24 @@ func runEditGate() {
 	os.Exit(exitFail)
 }
 
-// runFacadeGate compares the Phase 4 high-level Unmarshal facade against the
-// two bench-only competitor implementations on the pinned Cargo.lock corpus.
+type benchmarkPair struct {
+	pkg       string
+	title     string
+	label     string
+	base      string
+	candidate string
+	stem      string
+	row       string
+	ratio     float64
+}
+
+// runFacadeGate compares the high-level Unmarshal facade against bench-only
+// competitor implementations. The cargo.lock struct pair remains the binding
+// world's-fastest facade gate; the map-path pairs make the known failing
+// ReferenceFile/map and Hugo/map shapes visible in the same CI/audit output.
 func runFacadeGate() {
-	if *flagRatioBurntSushi <= 0 || *flagRatioPelletier <= 0 {
-		die(exitArg, "facade ratios must be > 0; got burntsushi=%g pelletier=%g", *flagRatioBurntSushi, *flagRatioPelletier)
+	if *flagRatioBurntSushi <= 0 || *flagRatioPelletier <= 0 || *flagRatioMapPelletier <= 0 {
+		die(exitArg, "facade ratios must be > 0; got burntsushi=%g pelletier=%g map-pelletier=%g", *flagRatioBurntSushi, *flagRatioPelletier, *flagRatioMapPelletier)
 	}
 	if *flagAlpha <= 0 || *flagAlpha >= 1 {
 		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
@@ -201,46 +225,127 @@ func runFacadeGate() {
 	}
 	defer os.RemoveAll(tmp)
 
-	if !runFacadePair(repoRoot, tmp, "BurntSushi", *flagRatioBurntSushi) {
-		os.Exit(exitFail)
+	pairs := []benchmarkPair{
+		{
+			pkg:       *flagFacadePkg,
+			title:     "facade: Pandaemonium cargo.lock struct vs BurntSushi",
+			label:     "facade/burntsushi",
+			base:      "BenchmarkUnmarshal_BurntSushi",
+			candidate: "BenchmarkUnmarshal_Pandaemonium",
+			stem:      "BenchmarkUnmarshal",
+			row:       "Unmarshal",
+			ratio:     *flagRatioBurntSushi,
+		},
+		{
+			pkg:       *flagFacadePkg,
+			title:     "facade: Pandaemonium cargo.lock struct vs pelletier",
+			label:     "facade/pelletier",
+			base:      "BenchmarkUnmarshal_Pelletier",
+			candidate: "BenchmarkUnmarshal_Pandaemonium",
+			stem:      "BenchmarkUnmarshal",
+			row:       "Unmarshal",
+			ratio:     *flagRatioPelletier,
+		},
+		{
+			pkg:       *flagFacadePkg,
+			title:     "facade: Pandaemonium ReferenceFile/map vs pelletier",
+			label:     "facade/reference-map/pelletier",
+			base:      "BenchmarkUnmarshalReferenceMap_Pelletier",
+			candidate: "BenchmarkUnmarshalReferenceMap_Pandaemonium",
+			stem:      "BenchmarkUnmarshalReferenceMap",
+			row:       "UnmarshalReferenceMap",
+			ratio:     *flagRatioMapPelletier,
+		},
+		{
+			pkg:       *flagFacadePkg,
+			title:     "facade: Pandaemonium Hugo/map vs pelletier",
+			label:     "facade/hugo-map/pelletier",
+			base:      "BenchmarkUnmarshalHugoMap_Pelletier",
+			candidate: "BenchmarkUnmarshalHugoMap_Pandaemonium",
+			stem:      "BenchmarkUnmarshalHugoMap",
+			row:       "UnmarshalHugoMap",
+			ratio:     *flagRatioMapPelletier,
+		},
 	}
-	if !runFacadePair(repoRoot, tmp, "Pelletier", *flagRatioPelletier) {
+
+	ok := true
+	for _, pair := range pairs {
+		if !runBenchmarkPair(repoRoot, tmp, pair) {
+			ok = false
+		}
+	}
+	if !ok {
 		os.Exit(exitFail)
 	}
 	os.Exit(exitOK)
 }
 
-func runFacadePair(repoRoot, tmp, competitor string, ratio float64) bool {
-	stem := "BenchmarkUnmarshal"
-	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagFacadePkg, "^"+stem+"_"+competitor+"$", strings.ToLower(competitor)+"-base", "bench")
+// runMarshalGate compares cargo.lock marshal throughput against pelletier. It
+// deliberately uses a separate threshold flag because marshal has different
+// architecture and risk than facade unmarshal.
+func runMarshalGate() {
+	if *flagRatioMarshalPelletier <= 0 {
+		die(exitArg, "--ratio-marshal-pelletier must be > 0; got %g", *flagRatioMarshalPelletier)
+	}
+	if *flagAlpha <= 0 || *flagAlpha >= 1 {
+		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+	}
+	repoRoot, err := findRepoRoot()
 	if err != nil {
-		die(exitArg, "%s facade benchmark: %v", competitor, err)
+		die(exitArg, "%v", err)
 	}
-	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagFacadePkg, "^"+stem+"_Pandaemonium$", strings.ToLower(competitor)+"-candidate", "bench")
+	tmp, err := os.MkdirTemp("", "toml-marshal-gate-*")
 	if err != nil {
-		die(exitArg, "pandaemonium facade benchmark: %v", err)
+		die(exitArg, "mktemp: %v", err)
 	}
-	if err := renameInPlace(baseFile, stem+"_"+competitor, stem); err != nil {
-		die(exitArg, "rename %s benchmark: %v", competitor, err)
+	defer os.RemoveAll(tmp)
+
+	ok := runBenchmarkPair(repoRoot, tmp, benchmarkPair{
+		pkg:       *flagMarshalPkg,
+		title:     "marshal: Pandaemonium cargo.lock vs pelletier",
+		label:     "marshal/pelletier",
+		base:      "BenchmarkMarshal_Pelletier",
+		candidate: "BenchmarkMarshal_Pandaemonium",
+		stem:      "BenchmarkMarshal",
+		row:       "Marshal",
+		ratio:     *flagRatioMarshalPelletier,
+	})
+	if !ok {
+		os.Exit(exitFail)
 	}
-	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
-		die(exitArg, "rename pandaemonium benchmark: %v", err)
+	os.Exit(exitOK)
+}
+
+func runBenchmarkPair(repoRoot, tmp string, pair benchmarkPair) bool {
+	baseFile, err := runBenchInPackage(repoRoot, tmp, pair.pkg, "^"+pair.base+"$", pair.label+"-base", "bench")
+	if err != nil {
+		die(exitArg, "%s baseline benchmark: %v", pair.label, err)
+	}
+	candidateFile, err := runBenchInPackage(repoRoot, tmp, pair.pkg, "^"+pair.candidate+"$", pair.label+"-candidate", "bench")
+	if err != nil {
+		die(exitArg, "%s candidate benchmark: %v", pair.label, err)
+	}
+	if err := renameInPlace(baseFile, pair.base, pair.stem); err != nil {
+		die(exitArg, "rename %s baseline benchmark: %v", pair.label, err)
+	}
+	if err := renameInPlace(candidateFile, pair.candidate, pair.stem); err != nil {
+		die(exitArg, "rename %s candidate benchmark: %v", pair.label, err)
 	}
 	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
 	if err != nil {
-		die(exitArg, "benchstat %s: %v", competitor, err)
+		die(exitArg, "benchstat %s: %v", pair.label, err)
 	}
-	fmt.Printf("\n# facade: Pandaemonium vs %s\n", competitor)
+	fmt.Printf("\n# %s\n", pair.title)
 	fmt.Print(textOut)
-	res, err := parseGate(csvOut, "Unmarshal", ratio, *flagAlpha)
+	res, err := parseGate(csvOut, pair.row, pair.ratio, *flagAlpha)
 	if err != nil {
-		die(exitArg, "parse benchstat CSV for %s: %v", competitor, err)
+		die(exitArg, "parse benchstat CSV for %s: %v", pair.label, err)
 	}
 	if res.pass {
-		fmt.Printf("toml-perf-gate: PASS facade/%s point=%.3fx lower95=%.3fx threshold=%.3fx %s\n", strings.ToLower(competitor), res.pointRatio, res.lowerRatio, ratio, res.pStr)
+		fmt.Printf("toml-perf-gate: PASS %s point=%.3fx lower95=%.3fx threshold=%.3fx %s\n", pair.label, res.pointRatio, res.lowerRatio, pair.ratio, res.pStr)
 		return true
 	}
-	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL facade/%s point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n", strings.ToLower(competitor), res.pointRatio, res.lowerRatio, ratio, res.pStr, res.failReason)
+	fmt.Fprintf(os.Stderr, "toml-perf-gate: FAIL %s point=%.3fx lower95=%.3fx threshold=%.3fx %s reason=%s\n", pair.label, res.pointRatio, res.lowerRatio, pair.ratio, res.pStr, res.failReason)
 	return false
 }
 
@@ -397,19 +502,28 @@ func runBenchInPackage(repoRoot, dir, pkg, pattern, label, tags string) (string,
 	if err != nil {
 		return "", err
 	}
-	path := filepath.Join(dir, label+".txt")
+	path := filepath.Join(dir, safeBenchmarkLabel(label)+".txt")
 	if err := os.WriteFile(path, out, 0o644); err != nil {
 		return "", err
 	}
 	return path, nil
 }
 
+func safeBenchmarkLabel(label string) string {
+	replacer := strings.NewReplacer("/", "-", "\\", "-", string(os.PathSeparator), "-")
+	return replacer.Replace(label)
+}
+
 // runBenchmarkOnly runs a single go test benchmark pattern with the
 // Bench protocol flags and returns the combined benchmark output.
 func runBenchmarkOnly(repoRoot, pkg, pattern, tags string) ([]byte, error) {
-	args := benchmarkArgs(pkg, pattern, tags)
+	target, err := resolveBenchmarkTarget(repoRoot, pkg)
+	if err != nil {
+		return nil, err
+	}
+	args := benchmarkArgs(target.pkg, pattern, tags, target.modMode)
 	cmd := exec.Command("go", args...)
-	cmd.Dir = repoRoot
+	cmd.Dir = target.dir
 	// Bench protocol: GOMAXPROCS=1, empty GODEBUG. Inherit everything
 	// else (including GOEXPERIMENT from .envrc) so the toolchain match
 	// matches the production build.
@@ -423,7 +537,33 @@ func runBenchmarkOnly(repoRoot, pkg, pattern, tags string) ([]byte, error) {
 	return out, nil
 }
 
-func benchmarkArgs(pkg, pattern, tags string) []string {
+type benchmarkTarget struct {
+	dir     string
+	pkg     string
+	modMode string
+}
+
+func resolveBenchmarkTarget(repoRoot, pkg string) (benchmarkTarget, error) {
+	if pkg == "" {
+		return benchmarkTarget{}, errors.New("benchmark package path is empty")
+	}
+	if filepath.IsAbs(pkg) || strings.HasPrefix(pkg, ".") {
+		dir := pkg
+		if !filepath.IsAbs(dir) {
+			dir = filepath.Join(repoRoot, dir)
+		}
+		dir = filepath.Clean(dir)
+		if info, err := os.Stat(filepath.Join(dir, "go.mod")); err == nil && !info.IsDir() {
+			// Benchmark submodules must measure the live checkout through
+			// their local replace directive. Without -mod=mod, a committed
+			// vendor tree can shadow the replace with stale package sources.
+			return benchmarkTarget{dir: dir, pkg: ".", modMode: "mod"}, nil
+		}
+	}
+	return benchmarkTarget{dir: repoRoot, pkg: pkg}, nil
+}
+
+func benchmarkArgs(pkg, pattern, tags, modMode string) []string {
 	args := []string{
 		"test",
 		"-bench=" + pattern,
@@ -433,6 +573,9 @@ func benchmarkArgs(pkg, pattern, tags string) []string {
 		"-benchtime=" + *flagBenchtime,
 		"-run=^$",
 		"-timeout=1800s",
+	}
+	if modMode != "" {
+		args = append(args, "-mod="+modMode)
 	}
 	if tags != "" {
 		args = append(args, "-tags="+tags)

@@ -139,7 +139,7 @@ func directTypeContainsMap(t reflect.Type, seen map[reflect.Type]bool) (bool, er
 // intermediate documentMap used by generic callers while preserving the same
 // Decoder.ReadToken source of truth as the rest of the facade.
 func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindConfig) error {
-	dec := NewDecoderBytes(data, opts...)
+	dec := NewDecoderBytes(data, decoderOptionsWithoutTokenPositions(opts)...)
 	current := dst
 	currentInfo, err := directStructInfo(current)
 	if err != nil {
@@ -147,7 +147,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 	}
 	currentPath := directPathState{}
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if errors.Is(err, io.EOF) {
 			return nil
 		}
@@ -187,7 +187,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 			currentPath = directPathState{text: path, valid: true, arrayIndex: -1}
 		case TokenKindArrayTableHeader:
 			if path, ok := parseDirectHeaderPath(tok.Bytes, true); ok {
-				next, index, err := directArrayTableRaw(dst, path)
+				next, index, err := directArrayTableRaw(dst, path, data, tok.Bytes)
 				if err != nil {
 					return err
 				}
@@ -203,7 +203,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 			if err != nil {
 				return err
 			}
-			next, index, err := directArrayTable(dst, path)
+			next, index, err := directArrayTable(dst, path, data, tok.Bytes)
 			if err != nil {
 				return err
 			}
@@ -282,7 +282,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				return bindErrorPath(err, currentPath.string())
 			}
 		default:
-			return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: [2]int{0, 1}}
+			return decoderSyntaxErrorForRawToken(dec, tok, "unexpected token")
 		}
 	}
 }
@@ -648,7 +648,7 @@ func directDestination(root reflect.Value, path []string) (reflect.Value, direct
 	return cur, directValueKindOfType(cur.Type()), true, nil
 }
 
-func directArrayTableRaw(root reflect.Value, path directRawPath) (reflect.Value, int, error) {
+func directArrayTableRaw(root reflect.Value, path directRawPath, data, header []byte) (reflect.Value, int, error) {
 	if path.len() == 0 {
 		return root, -1, nil
 	}
@@ -670,13 +670,12 @@ func directArrayTableRaw(root reflect.Value, path directRawPath) (reflect.Value,
 	if slot.Kind() != reflect.Slice {
 		return reflect.Value{}, -1, bindDirectRawErrorPath(mismatch(slot.Type(), []any{}), path)
 	}
-	elem := reflect.New(slot.Type().Elem()).Elem()
-	index := slot.Len()
-	slot.Set(reflect.Append(slot, elem))
-	return directWritableValue(slot.Index(index)), index, nil
+	capacityHint := directArrayTableCapacityHint(data, header, path.len(), slot.Len())
+	elem, index := appendDirectSliceElement(slot, capacityHint)
+	return elem, index, nil
 }
 
-func directArrayTable(root reflect.Value, path []string) (reflect.Value, int, error) {
+func directArrayTable(root reflect.Value, path []string, data, header []byte) (reflect.Value, int, error) {
 	if len(path) == 0 {
 		return root, -1, nil
 	}
@@ -698,10 +697,29 @@ func directArrayTable(root reflect.Value, path []string) (reflect.Value, int, er
 	if slot.Kind() != reflect.Slice {
 		return reflect.Value{}, -1, bindDirectErrorPath(mismatch(slot.Type(), []any{}), path)
 	}
-	elem := reflect.New(slot.Type().Elem()).Elem()
+	capacityHint := directArrayTableCapacityHint(data, header, len(path), slot.Len())
+	elem, index := appendDirectSliceElement(slot, capacityHint)
+	return elem, index, nil
+}
+
+func directArrayTableCapacityHint(data, header []byte, pathLen, currentLen int) int {
+	if pathLen != 1 || currentLen != 0 {
+		return 0
+	}
+	return bytes.Count(data, header)
+}
+
+func appendDirectSliceElement(slot reflect.Value, capacityHint int) (reflect.Value, int) {
 	index := slot.Len()
-	slot.Set(reflect.Append(slot, elem))
-	return directWritableValue(slot.Index(index)), index, nil
+	if index == 0 && capacityHint > 0 {
+		slot.Grow(capacityHint)
+	} else {
+		slot.Grow(1)
+	}
+	slot.SetLen(index + 1)
+	elem := slot.Index(index)
+	elem.SetZero()
+	return directWritableValue(elem), index
 }
 
 func directAssignRaw(root reflect.Value, path directRawPath, value any, cfg bindConfig) error {
@@ -796,11 +814,11 @@ func directBindFromDecoderNoPath(dec *Decoder, dst reflect.Value, valueKind dire
 	return directBindTypedToken(dec, tok, dst, valueKind, cfg)
 }
 
-func directNextValueToken(dec *Decoder) (Token, error) {
+func directNextValueToken(dec *Decoder) (rawToken, error) {
 	for {
-		tok, err := dec.ReadToken()
+		tok, err := dec.readToken()
 		if err != nil {
-			return Token{}, err
+			return rawToken{}, err
 		}
 		if tok.Kind == TokenKindComment {
 			continue
@@ -809,14 +827,81 @@ func directNextValueToken(dec *Decoder) (Token, error) {
 	}
 }
 
-func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind directValueKind, cfg bindConfig) error {
+func directStringValue(dec *Decoder, raw []byte, cfg bindConfig) (string, error) {
+	if dec == nil || cfg.copyStrings {
+		return parseStringValue(raw)
+	}
+	body, kind, err := stringValueBody(raw)
+	if err != nil {
+		return "", err
+	}
+	switch kind {
+	case stringValueLiteral:
+		return directLiteralStringValue(dec, raw, body, false)
+	case stringValueMultilineLiteral:
+		return directLiteralStringValue(dec, raw, body, true)
+	case stringValueBasic:
+		return directBasicStringValue(dec, raw, body, false)
+	case stringValueMultilineBasic:
+		return directBasicStringValue(dec, raw, body, true)
+	default:
+		return "", malformedStringError(raw)
+	}
+}
+
+func directLiteralStringValue(dec *Decoder, raw, body []byte, multiline bool) (string, error) {
+	if err := validateLiteralStringBody(body, multiline); err != nil {
+		return "", err
+	}
+	if s, ok := dec.arenaString(body); ok {
+		return s, nil
+	}
+	return parseStringValue(raw)
+}
+
+func directBasicStringValue(dec *Decoder, raw, body []byte, multiline bool) (string, error) {
+	if bytes.IndexByte(body, '\\') >= 0 {
+		return parseStringValue(raw)
+	}
+	if err := validateBasicStringBody(body, multiline); err != nil {
+		return "", err
+	}
+	if s, ok := dec.arenaString(body); ok {
+		return s, nil
+	}
+	return parseStringValue(raw)
+}
+
+func (d *Decoder) arenaString(raw []byte) (string, bool) {
+	if len(raw) == 0 {
+		return "", true
+	}
+	if d == nil || len(d.buf) == 0 || len(raw) > len(d.buf) {
+		return "", false
+	}
+	base := uintptr(unsafe.Pointer(unsafe.SliceData(d.buf)))
+	ptr := uintptr(unsafe.Pointer(unsafe.SliceData(raw)))
+	if ptr < base {
+		return "", false
+	}
+	off := ptr - base
+	if off > uintptr(len(d.buf)-len(raw)) {
+		return "", false
+	}
+	if d.stringArena == "" {
+		d.stringArena = string(d.buf)
+	}
+	return d.stringArena[int(off) : int(off)+len(raw)], true
+}
+
+func directBindTypedToken(dec *Decoder, tok rawToken, dst reflect.Value, valueKind directValueKind, cfg bindConfig) error {
 	if !dst.CanSet() {
 		return nil
 	}
 	switch valueKind {
 	case directValueString:
 		if tok.Kind == TokenKindValueString {
-			s, err := parseStringValue(tok.Bytes)
+			s, err := directStringValue(dec, tok.Bytes, cfg)
 			if err != nil {
 				return err
 			}
@@ -833,12 +918,12 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 				dst.SetBool(false)
 				return nil
 			default:
-				return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed boolean", Span: [2]int{0, len(tok.Bytes)}}
+				return decoderSyntaxErrorForRawToken(dec, tok, "malformed boolean")
 			}
 		}
 	case directValueInt:
 		if tok.Kind == TokenKindValueInteger {
-			i, err := strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+			i, err := rawTokenIntegerValue(dec, tok)
 			if err != nil {
 				return err
 			}
@@ -850,7 +935,7 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 		}
 	case directValueUint:
 		if tok.Kind == TokenKindValueInteger {
-			i, err := strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+			i, err := rawTokenIntegerValue(dec, tok)
 			if err != nil {
 				return err
 			}
@@ -863,18 +948,7 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 	case directValueFloat:
 		switch tok.Kind {
 		case TokenKindValueFloat:
-			if f, ok := parseSpecialFloatLiteral(tok.Bytes); ok {
-				if dst.OverflowFloat(f) {
-					return mismatch(dst.Type(), f)
-				}
-				dst.SetFloat(f)
-				return nil
-			}
-			normalized := normalizeNumericText(tok.Bytes, true)
-			if isSpecialFloat(normalized) {
-				return &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "malformed special float", Span: [2]int{0, len(tok.Bytes)}}
-			}
-			f, err := strconv.ParseFloat(normalized, 64)
+			f, err := rawTokenFloatValue(dec, tok)
 			if err != nil {
 				return err
 			}
@@ -884,7 +958,7 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 			dst.SetFloat(f)
 			return nil
 		case TokenKindValueInteger:
-			i, err := strconv.ParseInt(normalizeNumericText(tok.Bytes, false), 0, 64)
+			i, err := rawTokenIntegerValue(dec, tok)
 			if err != nil {
 				return err
 			}
@@ -900,14 +974,14 @@ func directBindTypedToken(dec *Decoder, tok Token, dst reflect.Value, valueKind 
 			return directBindTimeToken(tok, dst, cfg)
 		}
 	}
-	value, err := parseValueToken(dec, tok)
+	value, err := parseValueToken(dec, tok.publicToken())
 	if err != nil {
 		return err
 	}
 	return bindValue(dst, value, cfg)
 }
 
-func directBindTimeToken(tok Token, dst reflect.Value, cfg bindConfig) error {
+func directBindTimeToken(tok rawToken, dst reflect.Value, cfg bindConfig) error {
 	v, kind, err := parseDateTimeValue(tok.Bytes)
 	if err != nil {
 		return err

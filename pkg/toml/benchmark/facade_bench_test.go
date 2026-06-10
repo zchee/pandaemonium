@@ -12,8 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-//go:build ignore
-
 package benchmark_test
 
 import (
@@ -40,6 +38,8 @@ type benchCargo struct {
 
 var benchCargoLock = mustReadBenchCorpus()
 
+var benchReferenceFile = mustReadReferenceCorpus()
+
 var benchScalarDocument = []byte(`title = "pandaemonium"
 active = true
 count = 42
@@ -65,6 +65,7 @@ var (
 var (
 	benchCargoSink          benchCargo
 	benchScalarSink         benchScalar
+	benchMapSink            map[string]any
 	benchMarshalOutput      []byte
 	benchDocumentEditOutput []byte
 )
@@ -177,6 +178,54 @@ func BenchmarkArrayTableUnmarshal_Pandaemonium(b *testing.B) {
 	}
 }
 
+func BenchmarkUnmarshalReferenceMap_Pelletier(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchReferenceFile)))
+	for b.Loop() {
+		dst := map[string]any{}
+		if err := pelletier.Unmarshal(benchReferenceFile, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchMapSink = dst
+	}
+}
+
+func BenchmarkUnmarshalReferenceMap_Pandaemonium(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(benchReferenceFile)))
+	for b.Loop() {
+		dst := map[string]any{}
+		if err := simdtoml.Unmarshal(benchReferenceFile, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchMapSink = dst
+	}
+}
+
+func BenchmarkUnmarshalHugoMap_Pelletier(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(hugoFrontMatterbytes)))
+	for b.Loop() {
+		dst := map[string]any{}
+		if err := pelletier.Unmarshal(hugoFrontMatterbytes, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchMapSink = dst
+	}
+}
+
+func BenchmarkUnmarshalHugoMap_Pandaemonium(b *testing.B) {
+	b.ReportAllocs()
+	b.SetBytes(int64(len(hugoFrontMatterbytes)))
+	for b.Loop() {
+		dst := map[string]any{}
+		if err := simdtoml.Unmarshal(hugoFrontMatterbytes, &dst); err != nil {
+			b.Fatal(err)
+		}
+		benchMapSink = dst
+	}
+}
+
 func BenchmarkDocumentEdit(b *testing.B) {
 	benchmarkDocumentEditPandaemonium(b)
 }
@@ -222,6 +271,14 @@ func benchmarkDocumentEditPandaemonium(b *testing.B) {
 
 func mustReadBenchCorpus() []byte {
 	body, err := os.ReadFile("../testdata/corpus/cargo.lock")
+	if err != nil {
+		panic(err)
+	}
+	return body
+}
+
+func mustReadReferenceCorpus() []byte {
+	body, err := os.ReadFile("testdata/benchmark.toml")
 	if err != nil {
 		panic(err)
 	}

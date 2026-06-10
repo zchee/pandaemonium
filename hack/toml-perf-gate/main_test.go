@@ -535,7 +535,7 @@ func TestBenchmarkArgs_ParserHarness(t *testing.T) {
 		*flagCount, *flagCPU, *flagBenchtime = oldCount, oldCPU, oldBenchtime
 	}()
 
-	got := benchmarkArgs("./pkg/toml/", "^BenchmarkUnmarshal_BurntSushi$", "bench")
+	got := benchmarkArgs("./pkg/toml/", "^BenchmarkUnmarshal_BurntSushi$", "bench", "")
 	want := []string{
 		"test",
 		"-bench=^BenchmarkUnmarshal_BurntSushi$",
@@ -565,7 +565,7 @@ func TestBenchmarkArgs_EditHarness(t *testing.T) {
 		*flagCount, *flagCPU, *flagBenchtime = oldCount, oldCPU, oldBenchtime
 	}()
 
-	got := benchmarkArgs("./pkg/toml/", "^BenchmarkDocumentEdit$", "bench")
+	got := benchmarkArgs("./pkg/toml/", "^BenchmarkDocumentEdit$", "bench", "")
 	want := []string{
 		"test",
 		"-bench=^BenchmarkDocumentEdit$",
@@ -588,6 +588,103 @@ func TestBenchmarkArgs_EditHarness(t *testing.T) {
 	}
 }
 
+func TestBenchmarkArgs_SubmoduleBypassesVendor(t *testing.T) {
+	oldCount, oldCPU, oldBenchtime := *flagCount, *flagCPU, *flagBenchtime
+	*flagCount, *flagCPU, *flagBenchtime = 10, 1, "5s"
+	defer func() {
+		*flagCount, *flagCPU, *flagBenchtime = oldCount, oldCPU, oldBenchtime
+	}()
+
+	got := benchmarkArgs(".", "^BenchmarkUnmarshal_Pandaemonium$", "", "mod")
+	want := []string{
+		"test",
+		"-bench=^BenchmarkUnmarshal_Pandaemonium$",
+		"-benchmem",
+		"-count=10",
+		"-cpu=1",
+		"-benchtime=5s",
+		"-run=^$",
+		"-timeout=1800s",
+		"-mod=mod",
+		".",
+	}
+	if len(got) != len(want) {
+		t.Fatalf("benchmarkArgs len = %d, want %d", len(got), len(want))
+	}
+	for i := range want {
+		if got[i] != want[i] {
+			t.Fatalf("benchmarkArgs[%d] = %q, want %q", i, got[i], want[i])
+		}
+	}
+}
+
+func TestResolveBenchmarkTarget(t *testing.T) {
+	t.Parallel()
+
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("findRepoRoot: %v", err)
+	}
+	tests := map[string]struct {
+		pkg         string
+		wantDir     string
+		wantPkg     string
+		wantModMode string
+	}{
+		"success: root module package stays rooted at repository": {
+			pkg:     "./pkg/toml/",
+			wantDir: repoRoot,
+			wantPkg: "./pkg/toml/",
+		},
+		"success: benchmark submodule runs from submodule root": {
+			pkg:         "./pkg/toml/benchmark",
+			wantDir:     filepath.Join(repoRoot, "pkg", "toml", "benchmark"),
+			wantPkg:     ".",
+			wantModMode: "mod",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := resolveBenchmarkTarget(repoRoot, tc.pkg)
+			if err != nil {
+				t.Fatalf("resolveBenchmarkTarget: %v", err)
+			}
+			if got.dir != tc.wantDir {
+				t.Fatalf("dir = %q, want %q", got.dir, tc.wantDir)
+			}
+			if got.pkg != tc.wantPkg {
+				t.Fatalf("pkg = %q, want %q", got.pkg, tc.wantPkg)
+			}
+			if got.modMode != tc.wantModMode {
+				t.Fatalf("modMode = %q, want %q", got.modMode, tc.wantModMode)
+			}
+		})
+	}
+}
+
+func TestSafeBenchmarkLabel(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		in   string
+		want string
+	}{
+		"success: slash label":     {"facade/reference-map/pelletier-base", "facade-reference-map-pelletier-base"},
+		"success: backslash label": {`marshal\pelletier`, "marshal-pelletier"},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := safeBenchmarkLabel(tc.in); got != tc.want {
+				t.Fatalf("safeBenchmarkLabel(%q) = %q, want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestTOMLPerfGateWorkflowScanRatios(t *testing.T) {
 	t.Parallel()
 
@@ -603,12 +700,16 @@ func TestTOMLPerfGateWorkflowScanRatios(t *testing.T) {
 	workflow := string(workflowBytes)
 
 	want := map[string]string{
-		"LocateNewline":     "0.98",
-		"ScanLiteralString": "0.98",
-		"ScanBareKey":       "1.0",
-		"ScanBasicString":   "1.0",
-		"SkipWhitespace":    "1.0",
-		"ValidateUTF8":      "1.0",
+		"CountLines":            "1.0",
+		"LocateNewline":         "0.98",
+		"ScanLiteralString":     "0.98",
+		"ScanBareKey":           "1.0",
+		"ScanBasicString":       "1.0",
+		"ScanBasicStringStrict": "1.0",
+		"ScanCommentBody":       "1.0",
+		"ScanBareValueEnd":      "1.0",
+		"SkipWhitespace":        "1.0",
+		"ValidateUTF8":          "1.0",
 	}
 
 	for _, job := range []string{"amd64-perf", "arm64-perf"} {
@@ -642,6 +743,59 @@ func TestTOMLPerfGateWorkflowScanRatios(t *testing.T) {
 				t.Fatalf("job %s: stale gotip run harness command is still present", job)
 			}
 		})
+	}
+}
+
+func TestTOMLPerfGateWorkflowFinalGateJobs(t *testing.T) {
+	t.Parallel()
+
+	repoRoot, err := findRepoRoot()
+	if err != nil {
+		t.Fatalf("findRepoRoot: %v", err)
+	}
+	workflowPath := filepath.Join(repoRoot, ".github", "workflows", "toml-perf-gate.yaml")
+	workflowBytes, err := os.ReadFile(workflowPath)
+	if err != nil {
+		t.Fatalf("read workflow %s: %v", workflowPath, err)
+	}
+	workflow := string(workflowBytes)
+
+	aggregate := workflowJobBlock(t, workflow, "aggregate-gates")
+	for _, want := range []string{
+		"runner: ubuntu-24.04",
+		"runner: macos-15",
+		"kind: facade",
+		"kind: marshal",
+		"kind: edit",
+		`--kind="${{ matrix.kind }}"`,
+		"--count=10",
+		"--benchtime=5s",
+		"--cpu=1",
+		"add-gotip-bin-to-path: true",
+	} {
+		if !strings.Contains(aggregate, want) {
+			t.Fatalf("aggregate-gates job missing %q\n%s", want, aggregate)
+		}
+	}
+	if gotCount := strings.Count(aggregate, "kind: facade"); gotCount != 2 {
+		t.Fatalf("aggregate-gates facade matrix count = %d, want 2", gotCount)
+	}
+	if gotCount := strings.Count(aggregate, "kind: marshal"); gotCount != 2 {
+		t.Fatalf("aggregate-gates marshal matrix count = %d, want 2", gotCount)
+	}
+	if gotCount := strings.Count(aggregate, "kind: edit"); gotCount != 2 {
+		t.Fatalf("aggregate-gates edit matrix count = %d, want 2", gotCount)
+	}
+
+	forceSWAR := workflowJobBlock(t, workflow, "force-swar-correctness")
+	for _, want := range []string{
+		"runs-on: ubuntu-24.04",
+		"go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan ./pkg/toml",
+		"add-gotip-bin-to-path: true",
+	} {
+		if !strings.Contains(forceSWAR, want) {
+			t.Fatalf("force-swar-correctness job missing %q\n%s", want, forceSWAR)
+		}
 	}
 }
 

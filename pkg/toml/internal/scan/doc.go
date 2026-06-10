@@ -12,13 +12,15 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package scan provides the six SIMD-accelerated byte-class scan kernels
+// Package scan provides the ten SIMD-accelerated byte-class scan kernels
 // consumed by the streaming decoder hot loop in pkg/toml.
 //
-// The six kernels are ScanBareKey, ScanBasicString, ScanLiteralString,
+// The kernels are ScanBareKey, ScanBasicString, ScanBasicStringStrict,
+// ScanCommentBody, ScanBareValueEnd, CountLines, ScanLiteralString,
 // SkipWhitespace, LocateNewline, and ValidateUTF8. Each takes a single
 // []byte haystack and returns an int: a count-or-index that the decoder
-// composes into its line/column position. None of the kernels return an
+// composes into token boundaries or lazy line/column positions. None of
+// the kernels return an
 // error; the typed LimitError lives in this package only because it is the
 // shape every consumer of these kernels uses when it enforces a DoS cap on
 // top of a scan result.
@@ -39,6 +41,27 @@
 // The build tags are spelled on each scan_*.go file; the SWAR file uses
 // "!goexperiment.simd || (!amd64 && !arm64)" so it is the union of the
 // non-SIMD platforms.
+//
+// # Maintenance contract
+//
+// This package intentionally keeps parser semantics out of backend files, but
+// TOML grammar changes that alter a scan class must update all of these
+// surfaces together:
+//
+//   - api.go for the public internal wrapper contract.
+//   - strict.go for the scalar oracle predicate or tail helper.
+//   - scan_swar.go for the SWAR fallback.
+//   - scan_amd64.go for the amd64 SIMD path.
+//   - scan_arm64.go and scan_arm64.s for the arm64 NEON path.
+//   - naive_scan_test.go, scan_test.go, property_test.go, and fuzz_test.go for
+//     oracle, golden, property, and fuzz parity.
+//   - bench_test.go and hack/toml-perf-gate when the changed class has a
+//     throughput gate.
+//
+// Keep the table in this file, README.md, and the CI workflow in sync with any
+// new or retired scan kernel. Do not change only one backend for a grammar
+// tweak unless the other backends are covered by explicit tests proving they do
+// not need the update.
 //
 // # Lifetime and aliasing rules
 //
@@ -81,7 +104,11 @@
 //	| ScanLiteralString | bytes.IndexByte(s, '\'')               | 0.98       | True single-byte; like-for-like comparison.               |
 //	| ScanBasicString   | naive Go loop (naive_scan_test.go)     | 1.00       | Two-byte class ('"' or '\\'); IndexByte is not a fair    |
 //	|                   |                                        |            | comparator.                                               |
-//	| ScanBareKey       | naive Go loop (naive_scan_test.go)     | 1.00       | Multi-byte class predicate [A-Za-z0-9_-].                 |
+//	| ScanBasicStringStrict| naive Go loop (naive_scan_test.go) | 1.00       | Fused delimiter/control class with TOML tab exception.    |
+//	| ScanCommentBody  | naive Go loop (naive_scan_test.go)     | 1.00       | Comment LF/CR/control stop class with tab exception.      |
+//	| ScanBareValueEnd | naive Go loop (naive_scan_test.go)     | 1.00       | Bare-value delimiter byte class.                          |
+//	| CountLines       | naive Go loop (naive_scan_test.go)     | 1.00       | LF counting for lazy diagnostics.                         |
+//	| ScanBareKey      | naive Go loop (naive_scan_test.go)     | 1.00       | Multi-byte class predicate [A-Za-z0-9_-].                 |
 //	| SkipWhitespace    | naive Go loop (naive_scan_test.go)     | 1.00       | Two-byte class predicate (' ' or '\t', excluding '\n').   |
 //	| ValidateUTF8      | unicode/utf8.Valid                     | 1.00       | Multi-state class validator; SIMD must beat stdlib       |
 //	|                   |                                        |            | utf8.Valid, not just a naive byte loop.                   |

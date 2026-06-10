@@ -27,18 +27,16 @@ import "unicode/utf8"
 //
 // # Lane reduction shape
 //
-// Every NEON variant loads 16 bytes per iteration via VLD1 into one V
-// register, computes a per-lane membership mask with VCMEQ (or VCMHS for
-// range tests), then narrows the 16-byte 0xFF/0x00 mask to a 64-bit
-// "syndrome" using VSHRN $4 reinterpreting the mask as 8 halfwords. The
-// resulting syndrome has exactly 4 bits set per matched source byte at
-// bit positions [4k:4k+3] for lane k, so RBIT+CLZ followed by a logical
-// shift right by 2 recovers the lane index of the first match.
+// NEON variants use two related lane-reduction shapes. Legacy/small kernels
+// may load 16 bytes and narrow one 0xFF/0x00 mask with VSHRN $4, while the
+// hot paths use a 32-byte dual-vector loop ported from internal/memchr and
+// bytealg practice: cheaply OR-reduce candidate masks on the no-hit path,
+// then build the precise magic-constant syndrome only for the hit block.
 //
-// "Find first non-match" kernels (ScanBareKey, SkipWhitespace) build the
-// class-membership mask the same way, then invert with VNOT before the
-// VSHRN narrow step so the same RBIT+CLZ sequence locates the first
-// non-class byte.
+// "Find first non-match" kernels build an invalid-byte mask before the
+// same RBIT+CLZ locator step. ScanBareKey classifies bytes with low/high
+// nibble VTBL bitset lookups; SkipWhitespace uses equality compares for
+// membership and then inverts that mask with VNOT.
 //
 // # Tail handling
 //
@@ -48,8 +46,9 @@ import "unicode/utf8"
 // # ValidateUTF8
 //
 // Mirrors the amd64 ASCII-fast-path: validateUTF8NEONBulk (assembly)
-// finds the first byte with the high bit set; validateUTF8NEON wraps it
-// with a Go scalar continuation that calls unicode/utf8.DecodeRune for
+// finds the first byte with the high bit set using a 32-byte dual-vector
+// loop; validateUTF8NEON wraps it with a Go scalar continuation that calls
+// unicode/utf8.DecodeRune for
 // the multi-byte tail. A full SIMD UTF-8 state machine (Lemire/Keiser)
 // would require a more elaborate PSHUFB-style table lookup that is not
 // justified at this phase.
@@ -58,12 +57,16 @@ import "unicode/utf8"
 // so these are statically bound to the NEON variants; T4's dispatch
 // wiring is a no-op on this arch (no runtime feature detect needed).
 var (
-	scanBareKey       = scanBareKeyNEON
-	scanBasicString   = scanBasicStringNEON
-	scanLiteralString = scanLiteralStringNEON
-	skipWhitespace    = skipWhitespaceNEON
-	locateNewline     = locateNewlineNEON
-	validateUTF8      = validateUTF8NEON
+	scanBareIdent         = scanBareKeyNEON
+	scanBasicString       = scanBasicStringNEON
+	scanBasicStringStrict = scanBasicStringStrictNEON
+	scanCommentBody       = scanCommentBodyNEON
+	scanBareValueEnd      = scanBareValueEndNEON
+	countLines            = countLinesNEON
+	scanLiteralString     = scanLiteralStringNEON
+	skipWhitespace        = skipWhitespaceNEON
+	locateNewline         = locateNewlineNEON
+	validateUTF8          = validateUTF8NEON
 )
 
 // =====================================================================
@@ -79,6 +82,18 @@ func scanBasicStringNEON(s []byte) int
 // scanLiteralStringNEON is the NEON variant of ScanLiteralString.
 func scanLiteralStringNEON(s []byte) int
 
+// scanBasicStringStrictNEON is the NEON variant of ScanBasicStringStrict.
+func scanBasicStringStrictNEON(s []byte) int
+
+// scanCommentBodyNEON is the NEON variant of ScanCommentBody.
+func scanCommentBodyNEON(s []byte) int
+
+// scanBareValueEndNEON is the NEON variant of ScanBareValueEnd.
+func scanBareValueEndNEON(s []byte) int
+
+// countLinesNEON is the NEON variant of CountLines.
+func countLinesNEON(s []byte) int
+
 // skipWhitespaceNEON is the NEON variant of SkipWhitespace.
 func skipWhitespaceNEON(s []byte) int
 
@@ -88,7 +103,7 @@ func locateNewlineNEON(s []byte) int
 
 // validateUTF8NEONBulk returns the byte index of the first byte in s
 // with the high bit set (>= 0x80), or len(s) if every byte in s is
-// pure ASCII. Implemented in scan_arm64.s with a 16-byte NEON stride
+// pure ASCII. Implemented in scan_arm64.s with a 32-byte NEON stride
 // and a per-byte tail.
 func validateUTF8NEONBulk(s []byte) int
 

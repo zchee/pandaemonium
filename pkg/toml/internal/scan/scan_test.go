@@ -19,7 +19,7 @@ import (
 	"testing"
 )
 
-// scan_test.go contains golden table-driven tests for the six exported
+// scan_test.go contains golden table-driven tests for the exported
 // scan kernels and for the LimitError type. Test keys follow the
 // AGENTS.md convention of a "success:" or "error:" prefix. Cases are
 // deliberately concentrated on 8-byte SWAR-stride boundaries (len 7/8/9
@@ -90,6 +90,133 @@ func TestScanBasicString(t *testing.T) {
 			got := ScanBasicString(tc.input)
 			if got != tc.want {
 				t.Errorf("ScanBasicString(%q) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestScanBasicStringStrict(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		input []byte
+		want  int
+	}{
+		"success:empty":                   {[]byte(""), 0},
+		"success:no_slow_byte":            {[]byte("hello world\t"), 12},
+		"success:quote_at_0":              {[]byte("\"foo"), 0},
+		"success:backslash_at_0":          {[]byte("\\nfoo"), 0},
+		"success:quote_at_8":              {[]byte("abcdefgh\""), 8},
+		"success:backslash_at_9":          {[]byte("abcdefghi\\"), 9},
+		"success:tab_is_body_text":        {[]byte("abc\tdef"), 7},
+		"success:newline_is_control":      {[]byte("abc\ndef"), 3},
+		"success:carriage_return_control": {[]byte("abc\rdef"), 3},
+		"success:nul_control":             {append([]byte("abc"), 0x00), 3},
+		"success:unit_separator_control":  {append([]byte("abc"), 0x1f), 3},
+		"success:space_is_body_text":      {[]byte("abc def"), 7},
+		"success:del_is_slow_byte":        {append([]byte("abc"), 0x7f), 3},
+		"success:high_bit_clean":          {append([]byte("aé"), 'z'), 4},
+		"success:long_then_del":           {append([]byte(strings.Repeat("x", 100)), 0x7f), 100},
+		"success:long_no_slow_byte":       {[]byte(strings.Repeat("x", 100)), 100},
+		"success:tab_before_quote":        {[]byte("abc\t\"def"), 4},
+		"success:control_before_quote":    {[]byte{'a', 'b', 0x01, '"'}, 2},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := ScanBasicStringStrict(tc.input)
+			if got != tc.want {
+				t.Errorf("ScanBasicStringStrict(%q) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestScanCommentBody(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		input []byte
+		want  int
+	}{
+		"success:empty":              {[]byte(""), 0},
+		"success:plain_comment":      {[]byte("hello world"), 11},
+		"success:tab_is_body_text":   {[]byte("abc\tdef"), 7},
+		"success:linefeed_at_0":      {[]byte("\nnext"), 0},
+		"success:carriage_at_3":      {[]byte("abc\r\n"), 3},
+		"success:nul_control":        {append([]byte("abc"), 0x00), 3},
+		"success:unit_separator":     {append([]byte("abc"), 0x1f), 3},
+		"success:del_control":        {append([]byte("abc"), 0x7f), 3},
+		"success:quote_is_body_text": {[]byte("abc\"def"), 7},
+		"success:hash_is_body_text":  {[]byte("abc#def"), 7},
+		"success:long_then_lf":       {[]byte(strings.Repeat("x", 100) + "\n"), 100},
+		"success:long_no_stop":       {[]byte(strings.Repeat("x", 100)), 100},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := ScanCommentBody(tc.input)
+			if got != tc.want {
+				t.Errorf("ScanCommentBody(%q) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestScanBareValueEnd(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		input []byte
+		want  int
+	}{
+		"success:empty":                {[]byte(""), 0},
+		"success:no_delimiter":         {[]byte("1979-05-27T07:32:00Z"), 20},
+		"success:space_at_0":           {[]byte(" value"), 0},
+		"success:tab_at_3":             {[]byte("123\t456"), 3},
+		"success:cr_at_3":              {[]byte("123\r\n"), 3},
+		"success:lf_at_3":              {[]byte("123\n"), 3},
+		"success:comma_at_3":           {[]byte("123,456"), 3},
+		"success:right_bracket_at_3":   {[]byte("123]"), 3},
+		"success:right_brace_at_3":     {[]byte("123}"), 3},
+		"success:hash_at_3":            {[]byte("123#comment"), 3},
+		"success:equals_at_3":          {[]byte("123=456"), 3},
+		"success:quote_is_not_delim":   {[]byte("12\"34,"), 5},
+		"success:long_then_hash":       {[]byte(strings.Repeat("x", 100) + "#"), 100},
+		"success:long_no_delimiter":    {[]byte(strings.Repeat("x", 100)), 100},
+		"success:delimiter_boundary_8": {[]byte("abcdefgh,"), 8},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := ScanBareValueEnd(tc.input)
+			if got != tc.want {
+				t.Errorf("ScanBareValueEnd(%q) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestCountLines(t *testing.T) {
+	t.Parallel()
+	tests := map[string]struct {
+		input []byte
+		want  int
+	}{
+		"success:empty":          {[]byte(""), 0},
+		"success:no_lf":          {[]byte("abc\rdef"), 0},
+		"success:single_lf":      {[]byte("abc\n"), 1},
+		"success:crlf_counts_lf": {[]byte("abc\r\ndef"), 1},
+		"success:multiple_lf":    {[]byte("a\nb\nc\n"), 3},
+		"success:nul_ignored":    {[]byte{'a', 0x00, '\n'}, 1},
+		"success:long_every_10": {func() []byte {
+			b := []byte(strings.Repeat("abcdefghi\n", 10))
+			return b
+		}(), 10},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			got := CountLines(tc.input)
+			if got != tc.want {
+				t.Errorf("CountLines(%q) = %d, want %d", tc.input, got, tc.want)
 			}
 		})
 	}

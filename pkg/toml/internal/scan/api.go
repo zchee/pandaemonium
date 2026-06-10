@@ -50,7 +50,7 @@ func (e *LimitError) Error() string {
 // TOML bare-key character class [A-Za-z0-9_-]. Returns 0 when s is empty
 // or the first byte is not in the class; returns len(s) when every byte
 // in s is in the class.
-func ScanBareKey(s []byte) int { return scanBareKey(s) }
+func ScanBareKey(s []byte) int { return scanBareIdent(s) }
 
 // ScanBasicString returns the byte index of the first '"' or '\\' in s,
 // or len(s) when neither byte appears. ScanBasicString is the
@@ -58,6 +58,28 @@ func ScanBareKey(s []byte) int { return scanBareKey(s) }
 // returned by this call as a literal run, then dispatches on whichever of
 // the two terminator bytes was found.
 func ScanBasicString(s []byte) int { return scanBasicString(s) }
+
+// ScanBasicStringStrict returns the byte index of the first byte that
+// needs slow-path handling in a single-line TOML basic string: a double
+// quote, a backslash, DEL (0x7f), or a C0 control byte below 0x20 other
+// than tab. It returns len(s) when every byte is plain body text.
+func ScanBasicStringStrict(s []byte) int { return scanBasicStringStrict(s) }
+
+// ScanCommentBody returns the byte index of the first byte that needs
+// parser-level handling in a TOML comment body: a line-feed, carriage
+// return, DEL (0x7f), or a C0 control byte below 0x20 other than tab.
+// It returns len(s) when every byte is valid comment body text.
+func ScanCommentBody(s []byte) int { return scanCommentBody(s) }
+
+// ScanBareValueEnd returns the byte index of the first TOML bare-value
+// delimiter in s: space, tab, CR, LF, comma, right bracket, right brace,
+// hash, or equals. It returns len(s) when no delimiter appears.
+func ScanBareValueEnd(s []byte) int { return scanBareValueEnd(s) }
+
+// CountLines returns the number of line-feed bytes ('\n') in s. It is
+// intentionally LF-only: callers that care about CRLF or lone CR retain
+// those grammar decisions outside this byte-count kernel.
+func CountLines(s []byte) int { return countLines(s) }
 
 // ScanLiteralString returns the byte index of the first single-quote
 // byte (0x27) in s, or len(s) when the byte is absent. Literal strings

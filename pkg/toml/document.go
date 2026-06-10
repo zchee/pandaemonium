@@ -34,8 +34,8 @@ import (
 type Document struct {
 	raw []byte
 
-	entries []*documentEntry
-	byPath  map[string]*documentEntry
+	entries []documentEntry
+	byPath  map[string]int
 
 	replacements map[string][]byte
 	deletions    map[string]struct{}
@@ -44,10 +44,7 @@ type Document struct {
 }
 
 type documentEntry struct {
-	path      []string
 	pathKey   string
-	keyRaw    []byte
-	keySpan   [2]int
 	value     any
 	valueSet  bool
 	valueRaw  []byte
@@ -71,6 +68,7 @@ const (
 
 type documentInsertion struct {
 	afterPath string
+	pathKey   string
 	path      []string
 	value     any
 }
@@ -88,23 +86,33 @@ type spannedToken struct {
 }
 
 type documentParser struct {
-	data   []byte
-	dec    *Decoder
-	cursor int
+	data     []byte
+	dec      *Decoder
+	interner documentPathInterner
+}
+
+type documentPathPair struct {
+	parent string
+	child  string
+}
+
+type documentPathInterner struct {
+	segments map[string]string
+	keys     map[string]string
+	joins    map[documentPathPair]string
 }
 
 // ParseDocument parses data into a format-preserving Document.
 func ParseDocument(data []byte) (*Document, error) {
 	raw := append([]byte(nil), data...)
-	p := &documentParser{data: raw, dec: NewDecoderBytes(raw)}
+	entryHint := documentEntryHint(raw)
+	p := &documentParser{data: raw, dec: NewDecoderBytes(raw, withoutTokenPositions)}
 	doc := &Document{
-		raw:          raw,
-		byPath:       make(map[string]*documentEntry),
-		replacements: make(map[string][]byte),
-		deletions:    make(map[string]struct{}),
-		pending:      make(map[string]any),
+		raw:     raw,
+		entries: make([]documentEntry, 0, entryHint),
+		byPath:  make(map[string]int, documentMapHint),
 	}
-	currentPath := []string(nil)
+	currentPathKey := ""
 	for {
 		tok, err := p.readToken()
 		if errors.Is(err, io.EOF) {
@@ -117,19 +125,19 @@ func ParseDocument(data []byte) (*Document, error) {
 		case TokenKindComment:
 			continue
 		case TokenKindTableHeader:
-			path, err := parseHeaderKey(tok.Bytes, false)
+			pathKey, err := p.parseHeaderPathKey(tok.Bytes, false)
 			if err != nil {
 				return nil, err
 			}
-			currentPath = append([]string(nil), path...)
+			currentPathKey = pathKey
 		case TokenKindArrayTableHeader:
-			path, err := parseHeaderKey(tok.Bytes, true)
+			pathKey, err := p.parseHeaderPathKey(tok.Bytes, true)
 			if err != nil {
 				return nil, err
 			}
-			currentPath = append([]string(nil), path...)
+			currentPathKey = pathKey
 		case TokenKindKey:
-			keyPath, err := parseDottedKey(tok.Bytes)
+			keyPathKey, err := p.parseDottedPathKey(tok.Bytes)
 			if err != nil {
 				return nil, err
 			}
@@ -137,30 +145,28 @@ func ParseDocument(data []byte) (*Document, error) {
 			if err != nil {
 				return nil, err
 			}
-			fullPath := make([]string, 0, len(currentPath)+len(keyPath))
-			fullPath = append(fullPath, currentPath...)
-			fullPath = append(fullPath, keyPath...)
-			entry := &documentEntry{
-				path:      fullPath,
-				pathKey:   joinDocumentPath(fullPath),
-				keyRaw:    append([]byte(nil), tok.Bytes...),
-				keySpan:   tok.span,
-				valueRaw:  append([]byte(nil), valueRaw...),
+			pathKey := p.interner.joinPathKeys(currentPathKey, keyPathKey)
+			entry := documentEntry{
+				pathKey:   pathKey,
+				valueRaw:  valueRaw,
 				valueSpan: valueSpan,
-				lineSpan:  lineSpan(data, tok.span[0], valueSpan[1]),
+				lineSpan:  lineSpan(raw, tok.span[0], valueSpan[1]),
 				kind:      kind,
 			}
+			doc.byPath[entry.pathKey] = len(doc.entries)
 			doc.entries = append(doc.entries, entry)
-			doc.byPath[entry.pathKey] = entry
 		default:
-			if len(currentPath) == 0 {
-				return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "unexpected token", Span: tok.span}
+			if currentPathKey == "" {
+				return nil, syntaxErrorAtOffset(data, tok.Offset, "unexpected token", tok.span)
 			}
 		}
 	}
 }
 
-// Raw returns the original document bytes.
+// Raw returns the document's original byte arena.
+//
+// Callers must treat the returned slice as read-only. Mutating it changes the
+// bytes that future format-preserving operations observe.
 func (d *Document) Raw() []byte {
 	if d == nil {
 		return nil
@@ -178,7 +184,7 @@ func (d *Document) Get(path string) (any, bool) {
 	if err != nil {
 		return nil, false
 	}
-	entry, ok := d.byPath[joinDocumentPath(parts)]
+	entry, ok := d.entryForPathKey(joinDocumentPath(parts))
 	if !ok {
 		value, ok := d.pending[joinDocumentPath(parts)]
 		if ok {
@@ -215,16 +221,22 @@ func (d *Document) Set(path string, value any) error {
 	if err != nil {
 		return err
 	}
-	if entry, ok := d.byPath[pathKey]; ok {
+	if entry, ok := d.entryForPathKey(pathKey); ok {
 		entry.value = value
 		entry.valueSet = true
+		if d.replacements == nil {
+			d.replacements = make(map[string][]byte, 1)
+		}
 		d.replacements[pathKey] = repl
 		delete(d.deletions, pathKey)
 		delete(d.pending, pathKey)
 		return nil
 	}
+	if d.pending == nil {
+		d.pending = make(map[string]any, 1)
+	}
 	d.pending[pathKey] = value
-	d.insertions = append(d.insertions, documentInsertion{path: parts, value: value})
+	d.insertions = append(d.insertions, documentInsertion{pathKey: pathKey, path: parts, value: value})
 	return nil
 }
 
@@ -249,8 +261,12 @@ func (d *Document) InsertAfter(afterPath, path string, value any) error {
 	if err != nil {
 		return err
 	}
-	d.pending[joinDocumentPath(parts)] = value
-	d.insertions = append(d.insertions, documentInsertion{afterPath: afterKey, path: parts, value: value})
+	pathKey := joinDocumentPath(parts)
+	if d.pending == nil {
+		d.pending = make(map[string]any, 1)
+	}
+	d.pending[pathKey] = value
+	d.insertions = append(d.insertions, documentInsertion{afterPath: afterKey, pathKey: pathKey, path: parts, value: value})
 	return nil
 }
 
@@ -271,6 +287,9 @@ func (d *Document) Delete(path string) error {
 		}
 		return fmt.Errorf("toml: path %q not found", path)
 	}
+	if d.deletions == nil {
+		d.deletions = make(map[string]struct{}, 1)
+	}
 	d.deletions[pathKey] = struct{}{}
 	delete(d.replacements, pathKey)
 	return nil
@@ -286,7 +305,8 @@ func (d *Document) Bytes() []byte {
 	}
 	ops := make([]documentOp, 0, len(d.replacements)+len(d.deletions)+len(d.insertions))
 	order := 0
-	for _, entry := range d.entries {
+	for i := range d.entries {
+		entry := &d.entries[i]
 		if _, ok := d.deletions[entry.pathKey]; ok {
 			ops = append(ops, documentOp{start: entry.lineSpan[0], end: entry.lineSpan[1], order: order})
 			order++
@@ -298,7 +318,7 @@ func (d *Document) Bytes() []byte {
 		}
 	}
 	for _, ins := range d.insertions {
-		value, ok := d.pending[joinDocumentPath(ins.path)]
+		value, ok := d.pending[ins.pathKey]
 		if !ok {
 			continue
 		}
@@ -315,8 +335,8 @@ func (d *Document) Bytes() []byte {
 			order++
 			continue
 		}
-		entry := d.byPath[ins.afterPath]
-		if entry == nil {
+		entry, ok := d.entryForPathKey(ins.afterPath)
+		if !ok {
 			continue
 		}
 		pos := entry.lineSpan[1]
@@ -351,10 +371,7 @@ func (p *documentParser) readToken() (spannedToken, error) {
 	if err != nil {
 		return spannedToken{}, err
 	}
-	start := p.findTokenStart(tok.Bytes)
-	end := start + len(tok.Bytes)
-	p.cursor = end
-	return spannedToken{Token: tok, span: [2]int{start, end}}, nil
+	return spannedToken{Token: tok, span: tokenSpan(tok)}, nil
 }
 
 func (p *documentParser) readValue() ([]byte, [2]int, documentValueKind, error) {
@@ -407,29 +424,149 @@ func (p *documentParser) readValue() ([]byte, [2]int, documentValueKind, error) 
 	}
 }
 
-func (p *documentParser) findTokenStart(token []byte) int {
-	if len(token) == 0 {
-		return p.cursor
+func (p *documentParser) parseHeaderPathKey(raw []byte, array bool) (string, error) {
+	return p.parseDottedPathKey(trimHeaderKey(raw, array))
+}
+
+func (p *documentParser) parseDottedPathKey(raw []byte) (string, error) {
+	origLen := len(raw)
+	raw = bytesTrimSpace(raw)
+	if isSimpleBareKey(raw) {
+		return p.interner.internPathKey(p.interner.internSegment(raw)), nil
 	}
-	if p.cursor > len(p.data) {
-		return len(p.data)
+	var b strings.Builder
+	for len(raw) > 0 {
+		raw = bytes.TrimLeft(raw, " \t")
+		if len(raw) == 0 {
+			break
+		}
+		var part string
+		if raw[0] == '\'' || raw[0] == '"' {
+			q := raw[0]
+			end := 1
+			for end < len(raw) {
+				if raw[end] == '\\' && q == '"' {
+					end += 2
+					continue
+				}
+				if raw[end] == q {
+					break
+				}
+				end++
+			}
+			if end >= len(raw) {
+				return "", &SyntaxError{Line: 1, Col: 1, Msg: "unterminated quoted key", Span: [2]int{0, origLen}}
+			}
+			v, err := parseStringValue(raw[:end+1])
+			if err != nil {
+				return "", err
+			}
+			part = p.interner.internSegmentString(v)
+			raw = raw[end+1:]
+		} else {
+			end := bytes.IndexAny(raw, ". \t")
+			var partRaw []byte
+			if end < 0 {
+				partRaw = raw
+				raw = raw[:0]
+			} else {
+				partRaw = raw[:end]
+				raw = raw[end:]
+			}
+			if len(partRaw) == 0 {
+				return "", &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
+			}
+			if !isSimpleBareKey(partRaw) {
+				return "", &SyntaxError{Line: 1, Col: 1, Msg: "unexpected token in dotted key", Span: [2]int{0, origLen}}
+			}
+			part = p.interner.internSegment(partRaw)
+		}
+		if b.Len() > 0 {
+			b.WriteByte('\x00')
+		}
+		b.WriteString(part)
+		raw = bytes.TrimLeft(raw, " \t")
+		if len(raw) == 0 {
+			break
+		}
+		if raw[0] != '.' {
+			return "", &SyntaxError{Line: 1, Col: 1, Msg: "unexpected token in dotted key", Span: [2]int{0, origLen}}
+		}
+		raw = raw[1:]
+		if len(bytes.TrimLeft(raw, " \t")) == 0 {
+			return "", &SyntaxError{Line: 1, Col: 1, Msg: "empty key segment", Span: [2]int{0, origLen}}
+		}
 	}
-	if idx := bytes.Index(p.data[p.cursor:], token); idx >= 0 {
-		return p.cursor + idx
+	if b.Len() == 0 {
+		return "", &SyntaxError{Line: 1, Col: 1, Msg: "empty key", Span: [2]int{0, origLen}}
 	}
-	return len(p.data)
+	return p.interner.internPathKey(b.String()), nil
+}
+
+func (i *documentPathInterner) internSegment(raw []byte) string {
+	if i.segments == nil {
+		i.segments = make(map[string]string, documentMapHint)
+	}
+	if s, ok := i.segments[string(raw)]; ok {
+		return s
+	}
+	s := string(raw)
+	i.segments[s] = s
+	return s
+}
+
+func (i *documentPathInterner) internSegmentString(s string) string {
+	if i.segments == nil {
+		i.segments = make(map[string]string, documentMapHint)
+	}
+	if existing, ok := i.segments[s]; ok {
+		return existing
+	}
+	i.segments[s] = s
+	return s
+}
+
+func (i *documentPathInterner) internPathKey(s string) string {
+	if i.keys == nil {
+		i.keys = make(map[string]string, documentMapHint)
+	}
+	if existing, ok := i.keys[s]; ok {
+		return existing
+	}
+	i.keys[s] = s
+	return s
+}
+
+func (i *documentPathInterner) joinPathKeys(parent, child string) string {
+	switch {
+	case parent == "":
+		return i.internPathKey(child)
+	case child == "":
+		return i.internPathKey(parent)
+	}
+	pair := documentPathPair{parent: parent, child: child}
+	if i.joins != nil {
+		if key, ok := i.joins[pair]; ok {
+			return key
+		}
+	} else {
+		i.joins = make(map[documentPathPair]string, documentMapHint)
+	}
+	key := i.internPathKey(parent + "\x00" + child)
+	i.joins[pair] = key
+	return key
 }
 
 func parseRawDocumentValue(raw []byte) (any, error) {
 	buf := make([]byte, 0, len(raw)+4)
 	buf = append(buf, 'x', ' ', '=', ' ')
 	buf = append(buf, raw...)
-	dec := NewDecoderBytes(buf)
+	dec := NewDecoderBytes(buf, withoutTokenPositions)
 	if tok, err := dec.ReadToken(); err != nil || tok.Kind != TokenKindKey {
 		if err != nil {
 			return nil, err
 		}
-		return nil, &SyntaxError{Line: tok.Line, Col: tok.Col, Msg: "expected key", Span: [2]int{0, len(buf)}}
+		return nil, syntaxErrorAtOffset(buf, tok.Offset, "expected key", [2]int{0, len(buf)})
 	}
 	return parseNextValue(dec)
 }
@@ -456,8 +593,8 @@ func documentKindFromToken(kind TokenKind) documentValueKind {
 }
 
 func (d *Document) formatValueForPath(pathKey string, value any) ([]byte, error) {
-	entry := d.byPath[pathKey]
-	if entry == nil {
+	entry, ok := d.entryForPathKey(pathKey)
+	if !ok {
 		return formatDocumentValue(value)
 	}
 	if entry.kind == documentKindForGoValue(value) {
@@ -536,12 +673,35 @@ func formatStringLike(existing []byte, value string) []byte {
 	return []byte(strconv.Quote(value))
 }
 
+func (d *Document) entryForPathKey(pathKey string) (*documentEntry, bool) {
+	if d == nil {
+		return nil, false
+	}
+	idx, ok := d.byPath[pathKey]
+	if !ok || idx < 0 || idx >= len(d.entries) {
+		return nil, false
+	}
+	return &d.entries[idx], true
+}
+
 func parseDocumentPath(path string) ([]string, error) {
 	return parseDottedKey([]byte(path))
 }
 
 func joinDocumentPath(parts []string) string {
 	return strings.Join(parts, "\x00")
+}
+
+func documentEntryHint(data []byte) int {
+	if len(data) == 0 {
+		return 0
+	}
+	hint := bytes.Count(data, []byte("\n")) + 1
+	maxReasonable := len(data)/4 + 1
+	if hint > maxReasonable {
+		hint = maxReasonable
+	}
+	return hint
 }
 
 func lineSpan(data []byte, start, end int) [2]int {

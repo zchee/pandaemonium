@@ -29,9 +29,20 @@ import (
 	"github.com/zchee/pandaemonium/pkg/toml/internal/reflectcache"
 )
 
-var textMarshalerType = reflect.TypeFor[encoding.TextMarshaler]()
+var (
+	textMarshalerType = reflect.TypeFor[encoding.TextMarshaler]()
+	timeType          = reflect.TypeFor[time.Time]()
+	localDateTimeType = reflect.TypeFor[LocalDateTime]()
+	localDateType     = reflect.TypeFor[LocalDate]()
+	localTimeType     = reflect.TypeFor[LocalTime]()
+)
 
-const maxPooledStringKeys = 1024
+const (
+	maxPooledStringKeys = 1024
+	maxMarshalSizeHint  = 4 << 20
+
+	quoteFallback = -2
+)
 
 var stringKeysPool sync.Pool
 
@@ -47,6 +58,9 @@ func Marshal(v any) ([]byte, error) {
 
 func marshalWithOptions(v any, opts MarshalOptions) ([]byte, error) {
 	var buf bytes.Buffer
+	if hint := marshalSizeHint(v); hint > 0 {
+		buf.Grow(hint)
+	}
 	if err := marshalToBuffer(&buf, v, opts); err != nil {
 		return nil, err
 	}
@@ -90,25 +104,26 @@ func encodeStructDocument(buf *bytes.Buffer, v reflect.Value, path []string) err
 		}
 		return encodeEntriesDocument(buf, entries, path)
 	}
+	var tables []marshalEntry
 	for _, field := range info.MarshalFields {
 		value, ok := marshalFieldValue(v, field)
-		if !ok || isTableLike(value) {
+		if !ok {
+			continue
+		}
+		if isTableLike(value) {
+			tables = append(tables, marshalEntry{name: field.Name, value: value})
 			continue
 		}
 		if err := writeKeyValue(buf, field.Name, value); err != nil {
 			return err
 		}
 	}
-	for _, field := range info.MarshalFields {
-		value, ok := marshalFieldValue(v, field)
-		if !ok || !isTableLike(value) {
-			continue
-		}
-		if isArrayOfTables(value) {
-			items := indirectValue(value)
+	for _, entry := range tables {
+		if isArrayOfTables(entry.value) {
+			items := indirectValue(entry.value)
+			nextPath := appendPath(path, entry.name)
 			for i := range items.Len() {
 				buf.WriteByte('\n')
-				nextPath := appendPath(path, field.Name)
 				writeHeader(buf, nextPath, true)
 				if err := encodeDocument(buf, items.Index(i), nextPath); err != nil {
 					return err
@@ -117,9 +132,9 @@ func encodeStructDocument(buf *bytes.Buffer, v reflect.Value, path []string) err
 			continue
 		}
 		buf.WriteByte('\n')
-		nextPath := appendPath(path, field.Name)
+		nextPath := appendPath(path, entry.name)
 		writeHeader(buf, nextPath, false)
-		if err := encodeDocument(buf, value, nextPath); err != nil {
+		if err := encodeDocument(buf, entry.value, nextPath); err != nil {
 			return err
 		}
 	}
@@ -127,23 +142,22 @@ func encodeStructDocument(buf *bytes.Buffer, v reflect.Value, path []string) err
 }
 
 func encodeEntriesDocument(buf *bytes.Buffer, entries []marshalEntry, path []string) error {
+	var tables []marshalEntry
 	for _, entry := range entries {
 		if isTableLike(entry.value) {
+			tables = append(tables, entry)
 			continue
 		}
 		if err := writeKeyValue(buf, entry.name, entry.value); err != nil {
 			return err
 		}
 	}
-	for _, entry := range entries {
-		if !isTableLike(entry.value) {
-			continue
-		}
+	for _, entry := range tables {
 		if isArrayOfTables(entry.value) {
 			items := indirectValue(entry.value)
+			nextPath := appendPath(path, entry.name)
 			for i := range items.Len() {
 				buf.WriteByte('\n')
-				nextPath := appendPath(path, entry.name)
 				writeHeader(buf, nextPath, true)
 				if err := encodeDocument(buf, items.Index(i), nextPath); err != nil {
 					return err
@@ -182,9 +196,9 @@ func encodeMapDocument(buf *bytes.Buffer, v reflect.Value, path []string) error 
 		}
 		if isArrayOfTables(value) {
 			items := indirectValue(value)
+			nextPath := appendPath(path, key.String())
 			for i := range items.Len() {
 				buf.WriteByte('\n')
-				nextPath := appendPath(path, key.String())
 				writeHeader(buf, nextPath, true)
 				if err := encodeDocument(buf, items.Index(i), nextPath); err != nil {
 					return err
@@ -221,9 +235,9 @@ func encodeAnyMapDocument(buf *bytes.Buffer, m map[string]any, path []string) er
 		}
 		if isArrayOfTablesAny(value) {
 			items := value.([]any)
+			nextPath := appendPath(path, key)
 			for i := range items {
 				buf.WriteByte('\n')
-				nextPath := appendPath(path, key)
 				writeHeader(buf, nextPath, true)
 				if err := encodeAnyDocument(buf, items[i], nextPath); err != nil {
 					return err
@@ -245,8 +259,6 @@ func encodeAnyDocument(buf *bytes.Buffer, value any, path []string) error {
 	switch x := value.(type) {
 	case map[string]any:
 		return encodeAnyMapDocument(buf, x, path)
-	case documentMap:
-		return encodeAnyMapDocument(buf, map[string]any(x), path)
 	default:
 		return encodeDocument(buf, reflect.ValueOf(value), path)
 	}
@@ -296,33 +308,12 @@ func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 	if !v.IsValid() {
 		return &UnsupportedTypeError{Type: "nil"}
 	}
-	if v.CanInterface() {
-		switch x := v.Interface().(type) {
-		case time.Time:
-			buf.WriteString(x.Format(time.RFC3339Nano))
-			return nil
-		case LocalDateTime:
-			buf.WriteString(x.String())
-			return nil
-		case LocalDate:
-			buf.WriteString(x.String())
-			return nil
-		case LocalTime:
-			buf.WriteString(x.String())
-			return nil
-		}
-		if v.Type().Implements(textMarshalerType) {
-			text, err := v.Interface().(encoding.TextMarshaler).MarshalText()
-			if err != nil {
-				return err
-			}
-			buf.WriteString(strconv.Quote(string(text)))
-			return nil
-		}
+	if ok, err := writeSpecialValue(buf, v); ok || err != nil {
+		return err
 	}
 	switch v.Kind() {
 	case reflect.String:
-		buf.WriteString(strconv.Quote(v.String()))
+		writeQuotedString(buf, v.String())
 		return nil
 	case reflect.Bool:
 		buf.WriteString(strconv.FormatBool(v.Bool()))
@@ -365,7 +356,7 @@ func writeAnyValue(buf *bytes.Buffer, value any) error {
 	case nil:
 		return &UnsupportedTypeError{Type: "nil"}
 	case string:
-		buf.WriteString(strconv.Quote(x))
+		writeQuotedString(buf, x)
 		return nil
 	case bool:
 		buf.WriteString(strconv.FormatBool(x))
@@ -426,7 +417,7 @@ func writeAnyValue(buf *bytes.Buffer, value any) error {
 		if err != nil {
 			return err
 		}
-		buf.WriteString(strconv.Quote(string(text)))
+		writeQuotedString(buf, string(text))
 		return nil
 	case []any:
 		buf.WriteByte('[')
@@ -442,11 +433,90 @@ func writeAnyValue(buf *bytes.Buffer, value any) error {
 		return nil
 	case map[string]any:
 		return writeInlineAnyMap(buf, x)
-	case documentMap:
-		return writeInlineAnyMap(buf, map[string]any(x))
 	default:
 		return writeValue(buf, reflect.ValueOf(value))
 	}
+}
+
+func writeSpecialValue(buf *bytes.Buffer, v reflect.Value) (bool, error) {
+	if !v.CanInterface() {
+		return false, nil
+	}
+	t := v.Type()
+	switch t {
+	case timeType:
+		buf.WriteString(v.Interface().(time.Time).Format(time.RFC3339Nano))
+		return true, nil
+	case localDateTimeType:
+		buf.WriteString(v.Interface().(LocalDateTime).String())
+		return true, nil
+	case localDateType:
+		buf.WriteString(v.Interface().(LocalDate).String())
+		return true, nil
+	case localTimeType:
+		buf.WriteString(v.Interface().(LocalTime).String())
+		return true, nil
+	}
+	if t.PkgPath() == "" || !t.Implements(textMarshalerType) {
+		return false, nil
+	}
+	text, err := v.Interface().(encoding.TextMarshaler).MarshalText()
+	if err != nil {
+		return true, err
+	}
+	writeQuotedString(buf, string(text))
+	return true, nil
+}
+
+func writeQuotedString(buf *bytes.Buffer, s string) {
+	switch first := asciiQuoteEscapeIndex(s); first {
+	case -1:
+		buf.WriteByte('"')
+		buf.WriteString(s)
+		buf.WriteByte('"')
+		return
+	case quoteFallback:
+		b := buf.AvailableBuffer()
+		b = strconv.AppendQuote(b, s)
+		buf.Write(b)
+		return
+	default:
+		writeQuotedASCIIString(buf, s, first)
+		return
+	}
+}
+
+func asciiQuoteEscapeIndex(s string) int {
+	first := -1
+	for i := range len(s) {
+		c := s[i]
+		switch {
+		case c < 0x20 || c >= 0x80:
+			return quoteFallback
+		case c == '"' || c == '\\':
+			if first < 0 {
+				first = i
+			}
+		}
+	}
+	return first
+}
+
+func writeQuotedASCIIString(buf *bytes.Buffer, s string, first int) {
+	b := buf.AvailableBuffer()
+	b = append(b, '"')
+	start := 0
+	for i := first; i < len(s); i++ {
+		switch s[i] {
+		case '"', '\\':
+			b = append(b, s[start:i]...)
+			b = append(b, '\\', s[i])
+			start = i + 1
+		}
+	}
+	b = append(b, s[start:]...)
+	b = append(b, '"')
+	buf.Write(b)
 }
 
 func writeFloat(buf *bytes.Buffer, value float64, bitSize int) {
@@ -581,6 +651,134 @@ func isNilValue(v reflect.Value) bool {
 	}
 }
 
+func marshalSizeHint(v any) int {
+	if v == nil {
+		return 0
+	}
+	hint := estimateAnyMarshalSize(v, 0)
+	if hint <= 0 {
+		return 0
+	}
+	return min(hint, maxMarshalSizeHint)
+}
+
+func estimateAnyMarshalSize(v any, depth int) int {
+	switch x := v.(type) {
+	case nil:
+		return 0
+	case string:
+		return len(x) + 2
+	case bool, int, int8, int16, int32, int64, uint, uint8, uint16, uint32, uint64, uintptr, float32, float64:
+		return 24
+	case time.Time, LocalDateTime, LocalDate, LocalTime, encoding.TextMarshaler:
+		return 40
+	case []any:
+		return estimateAnySliceMarshalSize(x, depth+1)
+	case map[string]any:
+		return estimateAnyMapMarshalSize(x, depth+1)
+	default:
+		return estimateReflectMarshalSize(reflect.ValueOf(v), depth+1)
+	}
+}
+
+func estimateAnySliceMarshalSize(items []any, depth int) int {
+	if len(items) == 0 {
+		return 2
+	}
+	limit := min(len(items), 8)
+	sum := 0
+	for _, item := range items[:limit] {
+		sum += estimateAnyMarshalSize(item, depth+1) + 2
+	}
+	return 2 + len(items)*max(1, sum/limit)
+}
+
+func estimateAnyMapMarshalSize(m map[string]any, depth int) int {
+	if depth > 8 {
+		return len(m) * 64
+	}
+	size := len(m) * 6
+	for key, value := range m {
+		size += len(key) + estimateAnyMarshalSize(value, depth+1)
+	}
+	return size
+}
+
+func estimateReflectMarshalSize(v reflect.Value, depth int) int {
+	v = indirectValue(v)
+	if !v.IsValid() {
+		return 0
+	}
+	if depth > 8 {
+		return 64
+	}
+	if isScalarSpecial(v) {
+		return 40
+	}
+	switch v.Kind() {
+	case reflect.String:
+		return len(v.String()) + 2
+	case reflect.Bool, reflect.Int, reflect.Int8, reflect.Int16, reflect.Int32, reflect.Int64,
+		reflect.Uint, reflect.Uint8, reflect.Uint16, reflect.Uint32, reflect.Uint64, reflect.Uintptr,
+		reflect.Float32, reflect.Float64:
+		return 24
+	case reflect.Slice, reflect.Array:
+		return estimateReflectSliceMarshalSize(v, depth+1)
+	case reflect.Map:
+		return estimateReflectMapMarshalSize(v, depth+1)
+	case reflect.Struct:
+		return estimateReflectStructMarshalSize(v, depth+1)
+	case reflect.Interface:
+		if v.IsNil() {
+			return 0
+		}
+		return estimateReflectMarshalSize(v.Elem(), depth+1)
+	default:
+		return 0
+	}
+}
+
+func estimateReflectSliceMarshalSize(v reflect.Value, depth int) int {
+	length := v.Len()
+	if length == 0 {
+		return 2
+	}
+	limit := min(length, 8)
+	sum := 0
+	for i := range limit {
+		sum += estimateReflectMarshalSize(v.Index(i), depth+1) + 2
+	}
+	return 2 + length*max(1, sum/limit)
+}
+
+func estimateReflectMapMarshalSize(v reflect.Value, depth int) int {
+	if v.Type().Key().Kind() != reflect.String {
+		return 0
+	}
+	size := v.Len() * 6
+	iter := v.MapRange()
+	for iter.Next() {
+		size += len(iter.Key().String()) + estimateReflectMarshalSize(iter.Value(), depth+1)
+	}
+	return size
+}
+
+func estimateReflectStructMarshalSize(v reflect.Value, depth int) int {
+	info, err := reflectcache.Lookup(v.Type())
+	if err != nil {
+		return v.NumField() * 32
+	}
+	size := len(info.MarshalFields) * 6
+	for _, field := range info.MarshalFields {
+		fv, ok := marshalFieldValue(v, field)
+		if !ok {
+			continue
+		}
+		size += len(field.Name) + estimateReflectMarshalSize(fv, depth+1)
+	}
+	return size
+}
+
 func structMarshalEntries(v reflect.Value) ([]marshalEntry, error) {
 	info, err := reflectcache.Lookup(v.Type())
 	if err != nil {
@@ -690,7 +888,7 @@ func isTableLikeAny(value any) bool {
 		return false
 	case time.Time, LocalDateTime, LocalDate, LocalTime, encoding.TextMarshaler:
 		return false
-	case map[string]any, documentMap:
+	case map[string]any:
 		return true
 	case []any:
 		return isArrayOfTablesAny(x)
@@ -700,14 +898,16 @@ func isTableLikeAny(value any) bool {
 }
 
 func isScalarSpecial(v reflect.Value) bool {
-	if !v.IsValid() || !v.CanInterface() {
-		return false
-	}
-	switch v.Interface().(type) {
-	case time.Time, LocalDateTime, LocalDate, LocalTime:
+	return v.IsValid() && v.CanInterface() && isScalarSpecialType(v.Type())
+}
+
+func isScalarSpecialType(t reflect.Type) bool {
+	switch t {
+	case timeType, localDateTimeType, localDateType, localTimeType:
 		return true
+	default:
+		return t.PkgPath() != "" && t.Implements(textMarshalerType)
 	}
-	return v.Type().Implements(textMarshalerType)
 }
 
 func isArrayOfTables(v reflect.Value) bool {
@@ -733,13 +933,6 @@ func isArrayOfTablesAny(value any) bool {
 			if len(x) != 0 {
 				allEmpty = false
 				if containsNonEmptyTableLikeValueAny(x) {
-					hasNestedTable = true
-				}
-			}
-		case documentMap:
-			if len(x) != 0 {
-				allEmpty = false
-				if containsNonEmptyTableLikeValueAny(map[string]any(x)) {
 					hasNestedTable = true
 				}
 			}
@@ -769,11 +962,6 @@ func hasNonEmptyTableLikeDescendantAny(v any) bool {
 			return false
 		}
 		return containsNonEmptyTableLikeValueAny(x)
-	case documentMap:
-		if len(x) == 0 {
-			return false
-		}
-		return containsNonEmptyTableLikeValueAny(map[string]any(x))
 	case []any:
 		return slices.ContainsFunc(x, hasNonEmptyTableLikeDescendantAny)
 	default:

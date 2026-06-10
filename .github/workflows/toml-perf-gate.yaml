@@ -1,4 +1,4 @@
-# pkg/toml/internal/scan AC-SIMD-5 per-scan perf gate.
+# pkg/toml perf gates.
 #
 # Implements the per-scan AC-SIMD-5 perf gate declared in the plan
 # (.omc/plans/2026-05-16-port-toml-rs-to-pkg-toml.md AC-SIMD-5 baseline
@@ -13,6 +13,10 @@
 #   ScanLiteralString   | bytes.IndexByte(s, '\'')       | 0.98
 #   ScanBareKey         | naive Go loop                  | 1.00
 #   ScanBasicString     | naive Go loop                  | 1.00
+#   ScanBasicStringStrict| naive Go loop                 | 1.00
+#   ScanCommentBody     | naive Go loop                  | 1.00
+#   ScanBareValueEnd    | naive Go loop                  | 1.00
+#   CountLines          | naive Go loop                  | 1.00
 #   SkipWhitespace      | naive Go loop                  | 1.00
 #   ValidateUTF8        | utf8.Valid(s) (wrapped int)    | 1.00
 #
@@ -24,7 +28,10 @@
 #
 # Each (arch × scan) cell runs an independent hack/toml-perf-gate
 # invocation so a single regression names its scan precisely in the
-# CI summary.
+# CI summary. The aggregate-gates matrix also hard-runs facade, marshal,
+# and edit gates on linux/amd64 plus darwin/arm64. darwin/arm64 is pinned
+# to macos-15 instead of macos-latest to avoid the June/July 2026
+# macos-latest migration changing the benchmark operating-system image.
 #
 # Toolchain selection (matches toml-scan-ci.yml's rationale):
 #
@@ -54,7 +61,7 @@ on:
     branches:
       - main
     paths:
-      - "pkg/toml/internal/scan/**"
+      - "pkg/toml/**"
       - "hack/toml-perf-gate/**"
       - ".github/workflows/toml-perf-gate.yaml"
       - ".github/actions/setup-gotip/action.yaml"
@@ -63,7 +70,7 @@ on:
       - labeled
       - synchronize
     paths:
-      - "pkg/toml/internal/scan/**"
+      - "pkg/toml/**"
       - "hack/toml-perf-gate/**"
       - ".github/workflows/toml-perf-gate.yaml"
       - ".github/actions/setup-gotip/action.yaml"
@@ -123,6 +130,14 @@ jobs:
           - scan: ScanBareKey
             ratio: "1.0"
           - scan: ScanBasicString
+            ratio: "1.0"
+          - scan: ScanBasicStringStrict
+            ratio: "1.0"
+          - scan: ScanCommentBody
+            ratio: "1.0"
+          - scan: ScanBareValueEnd
+            ratio: "1.0"
+          - scan: CountLines
             ratio: "1.0"
           - scan: SkipWhitespace
             ratio: "1.0"
@@ -198,6 +213,14 @@ jobs:
             ratio: "1.0"
           - scan: ScanBasicString
             ratio: "1.0"
+          - scan: ScanBasicStringStrict
+            ratio: "1.0"
+          - scan: ScanCommentBody
+            ratio: "1.0"
+          - scan: ScanBareValueEnd
+            ratio: "1.0"
+          - scan: CountLines
+            ratio: "1.0"
           - scan: SkipWhitespace
             ratio: "1.0"
           - scan: ValidateUTF8
@@ -246,6 +269,134 @@ jobs:
             echo
             echo '```'
             cat perf-gate-arm64-${{ matrix.scan }}.txt
+            echo '```'
+          } > comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md
+
+  aggregate-gates:
+    name: final gates (${{ matrix.os }}, ${{ matrix.kind }})
+    needs: guard
+    if: needs.guard.outputs.should_run == 'true'
+    runs-on: ${{ matrix.runner }}
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: linux-amd64
+            runner: ubuntu-24.04
+            kind: facade
+          - os: linux-amd64
+            runner: ubuntu-24.04
+            kind: marshal
+          - os: linux-amd64
+            runner: ubuntu-24.04
+            kind: edit
+          - os: darwin-arm64
+            runner: macos-15
+            kind: facade
+          - os: darwin-arm64
+            runner: macos-15
+            kind: marshal
+          - os: darwin-arm64
+            runner: macos-15
+            kind: edit
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
+        with:
+          install-tools: golang.org/x/perf/cmd/benchstat@latest
+          add-gotip-bin-to-path: true
+
+      - name: Run final gate (${{ matrix.kind }})
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+          GOMAXPROCS: "1"
+          GODEBUG: ""
+        run: |
+          go run -a ./hack/toml-perf-gate \
+            --kind="${{ matrix.kind }}" \
+            --cpu=1 \
+            --count=10 \
+            --benchtime=5s \
+            2>&1 | tee "perf-gate-${{ matrix.os }}-${{ matrix.kind }}.txt"
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload final gate artifact (${{ matrix.os }} / ${{ matrix.kind }})
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-gate-${{ matrix.os }}-${{ matrix.kind }}
+          path: perf-gate-${{ matrix.os }}-${{ matrix.kind }}.txt
+          retention-days: 30
+
+      - name: Post PR comment (on PR only)
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## toml-perf-gate ${{ matrix.os }} / ${{ matrix.kind }}"
+            echo
+            echo '```'
+            cat perf-gate-${{ matrix.os }}-${{ matrix.kind }}.txt
+            echo '```'
+          } > comment.md
+          gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md
+
+  force-swar-correctness:
+    name: force_swar correctness
+    needs: guard
+    if: needs.guard.outputs.should_run == 'true'
+    runs-on: ubuntu-24.04
+
+    permissions:
+      contents: read
+      pull-requests: write
+
+    steps:
+      - uses: actions/checkout@v6
+
+      - name: Setup gotip dev.simd
+        uses: ./.github/actions/setup-gotip
+        with:
+          add-gotip-bin-to-path: true
+
+      - name: Run force_swar scan and parser tests
+        env:
+          GOEXPERIMENT: ${{ env.GOEXPERIMENT_SIMD }}
+          GOMAXPROCS: "1"
+          GODEBUG: ""
+        run: |
+          go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan ./pkg/toml \
+            2>&1 | tee perf-gate-force-swar.txt
+          exit "${PIPESTATUS[0]}"
+
+      - name: Upload force_swar artifact
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: perf-gate-force-swar
+          path: perf-gate-force-swar.txt
+          retention-days: 30
+
+      - name: Post PR comment (on PR only)
+        if: github.event_name == 'pull_request' && always()
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          {
+            echo "## toml-perf-gate force_swar correctness"
+            echo
+            echo '```'
+            cat perf-gate-force-swar.txt
             echo '```'
           } > comment.md
           gh pr comment ${{ github.event.pull_request.number }} --body-file comment.md

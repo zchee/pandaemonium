@@ -20,6 +20,7 @@ import (
 	"io"
 	"strings"
 	"testing"
+	"unsafe"
 )
 
 func TestParseDocumentBytesRoundTrip(t *testing.T) {
@@ -181,6 +182,149 @@ func TestDocumentBytesAllocationsUntouched(t *testing.T) {
 	}
 }
 
+func TestParseDocumentEntryRawSlicesAliasDocumentArena(t *testing.T) {
+	t.Parallel()
+
+	doc, err := ParseDocument([]byte("name = \"demo\"\n"))
+	if err != nil {
+		t.Fatalf("ParseDocument error = %v", err)
+	}
+	if len(doc.entries) != 1 {
+		t.Fatalf("len(entries) = %d, want 1", len(doc.entries))
+	}
+	entry := doc.entries[0]
+	if got := string(entry.valueRaw); got != "\"demo\"" {
+		t.Fatalf("entry.valueRaw = %q, want quoted demo", got)
+	}
+	if !sliceAliasesBase(entry.valueRaw, doc.raw) {
+		t.Fatalf("entry.valueRaw does not alias Document raw arena")
+	}
+}
+
+func TestDocumentParserPathKeyMatchesSharedParser(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"bare":                 "fruit",
+		"dotted":               "fruit.apple.taste",
+		"quoted dot segment":   `fruit."apple.color"`,
+		"single quoted":        "fruit.'apple taste'",
+		"quoted empty segment": `fruit.""`,
+		"spaces around dot":    "fruit . apple . taste",
+	}
+	for name, input := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			wantParts, err := parseDottedKey([]byte(input))
+			if err != nil {
+				t.Fatalf("parseDottedKey(%q) error = %v", input, err)
+			}
+			var parser documentParser
+			got, err := parser.parseDottedPathKey([]byte(input))
+			if err != nil {
+				t.Fatalf("parseDottedPathKey(%q) error = %v", input, err)
+			}
+			if want := joinDocumentPath(wantParts); got != want {
+				t.Fatalf("parseDottedPathKey(%q) = %q, want %q", input, got, want)
+			}
+		})
+	}
+}
+
+func TestDocumentParserHeaderPathKeyTrimsHeaderSyntax(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		raw   string
+		array bool
+		want  string
+	}{
+		"table":       {raw: "[package.metadata]", want: "package\x00metadata"},
+		"array table": {raw: "[[package]]", array: true, want: "package"},
+		"spaced":      {raw: "[ fruit . apple ]", want: "fruit\x00apple"},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var parser documentParser
+			got, err := parser.parseHeaderPathKey([]byte(tc.raw), tc.array)
+			if err != nil {
+				t.Fatalf("parseHeaderPathKey(%q) error = %v", tc.raw, err)
+			}
+			if got != tc.want {
+				t.Fatalf("parseHeaderPathKey(%q) = %q, want %q", tc.raw, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestDocumentInsertionCachesPathKey(t *testing.T) {
+	t.Parallel()
+
+	doc, err := ParseDocument([]byte("title = \"demo\"\n"))
+	if err != nil {
+		t.Fatalf("ParseDocument error = %v", err)
+	}
+	if err := doc.InsertAfter("title", "pandaemonium.edited", true); err != nil {
+		t.Fatalf("InsertAfter error = %v", err)
+	}
+	if len(doc.insertions) != 1 {
+		t.Fatalf("len(insertions) = %d, want 1", len(doc.insertions))
+	}
+	ins := doc.insertions[0]
+	if want := joinDocumentPath(ins.path); ins.pathKey != want {
+		t.Fatalf("insertion pathKey = %q, want %q", ins.pathKey, want)
+	}
+}
+
+func TestDocumentEntryForPathKey(t *testing.T) {
+	t.Parallel()
+
+	doc, err := ParseDocument([]byte("title = \"demo\"\n"))
+	if err != nil {
+		t.Fatalf("ParseDocument error = %v", err)
+	}
+	entry, ok := doc.entryForPathKey("title")
+	if !ok {
+		t.Fatal("entryForPathKey(title) ok = false, want true")
+	}
+	if got := string(entry.valueRaw); got != "\"demo\"" {
+		t.Fatalf("entryForPathKey(title).valueRaw = %q, want quoted demo", got)
+	}
+	if entry, ok := doc.entryForPathKey("missing"); ok || entry != nil {
+		t.Fatalf("entryForPathKey(missing) = (%#v, %v), want nil,false", entry, ok)
+	}
+	var nilDoc *Document
+	if entry, ok := nilDoc.entryForPathKey("title"); ok || entry != nil {
+		t.Fatalf("nil entryForPathKey = (%#v, %v), want nil,false", entry, ok)
+	}
+}
+
+func TestDocumentEntryHintBounded(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input []byte
+		want  int
+	}{
+		"empty":       {input: nil, want: 0},
+		"single line": {input: []byte("a = 1"), want: 1},
+		"lines":       {input: []byte("a = 1\nb = 2\n"), want: 3},
+		"tiny dense":  {input: []byte("\n\n\n\n\n\n\n\n\n\n\n\n"), want: 4},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := documentEntryHint(tc.input); got != tc.want {
+				t.Fatalf("documentEntryHint(%q) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestDocumentMutationAPIQuotedDottedPath(t *testing.T) {
 	t.Parallel()
 
@@ -217,6 +361,15 @@ func TestDocumentMutationAPIQuotedDottedPath(t *testing.T) {
 	}
 }
 
+func sliceAliasesBase(sub, base []byte) bool {
+	if len(sub) == 0 || len(base) == 0 {
+		return false
+	}
+	subPtr := uintptr(unsafe.Pointer(unsafe.SliceData(sub)))
+	basePtr := uintptr(unsafe.Pointer(unsafe.SliceData(base)))
+	return subPtr >= basePtr && subPtr < basePtr+uintptr(len(base))
+}
+
 func TestDocumentParseEqualsDecoderTokenStream(t *testing.T) {
 	t.Parallel()
 
@@ -244,8 +397,10 @@ func TestDocumentParseEqualsDecoderTokenStream(t *testing.T) {
 }
 
 type documentTokenTrace struct {
-	Kind  TokenKind
-	Bytes string
+	Kind   TokenKind
+	Bytes  string
+	Offset int
+	Span   [2]int
 }
 
 func collectDecoderTokenTrace(body []byte) ([]documentTokenTrace, error) {
@@ -259,7 +414,7 @@ func collectDecoderTokenTrace(body []byte) ([]documentTokenTrace, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, documentTokenTrace{Kind: tok.Kind, Bytes: string(tok.Bytes)})
+		out = append(out, documentTokenTrace{Kind: tok.Kind, Bytes: string(tok.Bytes), Offset: tok.Offset, Span: tokenSpan(tok)})
 	}
 }
 
@@ -275,7 +430,7 @@ func collectDocumentTokenTrace(body []byte) ([]documentTokenTrace, error) {
 		if err != nil {
 			return nil, err
 		}
-		out = append(out, documentTokenTrace{Kind: tok.Kind, Bytes: string(tok.Bytes)})
+		out = append(out, documentTokenTrace{Kind: tok.Kind, Bytes: string(tok.Bytes), Offset: tok.Offset, Span: tok.span})
 	}
 }
 

@@ -17,6 +17,10 @@ return `len(s)` for "not found" or "all bytes accepted".
 | --- | --- | --- |
 | `ScanBareKey` | Count of the leading `[A-Za-z0-9_-]` bytes; `len(s)` when all bytes match. | Scans bare key segments. |
 | `ScanBasicString` | Index of the first `"` or `\`; `len(s)` when neither byte appears. | Finds the next basic-string terminator or escape introducer. |
+| `ScanBasicStringStrict` | Index of the first `"`, `\`, DEL, or C0 control other than tab; `len(s)` when absent. | Fuses single-line basic-string delimiter and control validation. |
+| `ScanCommentBody` | Index of the first LF, CR, DEL, or C0 control other than tab; `len(s)` when absent. | Scans bytes after a leading `#` while preserving parser-owned CRLF semantics. |
+| `ScanBareValueEnd` | Index of the first raw bare-value delimiter; `len(s)` when absent. | Finds raw value token boundaries before parser-level datetime-space joining. |
+| `CountLines` | Count of LF bytes only. | Speeds lazy line/column diagnostics while keeping CR display rules in the parser. |
 | `ScanLiteralString` | Index of the first `'`; `len(s)` when absent. | Finds the literal-string terminator. |
 | `SkipWhitespace` | Count of leading space or tab bytes. Newline is not whitespace here. | Skips insignificant horizontal whitespace without crossing statements. |
 | `LocateNewline` | Index of the first `\n`; `-1` when absent. | Finds statement boundaries and line-accounting checkpoints. |
@@ -29,7 +33,7 @@ limits and never return errors.
 ## Dispatch matrix
 
 The public functions in `api.go` route through unexported function variables
-(`scanBareKey`, `scanBasicString`, and so on). Exactly one backend binds those
+(`scanBareIdent`, `scanBasicString`, and so on). Exactly one backend binds those
 variables for a given build tuple.
 
 | Build tuple | Backend | Notes |
@@ -48,9 +52,12 @@ shape keeps call sites simple and makes backend selection visible in tests.
   trick for first-match scans. Its index extraction relies on little-endian word
   ordering; `doc.go` documents the big-endian requirement if a future port adds
   such a target.
-- `ScanBareKey` and `SkipWhitespace` use scalar lookup/predicate loops in the
-  SWAR backend. That is deliberate: the `hasZeroByte` false-positive behavior is
-  safe for "find first match" scans but not for "find first non-match" scans.
+- `ScanBareKey` uses a low/high-nibble VTBL bitset classifier on arm64 and
+  explicit range/equality classification on amd64; `SkipWhitespace` uses direct
+  equality classification on SIMD backends. Both use scalar predicate loops in
+  the SWAR backend. That is deliberate: the `hasZeroByte` false-positive
+  behavior is safe for "find first match" scans but not for "find first
+  non-match" scans.
 - SIMD UTF-8 validation is intentionally an ASCII fast path followed by scalar
   `unicode/utf8.DecodeRune` handling. A full SIMD UTF-8 state machine would need
   a separate benchmark-backed design before it belongs here.
@@ -67,6 +74,8 @@ The scanner has three correctness layers:
 2. `scan_test.go`, `dispatch_*_test.go`, and `property_test.go` compare the
    active dispatcher and forced backends against that oracle.
 3. `fuzz_test.go` contains one fuzz target per exported kernel.
+4. `bench_test.go` contains the 64 KiB hard-gate pairs plus small-size
+   informational benches for the newer fused/comment/value/count kernels.
 
 For a focused edit, run at least:
 
@@ -91,8 +100,9 @@ benchmarks and the `hack/toml-perf-gate` harness instead of relying on a single
 
 ## Editing rules
 
-- Keep the public surface limited to the six kernels plus `LimitError` unless a
-  parser change proves another primitive is necessary.
+- Keep the public surface limited to parser-proven scan kernels plus
+  `LimitError`; new primitives must be wired into parser code, oracle tests,
+  fuzz/property coverage, and perf gates in the same change.
 - Preserve each function's sentinel contract; do not normalize
   `LocateNewline` to `len(s)`.
 - Keep parser concerns out of this package. The scanner does not allocate parser

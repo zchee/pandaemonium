@@ -17,13 +17,14 @@ package scan
 import (
 	"bytes"
 	rand "math/rand/v2"
+	"strconv"
 	"testing"
 	"unicode/utf8"
 )
 
 // bench_test.go contains the AC-SIMD-5 per-scan benchmark pairs (one
 // SIMD-through-dispatch and one declared-baseline benchmark per kernel,
-// 12 benchmarks total). Each pair runs on the same 64 KB deterministic
+// 20 benchmarks total). Each pair runs on the same 64 KB deterministic
 // buffer so the SIMD/baseline ratio reported by benchstat is the
 // numerical gate that hack/toml-perf-gate consumes.
 //
@@ -35,6 +36,10 @@ import (
 //   ScanLiteralString   | bytes.IndexByte(s, '\'')      (stdlib) | 0.98
 //   ScanBareKey         | naiveScanBareKey              (oracle) | 1.00
 //   ScanBasicString     | naiveScanBasicString          (oracle) | 1.00
+//   ScanBasicStringStrict| naiveScanBasicStringStrict   (oracle) | 1.00
+//   ScanCommentBody     | naiveScanCommentBody          (oracle) | 1.00
+//   ScanBareValueEnd    | naiveScanBareValueEnd         (oracle) | 1.00
+//   CountLines          | naiveCountLines               (oracle) | 1.00
 //   SkipWhitespace      | naiveSkipWhitespace           (oracle) | 1.00
 //   ValidateUTF8        | utf8.Valid(s) wrapped to int  (stdlib) | 1.00
 //
@@ -169,6 +174,75 @@ func makeScanBasicStringBuf() []byte {
 	return buf
 }
 
+// makeScanBasicStringStrictBuf returns a 64 KiB buffer of single-line
+// TOML basic-string body bytes that do not require slow-path handling.
+// It includes printable ASCII, spaces, and tabs, while excluding quote,
+// backslash, DEL, and C0 controls other than tab so both the SIMD kernel
+// and the naive oracle scan the whole buffer and return len(buf).
+func makeScanBasicStringStrictBuf() []byte {
+	r := newBenchRand("ScanBasicStringStrict")
+	buf := make([]byte, benchBufSize)
+	for i := range buf {
+		if r.UintN(16) == 0 {
+			buf[i] = '\t'
+			continue
+		}
+		b := byte(r.UintN(95)) + 32 // 32..126
+		if b == '"' || b == '\\' {
+			b = 'x'
+		}
+		buf[i] = b
+	}
+	return buf
+}
+
+// makeScanCommentBodyBuf returns a 64 KiB comment body with printable
+// ASCII, spaces, tabs, quotes, and hashes, but no LF/CR/DEL/prohibited
+// C0 controls. Both the SIMD kernel and the naive oracle scan the full
+// buffer and return len(buf).
+func makeScanCommentBodyBuf() []byte {
+	r := newBenchRand("ScanCommentBody")
+	buf := make([]byte, benchBufSize)
+	for i := range buf {
+		if r.UintN(16) == 0 {
+			buf[i] = '\t'
+			continue
+		}
+		buf[i] = byte(r.UintN(95)) + 32 // 32..126
+	}
+	return buf
+}
+
+// makeScanBareValueEndBuf returns a 64 KiB bare-value-like body without
+// raw delimiters. It intentionally uses alphanumerics, signs, dots,
+// colons, underscores, and quotes so the raw delimiter scan touches every
+// byte; parser-level datetime-space joining is not part of this kernel.
+func makeScanBareValueEndBuf() []byte {
+	const alphabet = `ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+-._:\\"'`
+	r := newBenchRand("ScanBareValueEnd")
+	buf := make([]byte, benchBufSize)
+	for i := range buf {
+		buf[i] = alphabet[r.UintN(uint(len(alphabet)))]
+	}
+	return buf
+}
+
+// makeCountLinesBuf returns a 64 KiB line-oriented buffer with one LF
+// every 64 bytes. CountLines and the naive oracle both scan every byte;
+// the nonzero LF density keeps the benchmark honest for count reduction
+// rather than measuring an all-zero mask path only.
+func makeCountLinesBuf() []byte {
+	buf := make([]byte, benchBufSize)
+	for i := range buf {
+		if (i+1)%64 == 0 {
+			buf[i] = '\n'
+		} else {
+			buf[i] = 'x'
+		}
+	}
+	return buf
+}
+
 // makeSkipWhitespaceBuf returns a 64 KiB buffer of only ' ' (U+0020)
 // and '\t' (U+0009) bytes. The SIMD kernel and the naive oracle both
 // scan and skip the entire buffer; both return len(buf). Newline is
@@ -296,6 +370,46 @@ func BenchmarkScanBasicString_SIMD(b *testing.B) {
 	}
 }
 
+func BenchmarkScanBasicStringStrict_SIMD(b *testing.B) {
+	buf := makeScanBasicStringStrictBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = ScanBasicStringStrict(buf)
+
+	for b.Loop() {
+		_ = ScanBasicStringStrict(buf)
+	}
+}
+
+func BenchmarkScanCommentBody_SIMD(b *testing.B) {
+	buf := makeScanCommentBodyBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = ScanCommentBody(buf)
+
+	for b.Loop() {
+		_ = ScanCommentBody(buf)
+	}
+}
+
+func BenchmarkScanBareValueEnd_SIMD(b *testing.B) {
+	buf := makeScanBareValueEndBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = ScanBareValueEnd(buf)
+
+	for b.Loop() {
+		_ = ScanBareValueEnd(buf)
+	}
+}
+
+func BenchmarkCountLines_SIMD(b *testing.B) {
+	buf := makeCountLinesBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = CountLines(buf)
+
+	for b.Loop() {
+		_ = CountLines(buf)
+	}
+}
+
 func BenchmarkSkipWhitespace_SIMD(b *testing.B) {
 	buf := makeSkipWhitespaceBuf()
 	b.SetBytes(int64(len(buf)))
@@ -361,6 +475,46 @@ func BenchmarkScanBasicString_Baseline(b *testing.B) {
 	}
 }
 
+func BenchmarkScanBasicStringStrict_Baseline(b *testing.B) {
+	buf := makeScanBasicStringStrictBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = naiveScanBasicStringStrict(buf)
+
+	for b.Loop() {
+		_ = naiveScanBasicStringStrict(buf)
+	}
+}
+
+func BenchmarkScanCommentBody_Baseline(b *testing.B) {
+	buf := makeScanCommentBodyBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = naiveScanCommentBody(buf)
+
+	for b.Loop() {
+		_ = naiveScanCommentBody(buf)
+	}
+}
+
+func BenchmarkScanBareValueEnd_Baseline(b *testing.B) {
+	buf := makeScanBareValueEndBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = naiveScanBareValueEnd(buf)
+
+	for b.Loop() {
+		_ = naiveScanBareValueEnd(buf)
+	}
+}
+
+func BenchmarkCountLines_Baseline(b *testing.B) {
+	buf := makeCountLinesBuf()
+	b.SetBytes(int64(len(buf)))
+	_ = naiveCountLines(buf)
+
+	for b.Loop() {
+		_ = naiveCountLines(buf)
+	}
+}
+
 func BenchmarkSkipWhitespace_Baseline(b *testing.B) {
 	buf := makeSkipWhitespaceBuf()
 	b.SetBytes(int64(len(buf)))
@@ -379,4 +533,54 @@ func BenchmarkValidateUTF8_Baseline(b *testing.B) {
 	for b.Loop() {
 		_ = validateUTF8StdlibBaseline(buf)
 	}
+}
+
+// BenchmarkScanSmallSizes is intentionally informational: toml-perf-gate
+// selects only the top-level Benchmark<Scan>_(SIMD|Baseline) rows. These
+// sub-benchmarks expose small-n call/tail costs without weakening the 64K
+// hard gate row selection.
+func BenchmarkScanSmallSizes(b *testing.B) {
+	type scanBench struct {
+		name string
+		buf  func(int) []byte
+		fn   func([]byte) int
+	}
+	benches := []scanBench{
+		{name: "ScanBasicStringStrict", buf: func(n int) []byte { return makeSmallRepeated(n, 'x') }, fn: ScanBasicStringStrict},
+		{name: "ScanCommentBody", buf: func(n int) []byte { return makeSmallRepeated(n, 'x') }, fn: ScanCommentBody},
+		{name: "ScanBareValueEnd", buf: func(n int) []byte { return makeSmallRepeated(n, 'x') }, fn: ScanBareValueEnd},
+		{name: "CountLines", buf: makeSmallLineBuf, fn: CountLines},
+	}
+	for _, bm := range benches {
+		for _, size := range []int{0, 1, 7, 8, 15, 16, 31, 32, 64, 256, 1024} {
+			b.Run(bm.name+"/n="+strconv.Itoa(size), func(b *testing.B) {
+				buf := bm.buf(size)
+				b.SetBytes(int64(len(buf)))
+				_ = bm.fn(buf)
+				for b.Loop() {
+					_ = bm.fn(buf)
+				}
+			})
+		}
+	}
+}
+
+func makeSmallRepeated(n int, b byte) []byte {
+	buf := make([]byte, n)
+	for i := range buf {
+		buf[i] = b
+	}
+	return buf
+}
+
+func makeSmallLineBuf(n int) []byte {
+	buf := make([]byte, n)
+	for i := range buf {
+		if (i+1)%16 == 0 {
+			buf[i] = '\n'
+		} else {
+			buf[i] = 'x'
+		}
+	}
+	return buf
 }

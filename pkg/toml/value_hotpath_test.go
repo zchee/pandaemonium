@@ -15,6 +15,7 @@
 package toml
 
 import (
+	"bytes"
 	"errors"
 	"math"
 	"reflect"
@@ -22,6 +23,7 @@ import (
 	"strings"
 	"testing"
 	"time"
+	"unsafe"
 )
 
 func TestParseStringValueHotPaths(t *testing.T) {
@@ -94,6 +96,146 @@ func TestParseStringValueTOML11HexEscape(t *testing.T) {
 	}
 	if got != "A\x1b" {
 		t.Fatalf("parseStringValue() = %q, want %q", got, "A\x1b")
+	}
+}
+
+func TestValidateStringValueMatchesParseStringValueErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+	}{
+		"success: literal": {
+			input: "'demo'",
+		},
+		"success: basic escaped": {
+			input: "\"demo\\nline\"",
+		},
+		"success: TOML 1.1 hex escape": {
+			input: "\"\\x41\\x1b\"",
+		},
+		"success: unicode escape": {
+			input: "\"caf\\u00e9\"",
+		},
+		"success: multiline basic line ending backslash": {
+			input: "\"\"\"first\\\n  second\"\"\"",
+		},
+		"success: multiline literal trims CRLF": {
+			input: "'''\r\nfirst\r\n'''",
+		},
+		"error: malformed string": {
+			input: "bare",
+		},
+		"error: basic null": {
+			input: "\"\x00\"",
+		},
+		"error: literal null": {
+			input: "'\x00'",
+		},
+		"error: multiline basic vertical tab": {
+			input: "\"\"\"\v\"\"\"",
+		},
+		"error: invalid string escape": {
+			input: "\"\\q\"",
+		},
+		"error: trailing escape": {
+			input: "\"\\\"",
+		},
+		"error: short unicode escape": {
+			input: "\"\\u00\"",
+		},
+		"error: invalid unicode escape": {
+			input: "\"\\u00xz\"",
+		},
+		"error: invalid unicode scalar": {
+			input: "\"\\U00110000\"",
+		},
+		"error: unicode parse range": {
+			input: "\"\\U80000000\"",
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			_, parseErr := parseStringValue([]byte(tc.input))
+			validateErr := validateStringValue([]byte(tc.input))
+			assertStringValidationErrorsMatch(t, parseErr, validateErr)
+		})
+	}
+}
+
+func TestValidateStringValueAvoidsSuccessAllocation(t *testing.T) {
+	tests := map[string]struct {
+		input []byte
+	}{
+		"success: literal": {
+			input: []byte("'demo'"),
+		},
+		"success: basic no escape": {
+			input: []byte("\"demo\""),
+		},
+		"success: basic escaped": {
+			input: []byte("\"demo\\nline\""),
+		},
+		"success: TOML 1.1 hex escape": {
+			input: []byte("\"\\x41\\x1b\""),
+		},
+		"success: unicode escape": {
+			input: []byte("\"caf\\u00e9\""),
+		},
+		"success: multiline basic line ending backslash": {
+			input: []byte("\"\"\"first\\\n  second\"\"\""),
+		},
+		"success: multiline literal": {
+			input: []byte("'''\r\nfirst\r\n'''"),
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			valid := true
+			allocs := testing.AllocsPerRun(1000, func() {
+				if err := validateStringValue(tc.input); err != nil {
+					valid = false
+				}
+			})
+			if !valid {
+				t.Fatalf("validateStringValue(%q) returned an unexpected error", tc.input)
+			}
+			if allocs != 0 {
+				t.Fatalf("validateStringValue(%q) allocs/run = %v, want 0", tc.input, allocs)
+			}
+		})
+	}
+}
+
+func assertStringValidationErrorsMatch(t *testing.T, parseErr, validateErr error) {
+	t.Helper()
+
+	if (parseErr == nil) != (validateErr == nil) {
+		t.Fatalf("parseStringValue error = %v, validateStringValue error = %v", parseErr, validateErr)
+	}
+	if parseErr == nil {
+		return
+	}
+	if parseErr.Error() != validateErr.Error() {
+		t.Fatalf("validateStringValue error = %q, want parseStringValue error %q", validateErr, parseErr)
+	}
+
+	var parseSyntaxErr *SyntaxError
+	var validateSyntaxErr *SyntaxError
+	parseIsSyntax := errors.As(parseErr, &parseSyntaxErr)
+	validateIsSyntax := errors.As(validateErr, &validateSyntaxErr)
+	if parseIsSyntax != validateIsSyntax {
+		t.Fatalf("validateStringValue syntax error = %v, want %v", validateIsSyntax, parseIsSyntax)
+	}
+	if !parseIsSyntax {
+		return
+	}
+	if *validateSyntaxErr != *parseSyntaxErr {
+		t.Fatalf("validateStringValue syntax error = %#v, want %#v", validateSyntaxErr, parseSyntaxErr)
 	}
 }
 
@@ -249,6 +391,200 @@ func TestDirectDestinationRawResolvesFinalStructField(t *testing.T) {
 	}
 }
 
+func TestAppendDirectSliceElementUsesCapacityHintAndZerosSlot(t *testing.T) {
+	type item struct {
+		Name  string
+		Extra string
+	}
+	type sample struct {
+		Items []item
+	}
+
+	stale := []item{{Name: "stale", Extra: "stale"}}
+	dst := sample{Items: stale[:0]}
+	slot := reflect.ValueOf(&dst).Elem().FieldByName("Items")
+	elem, index := appendDirectSliceElement(slot, 7)
+	if index != 0 {
+		t.Fatalf("appendDirectSliceElement() index = %d, want 0", index)
+	}
+	if len(dst.Items) != 1 {
+		t.Fatalf("len(Items) = %d, want 1", len(dst.Items))
+	}
+	if cap(dst.Items) < 7 {
+		t.Fatalf("cap(Items) = %d, want at least 7", cap(dst.Items))
+	}
+	if got := dst.Items[0]; got != (item{}) {
+		t.Fatalf("Items[0] after append = %#v, want zero value", got)
+	}
+	if elem.Kind() != reflect.Struct || elem.Type() != reflect.TypeFor[item]() {
+		t.Fatalf("element = %v %v, want settable item struct", elem.Kind(), elem.Type())
+	}
+}
+
+func TestDirectArrayTableCapacityHintOnlyCountsFirstTopLevelHeader(t *testing.T) {
+	t.Parallel()
+
+	data := []byte("[[items]]\nname = \"a\"\n[[items]]\nname = \"b\"\n[[nested.items]]\nname = \"c\"\n")
+	header := []byte("[[items]]")
+	tests := map[string]struct {
+		pathLen    int
+		currentLen int
+		want       int
+	}{
+		"success: first top-level header counts exact token occurrences": {
+			pathLen: 1,
+			want:    2,
+		},
+		"success: subsequent top-level header does not rescan": {
+			pathLen:    1,
+			currentLen: 1,
+		},
+		"success: nested header does not use global hint": {
+			pathLen: 2,
+		},
+	}
+
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got := directArrayTableCapacityHint(data, header, tc.pathLen, tc.currentLen)
+			if got != tc.want {
+				t.Fatalf("directArrayTableCapacityHint(pathLen=%d, currentLen=%d) = %d, want %d", tc.pathLen, tc.currentLen, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestFacadeUnmarshalDirectArrayTableClearsStaleCapacity(t *testing.T) {
+	t.Parallel()
+
+	type item struct {
+		Name  string
+		Extra string
+	}
+	type sample struct {
+		Items []item `toml:"items"`
+	}
+
+	stale := []item{{Name: "stale", Extra: "stale"}}
+	dst := sample{Items: stale[:0]}
+	if err := Unmarshal([]byte("[[items]]\nname = \"fresh\"\n"), &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if len(dst.Items) != 1 {
+		t.Fatalf("len(Items) = %d, want 1", len(dst.Items))
+	}
+	if got, want := dst.Items[0].Name, "fresh"; got != want {
+		t.Fatalf("Items[0].Name = %q, want %q", got, want)
+	}
+	if got := dst.Items[0].Extra; got != "" {
+		t.Fatalf("Items[0].Extra = %q, want cleared stale value", got)
+	}
+}
+
+func TestDirectStringValueUsesArenaForEscapeFreeStrings(t *testing.T) {
+	t.Parallel()
+
+	type sample struct {
+		Basic   string
+		Literal string
+		Multi   string
+		Escaped string
+	}
+
+	input := []byte("basic = \"alpha\"\nliteral = 'beta'\nmulti = \"\"\"\nline\n\"\"\"\nescaped = \"a\\nb\"\n")
+	var dst sample
+	if err := Unmarshal(input, &dst); err != nil {
+		t.Fatalf("Unmarshal() error = %v", err)
+	}
+	if got, want := dst.Basic, "alpha"; got != want {
+		t.Fatalf("Basic = %q, want %q", got, want)
+	}
+	if got, want := dst.Literal, "beta"; got != want {
+		t.Fatalf("Literal = %q, want %q", got, want)
+	}
+	if got, want := dst.Multi, "line\n"; got != want {
+		t.Fatalf("Multi = %q, want %q", got, want)
+	}
+	if got, want := dst.Escaped, "a\nb"; got != want {
+		t.Fatalf("Escaped = %q, want %q", got, want)
+	}
+
+	arenaBase := stringArenaBaseForMarker(t, input, dst.Basic, "alpha")
+	if got := stringArenaBaseForMarker(t, input, dst.Literal, "beta"); got != arenaBase {
+		t.Fatalf("Literal arena base = %#x, want shared base %#x", got, arenaBase)
+	}
+	if got := stringArenaBaseForMarker(t, input, dst.Multi, "line\n"); got != arenaBase {
+		t.Fatalf("Multi arena base = %#x, want shared base %#x", got, arenaBase)
+	}
+	if arenaBase == bytesDataPointer(input) {
+		t.Fatalf("arena base aliases caller input at %#x; want immutable arena copy", arenaBase)
+	}
+	if escaped := stringDataPointer(dst.Escaped); pointerInRange(escaped, arenaBase, len(input)) {
+		t.Fatalf("escaped string pointer %#x is inside escape-free arena [%#x,%#x)", escaped, arenaBase, arenaBase+uintptr(len(input)))
+	}
+
+	copy(input[bytes.Index(input, []byte("alpha")):], "omega")
+	if got, want := dst.Basic, "alpha"; got != want {
+		t.Fatalf("Basic after input mutation = %q, want immutable %q", got, want)
+	}
+}
+
+func TestDirectStringValueCopiedStringsBypassesArena(t *testing.T) {
+	t.Parallel()
+
+	input := []byte("value = \"alpha\"\n")
+	raw := input[bytes.IndexByte(input, '"') : len(input)-1]
+	dec := NewDecoderBytes(input)
+	got, err := directStringValue(dec, raw, bindConfig{copyStrings: true})
+	if err != nil {
+		t.Fatalf("directStringValue(copyStrings) error = %v", err)
+	}
+	if got != "alpha" {
+		t.Fatalf("directStringValue(copyStrings) = %q, want alpha", got)
+	}
+	if dec.stringArena != "" {
+		t.Fatalf("decoder string arena = %q, want copy path to bypass arena", dec.stringArena)
+	}
+
+	cfg := bindConfigFromOptions([]Option{WithCopiedStrings()})
+	if !cfg.copyStrings {
+		t.Fatal("bindConfigFromOptions(WithCopiedStrings()) copyStrings = false, want true")
+	}
+}
+
+func stringArenaBaseForMarker(t *testing.T, input []byte, value, marker string) uintptr {
+	t.Helper()
+
+	off := bytes.Index(input, []byte(marker))
+	if off < 0 {
+		t.Fatalf("marker %q not found in input", marker)
+	}
+	if value == "" {
+		t.Fatalf("value for marker %q is empty", marker)
+	}
+	return stringDataPointer(value) - uintptr(off)
+}
+
+func stringDataPointer(s string) uintptr {
+	if s == "" {
+		return 0
+	}
+	return uintptr(unsafe.Pointer(unsafe.StringData(s)))
+}
+
+func bytesDataPointer(b []byte) uintptr {
+	if len(b) == 0 {
+		return 0
+	}
+	return uintptr(unsafe.Pointer(unsafe.SliceData(b)))
+}
+
+func pointerInRange(ptr, base uintptr, n int) bool {
+	return ptr >= base && ptr < base+uintptr(n)
+}
+
 func TestDirectBindTypedTokenScalarDestinations(t *testing.T) {
 	type sample struct {
 		Name     string
@@ -337,7 +673,7 @@ func TestDirectBindTypedTokenScalarDestinations(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			var got sample
 			field := reflect.ValueOf(&got).Elem().FieldByName(tc.field)
-			if err := directBindTypedToken(nil, tc.token, field, tc.kind, bindConfig{}); err != nil {
+			if err := directBindTypedToken(nil, rawTokenFromToken(tc.token), field, tc.kind, bindConfig{}); err != nil {
 				t.Fatalf("directBindTypedToken() error = %v", err)
 			}
 			tc.check(t, got)
@@ -352,13 +688,13 @@ func TestDirectBindTypedTokenLocalTimeUTCOption(t *testing.T) {
 
 	tok := Token{Kind: TokenKindValueDatetime, Bytes: []byte("2026-05-17T03:04:05")}
 	var rejected sample
-	err := directBindTypedToken(nil, tok, reflect.ValueOf(&rejected).Elem().FieldByName("When"), directValueTime, bindConfig{})
+	err := directBindTypedToken(nil, rawTokenFromToken(tok), reflect.ValueOf(&rejected).Elem().FieldByName("When"), directValueTime, bindConfig{})
 	if _, ok := errors.AsType[*LocalTimeIntoTimeError](err); !ok {
 		t.Fatalf("directBindTypedToken(local datetime) error = %T(%v), want LocalTimeIntoTimeError", err, err)
 	}
 
 	var got sample
-	if err := directBindTypedToken(nil, tok, reflect.ValueOf(&got).Elem().FieldByName("When"), directValueTime, bindConfig{localAsUTC: true}); err != nil {
+	if err := directBindTypedToken(nil, rawTokenFromToken(tok), reflect.ValueOf(&got).Elem().FieldByName("When"), directValueTime, bindConfig{localAsUTC: true}); err != nil {
 		t.Fatalf("directBindTypedToken(localAsUTC) error = %v", err)
 	}
 	want := time.Date(2026, time.May, 17, 3, 4, 5, 0, time.UTC)
@@ -368,7 +704,7 @@ func TestDirectBindTypedTokenLocalTimeUTCOption(t *testing.T) {
 
 	var noSeconds sample
 	noSecondsTok := Token{Kind: TokenKindValueDatetime, Bytes: []byte("2026-05-17T03:04")}
-	if err := directBindTypedToken(nil, noSecondsTok, reflect.ValueOf(&noSeconds).Elem().FieldByName("When"), directValueTime, bindConfig{localAsUTC: true}); err != nil {
+	if err := directBindTypedToken(nil, rawTokenFromToken(noSecondsTok), reflect.ValueOf(&noSeconds).Elem().FieldByName("When"), directValueTime, bindConfig{localAsUTC: true}); err != nil {
 		t.Fatalf("directBindTypedToken(no-seconds) error = %v", err)
 	}
 	want = time.Date(2026, time.May, 17, 3, 4, 0, 0, time.UTC)
@@ -383,7 +719,7 @@ func TestDirectBindTypedTokenRejectsCapitalizedBool(t *testing.T) {
 	}
 
 	var got sample
-	err := directBindTypedToken(nil, Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE"), Line: 1, Col: 1}, reflect.ValueOf(&got).Elem().FieldByName("Enabled"), directValueBool, bindConfig{})
+	err := directBindTypedToken(nil, rawTokenFromToken(Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE")}), reflect.ValueOf(&got).Elem().FieldByName("Enabled"), directValueBool, bindConfig{})
 	if err == nil {
 		t.Fatal("directBindTypedToken(TRUE) error = nil, want syntax error")
 	}
@@ -430,10 +766,156 @@ func TestParseValueTokenNormalizationHotPaths(t *testing.T) {
 	}
 }
 
+func TestDirectBindTypedTokenNumericAvoidsNormalizationAllocation(t *testing.T) {
+	type sample struct {
+		I int64
+		U uint64
+		F float64
+	}
+	tests := map[string]struct {
+		field string
+		kind  directValueKind
+		tok   Token
+	}{
+		"success: signed integer underscores": {
+			field: "I",
+			kind:  directValueInt,
+			tok:   Token{Kind: TokenKindValueInteger, Bytes: []byte("1_2_3")},
+		},
+		"success: unsigned integer underscores": {
+			field: "U",
+			kind:  directValueUint,
+			tok:   Token{Kind: TokenKindValueInteger, Bytes: []byte("1_2_3")},
+		},
+		"success: float underscores exponent": {
+			field: "F",
+			kind:  directValueFloat,
+			tok:   Token{Kind: TokenKindValueFloat, Bytes: []byte("1_2.3E+4")},
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			var got sample
+			dst := reflect.ValueOf(&got).Elem().FieldByName(tc.field)
+			valid := true
+			allocs := testing.AllocsPerRun(1000, func() {
+				dst.SetZero()
+				if err := directBindTypedToken(nil, rawTokenFromToken(tc.tok), dst, tc.kind, bindConfig{}); err != nil {
+					valid = false
+				}
+			})
+			if !valid {
+				t.Fatalf("directBindTypedToken(%q) failed", tc.tok.Bytes)
+			}
+			wantAllocs := 0.0
+			if tc.kind == directValueFloat {
+				wantAllocs = 1
+			}
+			if allocs > wantAllocs {
+				t.Fatalf("directBindTypedToken(%q) allocs/run = %v, want <= %v", tc.tok.Bytes, allocs, wantAllocs)
+			}
+		})
+	}
+}
+
+func TestSkipStructuralValueFastValidatesSkippedSubtrees(t *testing.T) {
+	tests := map[string]struct {
+		input    string
+		wantFast bool
+		wantErr  bool
+	}{
+		"success: nested array and inline table": {
+			input:    "ignored = [\"a\", {name = \"nested\", nums = [1_2, 3.4e5]}]\nnext = true\n",
+			wantFast: true,
+		},
+		"error: malformed scalar inside skipped array": {
+			input:    "ignored = [1__2]\nnext = true\n",
+			wantFast: true,
+			wantErr:  true,
+		},
+		"error: inline table value cannot move to next line": {
+			input:    "ignored = {name =\n\"bad\"}\nnext = true\n",
+			wantFast: true,
+			wantErr:  true,
+		},
+		"success: scalar remains on token fallback path": {
+			input: "ignored = 1_2_3\nnext = true\n",
+		},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			dec := NewDecoderBytes([]byte(tc.input))
+			tok, err := dec.ReadToken()
+			if err != nil {
+				t.Fatalf("ReadToken key error = %v", err)
+			}
+			if tok.Kind != TokenKindKey {
+				t.Fatalf("ReadToken key kind = %s, want %s", tok.Kind, TokenKindKey)
+			}
+			fast, err := skipStructuralValueFast(dec)
+			if fast != tc.wantFast {
+				t.Fatalf("skipStructuralValueFast fast = %v, want %v", fast, tc.wantFast)
+			}
+			if tc.wantErr {
+				if err == nil {
+					t.Fatal("skipStructuralValueFast error = nil, want error")
+				}
+				return
+			}
+			if err != nil {
+				t.Fatalf("skipStructuralValueFast error = %v", err)
+			}
+			if !fast {
+				return
+			}
+			tok, err = dec.ReadToken()
+			if err != nil {
+				t.Fatalf("ReadToken after skipped value error = %v", err)
+			}
+			if string(tok.Bytes) != "next" {
+				t.Fatalf("ReadToken after skipped value = %q, want next", tok.Bytes)
+			}
+		})
+	}
+}
+
+func TestSkipStructuralValueFastAvoidsTokenizingNestedScalars(t *testing.T) {
+	input := []byte("ignored = [\"a\", {name = \"nested\", nums = [1_2, 3.4e5]}]\nnext = true\n")
+	var valid bool
+	allocs := testing.AllocsPerRun(1000, func() {
+		dec := newAllocationHotPathDecoder(input)
+		if _, err := dec.ReadToken(); err != nil {
+			valid = false
+			return
+		}
+		fast, err := skipStructuralValueFast(&dec)
+		if err != nil || !fast {
+			valid = false
+			return
+		}
+		valid = true
+	})
+	if !valid {
+		t.Fatal("skipStructuralValueFast did not skip valid nested input")
+	}
+	if allocs != 0 {
+		t.Fatalf("skipStructuralValueFast allocs/run = %v, want 0", allocs)
+	}
+}
+
+func TestParseValueTokenRejectsCapitalizedSpecialFloat(t *testing.T) {
+	t.Parallel()
+
+	_, err := parseValueToken(nil, Token{Kind: TokenKindValueFloat, Bytes: []byte("Inf")})
+	if err == nil {
+		t.Fatal("parseValueToken(Inf) error = nil, want syntax error")
+	}
+}
+
 func TestParseValueTokenRejectsCapitalizedBool(t *testing.T) {
 	t.Parallel()
 
-	_, err := parseValueToken(nil, Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE"), Line: 1, Col: 1})
+	_, err := parseValueToken(nil, Token{Kind: TokenKindValueBool, Bytes: []byte("TRUE")})
 	if err == nil {
 		t.Fatal("parseValueToken(TRUE) error = nil, want syntax error")
 	}

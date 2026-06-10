@@ -15,9 +15,9 @@
 package toml
 
 import (
+	"bytes"
 	"io"
-	"strconv"
-	"strings"
+	"math"
 
 	"github.com/zchee/pandaemonium/pkg/toml/internal/scan"
 )
@@ -71,6 +71,30 @@ func WithLocalAsUTC() Option {
 	}
 }
 
+// WithCopiedStrings forces decoded string values to use independent string
+// allocations instead of sharing Unmarshal's per-document string arena.
+func WithCopiedStrings() Option {
+	return func(d *Decoder) {
+		d.copyStrings = true
+	}
+}
+
+func withoutTokenPositions(d *Decoder) {
+	d.trackTokenPositions = false
+}
+
+var internalDecoderOptionsNoTokenPositions = []Option{withoutTokenPositions}
+
+func decoderOptionsWithoutTokenPositions(opts []Option) []Option {
+	if len(opts) == 0 {
+		return internalDecoderOptionsNoTokenPositions
+	}
+	out := make([]Option, 0, len(opts)+1)
+	out = append(out, opts...)
+	out = append(out, withoutTokenPositions)
+	return out
+}
+
 // Decoder reads bytes as a token stream.
 //
 // `Token.Bytes` aliases source bytes for NewDecoderBytes and aliases an internal
@@ -97,6 +121,13 @@ type Decoder struct {
 	inlineDepth    int
 	containerStack []byte
 	localAsUTC     bool
+	copyStrings    bool
+	stringArena    string
+	tokenLine      int
+	tokenCol       int
+	tokenScalar    tokenScalar
+
+	trackTokenPositions bool
 }
 
 // containerArray and containerInline mark entries pushed onto containerStack
@@ -121,10 +152,11 @@ func (d *Decoder) innermostIsArray() bool {
 func NewDecoder(r io.Reader, opts ...Option) *Decoder {
 	b, err := io.ReadAll(r)
 	d := &Decoder{
-		off:         0,
-		line:        1,
-		col:         1,
-		atLineStart: true,
+		off:                 0,
+		line:                1,
+		col:                 1,
+		atLineStart:         true,
+		trackTokenPositions: true,
 		limits: Limits{
 			MaxNestedDepth:  DefaultMaxNestedDepth,
 			MaxKeyLength:    DefaultMaxKeyLength,
@@ -161,11 +193,12 @@ func NewDecoder(r io.Reader, opts ...Option) *Decoder {
 // NewDecoderBytes creates a Decoder over an in-memory TOML payload.
 func NewDecoderBytes(data []byte, opts ...Option) *Decoder {
 	d := &Decoder{
-		off:         0,
-		line:        1,
-		col:         1,
-		atLineStart: true,
-		buf:         data,
+		off:                 0,
+		line:                1,
+		col:                 1,
+		atLineStart:         true,
+		buf:                 data,
+		trackTokenPositions: true,
 		limits: Limits{
 			MaxNestedDepth:  DefaultMaxNestedDepth,
 			MaxKeyLength:    DefaultMaxKeyLength,
@@ -218,6 +251,9 @@ func (d *Decoder) decodeOptions() []Option {
 	if d.localAsUTC {
 		opts = append(opts, WithLocalAsUTC())
 	}
+	if d.copyStrings {
+		opts = append(opts, WithCopiedStrings())
+	}
 	return opts
 }
 
@@ -226,27 +262,41 @@ func (d *Decoder) decodeOptions() []Option {
 // The return contract is fail-fast: the first SyntaxError or LimitError enters
 // sticky state and is returned until the decoder is replaced.
 func (d *Decoder) ReadToken() (Token, error) {
+	tok, err := d.readToken()
+	if err != nil {
+		return Token{}, err
+	}
+	pub := tok.publicToken()
+	pub.scalar = d.tokenScalar
+	if d.trackTokenPositions {
+		pub.Line = d.tokenLine
+		pub.Col = d.tokenCol
+	}
+	return pub, nil
+}
+
+func (d *Decoder) readToken() (rawToken, error) {
 	if d == nil {
-		return Token{}, io.ErrUnexpectedEOF
+		return rawToken{}, io.ErrUnexpectedEOF
 	}
 	if d.err != nil {
-		return Token{}, d.err
+		return rawToken{}, d.err
 	}
 
 	for {
 		if d.off >= len(d.buf) {
 			if d.expectingValue {
-				return Token{}, d.syntaxError("expected value", d.off)
+				return rawToken{}, d.syntaxError("expected value", d.off)
 			}
-			return Token{}, io.EOF
+			return rawToken{}, io.EOF
 		}
 
 		d.skipSpaces()
 		if d.off >= len(d.buf) {
 			if d.expectingValue {
-				return Token{}, d.syntaxError("expected value", d.off)
+				return rawToken{}, d.syntaxError("expected value", d.off)
 			}
-			return Token{}, io.EOF
+			return rawToken{}, io.EOF
 		}
 
 		if d.needLineEnd {
@@ -256,7 +306,7 @@ func (d *Decoder) ReadToken() (Token, error) {
 			case '\n', '\r':
 				continue
 			default:
-				return Token{}, d.syntaxError("expected newline", d.off)
+				return rawToken{}, d.syntaxError("expected newline", d.off)
 			}
 		}
 
@@ -273,12 +323,12 @@ func (d *Decoder) ReadToken() (Token, error) {
 		switch ch {
 		case '[':
 			if d.innermostIsArray() && !d.expectingValue {
-				return Token{}, d.syntaxError("expected comma", d.off)
+				return rawToken{}, d.syntaxError("expected comma", d.off)
 			}
 			return d.scanArrayStart()
 		case '{':
 			if d.innermostIsArray() && !d.expectingValue {
-				return Token{}, d.syntaxError("expected comma", d.off)
+				return rawToken{}, d.syntaxError("expected comma", d.off)
 			}
 			return d.scanInlineTableStart()
 		case ']':
@@ -288,10 +338,10 @@ func (d *Decoder) ReadToken() (Token, error) {
 		case '#':
 			return d.scanComment()
 		case '=':
-			return Token{}, d.syntaxError("unexpected equals", d.off)
+			return rawToken{}, d.syntaxError("unexpected equals", d.off)
 		case ',':
 			if !d.needSeparator {
-				return Token{}, d.syntaxError("unexpected comma", d.off)
+				return rawToken{}, d.syntaxError("unexpected comma", d.off)
 			}
 			d.advanceOne()
 			d.needSeparator = false
@@ -304,12 +354,12 @@ func (d *Decoder) ReadToken() (Token, error) {
 		default:
 			if d.expectingValue {
 				if d.needSeparator && d.innermostIsArray() {
-					return Token{}, d.syntaxError("expected array separator", d.off)
+					return rawToken{}, d.syntaxError("expected array separator", d.off)
 				}
 				return d.scanValueToken()
 			}
 			if d.needSeparator && len(d.containerStack) > 0 {
-				return Token{}, d.syntaxError("expected inline table separator", d.off)
+				return rawToken{}, d.syntaxError("expected inline table separator", d.off)
 			}
 			return d.scanKeyToken()
 		}
@@ -357,33 +407,39 @@ func (d *Decoder) skipSpaces() {
 	}
 }
 
-func (d *Decoder) scanComment() (Token, error) {
+func (d *Decoder) scanComment() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
-	end := len(d.buf)
-	for i := start; i < len(d.buf); i++ {
-		if i > start && (d.buf[i] == 0x7f || (d.buf[i] < 0x20 && d.buf[i] != '\t' && d.buf[i] != '\n' && d.buf[i] != '\r')) {
-			return Token{}, d.syntaxError("control character in comment", i)
-		}
-		if d.buf[i] == '\n' {
-			end = i
-			break
-		}
-		if d.buf[i] == '\r' && i+1 < len(d.buf) && d.buf[i+1] == '\n' {
-			end = i
-			break
-		}
-		if d.buf[i] == '\r' {
-			return Token{}, d.syntaxError("control character in comment", i)
-		}
+	end, err := d.scanCommentEnd(start)
+	if err != nil {
+		return rawToken{}, err
 	}
+	tok := d.makeToken(TokenKindComment, d.buf[start:end], start, tokenScalar{})
 	d.advanceBytes(d.buf[start:end])
-	return Token{Kind: TokenKindComment, Bytes: d.buf[start:end], Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanKeyToken() (Token, error) {
+func (d *Decoder) scanCommentEnd(start int) (int, error) {
+	bodyStart := start + 1
+	if bodyStart > len(d.buf) {
+		return len(d.buf), nil
+	}
+	end := bodyStart + scan.ScanCommentBody(d.buf[bodyStart:])
+	if end >= len(d.buf) {
+		return end, nil
+	}
+	switch d.buf[end] {
+	case '\n':
+		return end, nil
+	case '\r':
+		if end+1 < len(d.buf) && d.buf[end+1] == '\n' {
+			return end, nil
+		}
+	}
+	return 0, d.syntaxError("control character in comment", end)
+}
+
+func (d *Decoder) scanKeyToken() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
 	i := start
 	for i < len(d.buf) {
 		ch := d.buf[i]
@@ -396,7 +452,7 @@ func (d *Decoder) scanKeyToken() (Token, error) {
 		if ch == '"' || ch == '\'' {
 			j, err := d.scanQuoted(ch, i)
 			if err != nil {
-				return Token{}, err
+				return rawToken{}, err
 			}
 			i = j
 			continue
@@ -404,52 +460,53 @@ func (d *Decoder) scanKeyToken() (Token, error) {
 		i++
 	}
 	if i == start {
-		return Token{}, d.syntaxError("empty key", i)
+		return rawToken{}, d.syntaxError("empty key", i)
 	}
 
 	key := bytesTrimRightSpaces(d.buf[start:i])
 	if !isSimpleBareKey(key) {
 		if _, err := parseDottedKey(key); err != nil {
 			d.setErr(err)
-			return Token{}, err
+			return rawToken{}, err
 		}
 	}
 	if len(key) > d.limits.MaxKeyLength {
 		err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start, i}}
 		d.setErr(err)
-		return Token{}, err
+		return rawToken{}, err
 	}
 	eq := i
 	for eq < len(d.buf) && (d.buf[eq] == ' ' || d.buf[eq] == '\t') {
 		eq++
 	}
 	if eq >= len(d.buf) || d.buf[eq] != '=' {
-		return Token{}, d.syntaxError("expected equals", eq)
+		return rawToken{}, d.syntaxError("expected equals", eq)
 	}
+	tok := d.makeToken(TokenKindKey, key, start, tokenScalar{})
 	d.advanceBytes(d.buf[start : eq+1])
 	d.expectingValue = true
 	d.valueNoNewline = true
 	d.needLineEnd = false
-	return Token{Kind: TokenKindKey, Bytes: key, Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanValueToken() (Token, error) {
+func (d *Decoder) scanValueToken() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
 
 	ch := d.buf[start]
 	switch ch {
 	case '"', '\'':
 		end, kind, err := d.scanString(start)
 		if err != nil {
-			return Token{}, err
+			return rawToken{}, err
 		}
 		chunk := d.buf[start:end]
 		if len(chunk) > d.limits.MaxStringLength {
 			err := &LimitError{Limit: "MaxStringLength", Value: d.limits.MaxStringLength, Span: [2]int{start, end}}
 			d.setErr(err)
-			return Token{}, err
+			return rawToken{}, err
 		}
+		tok := d.makeToken(kind, chunk, start, tokenScalar{})
 		d.advanceBytes(chunk)
 		d.expectingValue = false
 		d.valueNoNewline = false
@@ -458,7 +515,7 @@ func (d *Decoder) scanValueToken() (Token, error) {
 		}
 		d.needSeparator = len(d.containerStack) > 0
 		d.needLineEnd = len(d.containerStack) == 0
-		return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
+		return tok, nil
 	case '[':
 		return d.scanArrayStart()
 	case '{':
@@ -473,49 +530,18 @@ func (d *Decoder) scanValueToken() (Token, error) {
 
 	end := scanBareValueEnd(d.buf[start:])
 	if end == 0 {
-		return Token{}, d.syntaxError("invalid value", start)
+		return rawToken{}, d.syntaxError("invalid value", start)
 	}
 	end += start
 	chunk := d.buf[start:end]
 	if len(chunk) == 0 {
-		return Token{}, d.syntaxError("expected value", start)
+		return rawToken{}, d.syntaxError("expected value", start)
 	}
-	raw := string(chunk)
-	norm := strings.ToLower(raw)
-	clean := strings.ReplaceAll(norm, "_", "")
-	var kind TokenKind
-	switch {
-	case looksLikeDatetime(chunk):
-		kind = TokenKindValueDatetime
-	case strings.ContainsAny(clean, "= "):
-		return Token{}, d.syntaxError("unexpected = in value", start)
-	case raw == "true" || raw == "false":
-		kind = TokenKindValueBool
-		if clean == "" || clean == "+" || clean == "-" {
-			return Token{}, d.syntaxError("malformed value", start)
-		}
-	case isSpecialFloat(raw):
-		kind = TokenKindValueFloat
-	case isIntCandidate(norm):
-		if hasCapitalNumericPrefix(raw) {
-			return Token{}, d.syntaxError("malformed value", start)
-		}
-		if _, err := parseIntegerLiteral(chunk); err != nil {
-			return Token{}, d.syntaxError("malformed value", start)
-		}
-		kind = TokenKindValueInteger
-	case isFloatCandidate(norm):
-		if _, err := strconv.ParseFloat(clean, 64); err != nil {
-			return Token{}, d.syntaxError("malformed float", start)
-		}
-		kind = TokenKindValueFloat
-	case strings.IndexFunc(norm, func(r rune) bool {
-		return (r < '0' || r > '9') && r != '+' && r != '-' && r != '.' && r != 'e' && r != 'E' && r != '_' && r != ':'
-	}) != -1:
-		return Token{}, d.syntaxError("malformed value", start)
-	default:
-		return Token{}, d.syntaxError("malformed value", start)
+	kind, scalar, msg := classifyBareValue(chunk)
+	if msg != "" {
+		return rawToken{}, d.syntaxError(msg, start)
 	}
+	tok := d.makeToken(kind, chunk, start, scalar)
 	d.advanceBytes(chunk)
 	d.expectingValue = false
 	d.valueNoNewline = false
@@ -524,12 +550,12 @@ func (d *Decoder) scanValueToken() (Token, error) {
 	}
 	d.needSeparator = len(d.containerStack) > 0
 	d.needLineEnd = len(d.containerStack) == 0
-	return Token{Kind: kind, Bytes: chunk, Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanArrayStart() (Token, error) {
+func (d *Decoder) scanArrayStart() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
+	tok := d.makeToken(TokenKindArrayStart, d.buf[start:start+1], start, tokenScalar{})
 	d.advanceOne()
 	d.arrayDepth++
 	d.enforceNestedDepth(start, d.arrayDepth)
@@ -537,12 +563,12 @@ func (d *Decoder) scanArrayStart() (Token, error) {
 	d.expectingValue = true
 	d.valueNoNewline = false
 	d.needSeparator = false
-	return Token{Kind: TokenKindArrayStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanArrayEnd() (Token, error) {
+func (d *Decoder) scanArrayEnd() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
+	tok := d.makeToken(TokenKindArrayEnd, d.buf[start:start+1], start, tokenScalar{})
 	d.advanceOne()
 	if d.arrayDepth > 0 {
 		d.arrayDepth--
@@ -554,24 +580,24 @@ func (d *Decoder) scanArrayEnd() (Token, error) {
 	d.valueNoNewline = false
 	d.needSeparator = len(d.containerStack) > 0
 	d.needLineEnd = len(d.containerStack) == 0
-	return Token{Kind: TokenKindArrayEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanInlineTableStart() (Token, error) {
+func (d *Decoder) scanInlineTableStart() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
+	tok := d.makeToken(TokenKindInlineTableStart, d.buf[start:start+1], start, tokenScalar{})
 	d.advanceOne()
 	d.inlineDepth++
 	d.containerStack = append(d.containerStack, containerInline)
 	d.expectingValue = false
 	d.valueNoNewline = false
 	d.needSeparator = false
-	return Token{Kind: TokenKindInlineTableStart, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanInlineTableEnd() (Token, error) {
+func (d *Decoder) scanInlineTableEnd() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
+	tok := d.makeToken(TokenKindInlineTableEnd, d.buf[start:start+1], start, tokenScalar{})
 	d.advanceOne()
 	if d.inlineDepth > 0 {
 		d.inlineDepth--
@@ -583,57 +609,57 @@ func (d *Decoder) scanInlineTableEnd() (Token, error) {
 	d.valueNoNewline = false
 	d.needSeparator = len(d.containerStack) > 0
 	d.needLineEnd = len(d.containerStack) == 0
-	return Token{Kind: TokenKindInlineTableEnd, Bytes: d.buf[start : start+1], Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanTableHeader() (Token, error) {
+func (d *Decoder) scanTableHeader() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
 	i, err := d.scanHeaderEnd(start+1, false)
 	if err != nil {
-		return Token{}, err
+		return rawToken{}, err
 	}
 	if err := d.validateHeaderKey(start+1, i); err != nil {
-		return Token{}, err
+		return rawToken{}, err
 	}
 	tokenEnd := i + 1
 	head := d.buf[start:tokenEnd]
+	tok := d.makeToken(TokenKindTableHeader, head, start, tokenScalar{})
 	d.advanceBytes(head)
 	keyLen := max(tokenEnd-start-2, 0)
 	if keyLen > d.limits.MaxKeyLength {
 		err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start + 1, i}}
 		d.setErr(err)
-		return Token{}, err
+		return rawToken{}, err
 	}
 	d.expectingValue = false
 	d.atLineStart = false
 	d.needLineEnd = true
-	return Token{Kind: TokenKindTableHeader, Bytes: head, Line: line, Col: col}, nil
+	return tok, nil
 }
 
-func (d *Decoder) scanArrayTableHeader() (Token, error) {
+func (d *Decoder) scanArrayTableHeader() (rawToken, error) {
 	start := d.off
-	line, col := d.line, d.col
 	i, err := d.scanHeaderEnd(start+2, true)
 	if err != nil {
-		return Token{}, err
+		return rawToken{}, err
 	}
 	if err := d.validateHeaderKey(start+2, i); err != nil {
-		return Token{}, err
+		return rawToken{}, err
 	}
 	tokenEnd := i + 2
 	head := d.buf[start:tokenEnd]
+	tok := d.makeToken(TokenKindArrayTableHeader, head, start, tokenScalar{})
 	d.advanceBytes(head)
 	keyLen := max(tokenEnd-start-4, 0)
 	if keyLen > d.limits.MaxKeyLength {
 		err := &LimitError{Limit: "MaxKeyLength", Value: d.limits.MaxKeyLength, Span: [2]int{start + 2, i}}
 		d.setErr(err)
-		return Token{}, err
+		return rawToken{}, err
 	}
 	d.expectingValue = false
 	d.atLineStart = false
 	d.needLineEnd = true
-	return Token{Kind: TokenKindArrayTableHeader, Bytes: head, Line: line, Col: col}, nil
+	return tok, nil
 }
 
 func (d *Decoder) scanHeaderEnd(i int, array bool) (int, error) {
@@ -737,7 +763,7 @@ func (d *Decoder) scanQuoted(quote byte, off int) (int, error) {
 		}
 		if d.buf[i+idx] == quote {
 			end := i + idx + 1
-			if _, err := parseStringValue(d.buf[off:end]); err != nil {
+			if err := validateStringValue(d.buf[off:end]); err != nil {
 				return 0, err
 			}
 			return end, nil
@@ -749,63 +775,93 @@ func (d *Decoder) scanQuoted(quote byte, off int) (int, error) {
 func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 	rest := d.buf[off:]
 	if hasBytePrefix(rest, '"', '"', '"') {
-		for end := off + 3; end < len(d.buf); end++ {
-			if d.buf[end] == '\\' {
+		for end := off + 3; end < len(d.buf); {
+			n := scan.ScanBasicString(d.buf[end:])
+			end += n
+			if end >= len(d.buf) {
+				break
+			}
+			switch d.buf[end] {
+			case '\\':
 				if end+1 >= len(d.buf) {
 					return 0, TokenKindInvalid, d.syntaxError("unterminated string escape", end)
 				}
-				end++
-				continue
-			}
-			if d.buf[end] == '"' {
+				end += 2
+			case '"':
 				run := countByteRun(d.buf[end:], '"')
 				if run >= 3 {
 					tokenEnd := end + min(run, 5)
-					if _, err := parseStringValue(d.buf[off:tokenEnd]); err != nil {
+					if err := validateStringValue(d.buf[off:tokenEnd]); err != nil {
 						return 0, TokenKindInvalid, err
 					}
 					return tokenEnd, TokenKindValueString, nil
 				}
-				end += run - 1
+				end += run
+			default:
+				end++
 			}
 		}
 		return 0, TokenKindInvalid, d.syntaxError("unterminated multiline string", off)
 	}
 	if hasBytePrefix(rest, '\'', '\'', '\'') {
-		for end := off + 3; end < len(d.buf); end++ {
-			if d.buf[end] == '\'' {
-				run := countByteRun(d.buf[end:], '\'')
-				if run >= 3 {
-					tokenEnd := end + min(run, 5)
-					if _, err := parseStringValue(d.buf[off:tokenEnd]); err != nil {
-						return 0, TokenKindInvalid, err
-					}
-					return tokenEnd, TokenKindValueString, nil
-				}
-				end += run - 1
+		for end := off + 3; end < len(d.buf); {
+			n := scan.ScanLiteralString(d.buf[end:])
+			end += n
+			if end >= len(d.buf) {
+				break
 			}
+			run := countByteRun(d.buf[end:], '\'')
+			if run >= 3 {
+				tokenEnd := end + min(run, 5)
+				if err := validateStringValue(d.buf[off:tokenEnd]); err != nil {
+					return 0, TokenKindInvalid, err
+				}
+				return tokenEnd, TokenKindValueString, nil
+			}
+			end += run
 		}
 		return 0, TokenKindInvalid, d.syntaxError("unterminated multiline string", off)
 	}
 	quote := d.buf[off]
-	for i := off + 1; i < len(d.buf); i++ {
-		if d.buf[i] == '\n' || d.buf[i] == '\r' {
-			return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
-		}
-		if quote == '"' && d.buf[i] == '\\' {
-			if i+1 >= len(d.buf) {
+	if quote == '"' {
+		for i := off + 1; i < len(d.buf); {
+			n := scan.ScanBasicStringStrict(d.buf[i:])
+			i += n
+			if i >= len(d.buf) {
+				break
+			}
+			switch d.buf[i] {
+			case '\n', '\r':
 				return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
+			case '\\':
+				if i+1 >= len(d.buf) {
+					return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
+				}
+				i += 2
+			case '"':
+				end := i + 1
+				if err := validateStringValue(d.buf[off:end]); err != nil {
+					return 0, TokenKindInvalid, err
+				}
+				return end, TokenKindValueString, nil
+			default:
+				return 0, TokenKindInvalid, stringControlError(d.buf[off+1:], i-off-1)
 			}
-			i++
-			continue
 		}
-		if d.buf[i] == quote {
-			end := i + 1
-			if _, err := parseStringValue(d.buf[off:end]); err != nil {
-				return 0, TokenKindInvalid, err
-			}
-			return end, TokenKindValueString, nil
+		return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
+	}
+	i := off + 1
+	n := scan.ScanLiteralString(d.buf[i:])
+	if hasNewlineBefore(d.buf[i:], n) {
+		return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
+	}
+	i += n
+	if i < len(d.buf) {
+		end := i + 1
+		if err := validateStringValue(d.buf[off:end]); err != nil {
+			return 0, TokenKindInvalid, err
 		}
+		return end, TokenKindValueString, nil
 	}
 	return 0, TokenKindInvalid, d.syntaxError("unterminated string", off)
 }
@@ -861,21 +917,41 @@ func (d *Decoder) syntaxError(msg string, off int) *SyntaxError {
 }
 
 func (d *Decoder) computeLineCol(off int) (int, int) {
-	if off <= d.off {
+	if d == nil {
+		return 1, 1
+	}
+	if d.trackTokenPositions && off == d.off {
 		return d.line, d.col
 	}
-	line := 1
+	return lineColForOffset(d.buf, off)
+}
+
+func (d *Decoder) makeToken(kind TokenKind, bytes []byte, offset int, scalar tokenScalar) rawToken {
+	d.tokenScalar = scalar
+	if d.trackTokenPositions {
+		d.tokenLine, d.tokenCol = d.computeLineCol(offset)
+	}
+	return rawToken{Kind: kind, Bytes: bytes, Offset: offset}
+}
+
+func lineColForOffset(data []byte, off int) (int, int) {
+	if off < 0 {
+		off = 0
+	}
+	if off > len(data) {
+		off = len(data)
+	}
+	prefix := data[:off]
+	line := 1 + scan.CountLines(prefix)
+	lineStart := 0
+	if lastLF := bytes.LastIndexByte(prefix, '\n'); lastLF >= 0 {
+		lineStart = lastLF + 1
+	}
 	col := 1
-	for i := 0; i < off && i < len(d.buf); i++ {
-		if d.buf[i] == '\n' {
-			line++
-			col = 1
-			continue
+	for _, b := range prefix[lineStart:] {
+		if b != '\r' {
+			col++
 		}
-		if d.buf[i] == '\r' {
-			continue
-		}
-		col++
 	}
 	return line, col
 }
@@ -888,29 +964,48 @@ func (d *Decoder) advanceBytes(raw []byte) {
 	if len(raw) == 0 {
 		return
 	}
-	consumed := len(raw)
-	for i := 0; i < consumed; {
-		n := scan.LocateNewline(raw[i:])
-		if n < 0 {
-			d.col += consumed - i
-			break
-		}
-		if n > 0 {
-			d.col += n
-		}
-		i += n + 1
-		d.line++
-		d.col = 1
-		if i < consumed && raw[i-1] == '\r' {
-			// CRLF counts as a single line break and keeps column at 1.
-			d.col = 1
-		}
+	if d.trackTokenPositions {
+		d.advancePosition(raw)
 	}
-	d.off += consumed
+	d.off += len(raw)
 	d.atLineStart = false
 	if d.off >= len(d.buf) {
 		d.atLineStart = false
 	}
+}
+
+func (d *Decoder) advancePosition(raw []byte) {
+	if len(raw) == 1 {
+		switch raw[0] {
+		case '\n':
+			d.line++
+			d.col = 1
+		case '\r':
+		default:
+			d.col++
+		}
+		return
+	}
+	lastLF := bytes.LastIndexByte(raw, '\n')
+	if lastLF < 0 {
+		d.col += displayColumnDelta(raw)
+		return
+	}
+	d.line += scan.CountLines(raw)
+	d.col = 1 + displayColumnDelta(raw[lastLF+1:])
+}
+
+func displayColumnDelta(raw []byte) int {
+	if bytes.IndexByte(raw, '\r') < 0 {
+		return len(raw)
+	}
+	n := 0
+	for _, b := range raw {
+		if b != '\r' {
+			n++
+		}
+	}
+	return n
 }
 
 func (d *Decoder) matchPrefix(prefix string) bool {
@@ -986,15 +1081,48 @@ func isDigit(b byte) bool {
 }
 
 func scanBareValueEnd(raw []byte) int {
-	end := scanUntilDelimiter(raw)
+	end := scan.ScanBareValueEnd(raw)
 	if end != len("0000-00-00") || end >= len(raw) || raw[end] != ' ' {
 		return end
 	}
-	tailEnd := end + 1 + scanUntilDelimiter(raw[end+1:])
+	tailEnd := end + 1 + scan.ScanBareValueEnd(raw[end+1:])
 	if _, _, err := parseDateTimeValue(raw[:tailEnd]); err == nil {
 		return tailEnd
 	}
 	return end
+}
+
+func classifyBareValue(raw []byte) (TokenKind, tokenScalar, string) {
+	switch {
+	case looksLikeDatetime(raw):
+		return TokenKindValueDatetime, tokenScalar{}, ""
+	case bytes.ContainsAny(raw, "= "):
+		return TokenKindInvalid, tokenScalar{}, "unexpected = in value"
+	case bytes.Equal(raw, trueLiteral) || bytes.Equal(raw, falseLiteral):
+		return TokenKindValueBool, tokenScalar{}, ""
+	case isSpecialFloatBytes(raw):
+		f, _ := parseSpecialFloatLiteral(raw)
+		return TokenKindValueFloat, tokenScalar{bits: math.Float64bits(f), kind: tokenScalarFloat}, ""
+	case isIntCandidateBytes(raw):
+		if hasCapitalNumericPrefixBytes(raw) {
+			return TokenKindInvalid, tokenScalar{}, "malformed value"
+		}
+		i, err := parseIntegerLiteral(raw)
+		if err != nil {
+			return TokenKindInvalid, tokenScalar{}, "malformed value"
+		}
+		return TokenKindValueInteger, tokenScalar{bits: uint64(i), kind: tokenScalarInteger}, ""
+	case isFloatCandidateBytes(raw):
+		f, err := parseFloatLiteral(raw)
+		if err != nil {
+			return TokenKindInvalid, tokenScalar{}, "malformed float"
+		}
+		return TokenKindValueFloat, tokenScalar{bits: math.Float64bits(f), kind: tokenScalarFloat}, ""
+	case containsMalformedBareValueByte(raw):
+		return TokenKindInvalid, tokenScalar{}, "malformed value"
+	default:
+		return TokenKindInvalid, tokenScalar{}, "malformed value"
+	}
 }
 
 func bytesTrimRightSpaces(raw []byte) []byte {
@@ -1009,60 +1137,59 @@ func bytesTrimRightSpaces(raw []byte) []byte {
 	return raw
 }
 
-func scanUntilDelimiter(raw []byte) int {
-	for i, ch := range raw {
-		switch ch {
-		case ' ', '\t', '\r', '\n', ',', ']', '}', '#', '=':
-			return i
-		}
-	}
-	return len(raw)
-}
-
-func isIntCandidate(raw string) bool {
-	if raw == "" {
+func isIntCandidateBytes(raw []byte) bool {
+	if len(raw) == 0 {
 		return false
 	}
-	n := strings.TrimPrefix(strings.TrimPrefix(raw, "+"), "-")
-	if n == "" {
+	n := trimSignBytes(raw)
+	if len(n) == 0 {
 		return false
 	}
-	if strings.HasPrefix(n, "0_") {
+	if len(n) >= 2 && n[0] == '0' && n[1] == '_' {
 		return false
 	}
 	if len(n) > 2 && n[0] == '0' {
-		switch n[1] {
+		switch lowerASCII(n[1]) {
 		case 'b', 'o', 'x':
 			if raw[0] == '+' || raw[0] == '-' {
 				return false
 			}
-			return prefixedDigitsValid(n[2:], n[1])
+			return prefixedDigitsValidBytes(n[2:], lowerASCII(n[1]))
 		}
 	}
 	if len(n) > 1 && n[0] == '0' && n[1] >= '0' && n[1] <= '9' {
 		return false
 	}
-	for _, r := range n {
-		if (r >= '0' && r <= '9') || r == '_' {
+	for _, b := range n {
+		if (b >= '0' && b <= '9') || b == '_' {
 			continue
 		}
 		return false
 	}
-	return hasValidNumberUnderscores(n)
+	return hasValidNumberUnderscoresBytes(n)
 }
 
-func prefixedDigitsValid(raw string, prefix byte) bool {
-	if raw == "" || strings.HasPrefix(raw, "_") || strings.HasSuffix(raw, "_") || strings.Contains(raw, "__") {
+func trimSignBytes(raw []byte) []byte {
+	if len(raw) > 0 && (raw[0] == '+' || raw[0] == '-') {
+		return raw[1:]
+	}
+	return raw
+}
+
+func prefixedDigitsValidBytes(raw []byte, prefix byte) bool {
+	if len(raw) == 0 || raw[0] == '_' || raw[len(raw)-1] == '_' {
 		return false
 	}
-	for i := 0; i < len(raw); i++ {
-		c := raw[i]
+	prevUnderscore := false
+	for i, c := range raw {
 		if c == '_' {
-			if !validPrefixedDigit(raw[i-1], prefix) || !validPrefixedDigit(raw[i+1], prefix) {
+			if prevUnderscore || i == 0 || i+1 >= len(raw) || !validPrefixedDigit(raw[i-1], prefix) || !validPrefixedDigit(raw[i+1], prefix) {
 				return false
 			}
+			prevUnderscore = true
 			continue
 		}
+		prevUnderscore = false
 		if !validPrefixedDigit(c, prefix) {
 			return false
 		}
@@ -1083,27 +1210,28 @@ func validPrefixedDigit(c, prefix byte) bool {
 	}
 }
 
-func hasCapitalNumericPrefix(raw string) bool {
-	n := strings.TrimPrefix(strings.TrimPrefix(raw, "+"), "-")
+func hasCapitalNumericPrefixBytes(raw []byte) bool {
+	n := trimSignBytes(raw)
 	return len(n) > 1 && n[0] == '0' && (n[1] == 'B' || n[1] == 'O' || n[1] == 'X')
 }
 
-func isSpecialFloat(raw string) bool {
-	switch raw {
-	case "inf", "+inf", "-inf", "nan", "+nan", "-nan":
+func isSpecialFloatBytes(raw []byte) bool {
+	switch {
+	case bytes.Equal(raw, infLiteral), bytes.Equal(raw, posInfLiteral), bytes.Equal(raw, negInfLiteral):
+		return true
+	case bytes.Equal(raw, nanLiteral), bytes.Equal(raw, posNanLiteral), bytes.Equal(raw, negNanLiteral):
 		return true
 	default:
 		return false
 	}
 }
 
-func isFloatCandidate(raw string) bool {
-	if raw == "" {
+func isFloatCandidateBytes(raw []byte) bool {
+	if len(raw) == 0 {
 		return false
 	}
-	n := strings.TrimPrefix(raw, "+")
-	n = strings.TrimPrefix(n, "-")
-	if n == "" {
+	n := trimSignBytes(raw)
+	if len(n) == 0 {
 		return false
 	}
 	if len(n) > 1 && n[0] == '0' {
@@ -1114,10 +1242,10 @@ func isFloatCandidate(raw string) bool {
 	}
 	hasExp := false
 	hasDecimalPoint := false
-	for i := 0; i < len(n); i++ {
+	for i := range n {
 		switch n[i] {
 		case '.':
-			if strings.HasPrefix(n, ".") || hasDecimalPoint || i+1 >= len(n) || n[i+1] < '0' || n[i+1] > '9' {
+			if i == 0 || hasDecimalPoint || i+1 >= len(n) || n[i+1] < '0' || n[i+1] > '9' {
 				return false
 			}
 			hasDecimalPoint = true
@@ -1127,12 +1255,10 @@ func isFloatCandidate(raw string) bool {
 			}
 			hasExp = true
 		case '+', '-':
-			// Sign is valid only as the first character or immediately after 'e'/'E'.
-			if i != 0 && n[i-1] != 'e' && n[i-1] != 'E' {
+			if i == 0 || (n[i-1] != 'e' && n[i-1] != 'E') {
 				return false
 			}
 		case '_':
-			// underscore validity checked below.
 		case '0', '1', '2', '3', '4', '5', '6', '7', '8', '9':
 		default:
 			return false
@@ -1141,19 +1267,31 @@ func isFloatCandidate(raw string) bool {
 	if !hasDecimalPoint && !hasExp {
 		return false
 	}
-	return hasValidNumberUnderscores(n)
+	return hasValidNumberUnderscoresBytes(n)
 }
 
-func hasValidNumberUnderscores(raw string) bool {
-	if raw == "" {
-		return false
-	}
-	if strings.HasPrefix(raw, "_") || strings.HasSuffix(raw, "_") || strings.Contains(raw, "__") {
-		return false
-	}
-	for i := 0; i < len(raw); i++ {
-		if raw[i] != '_' {
+func containsMalformedBareValueByte(raw []byte) bool {
+	for _, b := range raw {
+		if (b >= '0' && b <= '9') || b == '+' || b == '-' || b == '.' || b == '_' || b == ':' || b == 'e' || b == 'E' {
 			continue
+		}
+		return true
+	}
+	return false
+}
+
+func hasValidNumberUnderscoresBytes(raw []byte) bool {
+	if len(raw) == 0 || raw[0] == '_' || raw[len(raw)-1] == '_' {
+		return false
+	}
+	prevUnderscore := false
+	for i := range raw {
+		if raw[i] != '_' {
+			prevUnderscore = false
+			continue
+		}
+		if prevUnderscore || i == 0 || i+1 >= len(raw) {
+			return false
 		}
 		prev, next := raw[i-1], raw[i+1]
 		if prev < '0' || prev > '9' {
@@ -1162,6 +1300,14 @@ func hasValidNumberUnderscores(raw string) bool {
 		if next < '0' || next > '9' {
 			return false
 		}
+		prevUnderscore = true
 	}
 	return true
+}
+
+func lowerASCII(b byte) byte {
+	if b >= 'A' && b <= 'Z' {
+		return b + ('a' - 'A')
+	}
+	return b
 }

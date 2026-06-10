@@ -20,6 +20,8 @@ import (
 	"fmt"
 	"io"
 	"math"
+	"reflect"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -674,6 +676,115 @@ labels = ["x", "y"]
 	}
 }
 
+func TestMarshalWriteQuotedStringMatchesStrconvQuote(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]string{
+		"success: ascii":           "simple text",
+		"success: quote backslash": "quote \" and slash \\",
+		"success: control":         "line\n tab\t nul\x00",
+		"success: unicode":         "snowman ☃ and 日本語",
+		"success: invalid utf8":    string([]byte{'o', 'k', 0xff}),
+	}
+	for name, input := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			var buf bytes.Buffer
+			writeQuotedString(&buf, input)
+			if got, want := buf.String(), strconv.Quote(input); got != want {
+				t.Fatalf("writeQuotedString(%q) = %q, want %q", input, got, want)
+			}
+		})
+	}
+}
+
+func TestMarshalASCIIQuoteEscapeIndex(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		input string
+		want  int
+	}{
+		"success: plain ascii":      {input: "plain-ascii_123", want: -1},
+		"success: quote":            {input: `needs"quote`, want: 5},
+		"success: backslash":        {input: `needs\\slash`, want: 5},
+		"success: control fallback": {input: "line\n", want: quoteFallback},
+		"success: unicode fallback": {input: "snowman ☃", want: quoteFallback},
+	}
+	for name, tc := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			if got := asciiQuoteEscapeIndex(tc.input); got != tc.want {
+				t.Fatalf("asciiQuoteEscapeIndex(%q) = %d, want %d", tc.input, got, tc.want)
+			}
+		})
+	}
+}
+
+func TestMarshalWriteSpecialValueHandlesOnlySpecialTypes(t *testing.T) {
+	t.Parallel()
+
+	var buf bytes.Buffer
+	ok, err := writeSpecialValue(&buf, reflect.ValueOf("plain"))
+	if err != nil {
+		t.Fatalf("writeSpecialValue(plain string) error = %v", err)
+	}
+	if ok || buf.Len() != 0 {
+		t.Fatalf("writeSpecialValue(plain string) = ok:%v buf:%q, want no special handling", ok, buf.String())
+	}
+
+	date := LocalDate{Year: 2026, Month: 6, Day: 10}
+	ok, err = writeSpecialValue(&buf, reflect.ValueOf(date))
+	if err != nil {
+		t.Fatalf("writeSpecialValue(LocalDate) error = %v", err)
+	}
+	if !ok || buf.String() != "2026-06-10" {
+		t.Fatalf("writeSpecialValue(LocalDate) = ok:%v buf:%q, want date text", ok, buf.String())
+	}
+
+	buf.Reset()
+	ok, err = writeSpecialValue(&buf, reflect.ValueOf(customText("needs\nquote")))
+	if err != nil {
+		t.Fatalf("writeSpecialValue(TextMarshaler) error = %v", err)
+	}
+	if !ok || buf.String() != strconv.Quote("needs\nquote") {
+		t.Fatalf("writeSpecialValue(TextMarshaler) = ok:%v buf:%q, want quoted text", ok, buf.String())
+	}
+}
+
+func TestMarshalSizeHintPositiveAndBounded(t *testing.T) {
+	t.Parallel()
+
+	type packageEntry struct {
+		Name    string
+		Version string
+	}
+	value := struct {
+		Version int
+		Package []packageEntry
+	}{
+		Version: 3,
+		Package: []packageEntry{
+			{Name: "alpha", Version: "1.0.0"},
+			{Name: "beta", Version: "2.0.0"},
+		},
+	}
+	body, err := Marshal(value)
+	if err != nil {
+		t.Fatalf("Marshal(cargo-like value) error = %v", err)
+	}
+	if got := marshalSizeHint(value); got < len(body) {
+		t.Fatalf("marshalSizeHint(cargo-like value) = %d, want >= output len %d", got, len(body))
+	}
+
+	huge := map[string]any{"payload": strings.Repeat("x", maxMarshalSizeHint+1)}
+	if got := marshalSizeHint(huge); got != maxMarshalSizeHint {
+		t.Fatalf("marshalSizeHint(huge) = %d, want cap %d", got, maxMarshalSizeHint)
+	}
+}
+
 type customFacade struct{ decoded bool }
 
 type customText string
@@ -704,8 +815,6 @@ func (c *customFacade) UnmarshalTOMLFrom(dec *Decoder) error {
 func assertNoDocumentMap(t *testing.T, path string, value any) {
 	t.Helper()
 	switch v := value.(type) {
-	case documentMap:
-		t.Fatalf("%s = %T(%#v), want public container", path, value, value)
 	case map[string]any:
 		for key, child := range v {
 			assertNoDocumentMap(t, path+"."+key, child)

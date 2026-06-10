@@ -92,8 +92,8 @@ func runDecoderParityProperty(t *testing.T, label string, data []byte) {
 		if !slices.Equal(gotTokens[i].Bytes, wantTokens[i].Bytes) {
 			t.Fatalf("%s token[%d] bytes mismatch: bytes=%x reader=%x input=%x", label, i, gotTokens[i].Bytes, wantTokens[i].Bytes, data)
 		}
-		if gotTokens[i].Line != wantTokens[i].Line || gotTokens[i].Col != wantTokens[i].Col {
-			t.Fatalf("%s token[%d] position mismatch: bytes=(%d,%d) reader=(%d,%d) input=%x", label, i, gotTokens[i].Line, gotTokens[i].Col, wantTokens[i].Line, wantTokens[i].Col, data)
+		if gotTokens[i].Offset != wantTokens[i].Offset {
+			t.Fatalf("%s token[%d] offset mismatch: bytes=%d reader=%d input=%x", label, i, gotTokens[i].Offset, wantTokens[i].Offset, data)
 		}
 	}
 }
@@ -112,23 +112,21 @@ func assertTokenStreamInvariants(t *testing.T, label string, data []byte, tokens
 	if err != nil {
 		return
 	}
-	prev := Token{Line: 1, Col: 1}
+	prevOffset := -1
 	for i, tok := range tokens {
-		if tok.Line <= 0 || tok.Col <= 0 {
-			t.Fatalf("%s token[%d] invalid position: (%d, %d) input=%x", label, i, tok.Line, tok.Col, data)
+		if tok.Offset < 0 || tok.Offset > len(data) {
+			t.Fatalf("%s token[%d] invalid offset: %d input_len=%d input=%x", label, i, tok.Offset, len(data), data)
 		}
-		if i > 0 {
-			if tok.Line < prev.Line {
-				t.Fatalf("%s token[%d] line regression: prev=%d cur=%d input=%x", label, i, prev.Line, tok.Line, data)
-			}
-			if tok.Line == prev.Line && tok.Col <= prev.Col {
-				t.Fatalf("%s token[%d] col non-increasing on same line: prev=%d cur=%d input=%x", label, i, prev.Col, tok.Col, data)
-			}
+		if i > 0 && tok.Offset <= prevOffset {
+			t.Fatalf("%s token[%d] offset non-increasing: prev=%d cur=%d input=%x", label, i, prevOffset, tok.Offset, data)
 		}
 		if len(tok.Bytes) == 0 {
-			t.Fatalf("%s token[%d] has empty bytes: line=%d col=%d input=%x", label, i, tok.Line, tok.Col, data)
+			t.Fatalf("%s token[%d] has empty bytes: offset=%d input=%x", label, i, tok.Offset, data)
 		}
-		prev = tok
+		if end := tok.Offset + len(tok.Bytes); end > len(data) {
+			t.Fatalf("%s token[%d] span exceeds input: span=[%d,%d) input_len=%d input=%x", label, i, tok.Offset, end, len(data), data)
+		}
+		prevOffset = tok.Offset
 	}
 }
 

@@ -53,7 +53,11 @@ runs:
       env:
         INSTALL_TOOLS: ${{ inputs.install-tools }}
       run: |
-        tools_hash="$(printf '%s' "$INSTALL_TOOLS" | sha256sum | awk '{print $1}')"
+        if command -v sha256sum >/dev/null 2>&1; then
+          tools_hash="$(printf '%s' "$INSTALL_TOOLS" | sha256sum | awk '{print $1}')"
+        else
+          tools_hash="$(printf '%s' "$INSTALL_TOOLS" | shasum -a 256 | awk '{print $1}')"
+        fi
         {
           echo "gotip=${HOME}/sdk/gotip"
           echo "tools=${HOME}/go/bin"

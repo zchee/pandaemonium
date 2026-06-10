@@ -50,12 +50,20 @@ func amd64Variants() []amd64Variant {
 	return []amd64Variant{
 		{"SSE2_ScanBareKey", scanBareKeySSE2, naiveScanBareKey, false},
 		{"SSE2_ScanBasicString", scanBasicStringSSE2, naiveScanBasicString, false},
+		{"SSE2_ScanBasicStringStrict", scanBasicStringStrictSSE2, naiveScanBasicStringStrict, false},
+		{"SSE2_ScanCommentBody", scanCommentBodySSE2, naiveScanCommentBody, false},
+		{"SSE2_ScanBareValueEnd", scanBareValueEndSSE2, naiveScanBareValueEnd, false},
+		{"SSE2_CountLines", countLinesSSE2, naiveCountLines, false},
 		{"SSE2_ScanLiteralString", scanLiteralStringSSE2, naiveScanLiteralString, false},
 		{"SSE2_SkipWhitespace", skipWhitespaceSSE2, naiveSkipWhitespace, false},
 		{"SSE2_LocateNewline", locateNewlineSSE2, naiveLocateNewline, false},
 		{"SSE2_ValidateUTF8", validateUTF8SSE2, naiveValidateUTF8, false},
 		{"AVX2_ScanBareKey", scanBareKeyAVX2, naiveScanBareKey, true},
 		{"AVX2_ScanBasicString", scanBasicStringAVX2, naiveScanBasicString, true},
+		{"AVX2_ScanBasicStringStrict", scanBasicStringStrictAVX2, naiveScanBasicStringStrict, true},
+		{"AVX2_ScanCommentBody", scanCommentBodyAVX2, naiveScanCommentBody, true},
+		{"AVX2_ScanBareValueEnd", scanBareValueEndAVX2, naiveScanBareValueEnd, true},
+		{"AVX2_CountLines", countLinesAVX2, naiveCountLines, true},
 		{"AVX2_ScanLiteralString", scanLiteralStringAVX2, naiveScanLiteralString, true},
 		{"AVX2_SkipWhitespace", skipWhitespaceAVX2, naiveSkipWhitespace, true},
 		{"AVX2_LocateNewline", locateNewlineAVX2, naiveLocateNewline, true},
@@ -229,7 +237,18 @@ func TestAMD64Variants_Golden(t *testing.T) {
 			for _, g := range amd64Golden {
 				want, ok := g.want[scan]
 				if !ok {
-					t.Fatalf("golden case %q missing want for scan %q", g.name, scan)
+					switch scan {
+					case "ScanBasicStringStrict":
+						want = naiveScanBasicStringStrict(g.input)
+					case "ScanCommentBody":
+						want = naiveScanCommentBody(g.input)
+					case "ScanBareValueEnd":
+						want = naiveScanBareValueEnd(g.input)
+					case "CountLines":
+						want = naiveCountLines(g.input)
+					default:
+						t.Fatalf("golden case %q missing want for scan %q", g.name, scan)
+					}
 				}
 				got := v.impl(g.input)
 				if got != want {

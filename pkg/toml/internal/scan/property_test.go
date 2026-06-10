@@ -123,6 +123,26 @@ func TestProperty_ScanBasicString(t *testing.T) {
 	runProperty(t, "ScanBasicString", ScanBasicString, naiveScanBasicString)
 }
 
+func TestProperty_ScanBasicStringStrict(t *testing.T) {
+	t.Parallel()
+	runProperty(t, "ScanBasicStringStrict", ScanBasicStringStrict, naiveScanBasicStringStrict)
+}
+
+func TestProperty_ScanCommentBody(t *testing.T) {
+	t.Parallel()
+	runProperty(t, "ScanCommentBody", ScanCommentBody, naiveScanCommentBody)
+}
+
+func TestProperty_ScanBareValueEnd(t *testing.T) {
+	t.Parallel()
+	runProperty(t, "ScanBareValueEnd", ScanBareValueEnd, naiveScanBareValueEnd)
+}
+
+func TestProperty_CountLines(t *testing.T) {
+	t.Parallel()
+	runProperty(t, "CountLines", CountLines, naiveCountLines)
+}
+
 func TestProperty_ScanLiteralString(t *testing.T) {
 	t.Parallel()
 	runProperty(t, "ScanLiteralString", ScanLiteralString, naiveScanLiteralString)

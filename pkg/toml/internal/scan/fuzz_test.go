@@ -169,6 +169,92 @@ func FuzzScanBasicString(f *testing.F) {
 	})
 }
 
+// FuzzScanBasicStringStrict explores inputs for the fused single-line
+// basic-string scan. It shares the quote/backslash terminator coverage
+// with FuzzScanBasicString and adds explicit boundary controls for the
+// TOML C0-control/DEL slow path while preserving tab as body text.
+func FuzzScanBasicStringStrict(f *testing.F) {
+	addBoundarySeeds(f, 'x', '"')
+	for _, terminator := range []byte{'\\', '\n', '\r', 0x00, 0x1f, 0x7f} {
+		for _, n := range []int{8, 16, 32, 64} {
+			b := []byte(strings.Repeat("x", n))
+			b[n-1] = terminator
+			f.Add(b)
+		}
+	}
+	f.Add([]byte("tab\tis\tbody"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		got := ScanBasicStringStrict(data)
+		want := naiveScanBasicStringStrict(data)
+		if got != want {
+			t.Errorf("ScanBasicStringStrict(%x) = %d, want %d", data, got, want)
+		}
+	})
+}
+
+// FuzzScanCommentBody explores inputs for the comment-body scan.
+// The scan stops at LF/CR as line terminators and at DEL/C0 controls
+// other than tab; quote, backslash, and hash are ordinary comment body
+// bytes once the leading '#' has already been consumed by the parser.
+func FuzzScanCommentBody(f *testing.F) {
+	addBoundarySeeds(f, 'x', '\n')
+	for _, terminator := range []byte{'\r', 0x00, 0x1f, 0x7f} {
+		for _, n := range []int{8, 16, 32, 64} {
+			b := []byte(strings.Repeat("x", n))
+			b[n-1] = terminator
+			f.Add(b)
+		}
+	}
+	f.Add([]byte("quote \" and hash # are body"))
+	f.Add([]byte("tab\tis\tbody"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		got := ScanCommentBody(data)
+		want := naiveScanCommentBody(data)
+		if got != want {
+			t.Errorf("ScanCommentBody(%x) = %d, want %d", data, got, want)
+		}
+	})
+}
+
+// FuzzScanBareValueEnd explores inputs for the raw bare-value delimiter
+// scan. Datetime values containing one grammar-space are handled by the
+// parser-level scanBareValueEnd helper, not by this raw delimiter kernel.
+func FuzzScanBareValueEnd(f *testing.F) {
+	addBoundarySeeds(f, 'x', ' ')
+	for _, terminator := range []byte{'\t', '\r', '\n', ',', ']', '}', '#', '='} {
+		for _, n := range []int{8, 16, 32, 64} {
+			b := []byte(strings.Repeat("x", n))
+			b[n-1] = terminator
+			f.Add(b)
+		}
+	}
+	f.Add([]byte("1979-05-27T07:32:00Z"))
+	f.Add([]byte("1979-05-27 07:32:00"))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		got := ScanBareValueEnd(data)
+		want := naiveScanBareValueEnd(data)
+		if got != want {
+			t.Errorf("ScanBareValueEnd(%x) = %d, want %d", data, got, want)
+		}
+	})
+}
+
+// FuzzCountLines explores LF counting. CR is intentionally just another
+// byte here; parser line/column semantics decide how to display CRLF and
+// lone-CR positions on top of this LF-only count.
+func FuzzCountLines(f *testing.F) {
+	addBoundarySeeds(f, 'x', '\n')
+	f.Add([]byte("a\r\nb\rc\n"))
+	f.Add([]byte(strings.Repeat("line\n", 128)))
+	f.Fuzz(func(t *testing.T, data []byte) {
+		got := CountLines(data)
+		want := naiveCountLines(data)
+		if got != want {
+			t.Errorf("CountLines(%x) = %d, want %d", data, got, want)
+		}
+	})
+}
+
 // FuzzScanLiteralString explores inputs for the literal-string
 // terminator scan (single-quote 0x27). Terminator class is single-byte
 // so the seeding shape matches FuzzScanBareKey exactly with a 0x27

@@ -47,6 +47,10 @@ func arm64Variants() []arm64Variant {
 	return []arm64Variant{
 		{"NEON_ScanBareKey", scanBareKeyNEON, naiveScanBareKey},
 		{"NEON_ScanBasicString", scanBasicStringNEON, naiveScanBasicString},
+		{"NEON_ScanBasicStringStrict", scanBasicStringStrictNEON, naiveScanBasicStringStrict},
+		{"NEON_ScanCommentBody", scanCommentBodyNEON, naiveScanCommentBody},
+		{"NEON_ScanBareValueEnd", scanBareValueEndNEON, naiveScanBareValueEnd},
+		{"NEON_CountLines", countLinesNEON, naiveCountLines},
 		{"NEON_ScanLiteralString", scanLiteralStringNEON, naiveScanLiteralString},
 		{"NEON_SkipWhitespace", skipWhitespaceNEON, naiveSkipWhitespace},
 		{"NEON_LocateNewline", locateNewlineNEON, naiveLocateNewline},
@@ -302,7 +306,18 @@ func TestARM64Variants_Golden(t *testing.T) {
 			for _, g := range arm64Golden {
 				want, ok := g.want[scan]
 				if !ok {
-					t.Fatalf("golden case %q missing want for scan %q", g.name, scan)
+					switch scan {
+					case "ScanBasicStringStrict":
+						want = naiveScanBasicStringStrict(g.input)
+					case "ScanCommentBody":
+						want = naiveScanCommentBody(g.input)
+					case "ScanBareValueEnd":
+						want = naiveScanBareValueEnd(g.input)
+					case "CountLines":
+						want = naiveCountLines(g.input)
+					default:
+						t.Fatalf("golden case %q missing want for scan %q", g.name, scan)
+					}
 				}
 				got := v.impl(g.input)
 				if got != want {

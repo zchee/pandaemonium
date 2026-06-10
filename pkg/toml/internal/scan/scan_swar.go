@@ -47,7 +47,7 @@ import (
 //     kernels for cross-backend equivalence testing.
 //
 // In both regimes exactly one file declares the dispatch vars
-// (scanBareKey, scanBasicString, scanLiteralString, skipWhitespace,
+// (scanBareIdent, scanBasicString, scanLiteralString, skipWhitespace,
 // locateNewline, validateUTF8), so there is no duplicate-decl risk
 // from the build-tag composition.
 //
@@ -85,6 +85,10 @@ func hasByteEq(w uint64, c byte) uint64 {
 	return hasZero(w ^ (uint64(c) * swarOnes))
 }
 
+func hasByteLessThan(w uint64, n byte) uint64 {
+	return (w - uint64(n)*swarOnes) & ^w & swarHighs
+}
+
 // loadu64 reads 8 little-endian bytes from b starting at offset i without
 // performing further bounds checks past the single hint below. Callers
 // MUST ensure i+8 <= len(b); the hint helps the compiler eliminate
@@ -119,12 +123,16 @@ var bareKeyClass = func() (t [256]bool) {
 // reassignable so dispatch_test.go (AC-SIMD-7) can swap implementations
 // inside t.Cleanup-restored test scopes.
 var (
-	scanBareKey       = scanBareKeySWAR
-	scanBasicString   = scanBasicStringSWAR
-	scanLiteralString = scanLiteralStringSWAR
-	skipWhitespace    = skipWhitespaceSWAR
-	locateNewline     = locateNewlineSWAR
-	validateUTF8      = validateUTF8SWAR
+	scanBareIdent         = scanBareKeySWAR
+	scanBasicString       = scanBasicStringSWAR
+	scanBasicStringStrict = scanBasicStringStrictSWAR
+	scanCommentBody       = scanCommentBodySWAR
+	scanBareValueEnd      = scanBareValueEndSWAR
+	countLines            = countLinesSWAR
+	scanLiteralString     = scanLiteralStringSWAR
+	skipWhitespace        = skipWhitespaceSWAR
+	locateNewline         = locateNewlineSWAR
+	validateUTF8          = validateUTF8SWAR
 )
 
 // scanBareKeySWAR is the SWAR implementation of ScanBareKey.
@@ -161,6 +169,71 @@ func scanBasicStringSWAR(s []byte) int {
 		}
 	}
 	return len(s)
+}
+
+// scanBasicStringStrictSWAR is the SWAR implementation of
+// ScanBasicStringStrict. A word-level prefilter finds words that might
+// contain a quote, backslash, DEL, or C0 control; a scalar confirmation
+// inside that word preserves the tab exception and filters harmless
+// hasZero borrow false positives.
+func scanBasicStringStrictSWAR(s []byte) int {
+	i := 0
+	for i+8 <= len(s) {
+		w := loadu64(s, i)
+		m := hasByteEq(w, '"') | hasByteEq(w, '\\') | hasByteEq(w, 0x7f) | hasByteLessThan(w, 0x20)
+		if m != 0 {
+			if n := scanBasicStringStrictScalar(s[i : i+8]); n < 8 {
+				return i + n
+			}
+		}
+		i += 8
+	}
+	return i + scanBasicStringStrictScalar(s[i:])
+}
+
+// scanCommentBodySWAR is the SWAR implementation of ScanCommentBody. It
+// prefilters 8-byte words for C0 controls or DEL, then confirms inside
+// the candidate word so tab remains legal and hasZero/hasLessThan borrow
+// artifacts never affect the returned index.
+func scanCommentBodySWAR(s []byte) int {
+	i := 0
+	for i+8 <= len(s) {
+		w := loadu64(s, i)
+		m := hasByteEq(w, 0x7f) | hasByteLessThan(w, 0x20)
+		if m != 0 {
+			if n := scanCommentBodyScalar(s[i : i+8]); n < 8 {
+				return i + n
+			}
+		}
+		i += 8
+	}
+	return i + scanCommentBodyScalar(s[i:])
+}
+
+// scanBareValueEndSWAR is the SWAR implementation of ScanBareValueEnd.
+// It is a pure first-match scan over delimiter bytes, so hasByteEq's
+// possible borrow false positives can only appear after a real match in
+// the same word and cannot perturb bits.TrailingZeros64's first index.
+func scanBareValueEndSWAR(s []byte) int {
+	i := 0
+	for i+8 <= len(s) {
+		w := loadu64(s, i)
+		m := hasByteEq(w, ' ') | hasByteEq(w, '\t') | hasByteEq(w, '\r') | hasByteEq(w, '\n') |
+			hasByteEq(w, ',') | hasByteEq(w, ']') | hasByteEq(w, '}') | hasByteEq(w, '#') | hasByteEq(w, '=')
+		if m != 0 {
+			return i + bits.TrailingZeros64(m)/8
+		}
+		i += 8
+	}
+	return i + scanBareValueEndScalar(s[i:])
+}
+
+// countLinesSWAR counts LF bytes. Counting cannot use hasByteEq because
+// borrow false positives would overcount, so this fallback keeps the
+// obvious scalar loop and leaves architecture-specific backends to widen
+// the operation.
+func countLinesSWAR(s []byte) int {
+	return countLinesScalar(s)
 }
 
 // scanLiteralStringSWAR is the SWAR implementation of ScanLiteralString.

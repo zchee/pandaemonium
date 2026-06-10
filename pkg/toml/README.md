@@ -78,6 +78,19 @@ out, err := marshalOptions.Marshal(cfg)
 err = unmarshalOptions.Unmarshal(out, &cfg)
 ```
 
+For direct struct decoding, escape-free TOML string values share one immutable
+per-document string arena by default. This keeps allocation count low while
+preventing decoded strings from aliasing caller-owned `[]byte` input. Escaped
+strings still use an independent decoded copy. Use `WithCopiedStrings` when the
+destination should not retain one document-sized arena after decoding:
+
+```go
+opts := toml.UnmarshalOptions{
+	DecoderOptions: []toml.Option{toml.WithCopiedStrings()},
+}
+err := opts.Unmarshal(data, &cfg)
+```
+
 ## Streaming decoder
 
 Use `Decoder` when callers need token-level TOML inspection without binding into
@@ -93,15 +106,22 @@ for {
 	if err != nil {
 		return err
 	}
-	fmt.Printf("%s %q at %d:%d\n", tok.Kind, tok.Bytes, tok.Line, tok.Col)
+	fmt.Printf("%s %q at byte %d\n", tok.Kind, tok.Bytes, tok.Offset)
 }
 ```
 
 `NewDecoderBytes` lets token byte slices alias the caller-owned source buffer.
 `NewDecoder` owns an internal buffer for `io.Reader` input. In both cases, copy
-`Token.Bytes` if the bytes must outlive the next token read. `WithLimits`
+`Token.Bytes` if the bytes must outlive the next token read. `Token.Offset` is
+the token's byte offset in the source document. `WithLimits`
 configures parser caps for document size, nesting depth, key length, and string
 length; cap violations return `*LimitError`.
+
+Migration note: token positions are byte-offset based. `Token.Line` and
+`Token.Col` remain populated for source compatibility, but they are deprecated;
+new consumers should retain `Token.Offset` and derive line/column from the
+original source only when presenting diagnostics. Structured parser errors still
+include line/column text for user-facing error messages.
 
 `Decode` is a whole-document convenience and is only valid before token
 consumption starts. If a caller has already called `ReadToken`, continue with the
@@ -163,20 +183,22 @@ if err := doc.Delete("legacy.enabled"); err != nil {
 updated := doc.Bytes()
 ```
 
-`Document.Raw` returns the original input bytes. `Document.Bytes` returns the
-current document bytes; on an untouched document it returns the raw bytes without
-rewriting. Setting a value of the same TOML kind preserves the existing lexical
-style where the parser recorded enough style information. Kind-changing writes
-use canonical TOML emission.
+`Document.Raw` returns the document's original byte arena; treat it as read-only
+or copy it before mutating. `Document.Bytes` returns the current document bytes;
+on an untouched document it returns the raw bytes without rewriting. Setting a
+value of the same TOML kind preserves the existing lexical style where the
+parser recorded enough style information. Kind-changing writes use canonical
+TOML emission.
 
 ## Build tags and dependency boundaries
 
-Two build tags matter for this package:
+One build tag and one benchmark submodule matter for this package:
 
 - `force_swar` selects the pure-Go scanner fallback and is used by scanner
   verification.
-- `bench` enables benchmark-only comparator tests against
-  `github.com/BurntSushi/toml` and `github.com/pelletier/go-toml/v2`.
+- `pkg/toml/benchmark` is a separate Go module that owns benchmark-only
+  comparator dependencies on `github.com/BurntSushi/toml` and
+  `github.com/pelletier/go-toml/v2`.
 
 The comparator libraries must not enter production or ordinary test dependency
 graphs. Re-check the boundary with:
@@ -184,37 +206,38 @@ graphs. Re-check the boundary with:
 ```bash
 go list -deps ./pkg/toml/... | rg 'BurntSushi|pelletier'
 go list -deps -test ./pkg/toml/... | rg 'BurntSushi|pelletier'
-go list -deps -test -tags=bench ./pkg/toml/... | rg 'github.com/BurntSushi/toml$|github.com/pelletier/go-toml/v2$'
+(cd pkg/toml/benchmark && go list -mod=mod -deps -test . | rg 'github.com/BurntSushi/toml$|github.com/pelletier/go-toml/v2$')
 ```
 
-The first two commands should print nothing. The bench-tag command should print
-both comparator roots.
+The first two commands should print nothing. The benchmark submodule command
+should print both comparator roots.
 
 ## Verification and provenance
 
-The package keeps repeatable verification commands for the remaining local
-fixtures and benchmark gates:
+The package keeps repeatable verification commands for local fixtures and
+benchmark gates:
 
 - `internal/scan/VERIFICATION.md` records scanner verification and perf-gate
   policy.
-- `PHASE4_BENCHMARK_EVIDENCE.md` records facade and edit benchmark evidence.
+- `.omc/bench/` records timestamped local benchmark evidence for optimization
+  phases and final gates.
 
-Useful local checks. The facade perf command reproduces the documented
-Pelletier exception and currently exits non-zero; the edit gate is a separate
-passing check.
+Useful local checks. The facade, marshal, and edit commands below are hard gates
+using the default thresholds in `hack/toml-perf-gate`.
 
 ```bash
 go test ./pkg/toml/...
 go test -run TestCompetitorDependenciesAreBenchOnly -count=1 ./pkg/toml
-go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan/
-go run ./hack/toml-perf-gate --kind=facade --ratio-burntsushi=1.5 --ratio-pelletier=1.3
-go run ./hack/toml-perf-gate --kind=edit --ratio-edit=0.25
+go test -tags=force_swar -race -count=1 ./pkg/toml/internal/scan ./pkg/toml
+go run ./hack/toml-perf-gate --kind=facade
+go run ./hack/toml-perf-gate --kind=marshal
+go run ./hack/toml-perf-gate --kind=edit
 ```
 
 Current performance disposition:
 
-- the BurntSushi facade gate is documented as passing;
-- the Pelletier facade ratio is a documented Phase 4 architecture exception,
-  not a hidden pass;
-- the edit-path gate uses `--ratio-edit` and is documented separately from the
-  facade Pelletier exception.
+- the BurntSushi facade gate is hard at `--ratio-burntsushi=1.5`;
+- the Pelletier facade gate is hard at `--ratio-pelletier=1.3`;
+- the map-path facade sub-gates are hard at `--ratio-map-pelletier=1.0`;
+- the marshal gate is hard at `--ratio-marshal-pelletier=2.0`;
+- the edit-path gate is hard at `--ratio-edit=1.5`.

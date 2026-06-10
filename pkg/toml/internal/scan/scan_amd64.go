@@ -30,7 +30,7 @@ import (
 //
 // # Dispatch
 //
-// The package-level vars scanBareKey, scanBasicString, scanLiteralString,
+// The package-level vars scanBareIdent, scanBasicString, scanLiteralString,
 // skipWhitespace, locateNewline, validateUTF8 are statically bound here
 // to the SSE2 variants. The init() block below (T4 dispatch wiring)
 // rebinds them to the AVX2 variants when archsimd.X86.AVX2() returns
@@ -86,12 +86,16 @@ import (
 // they keep the SSE2 bindings declared at package init, which the amd64
 // Go ABI guarantees are usable on every amd64 host.
 var (
-	scanBareKey       = scanBareKeySSE2
-	scanBasicString   = scanBasicStringSSE2
-	scanLiteralString = scanLiteralStringSSE2
-	skipWhitespace    = skipWhitespaceSSE2
-	locateNewline     = locateNewlineSSE2
-	validateUTF8      = validateUTF8SSE2
+	scanBareIdent         = scanBareKeySSE2
+	scanBasicString       = scanBasicStringSSE2
+	scanBasicStringStrict = scanBasicStringStrictSSE2
+	scanCommentBody       = scanCommentBodySSE2
+	scanBareValueEnd      = scanBareValueEndSSE2
+	countLines            = countLinesSSE2
+	scanLiteralString     = scanLiteralStringSSE2
+	skipWhitespace        = skipWhitespaceSSE2
+	locateNewline         = locateNewlineSSE2
+	validateUTF8          = validateUTF8SSE2
 )
 
 // init performs the amd64 runtime dispatch step owned by T4. It uses the
@@ -108,8 +112,12 @@ var (
 // devirtualization when the call site is hot.
 func init() {
 	if archsimd.X86.AVX2() {
-		scanBareKey = scanBareKeyAVX2
+		scanBareIdent = scanBareKeyAVX2
 		scanBasicString = scanBasicStringAVX2
+		scanBasicStringStrict = scanBasicStringStrictAVX2
+		scanCommentBody = scanCommentBodyAVX2
+		scanBareValueEnd = scanBareValueEndAVX2
+		countLines = countLinesAVX2
 		scanLiteralString = scanLiteralStringAVX2
 		skipWhitespace = skipWhitespaceAVX2
 		locateNewline = locateNewlineAVX2
@@ -159,6 +167,77 @@ func scanBasicStringAVX2(s []byte) int {
 		i += 32
 	}
 	return i + scanBasicStringSSE2(s[i:])
+}
+
+func scanBasicStringStrictAVX2(s []byte) int {
+	i := 0
+	quote := archsimd.BroadcastUint8x32('"')
+	bksl := archsimd.BroadcastUint8x32('\\')
+	del := archsimd.BroadcastUint8x32(0x7f)
+	control := archsimd.BroadcastUint8x32(0x1f)
+	for i+32 <= len(s) {
+		v := archsimd.LoadUint8x32(s[i:])
+		m := v.Equal(quote).Or(v.Equal(bksl)).Or(v.Equal(del)).Or(v.LessEqual(control))
+		if m.ToBits() != 0 {
+			if n := scanBasicStringStrictScalar(s[i : i+32]); n < 32 {
+				return i + n
+			}
+		}
+		i += 32
+	}
+	return i + scanBasicStringStrictSSE2(s[i:])
+}
+
+func scanCommentBodyAVX2(s []byte) int {
+	i := 0
+	del := archsimd.BroadcastUint8x32(0x7f)
+	control := archsimd.BroadcastUint8x32(0x1f)
+	for i+32 <= len(s) {
+		v := archsimd.LoadUint8x32(s[i:])
+		m := v.Equal(del).Or(v.LessEqual(control))
+		if m.ToBits() != 0 {
+			if n := scanCommentBodyScalar(s[i : i+32]); n < 32 {
+				return i + n
+			}
+		}
+		i += 32
+	}
+	return i + scanCommentBodySSE2(s[i:])
+}
+
+func scanBareValueEndAVX2(s []byte) int {
+	i := 0
+	sp := archsimd.BroadcastUint8x32(' ')
+	tab := archsimd.BroadcastUint8x32('\t')
+	cr := archsimd.BroadcastUint8x32('\r')
+	lf := archsimd.BroadcastUint8x32('\n')
+	comma := archsimd.BroadcastUint8x32(',')
+	rbracket := archsimd.BroadcastUint8x32(']')
+	rbrace := archsimd.BroadcastUint8x32('}')
+	hash := archsimd.BroadcastUint8x32('#')
+	eq := archsimd.BroadcastUint8x32('=')
+	for i+32 <= len(s) {
+		v := archsimd.LoadUint8x32(s[i:])
+		m := v.Equal(sp).Or(v.Equal(tab)).Or(v.Equal(cr)).Or(v.Equal(lf)).
+			Or(v.Equal(comma)).Or(v.Equal(rbracket)).Or(v.Equal(rbrace)).Or(v.Equal(hash)).Or(v.Equal(eq))
+		if b := m.ToBits(); b != 0 {
+			return i + bits.TrailingZeros32(b)
+		}
+		i += 32
+	}
+	return i + scanBareValueEndSSE2(s[i:])
+}
+
+func countLinesAVX2(s []byte) int {
+	i := 0
+	n := 0
+	lf := archsimd.BroadcastUint8x32('\n')
+	for i+32 <= len(s) {
+		v := archsimd.LoadUint8x32(s[i:])
+		n += bits.OnesCount32(v.Equal(lf).ToBits())
+		i += 32
+	}
+	return n + countLinesSSE2(s[i:])
 }
 
 // scanLiteralStringAVX2 is implemented in scan_amd64_single_byte.s.
@@ -262,6 +341,77 @@ func scanBasicStringSSE2(s []byte) int {
 		}
 	}
 	return len(s)
+}
+
+func scanBasicStringStrictSSE2(s []byte) int {
+	i := 0
+	quote := archsimd.BroadcastUint8x16('"')
+	bksl := archsimd.BroadcastUint8x16('\\')
+	del := archsimd.BroadcastUint8x16(0x7f)
+	control := archsimd.BroadcastUint8x16(0x1f)
+	for i+16 <= len(s) {
+		v := archsimd.LoadUint8x16(s[i:])
+		m := v.Equal(quote).Or(v.Equal(bksl)).Or(v.Equal(del)).Or(v.LessEqual(control))
+		if m.ToBits() != 0 {
+			if n := scanBasicStringStrictScalar(s[i : i+16]); n < 16 {
+				return i + n
+			}
+		}
+		i += 16
+	}
+	return i + scanBasicStringStrictScalar(s[i:])
+}
+
+func scanCommentBodySSE2(s []byte) int {
+	i := 0
+	del := archsimd.BroadcastUint8x16(0x7f)
+	control := archsimd.BroadcastUint8x16(0x1f)
+	for i+16 <= len(s) {
+		v := archsimd.LoadUint8x16(s[i:])
+		m := v.Equal(del).Or(v.LessEqual(control))
+		if m.ToBits() != 0 {
+			if n := scanCommentBodyScalar(s[i : i+16]); n < 16 {
+				return i + n
+			}
+		}
+		i += 16
+	}
+	return i + scanCommentBodyScalar(s[i:])
+}
+
+func scanBareValueEndSSE2(s []byte) int {
+	i := 0
+	sp := archsimd.BroadcastUint8x16(' ')
+	tab := archsimd.BroadcastUint8x16('\t')
+	cr := archsimd.BroadcastUint8x16('\r')
+	lf := archsimd.BroadcastUint8x16('\n')
+	comma := archsimd.BroadcastUint8x16(',')
+	rbracket := archsimd.BroadcastUint8x16(']')
+	rbrace := archsimd.BroadcastUint8x16('}')
+	hash := archsimd.BroadcastUint8x16('#')
+	eq := archsimd.BroadcastUint8x16('=')
+	for i+16 <= len(s) {
+		v := archsimd.LoadUint8x16(s[i:])
+		m := v.Equal(sp).Or(v.Equal(tab)).Or(v.Equal(cr)).Or(v.Equal(lf)).
+			Or(v.Equal(comma)).Or(v.Equal(rbracket)).Or(v.Equal(rbrace)).Or(v.Equal(hash)).Or(v.Equal(eq))
+		if b := m.ToBits(); b != 0 {
+			return i + bits.TrailingZeros16(b)
+		}
+		i += 16
+	}
+	return i + scanBareValueEndScalar(s[i:])
+}
+
+func countLinesSSE2(s []byte) int {
+	i := 0
+	n := 0
+	lf := archsimd.BroadcastUint8x16('\n')
+	for i+16 <= len(s) {
+		v := archsimd.LoadUint8x16(s[i:])
+		n += bits.OnesCount16(v.Equal(lf).ToBits())
+		i += 16
+	}
+	return n + countLinesScalar(s[i:])
 }
 
 // scanLiteralStringSSE2 is implemented in scan_amd64_single_byte.s.

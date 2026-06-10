@@ -17,9 +17,9 @@ package scan
 import "unicode/utf8"
 
 // naive_scan_test.go is the load-bearing correctness oracle for every
-// dispatched implementation in this package. The six naiveX functions
+// dispatched implementation in this package. The naiveX functions
 // below are intentionally the most-obvious, byte-by-byte reference
-// implementations of the six scan kernels — they are easy to inspect, and
+// implementations of the scan kernels — they are easy to inspect, and
 // they double as the AC-SIMD-5 baseline for the class-scan kernels
 // (ScanBareKey, ScanBasicString, SkipWhitespace).
 //
@@ -53,6 +53,53 @@ func naiveScanBasicString(s []byte) int {
 		}
 	}
 	return len(s)
+}
+
+// naiveScanBasicStringStrict is the byte-by-byte oracle for
+// ScanBasicStringStrict. It returns the first byte that needs slow-path
+// handling in a single-line TOML basic string: a double quote,
+// backslash, DEL, or a C0 control byte below 0x20 other than tab.
+func naiveScanBasicStringStrict(s []byte) int {
+	for i, b := range s {
+		if basicStringStrictStop(b) {
+			return i
+		}
+	}
+	return len(s)
+}
+
+// naiveScanCommentBody is the byte-by-byte oracle for ScanCommentBody.
+// It returns the first line terminator or prohibited comment control byte.
+func naiveScanCommentBody(s []byte) int {
+	for i, b := range s {
+		if commentBodyStop(b) {
+			return i
+		}
+	}
+	return len(s)
+}
+
+// naiveScanBareValueEnd is the byte-by-byte oracle for ScanBareValueEnd.
+// It returns the first bare-value delimiter byte or len(s) if absent.
+func naiveScanBareValueEnd(s []byte) int {
+	for i, b := range s {
+		if bareValueDelimiter(b) {
+			return i
+		}
+	}
+	return len(s)
+}
+
+// naiveCountLines is the byte-by-byte oracle for CountLines. It counts
+// line-feed bytes only and intentionally ignores carriage returns.
+func naiveCountLines(s []byte) int {
+	n := 0
+	for _, b := range s {
+		if b == '\n' {
+			n++
+		}
+	}
+	return n
 }
 
 // naiveScanLiteralString is the byte-by-byte oracle for

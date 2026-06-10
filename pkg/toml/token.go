@@ -113,9 +113,47 @@ type Token struct {
 	// Bytes is the raw token content.
 	Bytes []byte
 
-	// Line is the current 1-based line at token start.
+	// Offset is the byte offset of the token start in the source document.
+	Offset int
+
+	// Line is the 1-based line of the token start.
+	//
+	// Deprecated: use Offset as the stable token position and derive line/column
+	// from the original source only when presenting diagnostics.
 	Line int
 
-	// Col is the current 1-based column at token start.
+	// Col is the 1-based column of the token start.
+	//
+	// Deprecated: use Offset as the stable token position and derive line/column
+	// from the original source only when presenting diagnostics.
 	Col int
+
+	scalar tokenScalar
+}
+
+type rawToken struct {
+	Kind   TokenKind
+	Bytes  []byte
+	Offset int
+}
+
+func (tok rawToken) publicToken() Token {
+	return Token{Kind: tok.Kind, Bytes: tok.Bytes, Offset: tok.Offset}
+}
+
+func rawTokenFromToken(tok Token) rawToken {
+	return rawToken{Kind: tok.Kind, Bytes: tok.Bytes, Offset: tok.Offset}
+}
+
+type tokenScalarKind uint8
+
+const (
+	tokenScalarNone tokenScalarKind = iota
+	tokenScalarInteger
+	tokenScalarFloat
+)
+
+type tokenScalar struct {
+	bits uint64
+	kind tokenScalarKind
 }

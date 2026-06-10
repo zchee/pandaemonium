@@ -210,7 +210,7 @@ func swapDispatch(t *testing.T, target *func([]byte) int, replacement func([]byt
 	t.Cleanup(func() { *target = saved })
 }
 
-// runDispatchSmoke executes dispatchSmokeCases against the six exported
+// runDispatchSmoke executes dispatchSmokeCases against the ten exported
 // scan kernels, comparing each returned offset against the want map for
 // the case. Callers MUST have pinned the variants under test via
 // swapDispatch before invoking this helper; runDispatchSmoke itself is
@@ -229,6 +229,18 @@ func runDispatchSmoke(t *testing.T) {
 			if want := c.want["ScanBasicString"]; ScanBasicString(c.input) != want {
 				t.Errorf("ScanBasicString(%q) = %d, want %d", c.input, ScanBasicString(c.input), want)
 			}
+			if got, want := ScanBasicStringStrict(c.input), naiveScanBasicStringStrict(c.input); got != want {
+				t.Errorf("ScanBasicStringStrict(%q) = %d, want %d", c.input, got, want)
+			}
+			if got, want := ScanCommentBody(c.input), naiveScanCommentBody(c.input); got != want {
+				t.Errorf("ScanCommentBody(%q) = %d, want %d", c.input, got, want)
+			}
+			if got, want := ScanBareValueEnd(c.input), naiveScanBareValueEnd(c.input); got != want {
+				t.Errorf("ScanBareValueEnd(%q) = %d, want %d", c.input, got, want)
+			}
+			if got, want := CountLines(c.input), naiveCountLines(c.input); got != want {
+				t.Errorf("CountLines(%q) = %d, want %d", c.input, got, want)
+			}
 			if want := c.want["ScanLiteralString"]; ScanLiteralString(c.input) != want {
 				t.Errorf("ScanLiteralString(%q) = %d, want %d", c.input, ScanLiteralString(c.input), want)
 			}
@@ -246,14 +258,18 @@ func runDispatchSmoke(t *testing.T) {
 }
 
 // pinAllDispatch is a small convenience: call swapDispatch on each of
-// the six dispatch vars in a single call so a forcing test reads
-// linearly instead of as six separate swaps.
+// the ten dispatch vars in a single call so a forcing test reads
+// linearly instead of as separate swaps.
 func pinAllDispatch(t *testing.T,
-	bareKey, basicString, literalString, ws, newline, utf8 func([]byte) int,
+	bareKey, basicString, basicStringStrict, commentBody, bareValueEnd, countLines, literalString, ws, newline, utf8 func([]byte) int,
 ) {
 	t.Helper()
-	swapDispatch(t, &scanBareKey, bareKey)
+	swapDispatch(t, &scanBareIdent, bareKey)
 	swapDispatch(t, &scanBasicString, basicString)
+	swapDispatch(t, &scanBasicStringStrict, basicStringStrict)
+	swapDispatch(t, &scanCommentBody, commentBody)
+	swapDispatch(t, &scanBareValueEnd, bareValueEnd)
+	swapDispatch(t, &countLines, countLines)
 	swapDispatch(t, &scanLiteralString, literalString)
 	swapDispatch(t, &skipWhitespace, ws)
 	swapDispatch(t, &locateNewline, newline)
