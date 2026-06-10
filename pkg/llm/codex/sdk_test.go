@@ -1541,6 +1541,7 @@ var methodWrapperMethods = []string{
 	RequestMethodThreadResume,
 	RequestMethodThreadFork,
 	RequestMethodThreadArchive,
+	RequestMethodThreadDelete,
 	RequestMethodThreadUnsubscribe,
 	RequestMethodThreadNameSet,
 	RequestMethodThreadGoalSet,

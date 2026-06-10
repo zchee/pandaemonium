@@ -104,6 +104,11 @@ func (c *Codex) ThreadArchive(ctx context.Context, threadID string) (ThreadArchi
 	return c.client.ThreadArchive(ctx, threadID)
 }
 
+// ThreadDelete deletes a thread.
+func (c *Codex) ThreadDelete(ctx context.Context, threadID string) (ThreadDeleteResponse, error) {
+	return c.client.ThreadDelete(ctx, threadID)
+}
+
 // ThreadUnarchive unarchives a thread.
 func (c *Codex) ThreadUnarchive(ctx context.Context, threadID string) (*Thread, error) {
 	unarchived, err := c.client.ThreadUnarchive(ctx, threadID)

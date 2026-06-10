@@ -76,6 +76,8 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		_ codex.ThreadListResponse
 		_ codex.ThreadReadResponse
 		_ codex.ThreadArchiveResponse
+		_ codex.ThreadDeleteResponse
+		_ codex.ThreadDeletedNotification
 		_ codex.ThreadCompactStartResponse
 		_ codex.ThreadSetNameResponse
 		_ codex.TurnInterruptResponse
@@ -113,6 +115,8 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		"ThreadStartParams":                 reflect.TypeFor[codex.ThreadStartParams](),
 		"TurnStartParams":                   reflect.TypeFor[codex.TurnStartParams](),
 		"TurnCompletedNotification":         reflect.TypeFor[codex.TurnCompletedNotification](),
+		"ThreadDeleteResponse":              reflect.TypeFor[codex.ThreadDeleteResponse](),
+		"ThreadDeletedNotification":         reflect.TypeFor[codex.ThreadDeletedNotification](),
 		"TurnStatus":                        reflect.TypeFor[codex.TurnStatus](),
 	}
 	for name, typ := range rootExports {

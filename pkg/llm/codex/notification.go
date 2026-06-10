@@ -149,6 +149,9 @@ var notificationDecoders = map[string]func(Notification) (any, bool, error){
 	NotificationMethodThreadArchived: func(notif Notification) (any, bool, error) {
 		return DecodeNotificationAs[ThreadArchivedNotification](notif, NotificationMethodThreadArchived)
 	},
+	NotificationMethodThreadDeleted: func(notif Notification) (any, bool, error) {
+		return DecodeNotificationAs[ThreadDeletedNotification](notif, NotificationMethodThreadDeleted)
+	},
 	NotificationMethodThreadClosed: func(notif Notification) (any, bool, error) {
 		return DecodeNotificationAs[ThreadClosedNotification](notif, NotificationMethodThreadClosed)
 	},
@@ -478,6 +481,11 @@ func DecodeThreadArchivedNotification(notif Notification) (ThreadArchivedNotific
 	return DecodeNotificationAs[ThreadArchivedNotification](notif, NotificationMethodThreadArchived)
 }
 
+// DecodeThreadDeletedNotification decodes the thread/deleted notification.
+func DecodeThreadDeletedNotification(notif Notification) (ThreadDeletedNotification, bool, error) {
+	return DecodeNotificationAs[ThreadDeletedNotification](notif, NotificationMethodThreadDeleted)
+}
+
 // DecodeThreadClosedNotification decodes the thread/closed notification.
 func DecodeThreadClosedNotification(notif Notification) (ThreadClosedNotification, bool, error) {
 	return DecodeNotificationAs[ThreadClosedNotification](notif, NotificationMethodThreadClosed)
@@ -801,6 +809,11 @@ func (notif Notification) SkillsChanged() (SkillsChangedNotification, bool, erro
 // ThreadArchived decodes the thread/archived notification.
 func (notif Notification) ThreadArchived() (ThreadArchivedNotification, bool, error) {
 	return DecodeThreadArchivedNotification(notif)
+}
+
+// ThreadDeleted decodes the thread/deleted notification.
+func (notif Notification) ThreadDeleted() (ThreadDeletedNotification, bool, error) {
+	return DecodeThreadDeletedNotification(notif)
 }
 
 // ThreadClosed decodes the thread/closed notification.

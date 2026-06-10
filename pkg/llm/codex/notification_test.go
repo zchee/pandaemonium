@@ -323,6 +323,7 @@ func TestNotificationConvenienceHelpersCoverKnownMethods(t *testing.T) {
 		"serverRequest/resolved":                    newNotificationConvenienceCase(t, NotificationMethodServerRequestResolved, ServerRequestResolvedNotification{}, DecodeServerRequestResolvedNotification, Notification.ServerRequestResolved),
 		"skills/changed":                            newNotificationConvenienceCase(t, NotificationMethodSkillsChanged, SkillsChangedNotification{}, DecodeSkillsChangedNotification, Notification.SkillsChanged),
 		"thread/archived":                           newNotificationConvenienceCase(t, NotificationMethodThreadArchived, ThreadArchivedNotification{}, DecodeThreadArchivedNotification, Notification.ThreadArchived),
+		"thread/deleted":                            newNotificationConvenienceCase(t, NotificationMethodThreadDeleted, ThreadDeletedNotification{}, DecodeThreadDeletedNotification, Notification.ThreadDeleted),
 		"thread/closed":                             newNotificationConvenienceCase(t, NotificationMethodThreadClosed, ThreadClosedNotification{}, DecodeThreadClosedNotification, Notification.ThreadClosed),
 		"thread/compacted":                          newNotificationConvenienceCase(t, NotificationMethodThreadCompacted, ContextCompactedNotification{}, DecodeThreadCompactedNotification, Notification.ThreadCompacted),
 		"thread/goal/cleared":                       newNotificationConvenienceCase(t, NotificationMethodThreadGoalCleared, ThreadGoalClearedNotification{}, DecodeThreadGoalClearedNotification, Notification.ThreadGoalCleared),

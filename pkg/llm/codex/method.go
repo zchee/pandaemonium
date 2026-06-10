@@ -62,6 +62,11 @@ func (c *Client) ThreadArchive(ctx context.Context, threadID string) (ThreadArch
 	return Request[ThreadArchiveResponse](ctx, c, RequestMethodThreadArchive, ThreadArchiveParams{ThreadID: threadID})
 }
 
+// ThreadDelete calls thread/delete.
+func (c *Client) ThreadDelete(ctx context.Context, threadID string) (ThreadDeleteResponse, error) {
+	return Request[ThreadDeleteResponse](ctx, c, RequestMethodThreadDelete, ThreadDeleteParams{ThreadID: threadID})
+}
+
 // ThreadUnsubscribe calls thread/unsubscribe.
 func (c *Client) ThreadUnsubscribe(ctx context.Context, threadID string, params *ThreadUnsubscribeParams) (ThreadUnsubscribeResponse, error) {
 	payload, err := mergeParamsBaseWins(params, Object{"threadId": threadID})

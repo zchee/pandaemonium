@@ -37,6 +37,7 @@ func TestClientRequestMethodWrappers(t *testing.T) {
 		{name: "thread/resume", call: func() error { _, err := client.ThreadResume(ctx, "thread", &ThreadResumeParams{}); return err }},
 		{name: "thread/fork", call: func() error { _, err := client.ThreadFork(ctx, "thread", &ThreadForkParams{}); return err }},
 		{name: "thread/archive", call: func() error { _, err := client.ThreadArchive(ctx, "thread"); return err }},
+		{name: "thread/delete", call: func() error { _, err := client.ThreadDelete(ctx, "thread"); return err }},
 		{name: "thread/unsubscribe", call: func() error {
 			_, err := client.ThreadUnsubscribe(ctx, "thread", &ThreadUnsubscribeParams{})
 			return err

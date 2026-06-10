@@ -271,6 +271,8 @@ func (s *helperState) handleLifecycleInputs(req helperRequest) error {
 		s.writeResult(req.ID, helperThreadState(helperThread(threadID), req.Params))
 	case codex.RequestMethodThreadArchive:
 		s.writeResult(req.ID, codex.Object{})
+	case codex.RequestMethodThreadDelete:
+		s.writeResult(req.ID, codex.Object{})
 	case codex.RequestMethodThreadUnarchive:
 		threadID := stringParam(req.Params, "threadId")
 		s.writeResult(req.ID, codex.Object{"thread": helperThread(threadID)})
@@ -749,6 +751,10 @@ func (s *helperState) handleLifecyclePersistence(req helperRequest) error {
 	case codex.RequestMethodThreadArchive:
 		threadID := stringParam(req.Params, "threadId")
 		s.lifecycleThread(threadID).archived = true
+		s.writeResult(req.ID, codex.Object{})
+	case codex.RequestMethodThreadDelete:
+		threadID := stringParam(req.Params, "threadId")
+		delete(s.lifecycle, threadID)
 		s.writeResult(req.ID, codex.Object{})
 	case codex.RequestMethodThreadUnarchive:
 		threadID := stringParam(req.Params, "threadId")

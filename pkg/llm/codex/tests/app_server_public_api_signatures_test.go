@@ -146,6 +146,8 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 		_ codex.SandboxPolicy
 		_ codex.SortDirection
 		_ codex.ThreadArchiveResponse
+		_ codex.ThreadDeleteResponse
+		_ codex.ThreadDeletedNotification
 		_ codex.ThreadCompactStartResponse
 		_ codex.ThreadItem
 		_ codex.ThreadListCwdFilter
@@ -187,6 +189,8 @@ func TestPublicAPISignaturePortTypesExports(t *testing.T) {
 		"SandboxPolicy":                       reflect.TypeFor[codex.SandboxPolicy](),
 		"SortDirection":                       reflect.TypeFor[codex.SortDirection](),
 		"ThreadArchiveResponse":               reflect.TypeFor[codex.ThreadArchiveResponse](),
+		"ThreadDeleteResponse":                reflect.TypeFor[codex.ThreadDeleteResponse](),
+		"ThreadDeletedNotification":           reflect.TypeFor[codex.ThreadDeletedNotification](),
 		"ThreadCompactStartResponse":          reflect.TypeFor[codex.ThreadCompactStartResponse](),
 		"ThreadItem":                          reflect.TypeFor[codex.ThreadItem](),
 		"ThreadListCwdFilter":                 reflect.TypeFor[codex.ThreadListCwdFilter](),
@@ -273,6 +277,18 @@ func TestPublicAPISignaturePortHighLevelMethodSignatures(t *testing.T) {
 			},
 			out: []reflect.Type{
 				reflect.TypeFor[*codex.Thread](),
+				errorType,
+			},
+		},
+		"success: Codex ThreadDelete": {
+			typ:  reflect.TypeFor[*codex.Codex](),
+			name: "ThreadDelete",
+			in: []reflect.Type{
+				contextType,
+				reflect.TypeFor[string](),
+			},
+			out: []reflect.Type{
+				reflect.TypeFor[codex.ThreadDeleteResponse](),
 				errorType,
 			},
 		},
@@ -678,6 +694,7 @@ func TestPublicAPISignaturePortLifecycleMethodOwnership(t *testing.T) {
 		"ThreadResume",
 		"ThreadFork",
 		"ThreadArchive",
+		"ThreadDelete",
 		"ThreadUnarchive",
 		"StreamThreadResume",
 		"StreamThreadFork",
@@ -692,7 +709,7 @@ func TestPublicAPISignaturePortLifecycleMethodOwnership(t *testing.T) {
 		reflect.TypeFor[*codex.Thread](),
 		reflect.TypeFor[*codex.StreamThread](),
 	} {
-		for _, name := range []string{"Resume", "Fork", "Archive", "Unarchive"} {
+		for _, name := range []string{"Resume", "Fork", "Archive", "Delete", "Unarchive"} {
 			if _, ok := typ.MethodByName(name); ok {
 				t.Fatalf("%v.%s exists; lifecycle operations must stay Codex-scoped", typ, name)
 			}

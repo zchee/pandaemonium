@@ -206,6 +206,44 @@ func TestAppServerLifecyclePort(t *testing.T) {
 		}
 	})
 
+	t.Run("thread_delete_removes_materialized_thread_from_list", func(t *testing.T) {
+		sdk, ctx := newLifecycleCodex(t)
+
+		thread, err := sdk.ThreadStart(ctx, nil)
+		if err != nil {
+			t.Fatalf("ThreadStart() error = %v", err)
+		}
+		if _, err := thread.Run(ctx, "materialize this thread before delete", nil); err != nil {
+			t.Fatalf("Thread.Run(seed) error = %v", err)
+		}
+		beforeDelete, err := sdk.ThreadList(ctx, &codex.ThreadListParams{Archived: false})
+		if err != nil {
+			t.Fatalf("ThreadList(before delete) error = %v", err)
+		}
+		deleted, err := sdk.ThreadDelete(ctx, thread.ID())
+		if err != nil {
+			t.Fatalf("ThreadDelete() error = %v", err)
+		}
+		afterDelete, err := sdk.ThreadList(ctx, &codex.ThreadListParams{Archived: false})
+		if err != nil {
+			t.Fatalf("ThreadList(after delete) error = %v", err)
+		}
+
+		got := map[string]any{
+			"before_delete_ids": filteredThreadIDs(beforeDelete.Data, thread.ID()),
+			"delete_response":   deleted,
+			"after_delete_ids":  filteredThreadIDs(afterDelete.Data, thread.ID()),
+		}
+		want := map[string]any{
+			"before_delete_ids": []string{thread.ID()},
+			"delete_response":   codex.ThreadDeleteResponse{},
+			"after_delete_ids":  []string(nil),
+		}
+		if diff := gocmp.Diff(want, got); diff != "" {
+			t.Fatalf("delete/list mismatch (-want +got):\n%s", diff)
+		}
+	})
+
 	t.Run("archive_unarchive_round_trip_uses_materialized_rollout", func(t *testing.T) {
 		sdk, ctx := newLifecycleCodex(t)
 
