@@ -55,6 +55,7 @@ var remoteControlExampleNames = []string{
 	"15_remote_client_connect",
 	"16_remote_control_status_and_pairing",
 	"17_remote_process_spawn",
+	"18_remote_attach",
 }
 
 var exampleNames = append(slices.Clone(upstreamExampleNames), remoteControlExampleNames...)

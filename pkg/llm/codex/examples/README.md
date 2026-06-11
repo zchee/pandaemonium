@@ -45,6 +45,7 @@ go run ./pkg/llm/codex/examples/14_turn_controls
 go run ./pkg/llm/codex/examples/15_remote_client_connect
 go run ./pkg/llm/codex/examples/16_remote_control_status_and_pairing
 go run ./pkg/llm/codex/examples/17_remote_process_spawn
+go run ./pkg/llm/codex/examples/18_remote_attach
 ```
 
 ## Remote app-server examples
@@ -66,6 +67,15 @@ default. Set `CODEX_EXAMPLE_ENABLE_REMOTE_CONTROL=1` to call
 `remoteControl/enable`; set `CODEX_EXAMPLE_START_PAIRING=1` to start pairing
 and print the short-lived pairing code.
 
+`18_remote_attach` is the launcher composition: it starts its own
+`codex-app-server --remote-control --listen ws://127.0.0.1:<port>` child via
+`codex.LaunchRemoteAppServer`, so it does not use
+`CODEX_REMOTE_APP_SERVER_URL`. It prints the endpoint plus the exact
+`codex --remote=...` attach command, then attaches the Go SDK over the same
+endpoint. Set `CODEX_EXAMPLE_RUN_TUI=1` to also attach the interactive codex
+TUI (requires a TTY). Set `CODEX_BIN` / `CODEX_APP_SERVER_BIN` to override
+binary discovery.
+
 ## Index
 
 - `01_quickstart_constructor/` - first run / sanity check.
@@ -85,3 +95,4 @@ and print the short-lived pairing code.
 - `15_remote_client_connect/` - connect to an existing app-server websocket.
 - `16_remote_control_status_and_pairing/` - inspect remote-control status and guarded pairing flows.
 - `17_remote_process_spawn/` - stream `process/spawn` output from an existing app-server host.
+- `18_remote_attach/` - launch `codex-app-server --remote-control` and attach both the SDK and the codex CLI.
