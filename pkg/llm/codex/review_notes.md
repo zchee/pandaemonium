@@ -49,6 +49,33 @@ lane, and verification commits are merged.
    `Thread.Run`, and `StreamThread.RunStream` keep their existing behavior and
    should not gain Unix-specific routing branches.
 
+## Remote launch guardrails (LaunchRemoteAppServer)
+
+- `--remote-control` is a hidden clap flag on codex-cli 0.140.0-alpha.4: absent
+  from `--help` but accepted by both `codex-app-server` and `codex app-server`.
+  Help enumeration is not an existence test; verify hidden flags by probing
+  `<bin> --<flag> --version` against a bogus-flag control.
+- Never place the websocket bearer token in argv, error strings, logs, or the
+  stderr tail. The attached codex child receives it only through the
+  `CODEX_REMOTE_AUTH_TOKEN` environment variable paired with
+  `--remote-auth-token-env CODEX_REMOTE_AUTH_TOKEN`.
+- Never remove the default control socket
+  (`$CODEX_HOME/app-server-control/app-server-control.sock`); it is shared with
+  daemon tooling. Close() removes only explicit custom `unix://PATH` sockets,
+  and only after the server child has exited.
+- Keep ws:// listeners loopback-only unless
+  `ListenConfig.AllowInsecureRemoteWebSocket` is set; unix sockets rely on
+  filesystem permissions, not bearer auth.
+- Upstream rejects websocket listen port 0, so `ReserveLoopbackPort` uses a
+  bind-then-release pattern with an inherent TOCTOU window; a failed launch
+  surfaces the stderr tail and retrying with a fresh port is the caller's loop.
+- Reject unix socket filesystem paths longer than 103 bytes before spawn
+  (darwin `sun_path` holds 104 bytes including the NUL terminator).
+- Close() ordering is attached codex children first (interrupt, grace, kill),
+  then the server child, then custom-socket cleanup. CodexCommand must inject
+  `--remote=<endpoint>` exactly once and reject caller args that already carry
+  a `--remote` flag.
+
 ## Verification bundle
 
 Run the smallest focused checks first, then the package bundle:

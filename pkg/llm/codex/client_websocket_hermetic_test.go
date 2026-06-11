@@ -136,6 +136,13 @@ func TestCodexTransportHelperProcess(t *testing.T) {
 	if os.Getenv(transportHelperEnv) != "1" {
 		return
 	}
+	// A `--remote=<endpoint>` argument is only ever injected for a codex
+	// attachment, never for the app-server child, so it selects the attachment
+	// probe regardless of the shared CODEX_PORT_HELPER_SCENARIO that configures
+	// the app-server role of the same shim.
+	if remote, ok := helperRemoteFlag(); ok {
+		runTransportHelperRemoteAttachProbe(remote)
+	}
 	switch os.Getenv("CODEX_PORT_HELPER_SCENARIO") {
 	case "websocket_roundtrip":
 		runTransportHelperWebSocket()
@@ -147,6 +154,63 @@ func TestCodexTransportHelperProcess(t *testing.T) {
 	default:
 		runTransportHelperStdio()
 	}
+}
+
+// helperRemoteFlag returns the --remote=<endpoint> argument the launcher
+// injected for a codex attachment, if present.
+func helperRemoteFlag() (string, bool) {
+	for _, arg := range os.Args {
+		if strings.HasPrefix(arg, "--remote=") {
+			return arg, true
+		}
+	}
+	return "", false
+}
+
+// runTransportHelperRemoteAttachProbe emulates a `codex --remote=<endpoint>`
+// attachment: it asserts the launcher injected exactly the expected --remote
+// flag, dials the endpoint to prove it is reachable, then exits 0 (or idles on
+// stdin when asked to stay alive). It backs the two-process hermetic flow for
+// RemoteAppServer.StartCodex.
+func runTransportHelperRemoteAttachProbe(remoteFlag string) {
+	if expected := os.Getenv("CODEX_REMOTE_ATTACH_EXPECT_FLAG"); expected != "" && remoteFlag != expected {
+		fmt.Fprintf(os.Stderr, "remote flag %q does not match expected %q\n", remoteFlag, expected)
+		os.Exit(2)
+	}
+	endpoint := strings.TrimPrefix(remoteFlag, "--remote=")
+	network, address := remoteAttachDialTarget(endpoint)
+	conn, err := net.Dial(network, address)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "dial %s %s: %v\n", network, address, err)
+		os.Exit(3)
+	}
+	_ = conn.Close()
+
+	if sentinel := os.Getenv("CODEX_REMOTE_ATTACH_SENTINEL"); sentinel != "" {
+		if err := os.WriteFile(sentinel, []byte("ok\n"), 0o600); err != nil {
+			fmt.Fprintf(os.Stderr, "write sentinel %s: %v\n", sentinel, err)
+			os.Exit(4)
+		}
+	}
+
+	if os.Getenv("CODEX_REMOTE_ATTACH_STAY_ALIVE") == "1" {
+		// Block on stdin so the parent controls our lifetime through Close().
+		_, _ = io.Copy(io.Discard, os.Stdin)
+	}
+	os.Exit(0)
+}
+
+// remoteAttachDialTarget maps a launcher endpoint to a net.Dial target, mirroring
+// the production probe so the attachment proves reachability the same way.
+func remoteAttachDialTarget(endpoint string) (string, string) {
+	if path, ok := strings.CutPrefix(endpoint, "unix://"); ok {
+		return "unix", path
+	}
+	rest := strings.TrimPrefix(endpoint, "ws://")
+	if i := strings.IndexByte(rest, '/'); i >= 0 {
+		rest = rest[:i]
+	}
+	return "tcp", rest
 }
 
 func runTransportHelperStdio() {
@@ -206,6 +270,9 @@ func runTransportHelperWebSocket() {
 	if err != nil {
 		fmt.Fprintln(os.Stderr, err)
 		os.Exit(2)
+	}
+	if startupLog := os.Getenv("CODEX_WEBSOCKET_STARTUP_LOG"); startupLog != "" {
+		fmt.Fprintln(os.Stderr, startupLog)
 	}
 	srv := &http.Server{Handler: newTransportHelperWebSocketHandler(expectedBearer)}
 	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {

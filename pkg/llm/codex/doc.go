@@ -23,6 +23,16 @@
 // high-value protocol fields are typed while raw JSON extension fields preserve
 // compatibility with newer app-server schema members.
 //
+// For external `codex --remote` attachment, [LaunchRemoteAppServer] starts a
+// `codex-app-server --remote-control --listen ws://...|unix://...` child and
+// returns a [RemoteAppServer] that owns the server lifecycle. The same
+// endpoint then serves both surfaces: [RemoteAppServer.Connect] and
+// [RemoteAppServer.RemoteConfig] attach this SDK (via [NewRemoteClient] or
+// [NewRemoteCodex]) without launching another process, while
+// [RemoteAppServer.CodexCommand] and [RemoteAppServer.StartCodex] attach the
+// codex CLI, injecting `--remote=<endpoint>` and wiring websocket bearer
+// tokens through the child environment instead of argv.
+//
 // Turn input accepts the [RunInput] contract used by [Client.TurnStart],
 // [Thread.Turn], [Thread.Run], and steer helpers. A plain string is shorthand
 // for one text input item, while typed input values such as [TextInput],
