@@ -98,8 +98,8 @@ func run() error {
 	defer func() { _ = client.Close() }()
 
 	fmt.Println("remote.server:", exampleutil.ServerLabel(client.Metadata()))
-	// app-server 0.140.0-alpha.4 requires a params object on model/list, so
-	// send explicit empty params instead of nil.
+	// The app-server requires a params object on model/list, so send
+	// explicit empty params instead of nil.
 	models, err := client.Models(ctx, &codex.ModelListParams{})
 	if err != nil {
 		return err

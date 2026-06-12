@@ -88,8 +88,8 @@ func TestRealAppServerIntegrationRemoteLaunchUnixAttach(t *testing.T) {
 
 	assertRealInitializedMetadata(t, client.Metadata())
 
-	// codex-app-server 0.140.0-alpha.4 rejects model/list requests without a
-	// params object, so always send explicit (possibly empty) params.
+	// The app-server rejects model/list requests without a params object, so
+	// always send explicit (possibly empty) params.
 	includeHidden := true
 	models, err := client.Models(ctx, &codex.ModelListParams{IncludeHidden: includeHidden})
 	if err != nil {

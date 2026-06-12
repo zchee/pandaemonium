@@ -51,10 +51,12 @@ lane, and verification commits are merged.
 
 ## Remote launch guardrails (LaunchRemoteAppServer)
 
-- `--remote-control` is a hidden clap flag on codex-cli 0.140.0-alpha.4: absent
+- `--remote-control` is a hidden clap flag on codex-cli 0.140.0-alpha.13: absent
   from `--help` but accepted by both `codex-app-server` and `codex app-server`.
-  Help enumeration is not an existence test; verify hidden flags by probing
-  `<bin> --<flag> --version` against a bogus-flag control.
+  Help enumeration is not an existence test; verify hidden flags by probing the
+  standalone binary against a bogus-flag control, and probe the subcommand with
+  `codex app-server --remote-control --listen stdio://` because the subcommand
+  rejects `--version`.
 - Never place the websocket bearer token in argv, error strings, logs, or the
   stderr tail. The attached codex child receives it only through the
   `CODEX_REMOTE_AUTH_TOKEN` environment variable paired with

@@ -47,8 +47,8 @@ func main() {
 		fmt.Println("remote-control.environment:", status.EnvironmentID)
 	}
 
-	// app-server 0.140.0-alpha.4 requires a params object on model/list, so
-	// send explicit empty params instead of nil.
+	// The app-server requires a params object on model/list, so send
+	// explicit empty params instead of nil.
 	models, err := client.Models(ctx, &codex.ModelListParams{})
 	if err != nil {
 		log.Fatal(err)

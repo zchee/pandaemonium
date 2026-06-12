@@ -37,7 +37,7 @@ const (
 	// codex-app-server remote-control subsystem (client tracking, auth,
 	// enrollment) for external `codex --remote` attachment. Verified accepted by
 	// both the standalone `codex-app-server` binary and the `codex app-server`
-	// subcommand on codex-cli 0.140.0-alpha.4.
+	// subcommand on codex-cli 0.140.0-alpha.13.
 	remoteControlFlag = "--remote-control"
 
 	// appServerBinName is the default standalone server binary resolved via
