@@ -20,16 +20,16 @@ import (
 	"strings"
 )
 
-// AppendBoundedLine appends line to lines while retaining at most max entries.
-func AppendBoundedLine(lines []string, line string, max int) []string {
-	if max <= 0 {
+// AppendBoundedLine appends line to lines while retaining at most maxLines entries.
+func AppendBoundedLine(lines []string, line string, maxLines int) []string {
+	if maxLines <= 0 {
 		return lines[:0]
 	}
-	if len(lines) < max {
+	if len(lines) < maxLines {
 		return append(lines, line)
 	}
 	copy(lines, lines[1:])
-	lines[max-1] = line
+	lines[maxLines-1] = line
 	return lines
 }
 
