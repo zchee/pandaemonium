@@ -17,7 +17,7 @@ concurrency:
 # job can flip continue-on-error to false.
 env:
   GOEXPERIMENT_SIMD: "loopvar,newinliner,jsonv2,greenteagc,simd,randomizedheapbase64,sizespecializedmalloc,runtimesecret,mapsplitgroup"
-  CODEX_CLI_VERSION: "0.140.0-alpha.13"
+  CODEX_CLI_VERSION: "0.142.0-alpha.7"
 
 jobs:
   test:
