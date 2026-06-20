@@ -145,45 +145,45 @@ func main() {
 // Cargo.lock corpus.
 func runEditGate() {
 	if *flagRatioEdit <= 0 {
-		die(exitArg, "--ratio-edit must be > 0; got %g", *flagRatioEdit)
+		die("--ratio-edit must be > 0; got %g", *flagRatioEdit)
 	}
 	if *flagAlpha <= 0 || *flagAlpha >= 1 {
-		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+		die("--alpha must be in (0,1); got %g", *flagAlpha)
 	}
 	repoRoot, err := findRepoRoot()
 	if err != nil {
-		die(exitArg, "%v", err)
+		die("%v", err)
 	}
 	tmp, err := os.MkdirTemp("", "toml-edit-gate-*")
 	if err != nil {
-		die(exitArg, "mktemp: %v", err)
+		die("mktemp: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
 	stem := "BenchmarkDocumentEdit"
 	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagEditPkg, "^"+stem+"_Pelletier$", "pelletier-base", "bench")
 	if err != nil {
-		die(exitArg, "pelletier edit benchmark: %v", err)
+		die("pelletier edit benchmark: %v", err)
 	}
 	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagEditPkg, "^"+stem+"_Pandaemonium$", "pandaemonium-candidate", "bench")
 	if err != nil {
-		die(exitArg, "pandaemonium edit benchmark: %v", err)
+		die("pandaemonium edit benchmark: %v", err)
 	}
 	if err := renameInPlace(baseFile, stem+"_Pelletier", stem); err != nil {
-		die(exitArg, "rename pelletier edit benchmark: %v", err)
+		die("rename pelletier edit benchmark: %v", err)
 	}
 	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
-		die(exitArg, "rename pandaemonium edit benchmark: %v", err)
+		die("rename pandaemonium edit benchmark: %v", err)
 	}
 	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
 	if err != nil {
-		die(exitArg, "benchstat edit: %v", err)
+		die("benchstat edit: %v", err)
 	}
 	fmt.Printf("\n# edit: Pandaemonium Document vs pelletier full edit\n")
 	fmt.Print(textOut)
 	res, err := parseGate(csvOut, "DocumentEdit", *flagRatioEdit, *flagAlpha)
 	if err != nil {
-		die(exitArg, "parse benchstat CSV for edit: %v", err)
+		die("parse benchstat CSV for edit: %v", err)
 	}
 	if res.pass {
 		fmt.Printf("toml-perf-gate: PASS edit/pelletier point=%.3fx lower95=%.3fx threshold=%.3fx %s\n", res.pointRatio, res.lowerRatio, *flagRatioEdit, res.pStr)
@@ -210,18 +210,18 @@ type benchmarkPair struct {
 // ReferenceFile/map and Hugo/map shapes visible in the same CI/audit output.
 func runFacadeGate() {
 	if *flagRatioBurntSushi <= 0 || *flagRatioPelletier <= 0 || *flagRatioMapPelletier <= 0 {
-		die(exitArg, "facade ratios must be > 0; got burntsushi=%g pelletier=%g map-pelletier=%g", *flagRatioBurntSushi, *flagRatioPelletier, *flagRatioMapPelletier)
+		die("facade ratios must be > 0; got burntsushi=%g pelletier=%g map-pelletier=%g", *flagRatioBurntSushi, *flagRatioPelletier, *flagRatioMapPelletier)
 	}
 	if *flagAlpha <= 0 || *flagAlpha >= 1 {
-		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+		die("--alpha must be in (0,1); got %g", *flagAlpha)
 	}
 	repoRoot, err := findRepoRoot()
 	if err != nil {
-		die(exitArg, "%v", err)
+		die("%v", err)
 	}
 	tmp, err := os.MkdirTemp("", "toml-facade-gate-*")
 	if err != nil {
-		die(exitArg, "mktemp: %v", err)
+		die("mktemp: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
@@ -285,18 +285,18 @@ func runFacadeGate() {
 // architecture and risk than facade unmarshal.
 func runMarshalGate() {
 	if *flagRatioMarshalPelletier <= 0 {
-		die(exitArg, "--ratio-marshal-pelletier must be > 0; got %g", *flagRatioMarshalPelletier)
+		die("--ratio-marshal-pelletier must be > 0; got %g", *flagRatioMarshalPelletier)
 	}
 	if *flagAlpha <= 0 || *flagAlpha >= 1 {
-		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+		die("--alpha must be in (0,1); got %g", *flagAlpha)
 	}
 	repoRoot, err := findRepoRoot()
 	if err != nil {
-		die(exitArg, "%v", err)
+		die("%v", err)
 	}
 	tmp, err := os.MkdirTemp("", "toml-marshal-gate-*")
 	if err != nil {
-		die(exitArg, "mktemp: %v", err)
+		die("mktemp: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
@@ -319,27 +319,27 @@ func runMarshalGate() {
 func runBenchmarkPair(repoRoot, tmp string, pair benchmarkPair) bool {
 	baseFile, err := runBenchInPackage(repoRoot, tmp, pair.pkg, "^"+pair.base+"$", pair.label+"-base", "bench")
 	if err != nil {
-		die(exitArg, "%s baseline benchmark: %v", pair.label, err)
+		die("%s baseline benchmark: %v", pair.label, err)
 	}
 	candidateFile, err := runBenchInPackage(repoRoot, tmp, pair.pkg, "^"+pair.candidate+"$", pair.label+"-candidate", "bench")
 	if err != nil {
-		die(exitArg, "%s candidate benchmark: %v", pair.label, err)
+		die("%s candidate benchmark: %v", pair.label, err)
 	}
 	if err := renameInPlace(baseFile, pair.base, pair.stem); err != nil {
-		die(exitArg, "rename %s baseline benchmark: %v", pair.label, err)
+		die("rename %s baseline benchmark: %v", pair.label, err)
 	}
 	if err := renameInPlace(candidateFile, pair.candidate, pair.stem); err != nil {
-		die(exitArg, "rename %s candidate benchmark: %v", pair.label, err)
+		die("rename %s candidate benchmark: %v", pair.label, err)
 	}
 	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
 	if err != nil {
-		die(exitArg, "benchstat %s: %v", pair.label, err)
+		die("benchstat %s: %v", pair.label, err)
 	}
 	fmt.Printf("\n# %s\n", pair.title)
 	fmt.Print(textOut)
 	res, err := parseGate(csvOut, pair.row, pair.ratio, *flagAlpha)
 	if err != nil {
-		die(exitArg, "parse benchstat CSV for %s: %v", pair.label, err)
+		die("parse benchstat CSV for %s: %v", pair.label, err)
 	}
 	if res.pass {
 		fmt.Printf("toml-perf-gate: PASS %s point=%.3fx lower95=%.3fx threshold=%.3fx %s\n", pair.label, res.pointRatio, res.lowerRatio, pair.ratio, res.pStr)
@@ -355,48 +355,48 @@ func runBenchmarkPair(repoRoot, tmp string, pair benchmarkPair) bool {
 // Phase 2.5 passes when the no-cache shim is at least 0.5x BurntSushi.
 func runParserSmoketest() {
 	if *flagRatio <= 0 {
-		die(exitArg, "--ratio must be > 0; got %g", *flagRatio)
+		die("--ratio must be > 0; got %g", *flagRatio)
 	}
 	if *flagAlpha <= 0 || *flagAlpha >= 1 {
-		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+		die("--alpha must be in (0,1); got %g", *flagAlpha)
 	}
 	repoRoot, err := findRepoRoot()
 	if err != nil {
-		die(exitArg, "%v", err)
+		die("%v", err)
 	}
 
 	tmp, err := os.MkdirTemp("", "toml-parser-smoketest-*")
 	if err != nil {
-		die(exitArg, "mktemp: %v", err)
+		die("mktemp: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
 	stem := "Benchmark" + *flagBench
 	baseFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_BurntSushi$", "base", "bench")
 	if err != nil {
-		die(exitArg, "burntsushi parser smoketest: %v", err)
+		die("burntsushi parser smoketest: %v", err)
 	}
 	candidateFile, err := runBenchInPackage(repoRoot, tmp, *flagParserPkg, "^"+stem+"_Pandaemonium$", "candidate", "bench")
 	if err != nil {
-		die(exitArg, "pandaemonium parser smoketest: %v", err)
+		die("pandaemonium parser smoketest: %v", err)
 	}
 	if err := renameInPlace(baseFile, stem+"_BurntSushi", stem); err != nil {
-		die(exitArg, "rename burntsushi benchmark: %v", err)
+		die("rename burntsushi benchmark: %v", err)
 	}
 	if err := renameInPlace(candidateFile, stem+"_Pandaemonium", stem); err != nil {
-		die(exitArg, "rename pandaemonium benchmark: %v", err)
+		die("rename pandaemonium benchmark: %v", err)
 	}
 
 	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, candidateFile)
 	if err != nil {
-		die(exitArg, "benchstat: %v", err)
+		die("benchstat: %v", err)
 	}
 	if err := writeBenchmarkOutput(os.Stdout, []byte(textOut)); err != nil {
-		die(exitArg, "parser smoketest output: %v", err)
+		die("parser smoketest output: %v", err)
 	}
 	res, err := parseGate(csvOut, *flagBench, *flagRatio, *flagAlpha)
 	if err != nil {
-		die(exitArg, "parse benchstat CSV: %v", err)
+		die("parse benchstat CSV: %v", err)
 	}
 	if res.pass {
 		fmt.Printf("toml-perf-gate: PASS parser point=%.3fx lower95=%.3fx threshold=%.3fx %s\n",
@@ -421,23 +421,23 @@ func writeBenchmarkOutput(w io.Writer, out []byte) error {
 // and decide pass/fail against --ratio.
 func runScanGate() {
 	if !validScans[*flagScan] {
-		die(exitArg, "--scan=%q is not a recognized scan name; valid: %s", *flagScan, sortedScanNames())
+		die("--scan=%q is not a recognized scan name; valid: %s", *flagScan, sortedScanNames())
 	}
 	if *flagRatio <= 0 {
-		die(exitArg, "--ratio must be > 0; got %g", *flagRatio)
+		die("--ratio must be > 0; got %g", *flagRatio)
 	}
 	if *flagAlpha <= 0 || *flagAlpha >= 1 {
-		die(exitArg, "--alpha must be in (0,1); got %g", *flagAlpha)
+		die("--alpha must be in (0,1); got %g", *flagAlpha)
 	}
 
 	repoRoot, err := findRepoRoot()
 	if err != nil {
-		die(exitArg, "%v", err)
+		die("%v", err)
 	}
 
 	tmp, err := os.MkdirTemp("", "toml-perf-gate-*")
 	if err != nil {
-		die(exitArg, "mktemp: %v", err)
+		die("mktemp: %v", err)
 	}
 	defer os.RemoveAll(tmp)
 
@@ -445,11 +445,11 @@ func runScanGate() {
 	// benchstat presents columns (base on the left, candidate on the right).
 	baseFile, err := runBench(repoRoot, tmp, "^Benchmark"+*flagScan+"_Baseline$", "base")
 	if err != nil {
-		die(exitArg, "baseline bench: %v", err)
+		die("baseline bench: %v", err)
 	}
 	simdFile, err := runBench(repoRoot, tmp, "^Benchmark"+*flagScan+"_SIMD$", "simd")
 	if err != nil {
-		die(exitArg, "simd bench: %v", err)
+		die("simd bench: %v", err)
 	}
 
 	// Align bench names so benchstat pairs them. The original names
@@ -458,15 +458,15 @@ func runScanGate() {
 	// treats them as the same row to compare.
 	stem := "Benchmark" + *flagScan
 	if err := renameInPlace(baseFile, stem+"_Baseline", stem); err != nil {
-		die(exitArg, "rename baseline: %v", err)
+		die("rename baseline: %v", err)
 	}
 	if err := renameInPlace(simdFile, stem+"_SIMD", stem); err != nil {
-		die(exitArg, "rename simd: %v", err)
+		die("rename simd: %v", err)
 	}
 
 	csvOut, textOut, err := runBenchstat(*flagBenchstat, *flagAlpha, baseFile, simdFile)
 	if err != nil {
-		die(exitArg, "benchstat: %v", err)
+		die("benchstat: %v", err)
 	}
 	// Always print the human-readable benchstat table — it is the
 	// audit artifact captured into CI logs and PR comments.
@@ -474,7 +474,7 @@ func runScanGate() {
 
 	res, err := parseGate(csvOut, *flagScan, *flagRatio, *flagAlpha)
 	if err != nil {
-		die(exitArg, "parse benchstat CSV: %v", err)
+		die("parse benchstat CSV: %v", err)
 	}
 
 	// Machine-readable summary line — CI consumers grep for the
@@ -947,7 +947,7 @@ func sortedScanNames() string {
 	return strings.Join(keys, ", ")
 }
 
-func die(code int, format string, args ...any) {
+func die(format string, args ...any) {
 	fmt.Fprintf(os.Stderr, "toml-perf-gate: "+format+"\n", args...)
-	os.Exit(code)
+	os.Exit(exitArg)
 }
