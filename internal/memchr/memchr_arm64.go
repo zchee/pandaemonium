@@ -17,7 +17,7 @@
 package memchr
 
 // Six hand-written NEON assembly routines back the dispatched impls on arm64.
-// Each .s file follows the stdlib syndrome-trick recipe modelled directly on
+// Each .s file follows the stdlib syndrome-trick recipe modeled directly on
 // /opt/local/go.simd/src/internal/bytealg/indexbyte_arm64.s:36-70:
 //
 //   VMOV    R, V0.B16          // broadcast needle to all 16 lanes
