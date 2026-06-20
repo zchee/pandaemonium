@@ -45,7 +45,7 @@ func main() {
 		Agents: []claude.AgentDefinition{
 			{
 				Name:         "researcher",
-				Description:  "Searches for and summarises information on a given topic.",
+				Description:  "Searches for and summarizes information on a given topic.",
 				SystemPrompt: "You are a concise research assistant. Return bullet-point summaries.",
 				AllowedTools: []string{"WebSearch", "Read"},
 			},

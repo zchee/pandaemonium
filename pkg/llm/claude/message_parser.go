@@ -67,7 +67,8 @@ func (b rawContentBlock) blockRaw() jsontext.Value { return b.raw }
 func parseMessage(line []byte) (Message, error) {
 	data := bytes.TrimRight(line, "\n\r")
 	if len(data) == 0 {
-		return nil, nil // blank line — caller skips
+		//nolint:nilnil // (nil, nil) is the documented "blank line, skip" sentinel consumed by ReceiveResponse; not an error.
+		return nil, nil
 	}
 
 	// Peek the type discriminator without a full decode.

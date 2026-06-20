@@ -15,7 +15,7 @@
 // Package claude (test) — hermetic parity tests for pkg/claude/examples/.
 //
 // Each test mirrors one example program's API surface against a scripted
-// [fakecli.FakeCLI] transport, verifying correct behaviour without a real
+// [fakecli.FakeCLI] transport, verifying correct behavior without a real
 // claude CLI subprocess. Single-scenario tests are intentionally not wrapped
 // in a table-driven map because their assertions are scenario-specific; only
 // the hooks and permission-callback tests use a table (same function, multiple
@@ -536,7 +536,7 @@ func TestExampleParity_Agents_Options(t *testing.T) {
 		Agents: []AgentDefinition{
 			{
 				Name:         "researcher",
-				Description:  "Searches for and summarises information.",
+				Description:  "Searches for and summarizes information.",
 				SystemPrompt: "You are a concise research assistant.",
 				AllowedTools: []string{"WebSearch", "Read"},
 			},

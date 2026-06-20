@@ -28,6 +28,7 @@ import (
 	"time"
 
 	"github.com/go-json-experiment/json"
+
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
@@ -145,6 +146,8 @@ func (b *rawMessageBuffer) signalLocked() {
 //     (before taking writeMu, so a blocked write unblocks via EPIPE — see
 //     Close), then acquires writeMu and sets c.transport = nil, symmetric with
 //     writeMessage's read.
+//
+//nolint:revive // ClaudeSDKClient is the established public API type name; renaming to SDKClient would break compatibility.
 type ClaudeSDKClient struct {
 	opts      *Options
 	sessionID string
@@ -305,11 +308,8 @@ func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message
 			}
 			if line == nil {
 				// readLoop hit EOF or error after all queued data was delivered.
-				c.readErrMu.Lock()
-				err := c.readErr
-				c.readErrMu.Unlock()
-				if err != nil && !errors.Is(err, io.EOF) {
-					yield(nil, err)
+				if rerr := c.finalReadErr(); rerr != nil {
+					yield(nil, rerr)
 				}
 				return
 			}
@@ -331,6 +331,18 @@ func (c *ClaudeSDKClient) ReceiveResponse(ctx context.Context) iter.Seq2[Message
 			}
 		}
 	}
+}
+
+// finalReadErr returns readLoop's terminal error after the buffer drained, or
+// nil when the loop ended on a clean EOF. It is read under readErrMu so the
+// value is consistent with the readLoop writer.
+func (c *ClaudeSDKClient) finalReadErr() error {
+	c.readErrMu.Lock()
+	defer c.readErrMu.Unlock()
+	if c.readErr != nil && !errors.Is(c.readErr, io.EOF) {
+		return c.readErr
+	}
+	return nil
 }
 
 // Fork creates a new [ClaudeSDKClient] whose conversation history is branched
@@ -387,6 +399,8 @@ func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*Clau
 //
 // The transport is cleared inside the writeMu critical section, mirroring
 // pkg/codex/client.go:265-271 (write-symmetric clear from commit 8c16376).
+//
+//nolint:unparam // Close() error is the idiomatic io.Closer-style signature kept for API compatibility; the current teardown cannot fail.
 func (c *ClaudeSDKClient) Close() error {
 	c.closeMu.Lock()
 	if c.transport == nil {
@@ -456,35 +470,45 @@ func (c *ClaudeSDKClient) Close() error {
 	}
 
 	// Signal and wait for the subprocess.
-	if cmd != nil && cmd.Process != nil {
-		_ = cmd.Process.Signal(os.Interrupt) // ignore: process may have exited before signal delivery.
-		done := cmdDone
-		if done == nil {
-			done = waitForCmd(cmd)
-		}
-		select {
-		case <-done:
-		case <-time.After(2 * time.Second):
-			_ = cmd.Process.Kill() // ignore: process exit path is best-effort; timed timeout.
-			<-done
-		}
-	}
+	terminateProcess(cmd, cmdDone)
 
 	// Wait for readLoop and drainStderr to exit — mirrors pkg/codex/client.go:293,297.
 	// Budget 500ms each, matching the codex drain timeout.
-	if readDone != nil {
-		select {
-		case <-readDone:
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
-	if stderrDone != nil {
-		select {
-		case <-stderrDone:
-		case <-time.After(500 * time.Millisecond):
-		}
-	}
+	waitOrTimeout(readDone, 500*time.Millisecond)
+	waitOrTimeout(stderrDone, 500*time.Millisecond)
 	return nil
+}
+
+// terminateProcess signals the subprocess to stop and waits for it to exit,
+// escalating to Kill after a 2s grace period. It is a no-op when cmd or its
+// process is nil (e.g. a FakeCLI-backed client with no real subprocess).
+func terminateProcess(cmd *exec.Cmd, cmdDone chan error) {
+	if cmd == nil || cmd.Process == nil {
+		return
+	}
+	_ = cmd.Process.Signal(os.Interrupt) // ignore: process may have exited before signal delivery.
+	done := cmdDone
+	if done == nil {
+		done = waitForCmd(cmd)
+	}
+	select {
+	case <-done:
+	case <-time.After(2 * time.Second):
+		_ = cmd.Process.Kill() // ignore: process exit path is best-effort; timed out.
+		<-done
+	}
+}
+
+// waitOrTimeout blocks until done is closed or timeout elapses. A nil channel
+// returns immediately, since the corresponding goroutine was never started.
+func waitOrTimeout(done <-chan struct{}, timeout time.Duration) {
+	if done == nil {
+		return
+	}
+	select {
+	case <-done:
+	case <-time.After(timeout):
+	}
 }
 
 // ── unexported infrastructure ────────────────────────────────────────────────
@@ -558,6 +582,7 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 	if err != nil {
 		return err
 	}
+	//nolint:gosec // G204: launching the resolved claude CLI (args[0] from discoverCLI) with SDK-built flags from typed Options is the intended subprocess behavior.
 	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
 	var cwd string
 	if c.opts != nil {
@@ -609,7 +634,7 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 // Returns CLIConnectionError if the transport is nil (i.e. after Close).
 // This is the symmetric half of the Close pattern: both writeMessage and
 // Close access c.transport under writeMu, so they cannot interleave.
-// (pkg/codex/client.go:637-648)
+// (pkg/codex/client.go:637-648).
 func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()

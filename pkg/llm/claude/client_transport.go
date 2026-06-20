@@ -53,7 +53,7 @@ type stdioTransport struct {
 
 var _ transport = (*stdioTransport)(nil)
 
-// Close closes the subprocess stdin pipe, signalling EOF to the CLI.
+// Close closes the subprocess stdin pipe, signaling EOF to the CLI.
 func (t *stdioTransport) Close() error {
 	if t.stdin == nil {
 		return nil

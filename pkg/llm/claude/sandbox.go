@@ -61,22 +61,8 @@ func buildSettingsValue(opts *Options) (string, error) {
 	settingsObj := map[string]any{}
 
 	if hasSettings {
-		trimmed := strings.TrimSpace(opts.Settings)
-		isJSONLiteral := strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}")
-		if isJSONLiteral {
-			if err := json.Unmarshal([]byte(trimmed), &settingsObj); err != nil {
-				return "", &CLIConnectionError{Message: "parse Options.Settings as JSON: " + err.Error()}
-			}
-		} else {
-			data, err := os.ReadFile(trimmed)
-			if err == nil {
-				if err := json.Unmarshal(data, &settingsObj); err != nil {
-					return "", &CLIConnectionError{Message: "parse Options.Settings file " + trimmed + " as JSON: " + err.Error()}
-				}
-			}
-			// File missing or unreadable: parity with upstream's
-			// warn-and-continue behavior. settingsObj remains empty and
-			// Sandbox is merged into it below.
+		if err := parseSettingsBase(opts.Settings, settingsObj); err != nil {
+			return "", err
 		}
 	}
 
@@ -87,6 +73,32 @@ func buildSettingsValue(opts *Options) (string, error) {
 		return "", &CLIConnectionError{Message: "marshal merged --settings: " + err.Error()}
 	}
 	return string(out), nil
+}
+
+// parseSettingsBase parses settings — either a JSON object literal or a path to
+// a settings file — into dst. The JSON-vs-path heuristic matches upstream: the
+// trimmed value must both start with "{" and end with "}" to be treated as
+// JSON. A JSON literal that fails to parse is an error; a missing or unreadable
+// file is tolerated (dst is left unchanged), matching upstream's
+// warn-and-continue behavior so Sandbox is still merged into an empty base.
+func parseSettingsBase(settings string, dst map[string]any) error {
+	trimmed := strings.TrimSpace(settings)
+	if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
+		if err := json.Unmarshal([]byte(trimmed), &dst); err != nil {
+			return &CLIConnectionError{Message: "parse Options.Settings as JSON: " + err.Error()}
+		}
+		return nil
+	}
+	// A missing or unreadable file is tolerated (dst left unchanged), matching
+	// upstream's warn-and-continue behavior; only a present-but-unparsable file
+	// is an error.
+	data, err := os.ReadFile(trimmed)
+	if err == nil {
+		if err := json.Unmarshal(data, &dst); err != nil {
+			return &CLIConnectionError{Message: "parse Options.Settings file " + trimmed + " as JSON: " + err.Error()}
+		}
+	}
+	return nil
 }
 
 // ─── Sandbox configuration ───────────────────────────────────────────────────

@@ -100,6 +100,8 @@ func New(t *testing.T, script []Frame) *FakeCLI {
 
 // Close signals EOF to any pending ReadJSON call and prevents further writes.
 // Idempotent; t.Cleanup calls it automatically.
+//
+//nolint:unparam // Close() error satisfies the pkg/claude transport interface; this double cannot fail but must match the signature.
 func (f *FakeCLI) Close() error {
 	f.closeOnce.Do(func() { close(f.closed) })
 	return nil

@@ -141,7 +141,11 @@ func ToolWithAnnotations[I any](name, description string, schema *jsonschema.Sch
 		var input I
 		if len(req.Params.Arguments) > 0 {
 			if err := json.Unmarshal(req.Params.Arguments, &input); err != nil {
-				return &mcp.CallToolResult{
+				// MCP tool failures are reported in-band via CallToolResult.IsError,
+				// not as a protocol-level Go error; err is surfaced in Content. A nil
+				// Go error is the go-sdk ToolHandler convention, so the error is not
+				// being swallowed.
+				return &mcp.CallToolResult{ //nolint:nilerr // in-band MCP tool error: err surfaced in Content per go-sdk convention
 					IsError: true,
 					Content: []mcp.Content{&mcp.TextContent{Text: "invalid arguments: " + err.Error()}},
 				}, nil
@@ -149,7 +153,10 @@ func ToolWithAnnotations[I any](name, description string, schema *jsonschema.Sch
 		}
 		result, err := fn(ctx, input)
 		if err != nil {
-			return &mcp.CallToolResult{
+			// Tool-handler errors are likewise returned in-band (IsError + Content),
+			// matching upstream Query._handle_sdk_mcp_request; the nil Go error is
+			// intentional, not a dropped error.
+			return &mcp.CallToolResult{ //nolint:nilerr // in-band MCP tool error: err surfaced in Content per go-sdk convention
 				IsError: true,
 				Content: []mcp.Content{&mcp.TextContent{Text: err.Error()}},
 			}, nil
@@ -313,7 +320,7 @@ func (s *inProcessMCPServer) callTool(ctx context.Context, name string, argument
 	req := &mcp.CallToolRequest{
 		Params: &mcp.CallToolParamsRaw{
 			Name:      name,
-			Arguments: jsontext.Value(arguments),
+			Arguments: arguments,
 		},
 	}
 	result, err := def.mcpHandler(ctx, req)

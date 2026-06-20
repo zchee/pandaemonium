@@ -36,7 +36,7 @@ import (
 // the raw line-oriented transport, porting the upstream Query class
 // (claude-agent-sdk-python _internal/query.py).
 //
-// It owns no transport and no write mutex: outbound writes are funnelled
+// It owns no transport and no write mutex: outbound writes are funneled
 // through the injected writeFn (ClaudeSDKClient.writeMessage, guarded by
 // writeMu) so the single exclusion discipline lives in one place. See the
 // race-safety documentation on [ClaudeSDKClient].
@@ -144,13 +144,18 @@ type controlResponseEnvelope struct {
 //
 // Malformed JSON returns (false, nil) so the existing rawMessages path still
 // surfaces it downstream as a CLIJSONDecodeError; route never swallows it.
+//
+//nolint:unparam // route returns (bool, error) as its documented dispatch contract, asserted across the control-protocol and mcp test suites; the error slot is part of the shape even though current dispatch never surfaces one.
 func (cp *controlProtocol) route(ctx context.Context, line []byte) (consumed bool, err error) {
 	// Peek the type discriminator, mirroring parseMessage's peek pattern.
 	var env struct {
 		Type string `json:"type"`
 	}
 	if uerr := json.Unmarshal(line, &env); uerr != nil {
-		// Malformed JSON is not a control message; let the normal path report it.
+		// Malformed JSON is not a control message; surfacing it as an error here
+		// would swallow it. Returning (false, nil) lets the normal rawMessages
+		// path report it downstream as a CLIJSONDecodeError (see the godoc).
+		//nolint:nilerr // intentional: malformed JSON is reported downstream, not propagated here.
 		return false, nil
 	}
 
@@ -386,50 +391,59 @@ func (cp *controlProtocol) agentsWire() map[string]any {
 		return nil
 	}
 	out := make(map[string]any, len(cp.opts.Agents))
-	for _, a := range cp.opts.Agents {
-		def := make(map[string]any, 14)
-		if a.Description != "" {
-			def["description"] = a.Description
-		}
-		if a.SystemPrompt != "" {
-			def["prompt"] = a.SystemPrompt
-		}
-		if len(a.AllowedTools) > 0 {
-			def["tools"] = a.AllowedTools
-		}
-		if len(a.DisallowedTools) > 0 {
-			def["disallowedTools"] = a.DisallowedTools
-		}
-		if a.Model != "" {
-			def["model"] = a.Model
-		}
-		if len(a.Skills) > 0 {
-			def["skills"] = a.Skills
-		}
-		if a.Memory != "" {
-			def["memory"] = string(a.Memory)
-		}
-		if mcp := mergeMCPServersWire(a.MCPServers, a.MCPServerConfigs); mcp != nil {
-			def["mcpServers"] = mcp
-		}
-		if a.InitialPrompt != "" {
-			def["initialPrompt"] = a.InitialPrompt
-		}
-		if a.MaxTurns > 0 {
-			def["maxTurns"] = a.MaxTurns
-		}
-		if a.Background {
-			def["background"] = true
-		}
-		if a.Effort != "" {
-			def["effort"] = string(a.Effort)
-		}
-		if a.PermissionMode != "" {
-			def["permissionMode"] = string(a.PermissionMode)
-		}
-		out[a.Name] = def
+	for i := range cp.opts.Agents {
+		a := &cp.opts.Agents[i]
+		out[a.Name] = agentDefWire(a)
 	}
 	return out
+}
+
+// agentDefWire converts a single [AgentDefinition] into the upstream initialize
+// "agents" entry: a map carrying the dataclass field names used by the Python
+// SDK, omitting empty values. See [controlProtocol.agentsWire] for the field
+// coverage and the SystemPrompt→"prompt" / AllowedTools→"tools" divergences.
+func agentDefWire(a *AgentDefinition) map[string]any {
+	def := make(map[string]any, 14)
+	if a.Description != "" {
+		def["description"] = a.Description
+	}
+	if a.SystemPrompt != "" {
+		def["prompt"] = a.SystemPrompt
+	}
+	if len(a.AllowedTools) > 0 {
+		def["tools"] = a.AllowedTools
+	}
+	if len(a.DisallowedTools) > 0 {
+		def["disallowedTools"] = a.DisallowedTools
+	}
+	if a.Model != "" {
+		def["model"] = a.Model
+	}
+	if len(a.Skills) > 0 {
+		def["skills"] = a.Skills
+	}
+	if a.Memory != "" {
+		def["memory"] = string(a.Memory)
+	}
+	if mcp := mergeMCPServersWire(a.MCPServers, a.MCPServerConfigs); mcp != nil {
+		def["mcpServers"] = mcp
+	}
+	if a.InitialPrompt != "" {
+		def["initialPrompt"] = a.InitialPrompt
+	}
+	if a.MaxTurns > 0 {
+		def["maxTurns"] = a.MaxTurns
+	}
+	if a.Background {
+		def["background"] = true
+	}
+	if a.Effort != "" {
+		def["effort"] = string(a.Effort)
+	}
+	if a.PermissionMode != "" {
+		def["permissionMode"] = string(a.PermissionMode)
+	}
+	return def
 }
 
 // mergeMCPServersWire merges name-only and inline-config MCP server entries
@@ -820,13 +834,13 @@ func (cp *controlProtocol) handleHookCallback(ctx context.Context, reqBody jsont
 	if err != nil {
 		return nil, err
 	}
-	return hookDecisionWire(decision), nil
+	return hookDecisionWire(&decision), nil
 }
 
 // hookDecisionWire converts a HookDecision into the CLI-expected output map,
 // omitting empty fields so a zero decision serializes to {} (proceed
 // unchanged). Only the fields the Go HookDecision models are emitted.
-func hookDecisionWire(d HookDecision) map[string]any {
+func hookDecisionWire(d *HookDecision) map[string]any {
 	out := make(map[string]any, 3)
 	if d.SystemMessage != "" {
 		out["systemMessage"] = d.SystemMessage

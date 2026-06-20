@@ -442,7 +442,7 @@ func TestControlProtocol_FailPending(t *testing.T) {
 	cp.pending["req_1_dead"] = ch
 	cp.pendingMu.Unlock()
 
-	cp.failPending(errEOFForTest{})
+	cp.failPending(eofForTestError{})
 
 	select {
 	case res := <-ch:
@@ -461,7 +461,7 @@ func TestControlProtocol_FailPending(t *testing.T) {
 	}
 }
 
-// errEOFForTest is a stand-in transport error for failPending.
-type errEOFForTest struct{}
+// eofForTestError is a stand-in transport error for failPending.
+type eofForTestError struct{}
 
-func (errEOFForTest) Error() string { return "synthetic EOF" }
+func (eofForTestError) Error() string { return "synthetic EOF" }

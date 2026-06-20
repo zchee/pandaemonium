@@ -32,111 +32,6 @@ const skillsAll = "all"
 //	Options{Skills: AllSkills()}
 func AllSkills() []string { return []string{skillsAll} }
 
-// validate checks that o is a consistent, usable configuration. The zero value
-// is always valid per AC-i1. Callers (NewClient, Query) invoke this before
-// launching a subprocess so errors surface early without transport side effects.
-func (o *Options) validate() error {
-	if o == nil {
-		return nil
-	}
-	if o.MaxTurns < 0 {
-		return &CLIConnectionError{Message: "\"MaxTurns\" option must be >= 0"}
-	}
-	if o.MaxBudgetUSD < 0 {
-		return &CLIConnectionError{Message: "\"MaxBudgetUSD\" option must be >= 0"}
-	}
-	return nil
-}
-
-// clone returns a copy of o whose reference-typed fields (slices and maps) are
-// independent of the receiver's, so a caller can mutate the copy — including
-// appending to its slices or writing to its Env map — without affecting the
-// original. It is used by [ClaudeSDKClient.Fork] to give the child client its
-// own configuration.
-//
-// Only the containers are copied, not their elements: [Message] values, hook
-// functions, [MCPServer] instances, and the [SessionStore] are shared by
-// reference because they are immutable or intentionally shared (a forked child
-// branches from the same store). This is what prevents append-aliasing while
-// keeping fork cheap. A nil receiver returns nil.
-func (o *Options) clone() *Options {
-	if o == nil {
-		return nil
-	}
-	c := *o
-	if o.AllowedTools != nil {
-		c.AllowedTools = slices.Clone(o.AllowedTools)
-	}
-	if o.Tools != nil {
-		c.Tools = slices.Clone(o.Tools)
-	}
-	if o.MCPServers != nil {
-		c.MCPServers = slices.Clone(o.MCPServers)
-	}
-	if o.Hooks != nil {
-		c.Hooks = slices.Clone(o.Hooks)
-	}
-	if o.Agents != nil {
-		c.Agents = slices.Clone(o.Agents)
-	}
-	if o.Plugins != nil {
-		c.Plugins = slices.Clone(o.Plugins)
-	}
-	if o.SettingSources != nil {
-		c.SettingSources = slices.Clone(o.SettingSources)
-	}
-	if o.DisallowedTools != nil {
-		c.DisallowedTools = slices.Clone(o.DisallowedTools)
-	}
-	if o.Betas != nil {
-		c.Betas = slices.Clone(o.Betas)
-	}
-	if o.AddDirs != nil {
-		c.AddDirs = slices.Clone(o.AddDirs)
-	}
-	if o.Skills != nil {
-		c.Skills = slices.Clone(o.Skills)
-	}
-	if o.Env != nil {
-		c.Env = make(map[string]string, len(o.Env))
-		maps.Copy(c.Env, o.Env)
-	}
-	if o.ExtraArgs != nil {
-		c.ExtraArgs = make(map[string]*string, len(o.ExtraArgs))
-		maps.Copy(c.ExtraArgs, o.ExtraArgs)
-	}
-	if o.TaskBudget != nil {
-		tb := *o.TaskBudget
-		c.TaskBudget = &tb
-	}
-	if o.Sandbox != nil {
-		sb := *o.Sandbox
-		if o.Sandbox.ExcludedCommands != nil {
-			sb.ExcludedCommands = slices.Clone(o.Sandbox.ExcludedCommands)
-		}
-		if o.Sandbox.Network.AllowedDomains != nil {
-			sb.Network.AllowedDomains = slices.Clone(o.Sandbox.Network.AllowedDomains)
-		}
-		if o.Sandbox.Network.DeniedDomains != nil {
-			sb.Network.DeniedDomains = slices.Clone(o.Sandbox.Network.DeniedDomains)
-		}
-		if o.Sandbox.Network.AllowUnixSockets != nil {
-			sb.Network.AllowUnixSockets = slices.Clone(o.Sandbox.Network.AllowUnixSockets)
-		}
-		if o.Sandbox.Network.AllowMachLookup != nil {
-			sb.Network.AllowMachLookup = slices.Clone(o.Sandbox.Network.AllowMachLookup)
-		}
-		if o.Sandbox.IgnoreViolations.File != nil {
-			sb.IgnoreViolations.File = slices.Clone(o.Sandbox.IgnoreViolations.File)
-		}
-		if o.Sandbox.IgnoreViolations.Network != nil {
-			sb.IgnoreViolations.Network = slices.Clone(o.Sandbox.IgnoreViolations.Network)
-		}
-		c.Sandbox = &sb
-	}
-	return &c
-}
-
 // Options configures a [Query] or [ClaudeSDKClient] session.
 //
 // The zero value is usable: it exercises stdio defaults and performs CLI
@@ -368,4 +263,79 @@ type Options struct {
 	// are discovered. A nil/empty Skills is a no-op. Mirrors upstream
 	// skills (Literal["all"] | list[str]).
 	Skills []string
+}
+
+// validate checks that o is a consistent, usable configuration. The zero value
+// is always valid per AC-i1. Callers (NewClient, Query) invoke this before
+// launching a subprocess so errors surface early without transport side effects.
+func (o *Options) validate() error {
+	if o == nil {
+		return nil
+	}
+	if o.MaxTurns < 0 {
+		return &CLIConnectionError{Message: "\"MaxTurns\" option must be >= 0"}
+	}
+	if o.MaxBudgetUSD < 0 {
+		return &CLIConnectionError{Message: "\"MaxBudgetUSD\" option must be >= 0"}
+	}
+	return nil
+}
+
+// clone returns a copy of o whose reference-typed fields (slices and maps) are
+// independent of the receiver's, so a caller can mutate the copy — including
+// appending to its slices or writing to its Env map — without affecting the
+// original. It is used by [ClaudeSDKClient.Fork] to give the child client its
+// own configuration.
+//
+// Only the containers are copied, not their elements: [Message] values, hook
+// functions, [MCPServer] instances, and the [SessionStore] are shared by
+// reference because they are immutable or intentionally shared (a forked child
+// branches from the same store). This is what prevents append-aliasing while
+// keeping fork cheap. A nil receiver returns nil.
+//
+// slices.Clone and maps.Clone return nil for nil input, so the unconditional
+// clones below preserve each field's nil-vs-non-nil state.
+func (o *Options) clone() *Options {
+	if o == nil {
+		return nil
+	}
+	c := *o
+	c.AllowedTools = slices.Clone(o.AllowedTools)
+	c.Tools = slices.Clone(o.Tools)
+	c.MCPServers = slices.Clone(o.MCPServers)
+	c.Hooks = slices.Clone(o.Hooks)
+	c.Agents = slices.Clone(o.Agents)
+	c.Plugins = slices.Clone(o.Plugins)
+	c.SettingSources = slices.Clone(o.SettingSources)
+	c.DisallowedTools = slices.Clone(o.DisallowedTools)
+	c.Betas = slices.Clone(o.Betas)
+	c.AddDirs = slices.Clone(o.AddDirs)
+	c.Skills = slices.Clone(o.Skills)
+	c.Env = maps.Clone(o.Env)
+	c.ExtraArgs = maps.Clone(o.ExtraArgs)
+	if o.TaskBudget != nil {
+		tb := *o.TaskBudget
+		c.TaskBudget = &tb
+	}
+	c.Sandbox = cloneSandbox(o.Sandbox)
+	return &c
+}
+
+// cloneSandbox deep-copies the slice-typed fields of a [SandboxSettings] so the
+// returned pointer is independent of s. The *bool toggle fields are treated as
+// immutable and shared by reference (matching clone's element-sharing policy).
+// A nil input returns nil.
+func cloneSandbox(s *SandboxSettings) *SandboxSettings {
+	if s == nil {
+		return nil
+	}
+	sb := *s
+	sb.ExcludedCommands = slices.Clone(s.ExcludedCommands)
+	sb.Network.AllowedDomains = slices.Clone(s.Network.AllowedDomains)
+	sb.Network.DeniedDomains = slices.Clone(s.Network.DeniedDomains)
+	sb.Network.AllowUnixSockets = slices.Clone(s.Network.AllowUnixSockets)
+	sb.Network.AllowMachLookup = slices.Clone(s.Network.AllowMachLookup)
+	sb.IgnoreViolations.File = slices.Clone(s.IgnoreViolations.File)
+	sb.IgnoreViolations.Network = slices.Clone(s.IgnoreViolations.Network)
+	return &sb
 }

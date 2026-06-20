@@ -100,7 +100,7 @@ func (c *ClaudeSDKClient) SetPermissionMode(ctx context.Context, mode Permission
 // GetServerInfo returns the CLI's initialize response as raw JSON: the object
 // the CLI sent in reply to the initialize handshake, carrying fields such as
 // the available slash commands and the active output style. The shape is not
-// modelled as a Go type (forward compatibility); decode it into your own shape.
+// modeled as a Go type (forward compatibility); decode it into your own shape.
 //
 // It returns the cached result from the initialize handshake without issuing a
 // new control request, and a [CLIConnectionError] if initialize has not
@@ -117,7 +117,7 @@ func (c *ClaudeSDKClient) GetServerInfo(ctx context.Context) (jsontext.Value, er
 }
 
 // GetMCPStatus returns the CLI's MCP server connection status as raw JSON.
-// The shape is not modelled as a Go type at this entrypoint (forward
+// The shape is not modeled as a Go type at this entrypoint (forward
 // compatibility); use [ClaudeSDKClient.GetMCPStatusTyped] for the decoded
 // view, or decode this into your own shape. Returns a [CLIConnectionError]
 // on a not-running client, a CLI error response, or timeout.
@@ -142,7 +142,7 @@ func (c *ClaudeSDKClient) GetMCPStatusTyped(ctx context.Context) (*MCPStatusResp
 }
 
 // GetContextUsage returns a breakdown of the current context-window usage by
-// category as raw JSON. The shape is not modelled as a Go type (forward
+// category as raw JSON. The shape is not modeled as a Go type (forward
 // compatibility); decode it into your own shape. Returns a [CLIConnectionError]
 // on a not-running client, a CLI error response, or timeout.
 func (c *ClaudeSDKClient) GetContextUsage(ctx context.Context) (jsontext.Value, error) {

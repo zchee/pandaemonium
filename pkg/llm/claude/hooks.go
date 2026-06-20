@@ -83,6 +83,8 @@ type CanUseTool func(ctx context.Context, toolName string, input jsontext.Value,
 // the first [PermissionDeny] short-circuits further hook invocations.
 //
 // An invalid ToolGlob pattern returns a [CLIConnectionError].
+//
+//nolint:gocritic // hugeParam: HookEvent is passed by value to mirror the public Hook callback signature (func(ctx, HookEvent)); a pointer would diverge from that contract and ripple across the hook test suite.
 func dispatchHooks(ctx context.Context, regs []HookRegistration, event HookEvent) (HookDecision, error) {
 	var merged HookDecision
 	for _, reg := range regs {
@@ -107,34 +109,39 @@ func dispatchHooks(ctx context.Context, regs []HookRegistration, event HookEvent
 		if err != nil {
 			return HookDecision{}, err
 		}
-		// Merge system messages.
-		if decision.SystemMessage != "" {
-			if merged.SystemMessage != "" {
-				merged.SystemMessage += "\n" + decision.SystemMessage
-			} else {
-				merged.SystemMessage = decision.SystemMessage
-			}
-		}
-		// Merge additional context.
-		if decision.AdditionalContext != "" {
-			if merged.AdditionalContext != "" {
-				merged.AdditionalContext += "\n" + decision.AdditionalContext
-			} else {
-				merged.AdditionalContext = decision.AdditionalContext
-			}
-		}
-		// Propagate permission decision; deny is sticky and stops iteration.
-		if decision.HookSpecificOutput.PermissionDecision != PermissionAsk {
-			merged.HookSpecificOutput.PermissionDecision = decision.HookSpecificOutput.PermissionDecision
-			if decision.HookSpecificOutput.PermissionDecisionReason != "" {
-				merged.HookSpecificOutput.PermissionDecisionReason = decision.HookSpecificOutput.PermissionDecisionReason
-			}
-		}
+		mergeHookDecision(&merged, &decision)
 		if merged.HookSpecificOutput.PermissionDecision == PermissionDeny {
 			return merged, nil
 		}
 	}
 	return merged, nil
+}
+
+// mergeHookDecision folds a single hook's decision into merged: SystemMessage
+// and AdditionalContext are newline-concatenated, and a non-Ask permission
+// decision (with its reason) overrides the prior verdict. Deny stickiness —
+// stopping iteration — is handled by the caller.
+func mergeHookDecision(merged, decision *HookDecision) {
+	if decision.SystemMessage != "" {
+		if merged.SystemMessage != "" {
+			merged.SystemMessage += "\n" + decision.SystemMessage
+		} else {
+			merged.SystemMessage = decision.SystemMessage
+		}
+	}
+	if decision.AdditionalContext != "" {
+		if merged.AdditionalContext != "" {
+			merged.AdditionalContext += "\n" + decision.AdditionalContext
+		} else {
+			merged.AdditionalContext = decision.AdditionalContext
+		}
+	}
+	if decision.HookSpecificOutput.PermissionDecision != PermissionAsk {
+		merged.HookSpecificOutput.PermissionDecision = decision.HookSpecificOutput.PermissionDecision
+		if decision.HookSpecificOutput.PermissionDecisionReason != "" {
+			merged.HookSpecificOutput.PermissionDecisionReason = decision.HookSpecificOutput.PermissionDecisionReason
+		}
+	}
 }
 
 // applyCanUseTool wraps the [CanUseTool] callback as a [HookDecision]. It
@@ -146,6 +153,8 @@ func dispatchHooks(ctx context.Context, regs []HookRegistration, event HookEvent
 // (no opinion). UpdatedInput and UpdatedPermissions are intentionally not
 // surfaced here — they only travel down the control-protocol can_use_tool
 // response path in [controlProtocol.handleCanUseTool].
+//
+//nolint:gocritic // hugeParam: HookEvent is passed by value to mirror the public Hook callback signature; a pointer would diverge from that contract and ripple across the hook test suite.
 func applyCanUseTool(ctx context.Context, fn CanUseTool, event HookEvent) (HookDecision, error) {
 	if fn == nil || event.Kind != HookEventPreToolUse {
 		return HookDecision{}, nil
@@ -174,6 +183,8 @@ func applyCanUseTool(ctx context.Context, fn CanUseTool, event HookEvent) (HookD
 // any prior allow.
 //
 // A nil opts is treated as no registrations and no callback (always allow).
+//
+//nolint:gocritic // hugeParam: HookEvent is passed by value to mirror the public Hook callback signature; a pointer would diverge from that contract and ripple across the hook test suite.
 func applyPermissions(ctx context.Context, opts *Options, event HookEvent) (HookDecision, error) {
 	if opts == nil {
 		return HookDecision{}, nil

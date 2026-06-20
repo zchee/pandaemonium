@@ -23,31 +23,6 @@ import (
 	"github.com/go-json-experiment/json"
 )
 
-// buildLaunchArgs constructs the argument slice for launching the claude CLI
-// subprocess. The resulting slice is suitable for exec.Command(args[0], args[1:]...).
-//
-// cliPath is the resolved binary path (from discoverCLI).
-// opts configures additional CLI flags; nil opts uses defaults.
-// resumeSessionID, when non-empty, adds --resume <id> so the CLI subprocess
-// resumes from that session (used by [ClaudeSDKClient.Fork]).
-//
-// Note on Agents: AgentDefinition values in opts.Agents are NOT encoded as CLI
-// flags. The claude CLI receives agent definitions via the streaming initialize
-// request (same pattern as the TypeScript and Python SDKs). No --agents flag
-// exists in the claude CLI.
-//
-// Prompts are NOT passed as flags: the CLI is always launched in streaming
-// stdin mode, and the user prompt is sent as a JSON envelope on stdin after
-// the initialize handshake completes (see [ClaudeSDKClient.Query]). There is
-// no --print flag.
-//
-// It returns an error only if the --mcp-config payload fails to marshal, which
-// cannot happen for the well-formed maps configForCLI produces; the error path
-// exists so a future MCPServer config that is not JSON-encodable surfaces a
-// CLIConnectionError instead of silently launching without its servers.
-//
-// Mirrors the structure of pkg/codex/client.go:563 buildAppServerArgs.
-// Round-trip parity is tested in client_launch_args_test.go (AC13).
 // effectiveToolsAndSources computes the allowed tools and setting sources after
 // applying the Skills coupling, mirroring upstream _apply_skills_defaults
 // (subprocess_cli.py:186-219). When Skills is set it injects the skill tools
@@ -90,24 +65,76 @@ func effectiveToolsAndSources(opts *Options) (tools []string, sources []SettingS
 	return tools, sources
 }
 
+// buildLaunchArgs constructs the argument slice for launching the claude CLI
+// subprocess, suitable for exec.Command(args[0], args[1:]...).
+//
+// cliPath is the resolved binary path (from discoverCLI); opts configures the
+// CLI flags (nil uses defaults); resumeSessionID, when non-empty, adds
+// --resume <id> so the subprocess resumes that session (used by
+// [ClaudeSDKClient.Fork], taking precedence over [Options.Resume]).
+//
+// Agents and prompts are NOT passed as flags: agent definitions travel in the
+// streaming initialize request and prompts are sent as stdin envelopes. The
+// argument order mirrors upstream subprocess_cli.py and is asserted for
+// round-trip parity in client_launch_args_test.go (AC13); the per-group builder
+// helpers below preserve that order. An error is returned only when a JSON
+// payload (--json-schema, --settings, --mcp-config) fails to marshal.
 func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]string, error) {
-	args := []string{cliPath}
-
 	if opts == nil {
 		opts = &Options{}
 	}
+	args := []string{cliPath}
 
-	// Output format — always stream-json for SDK use unless overridden.
+	formatArgs, err := buildFormatArgs(opts)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, formatArgs...)
+
+	args = append(args, buildSystemPromptArgs(opts)...)
+
+	// Allowed tools and setting sources are coupled through Skills (see
+	// effectiveToolsAndSources). Compute both once: tool args are emitted here,
+	// the setting-sources flag near the end (preserving upstream order).
+	effTools, effSources := effectiveToolsAndSources(opts)
+	args = append(args, buildToolArgs(opts, effTools)...)
+
+	args = append(args, buildLimitArgs(opts)...)
+
+	settingsArgs, err := buildSettingsArgs(opts)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, settingsArgs...)
+
+	args = append(args, buildSessionScopeArgs(opts)...)
+	args = append(args, buildThinkingArgs(opts)...)
+
+	mcpArgs, err := buildMCPArgs(opts)
+	if err != nil {
+		return nil, err
+	}
+	args = append(args, mcpArgs...)
+
+	args = append(args, buildPluginArgs(opts)...)
+	args = append(args, buildSettingSourcesArgs(effSources)...)
+	args = append(args, buildExtraArgs(opts)...)
+	args = append(args, buildResumeArgs(opts, resumeSessionID)...)
+
+	return args, nil
+}
+
+// buildFormatArgs builds the output/input-format, structured-schema, verbosity,
+// partial-message, and model flags. Output format defaults to stream-json and
+// --verbose is emitted unconditionally for SDK streaming (subprocess_cli.py:225,
+// 395-404). It errors only if the --json-schema payload fails to marshal.
+func buildFormatArgs(opts *Options) ([]string, error) {
 	outputFmt := "stream-json"
 	if opts.OutputFormat != "" {
 		outputFmt = opts.OutputFormat
 	}
-	args = append(args, "--output-format", outputFmt)
+	args := []string{"--output-format", outputFmt}
 
-	// Structured-output schema — emitted as --json-schema <json> when set,
-	// mirroring upstream output_format={"type":"json_schema","schema":{...}}
-	// (subprocess_cli.py:395-404). Independent of OutputFormat. jsonschema.Schema
-	// has a custom MarshalJSON, so the output is deterministic.
 	if opts.JSONSchema != nil {
 		schemaJSON, err := json.Marshal(opts.JSONSchema)
 		if err != nil {
@@ -116,157 +143,136 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 		args = append(args, "--json-schema", string(schemaJSON))
 	}
 
-	// Input format — always stream-json for SDK use unless overridden.
-	// Upstream subprocess_cli.py always sends --input-format stream-json.
 	inputFmt := "stream-json"
 	if opts.InputFormat != "" {
 		inputFmt = opts.InputFormat
 	}
-	args = append(args, "--input-format", inputFmt)
+	// --verbose follows --input-format unconditionally; emit them together.
+	args = append(args, "--input-format", inputFmt, "--verbose")
 
-	// Verbose mode — emitted unconditionally to match upstream
-	// subprocess_cli.py:225 (the CLI always runs verbose for SDK streaming).
-	args = append(args, "--verbose")
-
-	// Include partial messages.
 	if opts.IncludePartialMessages {
 		args = append(args, "--include-partial-messages")
 	}
-
-	// Model selection.
 	if opts.Model != "" {
 		args = append(args, "--model", opts.Model)
 	}
+	return args, nil
+}
 
-	// System prompt — type-switch the SystemPromptSource sum type
-	// (subprocess_cli.py:227-238). nil → --system-prompt "" (the unset case,
-	// :227-228); Text → --system-prompt <text> (:229-230); File →
-	// --system-prompt-file <path> (:233-234); Preset → --append-system-prompt
-	// <append> (:235-237).
+// buildSystemPromptArgs type-switches the SystemPromptSource sum type
+// (subprocess_cli.py:227-238): nil → --system-prompt ""; Text → --system-prompt;
+// File → --system-prompt-file; Preset → --append-system-prompt.
+func buildSystemPromptArgs(opts *Options) []string {
 	switch sp := opts.SystemPrompt.(type) {
 	case nil:
-		args = append(args, "--system-prompt", "")
+		return []string{"--system-prompt", ""}
 	case SystemPromptText:
-		args = append(args, "--system-prompt", string(sp))
+		return []string{"--system-prompt", string(sp)}
 	case SystemPromptFile:
-		args = append(args, "--system-prompt-file", sp.Path)
+		return []string{"--system-prompt-file", sp.Path}
 	case SystemPromptPreset:
-		args = append(args, "--append-system-prompt", sp.Append)
+		return []string{"--append-system-prompt", sp.Append}
+	default:
+		return nil
 	}
+}
 
-	// Allowed tools and setting sources are coupled through Skills (see
-	// effectiveToolsAndSources). Compute both once; emit allowedTools here as a
-	// single comma-joined flag (subprocess_cli.py:257) and setting-sources
-	// below.
-	effTools, effSources := effectiveToolsAndSources(opts)
+// buildToolArgs emits --allowedTools (the Skills-adjusted effTools) and the base
+// --tools set (subprocess_cli.py:241-257). ToolsPreset wins over Tools; a
+// non-nil empty Tools emits --tools "" while a nil Tools omits the flag.
+func buildToolArgs(opts *Options, effTools []string) []string {
+	var args []string
 	if len(effTools) > 0 {
 		args = append(args, "--allowedTools", strings.Join(effTools, ","))
 	}
-
-	// Base tool set — distinct from --allowedTools (subprocess_cli.py:241-250).
-	// ToolsPreset wins over Tools; a non-nil empty Tools emits --tools "" (an
-	// explicit empty set), while a nil Tools omits the flag. The nil-vs-empty
-	// distinction is by != nil, not len(), to preserve the tri-state.
 	switch {
 	case opts.ToolsPreset != "":
 		args = append(args, "--tools", opts.ToolsPreset)
 	case opts.Tools != nil:
 		args = append(args, "--tools", strings.Join(opts.Tools, ","))
 	}
+	return args
+}
 
-	// Max turns per session.
+// buildLimitArgs emits the turn/permission/budget/identity flags that sit
+// between the tool flags and the settings value (subprocess_cli.py:259-295).
+// TaskBudget is gated on nil so an explicit Total:0 forwards --task-budget 0.
+func buildLimitArgs(opts *Options) []string {
+	var args []string
 	if opts.MaxTurns > 0 {
 		args = append(args, "--max-turns", strconv.Itoa(opts.MaxTurns))
 	}
-
-	// Permission mode.
 	if opts.PermissionMode != "" {
 		args = append(args, "--permission-mode", string(opts.PermissionMode))
 	}
-
-	// API key helper binary.
 	if opts.APIKeyHelper != "" {
 		args = append(args, "--api-key-helper", opts.APIKeyHelper)
 	}
-
-	// Max spend budget.
 	if opts.MaxBudgetUSD > 0 {
 		args = append(args, "--max-budget-usd", strconv.FormatFloat(opts.MaxBudgetUSD, 'f', -1, 64))
 	}
-
-	// Disallowed tools — single comma-joined flag (subprocess_cli.py:266).
 	if len(opts.DisallowedTools) > 0 {
 		args = append(args, "--disallowedTools", strings.Join(opts.DisallowedTools, ","))
 	}
-
-	// Task budget (subprocess_cli.py:268-269). Gate on nil so that an
-	// explicit TaskBudget{Total: 0} is forwarded as --task-budget 0, matching
-	// upstream's `is not None` check.
 	if opts.TaskBudget != nil {
 		args = append(args, "--task-budget", strconv.Itoa(opts.TaskBudget.Total))
 	}
-
-	// Fallback model (subprocess_cli.py:275).
 	if opts.FallbackModel != "" {
 		args = append(args, "--fallback-model", opts.FallbackModel)
 	}
-
-	// Beta feature flags — single comma-joined flag (subprocess_cli.py:278).
 	if len(opts.Betas) > 0 {
 		args = append(args, "--betas", strings.Join(opts.Betas, ","))
 	}
-
-	// Permission-prompt MCP tool name (subprocess_cli.py:281).
 	if opts.PermissionPromptToolName != "" {
 		args = append(args, "--permission-prompt-tool", opts.PermissionPromptToolName)
 	}
-
-	// Continue the most recent conversation (subprocess_cli.py:289).
 	if opts.ContinueConversation {
 		args = append(args, "--continue")
 	}
-
-	// Explicit session ID for a new session (subprocess_cli.py:295).
 	if opts.SessionID != "" {
 		args = append(args, "--session-id", opts.SessionID)
 	}
+	return args
+}
 
-	// Settings JSON or file path, with Sandbox merged in. Mirrors upstream
-	// _build_settings_value (subprocess_cli.py:129-181).
+// buildSettingsArgs emits --settings with [Options.Sandbox] merged in, or
+// nothing when the resolved value is empty (subprocess_cli.py:129-181).
+func buildSettingsArgs(opts *Options) ([]string, error) {
 	v, err := buildSettingsValue(opts)
 	if err != nil {
 		return nil, err
 	}
-	if v != "" {
-		args = append(args, "--settings", v)
+	if v == "" {
+		return nil, nil
 	}
+	return []string{"--settings", v}, nil
+}
 
-	// Additional accessible directories — one flag per entry (subprocess_cli.py:305).
+// buildSessionScopeArgs emits the accessible-directory, hook-event, and
+// fork-session flags (subprocess_cli.py:305, 338, 344), one --add-dir per entry.
+func buildSessionScopeArgs(opts *Options) []string {
+	args := make([]string, 0, len(opts.AddDirs)*2+2)
 	for _, dir := range opts.AddDirs {
 		args = append(args, "--add-dir", dir)
 	}
-
-	// Stream hook lifecycle events as messages (subprocess_cli.py:338).
 	if opts.IncludeHookEvents {
 		args = append(args, "--include-hook-events")
 	}
-
-	// Fork into a new session ID when resuming (subprocess_cli.py:344).
 	if opts.ForkSession {
 		args = append(args, "--fork-session")
 	}
+	return args
+}
 
-	// Thinking configuration (subprocess_cli.py:372-393). The Thinking field
-	// takes precedence over the deprecated MaxThinkingTokens — they share an
-	// else-if in upstream. Wire mapping per variant:
-	//   Adaptive  → --thinking adaptive [+ --thinking-display]
-	//   Enabled   → --max-thinking-tokens <N> [+ --thinking-display]
-	//                (NOTE: no --thinking flag; subprocess_cli.py:378)
-	//   Disabled  → --thinking disabled (no --thinking-display even if set;
-	//                subprocess_cli.py:385 gates Display on type != disabled)
+// buildThinkingArgs maps the Thinking sum type and Effort to flags
+// (subprocess_cli.py:372-393). Thinking takes precedence over the deprecated
+// MaxThinkingTokens: Adaptive → --thinking adaptive; Enabled →
+// --max-thinking-tokens N (no --thinking flag); Disabled → --thinking disabled
+// (no --thinking-display). The nil case falls through to MaxThinkingTokens.
+func buildThinkingArgs(opts *Options) []string {
+	var args []string
 	switch t := opts.Thinking.(type) {
 	case nil:
-		// Fall through to MaxThinkingTokens.
 		if opts.MaxThinkingTokens > 0 {
 			args = append(args, "--max-thinking-tokens", strconv.Itoa(opts.MaxThinkingTokens))
 		}
@@ -283,18 +289,19 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 	case ThinkingConfigDisabled:
 		args = append(args, "--thinking", "disabled")
 	}
-
-	// Effort level (subprocess_cli.py:392).
 	if opts.Effort != "" {
 		args = append(args, "--effort", string(opts.Effort))
 	}
+	return args
+}
 
-	// MCP servers — encoded as a single --mcp-config JSON object keyed by
-	// server name, followed by --strict-mcp-config when requested. Mirrors
-	// upstream subprocess_cli.py:307 (json.dumps({"mcpServers": servers_for_cli}))
-	// and :340 (--strict-mcp-config). In-process servers contribute
-	// {"type":"sdk","name":<name>}; the CLI then routes their tool calls back
-	// over the control protocol.
+// buildMCPArgs encodes MCP servers as a single --mcp-config JSON object keyed by
+// server name, followed by --strict-mcp-config when requested
+// (subprocess_cli.py:307, 340). In-process servers contribute
+// {"type":"sdk","name":<name>}; the CLI routes their tool calls back over the
+// control protocol. It errors only if the config payload fails to marshal.
+func buildMCPArgs(opts *Options) ([]string, error) {
+	var args []string
 	if len(opts.MCPServers) > 0 {
 		servers := make(map[string]any, len(opts.MCPServers))
 		for _, srv := range opts.MCPServers {
@@ -309,64 +316,76 @@ func buildLaunchArgs(cliPath string, opts *Options, resumeSessionID string) ([]s
 	if opts.StrictMCPConfig {
 		args = append(args, "--strict-mcp-config")
 	}
+	return args, nil
+}
 
-	// Plugins — local plugins use --plugin-dir (one flag per plugin).
-	// Mirrors upstream Python subprocess_cli.py:
-	//   if plugin["type"] == "local": cmd.extend(["--plugin-dir", plugin["path"]])
+// buildPluginArgs emits one --plugin-dir flag per local plugin path, mirroring
+// upstream's `if plugin["type"] == "local"` handling.
+func buildPluginArgs(opts *Options) []string {
+	if len(opts.Plugins) == 0 {
+		return nil
+	}
+	args := make([]string, 0, len(opts.Plugins)*2)
 	for _, p := range opts.Plugins {
 		if p.Path != "" {
 			args = append(args, "--plugin-dir", p.Path)
 		}
 	}
+	return args
+}
 
-	// Setting sources — comma-joined list of literals (user|project|local)
-	// passed as a single --setting-sources= flag (subprocess_cli.py:353). The
-	// list is the Skills-adjusted effSources from effectiveToolsAndSources: when
-	// Skills is set and the user left SettingSources unset, it defaults to
-	// user+project. Empty entries are skipped so a zero-value SettingSource does
-	// not produce a trailing empty token.
-	if len(effSources) > 0 {
-		parts := make([]string, 0, len(effSources))
-		for _, ss := range effSources {
-			if ss != "" {
-				parts = append(parts, string(ss))
-			}
-		}
-		if len(parts) > 0 {
-			args = append(args, "--setting-sources="+strings.Join(parts, ","))
+// buildSettingSourcesArgs emits the comma-joined --setting-sources= flag from
+// the Skills-adjusted effSources (subprocess_cli.py:353). Empty entries are
+// skipped so a zero-value SettingSource does not produce a trailing empty token.
+func buildSettingSourcesArgs(effSources []SettingSource) []string {
+	if len(effSources) == 0 {
+		return nil
+	}
+	parts := make([]string, 0, len(effSources))
+	for _, ss := range effSources {
+		if ss != "" {
+			parts = append(parts, string(ss))
 		}
 	}
+	if len(parts) == 0 {
+		return nil
+	}
+	return []string{"--setting-sources=" + strings.Join(parts, ",")}
+}
 
-	// Extra args — arbitrary additional CLI flags (subprocess_cli.py:364). A nil
-	// value emits a bare "--key"; a non-nil value emits "--key <value>". Keys
-	// are emitted in sorted order so the argument slice is deterministic (Go
-	// map iteration is randomized, unlike the insertion-ordered Python dict).
-	if len(opts.ExtraArgs) > 0 {
-		keys := make([]string, 0, len(opts.ExtraArgs))
-		for k := range opts.ExtraArgs {
-			keys = append(keys, k)
-		}
-		sort.Strings(keys)
-		for _, k := range keys {
-			if v := opts.ExtraArgs[k]; v != nil {
-				args = append(args, "--"+k, *v)
-			} else {
-				args = append(args, "--"+k)
-			}
+// buildExtraArgs emits arbitrary additional CLI flags (subprocess_cli.py:364): a
+// nil value emits a bare "--key"; a non-nil value emits "--key <value>". Keys
+// are sorted so the argument slice is deterministic despite Go map iteration.
+func buildExtraArgs(opts *Options) []string {
+	if len(opts.ExtraArgs) == 0 {
+		return nil
+	}
+	keys := make([]string, 0, len(opts.ExtraArgs))
+	for k := range opts.ExtraArgs {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	args := make([]string, 0, len(keys)*2)
+	for _, k := range keys {
+		if v := opts.ExtraArgs[k]; v != nil {
+			args = append(args, "--"+k, *v)
+		} else {
+			args = append(args, "--"+k)
 		}
 	}
+	return args
+}
 
-	// Resume session (subprocess_cli.py:292). The Fork-driven resumeSessionID
-	// parameter takes precedence over opts.Resume: a forked child must resume
-	// the branched session regardless of the user's option. Falls back to
-	// opts.Resume for an explicitly-resumed (non-forked) client.
+// buildResumeArgs emits --resume (subprocess_cli.py:292). The Fork-driven
+// resumeSessionID takes precedence over opts.Resume so a forked child resumes
+// the branched session regardless of the user's option.
+func buildResumeArgs(opts *Options, resumeSessionID string) []string {
 	resume := resumeSessionID
 	if resume == "" {
 		resume = opts.Resume
 	}
 	if resume != "" {
-		args = append(args, "--resume", resume)
+		return []string{"--resume", resume}
 	}
-
-	return args, nil
+	return nil
 }

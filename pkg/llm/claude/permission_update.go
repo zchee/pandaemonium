@@ -141,6 +141,8 @@ type PermissionUpdate struct {
 // `PermissionUpdate.to_dict` produces (types.py:138-172). The Type field
 // drives which optional keys are included; mismatched fields are silently
 // dropped, matching upstream behavior.
+//
+//nolint:gocritic // hugeParam: ToWire is an exported value-receiver method; a pointer receiver would change the public method set and break value callers.
 func (u PermissionUpdate) ToWire() map[string]any {
 	out := map[string]any{
 		"type": string(u.Type),

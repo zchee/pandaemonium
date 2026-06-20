@@ -16,6 +16,7 @@ package fakecli_test
 
 import (
 	"context"
+	"errors"
 	"io"
 	"testing"
 
@@ -286,5 +287,5 @@ func TestFakeCLI_Written_IsSnapshot(t *testing.T) {
 
 // isEOF returns true if err is io.EOF or wraps it.
 func isEOF(err error) bool {
-	return err == io.EOF
+	return errors.Is(err, io.EOF)
 }
