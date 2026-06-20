@@ -83,6 +83,8 @@ func (es *ExecServer) SessionID() string {
 }
 
 // CommandExec runs a standalone command (argv vector).
+//
+//nolint:unparam // CommandExecResponse is part of the exported ExecServer API and is consumed by external callers.
 func (es *ExecServer) CommandExec(ctx context.Context, params *CommandExecParams) (CommandExecResponse, error) {
 	if es == nil || es.client == nil {
 		return CommandExecResponse{}, errExecServerNil

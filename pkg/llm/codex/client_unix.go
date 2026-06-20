@@ -65,7 +65,7 @@ func unsupportedListenURLError(listenURL string) error {
 	return fmt.Errorf("unsupported app-server listen URL %q: expected stdio://, unix://, unix://PATH, or ws://HOST:PORT", listenURL)
 }
 
-func websocketListenMode(listenURL string, env map[string]string, cwd string) (string, string, error) {
+func websocketListenMode(listenURL string, env map[string]string, cwd string) (mode, socketPath string, err error) {
 	kind, err := parseListenTransport(listenURL)
 	if err != nil {
 		return "", "", err

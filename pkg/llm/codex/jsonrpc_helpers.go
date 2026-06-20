@@ -85,13 +85,13 @@ func (s *jsonRPCClientState) unregisterResponse(id string) {
 	s.responseMu.Unlock()
 }
 
-func (s *jsonRPCClientState) deliverResponse(msg rpcMessage) {
+func (s *jsonRPCClientState) deliverResponse(msg *rpcMessage) {
 	s.responseMu.Lock()
 	response := s.responses[msg.ID]
 	delete(s.responses, msg.ID)
 	s.responseMu.Unlock()
 	if response != nil {
-		response <- responseWait{msg: msg}
+		response <- responseWait{msg: *msg}
 	}
 }
 

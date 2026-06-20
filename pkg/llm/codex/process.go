@@ -47,7 +47,7 @@ func (c *Client) SpawnProcess(ctx context.Context, params *ProcessSpawnParams) (
 	if params.ProcessHandle == "" {
 		return nil, fmt.Errorf("process spawn process handle is required")
 	}
-	if _, err := c.turnRouter.registerProcess(params.ProcessHandle); err != nil {
+	if err := c.turnRouter.registerProcess(params.ProcessHandle); err != nil {
 		return nil, err
 	}
 

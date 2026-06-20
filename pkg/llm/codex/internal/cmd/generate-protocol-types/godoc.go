@@ -218,7 +218,7 @@ func isPluralNounPhrase(body string) bool {
 	return true
 }
 
-func splitFirstWord(line string) (string, string) {
+func splitFirstWord(line string) (word, rest string) {
 	index := strings.IndexAny(line, " \t")
 	if index < 0 {
 		return line, ""
@@ -369,7 +369,7 @@ func imperativeToThirdPerson(word string) (string, bool) {
 	return conjugateThirdPerson(lower) + suffix, true
 }
 
-func splitTrailingPunctuation(word string) (string, string) {
+func splitTrailingPunctuation(word string) (base, suffix string) {
 	end := len(word)
 	for end > 0 {
 		switch word[end-1] {

@@ -191,21 +191,20 @@ func (r *turnNotificationRouter) registerLogin(loginID string) (*notificationQue
 	return queue, nil
 }
 
-func (r *turnNotificationRouter) registerProcess(processHandle string) (*notificationQueue, error) {
+func (r *turnNotificationRouter) registerProcess(processHandle string) error {
 	if processHandle == "" {
-		return nil, fmt.Errorf("process notification router: empty process handle")
+		return fmt.Errorf("process notification router: empty process handle")
 	}
 	r.mu.Lock()
 	defer r.mu.Unlock()
 	if r.closed {
-		return nil, processNotificationRouterClosedError(r.err)
+		return processNotificationRouterClosedError(r.err)
 	}
 	if _, ok := r.processQueues[processHandle]; ok {
-		return nil, fmt.Errorf("process consumer already active for %s", processHandle)
+		return fmt.Errorf("process consumer already active for %s", processHandle)
 	}
-	queue := newProcessNotificationQueue(processHandle)
-	r.processQueues[processHandle] = queue
-	return queue, nil
+	r.processQueues[processHandle] = newProcessNotificationQueue(processHandle)
+	return nil
 }
 
 func (r *turnNotificationRouter) unregister(turnID string) {

@@ -29,8 +29,9 @@ type RetryConfig struct {
 	JitterRatio  float64
 }
 
-// RetryOnOverload retries op when it returns a retryable overload error.
-func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, error)) (T, error) {
+// withDefaults returns a copy of cfg with zero-valued fields replaced by their
+// defaults. A negative JitterRatio disables jitter.
+func (cfg RetryConfig) withDefaults() RetryConfig {
 	if cfg.MaxAttempts == 0 {
 		cfg.MaxAttempts = 3
 	}
@@ -45,13 +46,27 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 	} else if cfg.JitterRatio < 0 {
 		cfg.JitterRatio = 0 // negative disables jitter
 	}
+	return cfg
+}
 
-	var zero T
+// validate reports whether cfg holds usable retry parameters.
+func (cfg RetryConfig) validate() error {
 	if cfg.JitterRatio > 1 {
-		return zero, fmt.Errorf("jitter ratio %g out of range [0, 1]", cfg.JitterRatio)
+		return fmt.Errorf("jitter ratio %g out of range [0, 1]", cfg.JitterRatio)
 	}
 	if cfg.MaxAttempts < 1 {
-		return zero, fmt.Errorf("max attempts must be >= 1")
+		return fmt.Errorf("max attempts must be >= 1")
+	}
+	return nil
+}
+
+// RetryOnOverload retries op when it returns a retryable overload error.
+func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, error)) (T, error) {
+	cfg = cfg.withDefaults()
+
+	var zero T
+	if err := cfg.validate(); err != nil {
+		return zero, err
 	}
 
 	delay := cfg.InitialDelay
@@ -71,7 +86,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 		sleepFor := delay
 		if cfg.JitterRatio > 0 {
 			jitter := float64(delay) * cfg.JitterRatio
-			sleepFor = time.Duration(float64(delay) - jitter + rand.Float64()*2*jitter)
+			sleepFor = time.Duration(float64(delay) - jitter + rand.Float64()*2*jitter) //nolint:gosec // G404: non-cryptographic jitter for retry backoff
 		}
 		sleepFor = min(max(0, sleepFor), cfg.MaxDelay)
 		if sleepFor > 0 {
@@ -93,7 +108,7 @@ func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, 
 
 // isRetryableOp reports whether err should be retried. It checks the internal
 // retryable() marker interface first (used by tests), then falls back to the
-// public IsRetryableError which recognises server-side JSONRPCError kinds.
+// public IsRetryableError which recognizes server-side JSONRPCError kinds.
 func isRetryableOp(err error) bool {
 	if _, ok := err.(interface{ retryable() }); ok {
 		return true

@@ -402,7 +402,7 @@ func TestTurnNotificationRouterProcessClosedNilErrorFallback(t *testing.T) {
 		},
 		"success: register process": {
 			call: func(router *turnNotificationRouter) error {
-				_, err := router.registerProcess("process-closed")
+				err := router.registerProcess("process-closed")
 				return err
 			},
 		},
@@ -435,7 +435,7 @@ func assertProcessRouterClosedError(t *testing.T, err error) {
 func TestTurnNotificationRouterProcessCloseNilErrorUnblocksActiveWaiter(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		router := newTurnNotificationRouter()
-		if _, err := router.registerProcess("process-waiting"); err != nil {
+		if err := router.registerProcess("process-waiting"); err != nil {
 			t.Fatalf("registerProcess() error = %v", err)
 		}
 

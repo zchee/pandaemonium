@@ -179,7 +179,7 @@ func TestCloseDuringConcurrentRead(t *testing.T) {
 	}
 }
 
-// TestStdioReadCancellable verifies that stdioTransport.ReadJSON honours context
+// TestStdioReadCancellable verifies that stdioTransport.ReadJSON honors context
 // cancellation even when the underlying bufio.Reader is blocked in ReadBytes.
 func TestStdioReadCancellable(t *testing.T) {
 	stdoutR, stdoutW := io.Pipe()

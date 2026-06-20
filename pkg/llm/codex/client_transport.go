@@ -29,14 +29,15 @@ import (
 	"time"
 
 	"github.com/coder/websocket"
+
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // Transport represents a bidirectional JSON message Transport between the client and the app-server.
 type Transport interface {
 	io.Closer
-	WriteJSON(context.Context, []byte) error
-	ReadJSON(context.Context) ([]byte, error)
+	WriteJSON(ctx context.Context, data []byte) error
+	ReadJSON(ctx context.Context) ([]byte, error)
 }
 
 // stdioTransport represents a bidirectional JSON message transport over the app-server process's standard input and output streams.
@@ -143,6 +144,32 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 		}
 		return nil
 	}
+	if err := validateWebSocketSecretFormat(cfg); err != nil {
+		return err
+	}
+	switch cfg.AuthMode {
+	case WebSocketAuthCapabilityToken:
+		if err := validateWebSocketCapabilityToken(cfg, tokenSource); err != nil {
+			return err
+		}
+	case WebSocketAuthSignedBearerToken:
+		if err := validateWebSocketSignedBearerToken(cfg, tokenSource); err != nil {
+			return err
+		}
+	}
+	if cfg.Issuer != "" && strings.TrimSpace(cfg.Issuer) == "" {
+		return fmt.Errorf("ws-issuer cannot be empty if set")
+	}
+	if cfg.Audience != "" && strings.TrimSpace(cfg.Audience) == "" {
+		return fmt.Errorf("ws-audience cannot be empty if set")
+	}
+	return nil
+}
+
+// validateWebSocketSecretFormat checks the auth fields shared by every non-"none"
+// websocket auth mode: clock skew sign, the token-file/token-sha256 mutual
+// exclusion, and the token-sha256 hex digest format.
+func validateWebSocketSecretFormat(cfg *WebSocketConfig) error {
 	if cfg.MaxClockSkewSeconds != nil && *cfg.MaxClockSkewSeconds < 0 {
 		return fmt.Errorf("ws-max-clock-skew-seconds must be non-negative")
 	}
@@ -157,38 +184,36 @@ func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
 			return fmt.Errorf("ws-token-sha256 must be a 64-character hex digest")
 		}
 	}
-	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenSHA256 != "" && !tokenSource {
+	return nil
+}
+
+// validateWebSocketCapabilityToken validates capability-token auth: a token file
+// or token-sha256 is required, a sha256-only digest needs a client bearer token
+// source, and a configured token file must have content.
+func validateWebSocketCapabilityToken(cfg *WebSocketConfig, tokenSource bool) error {
+	if cfg.TokenSHA256 != "" && !tokenSource {
 		return fmt.Errorf("capability-token auth with --ws-token-sha256 requires a client bearer token source")
 	}
-	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenFile == "" && cfg.TokenSHA256 == "" {
+	if cfg.TokenFile == "" && cfg.TokenSHA256 == "" {
 		return fmt.Errorf("capability-token auth requires either ws token file or ws-token-sha256")
 	}
-	if cfg.AuthMode == WebSocketAuthCapabilityToken && cfg.TokenFile != "" {
-		if err := validateTokenFileHasContent(cfg.TokenFile, "websocket token file"); err != nil {
-			return err
-		}
-	}
-	if cfg.AuthMode == WebSocketAuthSignedBearerToken && cfg.SharedSecretFile == "" {
-		return fmt.Errorf("signed-bearer-token auth requires --ws-shared-secret-file")
-	}
-	if cfg.AuthMode == WebSocketAuthSignedBearerToken && !tokenSource {
-		return fmt.Errorf("signed-bearer-token auth requires a client bearer token source")
-	}
-	if cfg.AuthMode == WebSocketAuthSignedBearerToken && cfg.SharedSecretFile != "" {
-		if err := validateTokenFileHasContent(cfg.SharedSecretFile, "websocket shared secret file"); err != nil {
-			return err
-		}
-	}
-	if cfg.AuthMode == WebSocketAuthSignedBearerToken && cfg.Issuer == "" {
-		// issuer is optional in app-server CLI; keep behavior permissive.
-	}
-	if cfg.Issuer != "" && strings.TrimSpace(cfg.Issuer) == "" {
-		return fmt.Errorf("ws-issuer cannot be empty if set")
-	}
-	if cfg.Audience != "" && strings.TrimSpace(cfg.Audience) == "" {
-		return fmt.Errorf("ws-audience cannot be empty if set")
+	if cfg.TokenFile != "" {
+		return validateTokenFileHasContent(cfg.TokenFile, "websocket token file")
 	}
 	return nil
+}
+
+// validateWebSocketSignedBearerToken validates signed-bearer-token auth: a
+// shared-secret file with content and a client bearer token source are required.
+// The issuer stays optional, matching the app-server CLI.
+func validateWebSocketSignedBearerToken(cfg *WebSocketConfig, tokenSource bool) error {
+	if cfg.SharedSecretFile == "" {
+		return fmt.Errorf("signed-bearer-token auth requires --ws-shared-secret-file")
+	}
+	if !tokenSource {
+		return fmt.Errorf("signed-bearer-token auth requires a client bearer token source")
+	}
+	return validateTokenFileHasContent(cfg.SharedSecretFile, "websocket shared secret file")
 }
 
 func validateUnixWebSocketConfig(cfg *WebSocketConfig) error {
@@ -295,17 +320,8 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
-		case err := <-procDone:
-			if err != nil {
-				if socketPath != "" {
-					return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s): %w", mode, socketPath, err)
-				}
-				return nil, fmt.Errorf("app-server exited before %s readiness (%w)", mode, err)
-			}
-			if socketPath != "" {
-				return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s)", mode, socketPath)
-			}
-			return nil, fmt.Errorf("app-server exited before %s readiness", mode)
+		case waitErr := <-procDone:
+			return nil, appServerExitedBeforeReadyError(mode, socketPath, waitErr)
 		default:
 		}
 
@@ -330,24 +346,65 @@ func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen st
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case <-time.After(backoff):
-		case err := <-procDone:
-			if err != nil {
-				if socketPath != "" {
-					return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s): %w", mode, socketPath, err)
-				}
-				return nil, fmt.Errorf("app-server exited before %s readiness (%w)", mode, err)
-			}
-			if socketPath != "" {
-				return nil, fmt.Errorf("app-server exited before %s readiness (socket=%s)", mode, socketPath)
-			}
-			return nil, fmt.Errorf("app-server exited before %s readiness", mode)
+		case waitErr := <-procDone:
+			return nil, appServerExitedBeforeReadyError(mode, socketPath, waitErr)
 		}
 	}
 
-	if socketPath != "" {
-		return nil, fmt.Errorf("app-server %s not ready after %d attempts (socket=%s)", mode, attemptLimit, socketPath)
+	return nil, appServerNotReadyError(mode, socketPath, attemptLimit)
+}
+
+// appServerExitedBeforeReadyError describes a server child that exited before
+// its websocket/unix endpoint became reachable, folding in the optional socket
+// path and the optional Wait error (wrapped when present).
+func appServerExitedBeforeReadyError(mode, socketPath string, waitErr error) error {
+	switch {
+	case waitErr != nil && socketPath != "":
+		return fmt.Errorf("app-server exited before %s readiness (socket=%s): %w", mode, socketPath, waitErr)
+	case waitErr != nil:
+		return fmt.Errorf("app-server exited before %s readiness (%w)", mode, waitErr)
+	case socketPath != "":
+		return fmt.Errorf("app-server exited before %s readiness (socket=%s)", mode, socketPath)
+	default:
+		return fmt.Errorf("app-server exited before %s readiness", mode)
 	}
-	return nil, fmt.Errorf("app-server %s not ready after %d attempts", mode, attemptLimit)
+}
+
+// appServerNotReadyError describes an endpoint that never became reachable
+// within the attempt budget.
+func appServerNotReadyError(mode, socketPath string, attemptLimit int) error {
+	if socketPath != "" {
+		return fmt.Errorf("app-server %s not ready after %d attempts (socket=%s)", mode, attemptLimit, socketPath)
+	}
+	return fmt.Errorf("app-server %s not ready after %d attempts", mode, attemptLimit)
+}
+
+// dialUnixWebSocket dials the app-server websocket over a unix domain socket.
+func dialUnixWebSocket(ctx context.Context, socketPath string) (*websocket.Conn, error) {
+	httpClient := newUnixWebSocketHTTPClient(socketPath)
+	if transport, ok := httpClient.Transport.(*http.Transport); ok {
+		defer transport.CloseIdleConnections()
+	}
+	opts := &websocket.DialOptions{}
+	opts.HTTPClient = httpClient
+	conn, resp, err := websocket.Dial(ctx, "ws://localhost/", opts)
+	if err != nil {
+		return nil, websocketDialError(fmt.Sprintf("dial unix websocket %q", socketPath), resp, err)
+	}
+	if resp == nil {
+		return conn, nil
+	}
+	// A successful websocket upgrade hijacks the connection, so resp.Body can be
+	// nil; guard the close to avoid a nil dereference on the 101 handshake path.
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
+	if resp.StatusCode != http.StatusSwitchingProtocols {
+		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
+		return nil, fmt.Errorf("dial unix websocket %q failed: %s", socketPath, resp.Status)
+	}
+	return conn, nil
 }
 
 func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocket.Conn, error) {
@@ -356,24 +413,7 @@ func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env
 		return nil, err
 	}
 	if mode == "unix websocket" {
-		httpClient := newUnixWebSocketHTTPClient(socketPath)
-		if transport, ok := httpClient.Transport.(*http.Transport); ok {
-			defer transport.CloseIdleConnections()
-		}
-		opts := &websocket.DialOptions{}
-		opts.HTTPClient = httpClient
-		conn, resp, err := websocket.Dial(ctx, "ws://localhost/", opts)
-		if err != nil {
-			return nil, websocketDialError(fmt.Sprintf("dial unix websocket %q", socketPath), resp, err)
-		}
-		if resp == nil {
-			return conn, nil
-		}
-		if resp.StatusCode != http.StatusSwitchingProtocols {
-			_ = conn.Close(websocket.StatusProtocolError, resp.Status)
-			return nil, fmt.Errorf("dial unix websocket %q failed: %s", socketPath, resp.Status)
-		}
-		return conn, nil
+		return dialUnixWebSocket(ctx, socketPath)
 	}
 	u, err := url.Parse(listen)
 	if err != nil {
@@ -396,6 +436,12 @@ func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env
 	if resp == nil {
 		return conn, nil
 	}
+	// A successful websocket upgrade hijacks the connection, so resp.Body can be
+	// nil; guard the close to avoid a nil dereference on the 101 handshake path.
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
 	if resp.StatusCode != http.StatusSwitchingProtocols {
 		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
 		return nil, fmt.Errorf("websocket dial failed: %s", resp.Status)

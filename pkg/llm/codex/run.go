@@ -139,7 +139,7 @@ func (item decodedThreadItem) agentMessage() bool {
 // overridden by caller-supplied params structs.
 //
 // The returned Object is always a fresh map; base is never mutated.
-// An error is returned if params cannot be marshalled or unmarshalled.
+// An error is returned if params cannot be marshaled or unmarshaled.
 func mergeParamsBaseWins(params any, base Object) (Object, error) {
 	out := Object{}
 	if params != nil {

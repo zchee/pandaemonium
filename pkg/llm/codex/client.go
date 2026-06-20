@@ -35,6 +35,7 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
@@ -90,7 +91,8 @@ type WebSocketConfig struct {
 	DialTimeout           time.Duration
 }
 
-func (cfg WebSocketConfig) Is() bool {
+// Is reports whether any websocket authentication field is set on cfg.
+func (cfg WebSocketConfig) Is() bool { //nolint:gocritic // hugeParam: value receiver required to keep the exported predicate callable on WebSocketConfig values.
 	return websocketAuthFieldsSet(&cfg)
 }
 
@@ -163,9 +165,7 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 	}
 }
 
-var userHomeDir = sync.OnceValues(func() (string, error) {
-	return os.UserHomeDir()
-})
+var userHomeDir = sync.OnceValues(os.UserHomeDir)
 
 // expandUser mimics Python's os.path.expanduser function.
 // It replaces "~" or "~username" at the start of a path with the corresponding user's home directory.
@@ -247,7 +247,7 @@ func (c *Client) Start(ctx context.Context) error {
 		return err
 	}
 	serverName := c.serverProcessNameForErrors()
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...) //nolint:gosec // G204: args are the SDK-resolved codex binary path and validated launch flags, not user-tainted input.
 	if c.config.Cwd != "" {
 		cmd.Dir = c.config.Cwd
 	}
@@ -261,7 +261,6 @@ func (c *Client) Start(ctx context.Context) error {
 	c.turnRouter = newTurnNotificationRouter()
 	c.rpcState = newJSONRPCClientState()
 
-	var stderr io.ReadCloser
 	listenCfg := c.effectiveListenConfig()
 	listenURL := strings.TrimSpace(listenCfg.URL)
 	if listenURL == "" {
@@ -276,57 +275,72 @@ func (c *Client) Start(ctx context.Context) error {
 	}
 	switch kind {
 	case listenTransportWebSocket, listenTransportUnixWebSocket:
-		stderr, err = cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("create %s stderr: %w", serverName, err)
+		if err := c.startWebSocketTransport(ctx, cmd, serverName, listenURL, listenCfg, effectiveEnv); err != nil {
+			return err
 		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("start %s: %w", serverName, err)
-		}
-		cmdDone := waitForCommand(cmd)
-		go c.drainStderr(stderr, c.stderrDone)
-		c.stderr = stderr
-		conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket, effectiveEnv, c.config.Cwd)
-		if err != nil {
-			if cmd.Process != nil {
-				_ = cmd.Process.Kill()
-			}
-			<-cmdDone
-			return fmt.Errorf("dial %s websocket: %w", serverName, err)
-		}
-		c.cmd = cmd
-		c.cmdDone = cmdDone
-		c.storeTransport(&websocketTransport{conn: conn})
-
 	default:
-		var stdin io.WriteCloser
-		var stdout io.ReadCloser
-		stdin, err = cmd.StdinPipe()
-		if err != nil {
-			return fmt.Errorf("create %s stdin: %w", serverName, err)
+		if err := c.startStdioTransport(cmd, serverName); err != nil {
+			return err
 		}
-		stdout, err = cmd.StdoutPipe()
-		if err != nil {
-			return fmt.Errorf("create %s stdout: %w", serverName, err)
-		}
-		stderr, err = cmd.StderrPipe()
-		if err != nil {
-			return fmt.Errorf("create %s stderr: %w", serverName, err)
-		}
-		if err := cmd.Start(); err != nil {
-			return fmt.Errorf("start %s: %w", serverName, err)
-		}
-		c.cmdDone = waitForCommand(cmd)
-		c.cmd = cmd
-		c.stderr = stderr
-		c.stdin = stdin
-		c.stdout = bufio.NewReader(stdout)
-		c.stdoutCloser = stdout
-		c.storeTransport(&stdioTransport{stdin: stdin, stdout: c.stdout})
-		go c.drainStderr(stderr, c.stderrDone)
 	}
 
 	go c.readLoop(ctx, c.loadTransport(), c.readDone)
+	return nil
+}
+
+// startWebSocketTransport starts cmd, begins draining its stderr, dials the
+// websocket endpoint, and stores the resulting transport on success.
+func (c *Client) startWebSocketTransport(ctx context.Context, cmd *exec.Cmd, serverName, listenURL string, listenCfg ListenConfig, effectiveEnv map[string]string) error {
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("create %s stderr: %w", serverName, err)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start %s: %w", serverName, err)
+	}
+	cmdDone := waitForCommand(cmd)
+	go c.drainStderr(stderr, c.stderrDone)
+	c.stderr = stderr
+	conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket, effectiveEnv, c.config.Cwd)
+	if err != nil {
+		if cmd.Process != nil {
+			_ = cmd.Process.Kill()
+		}
+		<-cmdDone
+		return fmt.Errorf("dial %s websocket: %w", serverName, err)
+	}
+	c.cmd = cmd
+	c.cmdDone = cmdDone
+	c.storeTransport(&websocketTransport{conn: conn})
+	return nil
+}
+
+// startStdioTransport wires the process stdio pipes, starts cmd, and stores the
+// stdio transport.
+func (c *Client) startStdioTransport(cmd *exec.Cmd, serverName string) error {
+	stdin, err := cmd.StdinPipe()
+	if err != nil {
+		return fmt.Errorf("create %s stdin: %w", serverName, err)
+	}
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		return fmt.Errorf("create %s stdout: %w", serverName, err)
+	}
+	stderr, err := cmd.StderrPipe()
+	if err != nil {
+		return fmt.Errorf("create %s stderr: %w", serverName, err)
+	}
+	if err := cmd.Start(); err != nil {
+		return fmt.Errorf("start %s: %w", serverName, err)
+	}
+	c.cmdDone = waitForCommand(cmd)
+	c.cmd = cmd
+	c.stderr = stderr
+	c.stdin = stdin
+	c.stdout = bufio.NewReader(stdout)
+	c.stdoutCloser = stdout
+	c.storeTransport(&stdioTransport{stdin: stdin, stdout: c.stdout})
+	go c.drainStderr(stderr, c.stderrDone)
 	return nil
 }
 
@@ -624,33 +638,47 @@ func (c *Client) StreamText(ctx context.Context, threadID, text string, params *
 				return
 			}
 
-			switch notification.Method {
-			case NotificationMethodTurnCompleted:
-				completed, ok, err := notification.TurnCompleted()
-				if err != nil {
-					yield(AgentMessageDeltaNotification{}, err)
-					return
-				}
-				if ok && completed.Turn.ID == expectedTurnID {
-					c.clearTurnPending(expectedTurnID)
-					return
-				}
-
-			case NotificationMethodItemAgentMessageDelta:
-				delta, ok, err := notification.ItemAgentMessageDelta()
-				if err != nil {
-					yield(AgentMessageDeltaNotification{}, err)
-					return
-				}
-				if !ok || delta.TurnID != expectedTurnID {
-					continue
-				}
-				if !yield(delta, nil) {
-					return
-				}
+			delta, emit, done, err := c.streamTurnDelta(notification, expectedTurnID)
+			if err != nil {
+				yield(AgentMessageDeltaNotification{}, err)
+				return
+			}
+			if done {
+				return
+			}
+			if emit && !yield(delta, nil) {
+				return
 			}
 		}
 	}
+}
+
+// streamTurnDelta classifies a single turn notification for StreamText. It
+// returns emit=true with the decoded delta when an agent-message delta for
+// expectedTurnID should be yielded, done=true once the turn has completed, and a
+// non-nil error when decoding fails.
+func (c *Client) streamTurnDelta(notification Notification, expectedTurnID string) (delta AgentMessageDeltaNotification, emit, done bool, err error) {
+	switch notification.Method {
+	case NotificationMethodTurnCompleted:
+		completed, ok, err := notification.TurnCompleted()
+		if err != nil {
+			return AgentMessageDeltaNotification{}, false, false, err
+		}
+		if ok && completed.Turn.ID == expectedTurnID {
+			c.clearTurnPending(expectedTurnID)
+			return AgentMessageDeltaNotification{}, false, true, nil
+		}
+	case NotificationMethodItemAgentMessageDelta:
+		decoded, ok, err := notification.ItemAgentMessageDelta()
+		if err != nil {
+			return AgentMessageDeltaNotification{}, false, false, err
+		}
+		if !ok || decoded.TurnID != expectedTurnID {
+			return AgentMessageDeltaNotification{}, false, false, nil
+		}
+		return decoded, true, false, nil
+	}
+	return AgentMessageDeltaNotification{}, false, false, nil
 }
 
 func (c *Client) nextTurnNotification(ctx context.Context, turnID string) (Notification, error) {
@@ -806,18 +834,9 @@ func (c *Client) initializeServer(ctx context.Context) (InitializeResponse, Exec
 			return InitializeResponse{}, ExecServerInitializeResponse{}, err
 		}
 
-		var metadata InitializeResponse
-		if len(raw) > 0 && string(raw) != "null" {
-			var candidate InitializeResponse
-			if err := json.Unmarshal(raw, &candidate); err != nil {
-				return InitializeResponse{}, ExecServerInitializeResponse{}, fmt.Errorf("decode %s metadata: %w", ExecServerInitializeMethod, err)
-			}
-			if strings.TrimSpace(candidate.UserAgent) != "" || candidate.ServerInfo != nil {
-				metadata, err = validateInitialize(candidate)
-				if err != nil {
-					return InitializeResponse{}, ExecServerInitializeResponse{}, err
-				}
-			}
+		metadata, err := decodeExecServerMetadata(raw)
+		if err != nil {
+			return InitializeResponse{}, ExecServerInitializeResponse{}, err
 		}
 
 		if err := c.Notify(ctx, NotificationMethodInitialized, nil); err != nil {
@@ -828,6 +847,23 @@ func (c *Client) initializeServer(ctx context.Context) (InitializeResponse, Exec
 		metadata, err := c.Initialize(ctx)
 		return metadata, ExecServerInitializeResponse{}, err
 	}
+}
+
+// decodeExecServerMetadata extracts optional initialize metadata from an
+// exec-server initialize response. A null or empty payload, or one without
+// server identity fields, yields the zero InitializeResponse and a nil error.
+func decodeExecServerMetadata(raw jsontext.Value) (InitializeResponse, error) {
+	if len(raw) == 0 || string(raw) == "null" {
+		return InitializeResponse{}, nil
+	}
+	var candidate InitializeResponse
+	if err := json.Unmarshal(raw, &candidate); err != nil {
+		return InitializeResponse{}, fmt.Errorf("decode %s metadata: %w", ExecServerInitializeMethod, err)
+	}
+	if strings.TrimSpace(candidate.UserAgent) == "" && candidate.ServerInfo == nil {
+		return InitializeResponse{}, nil
+	}
+	return validateInitialize(candidate)
 }
 
 func validateListenConfig(listenCfg ListenConfig, kind listenTransportKind, listenURL string) error {
@@ -932,7 +968,7 @@ func (c *Client) readMessage(ctx context.Context, t Transport) (rpcMessage, erro
 	return msg, nil
 }
 
-func (c *Client) handleServerRequest(msg rpcMessage) Object {
+func (c *Client) handleServerRequest(msg *rpcMessage) Object {
 	result, err := c.approvalHandler(msg.Method, msg.Params)
 	if err != nil {
 		return Object{"id": msg.ID, "error": Object{"code": -32603, "message": err.Error()}}
@@ -952,7 +988,7 @@ func (c *Client) readLoop(ctx context.Context, t Transport, done chan<- struct{}
 		}
 
 		if msg.Method != "" && msg.ID != "" {
-			response := c.handleServerRequest(msg)
+			response := c.handleServerRequest(&msg)
 			if err := c.writeMessage(ctx, response); err != nil {
 				c.failPending(err)
 				return
@@ -968,7 +1004,7 @@ func (c *Client) readLoop(ctx context.Context, t Transport, done chan<- struct{}
 			}
 			continue
 		}
-		c.deliverResponse(msg)
+		c.deliverResponse(&msg)
 	}
 }
 
@@ -976,11 +1012,7 @@ func (c *Client) registerResponse(id string, response chan responseWait) {
 	c.rpcState.registerResponse(id, response)
 }
 
-func (c *Client) unregisterResponse(id string) {
-	c.rpcState.unregisterResponse(id)
-}
-
-func (c *Client) deliverResponse(msg rpcMessage) {
+func (c *Client) deliverResponse(msg *rpcMessage) {
 	c.rpcState.deliverResponse(msg)
 }
 

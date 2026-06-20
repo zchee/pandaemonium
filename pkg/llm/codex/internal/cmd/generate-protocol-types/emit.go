@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package main implements the generate-protocol-types code generator for Codex app-server protocol types.
 package main
 
 import (
@@ -270,7 +271,7 @@ func structFieldsNeedCustomUnmarshal(fields []structField) bool {
 	return false
 }
 
-func (g *generator) emitStructCustomUnmarshal(out *bytes.Buffer, goName string, fields []structField) {
+func (g *generator) emitStructCustomUnmarshal(out *bytes.Buffer, goName string, fields []structField) { //nolint:funlen // code-generation function; large switch handles each union shape variant
 	fmt.Fprintf(out, "func (value *%s) UnmarshalJSONFrom(dec *jsontext.Decoder) error {\n", goName)
 	fmt.Fprintf(out, "\tvar raw struct {\n")
 	for _, field := range fields {
@@ -391,11 +392,11 @@ func (g *generator) unionRefName(def *jsonschema.Schema) (string, bool) {
 		return g.unionRefName(def.AllOf[0])
 	}
 	if typ, nullable := nullableType(def); typ != "" {
-		copy := *def
-		copy.Type = typ
-		copy.Types = nil
+		sch := *def
+		sch.Type = typ
+		sch.Types = nil
 		if nullable {
-			return g.unionRefName(&copy)
+			return g.unionRefName(&sch)
 		}
 	}
 	if variant, _ := nullableVariant(def.AnyOf); variant != nil {

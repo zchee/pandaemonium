@@ -97,7 +97,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 	t.Parallel()
 
 	tr := newScriptTransport()
-	client := NewExecServerClient(tr)
+	client := NewExecServerClient(t.Context(), tr)
 	t.Cleanup(func() {
 		_ = client.Close()
 	})
@@ -230,7 +230,7 @@ func TestExecServerProcessRequestWrappers(t *testing.T) {
 func TestExecServerProcessNotificationsAreOrderedBySeq(t *testing.T) {
 	t.Parallel()
 
-	client := NewExecServerClient(nil)
+	client := NewExecServerClient(t.Context(), nil)
 	queue := client.ensureProcessQueue("proc-ordered")
 	handle := &ExecServerProcessHandle{client: client, processID: "proc-ordered", processQueue: queue}
 
@@ -297,7 +297,7 @@ func TestExecServerProcessClientCloseReleasesHandleQueues(t *testing.T) {
 	t.Parallel()
 
 	tr := newScriptTransport()
-	client := NewExecServerClient(tr)
+	client := NewExecServerClient(t.Context(), tr)
 	t.Cleanup(func() {
 		_ = client.Close()
 	})
@@ -360,7 +360,7 @@ func TestExecServerProcessClientCloseReleasesHandleQueues(t *testing.T) {
 func TestExecServerProcessClosedNotificationRemovesQueue(t *testing.T) {
 	t.Parallel()
 
-	client := NewExecServerClient(nil)
+	client := NewExecServerClient(t.Context(), nil)
 	queue := client.ensureProcessQueue("proc-closed")
 	handle := &ExecServerProcessHandle{client: client, processID: "proc-closed", processQueue: queue}
 
@@ -413,7 +413,7 @@ func TestExecServerProcessClosedNotificationRemovesQueue(t *testing.T) {
 func TestExecServerClientCloseUnblocksProcessNotificationWaiters(t *testing.T) {
 	t.Parallel()
 
-	client := NewExecServerClient(nil)
+	client := NewExecServerClient(t.Context(), nil)
 	queue := client.ensureProcessQueue("proc-close")
 	handle := &ExecServerProcessHandle{client: client, processID: "proc-close", processQueue: queue}
 
@@ -496,7 +496,7 @@ func TestExecServerProcessHandleNilHelpers(t *testing.T) {
 		},
 		"missing queue NextNotification": func(ctx context.Context) error {
 			handle := &ExecServerProcessHandle{
-				client:    NewExecServerClient(nil),
+				client:    NewExecServerClient(t.Context(), nil), //nolint:contextcheck
 				processID: "proc-missing-queue",
 			}
 			_, err := handle.NextNotification(ctx)
@@ -522,7 +522,7 @@ func TestExecServerProcessMalformedNotificationFailsQueue(t *testing.T) {
 	t.Parallel()
 
 	tr := newScriptTransport()
-	client := NewExecServerClient(tr)
+	client := NewExecServerClient(t.Context(), tr)
 	t.Cleanup(func() {
 		_ = client.Close()
 	})
@@ -558,7 +558,7 @@ func TestExecServerProcessMalformedNotificationFailsQueue(t *testing.T) {
 func TestExecServerProcessNotificationsRequireRoutingFields(t *testing.T) {
 	t.Parallel()
 
-	client := NewExecServerClient(nil)
+	client := NewExecServerClient(t.Context(), nil)
 	tests := map[string]struct {
 		wantErr      string
 		notification Notification

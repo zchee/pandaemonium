@@ -93,6 +93,8 @@ func ApprovalModeSettings(mode ApprovalMode) (AskForApproval, *ApprovalsReviewer
 }
 
 // ApprovalModeOverrideSettings maps an optional approval preset to pointer settings.
+//
+//nolint:gocritic // ptrToRefParam: exported API returns *AskForApproval to signal an optional override; changing the signature breaks compatibility.
 func ApprovalModeOverrideSettings(mode *ApprovalMode) (*AskForApproval, *ApprovalsReviewer, error) {
 	if mode == nil {
 		return nil, nil, nil

@@ -61,6 +61,7 @@ type notificationJSONScanner struct {
 	pos  int
 }
 
+//nolint:cyclop,gocognit // hand-written JSON scanner dispatching over notification turn-id key shapes; cohesive single-pass parser.
 func scanNotificationTurnID(params []byte) (string, bool) {
 	scanner := notificationJSONScanner{data: params}
 	scanner.skipSpace()
@@ -187,6 +188,7 @@ func scanNotificationLoginID(params []byte) (string, bool) {
 	return loginID, true
 }
 
+//nolint:cyclop // hand-written JSON scanner dispatching over turn-object keys; cohesive single-pass parser.
 func (s *notificationJSONScanner) readTurnObject() (scannedTurn, bool) {
 	s.skipSpace()
 	if s.consumeLiteral("null") {
@@ -319,6 +321,7 @@ func (s *notificationJSONScanner) skipArray() bool {
 	}
 }
 
+//nolint:cyclop // JSON number-grammar scanner; branchy by specification, cohesive.
 func (s *notificationJSONScanner) skipNumber() bool {
 	start := s.pos
 	if s.pos < len(s.data) && s.data[s.pos] == '-' {
@@ -327,14 +330,15 @@ func (s *notificationJSONScanner) skipNumber() bool {
 	if s.pos >= len(s.data) {
 		return false
 	}
-	if s.data[s.pos] == '0' {
+	switch {
+	case s.data[s.pos] == '0':
 		s.pos++
-	} else if isDigitOneToNine(s.data[s.pos]) {
+	case isDigitOneToNine(s.data[s.pos]):
 		s.pos++
 		for s.pos < len(s.data) && isDigit(s.data[s.pos]) {
 			s.pos++
 		}
-	} else {
+	default:
 		return false
 	}
 	if s.pos < len(s.data) && s.data[s.pos] == '.' {
@@ -372,7 +376,7 @@ func (s *notificationJSONScanner) readSimpleString() (string, bool) {
 	return string(value), true
 }
 
-func (s *notificationJSONScanner) readString() ([]byte, bool, bool) {
+func (s *notificationJSONScanner) readString() (raw []byte, wasEscaped, ok bool) {
 	if !s.consumeByte('"') {
 		return nil, false, false
 	}

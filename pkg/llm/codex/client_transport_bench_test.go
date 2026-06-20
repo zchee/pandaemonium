@@ -83,10 +83,12 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.CancelFunc) {
 	b.Helper()
 	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
-	conn, _, err := websocket.Dial(ctx, wsURL, nil)
+	conn, resp, err := websocket.Dial(ctx, wsURL, nil)
 	if err != nil {
 		b.Fatalf("websocket.Dial() error = %v", err)
 	}
+	defer resp.Body.Close()
+
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(&websocketTransport{conn: conn})
 	client.rpcState = newJSONRPCClientState()
@@ -118,9 +120,12 @@ func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 			b.Errorf("websocket.Accept() error = %v", err)
 			return
 		}
-		go func() {
+		r = r.WithContext(b.Context()) //nolint:contextcheck
+
+		//nolint:contextcheck
+		go func(ctx context.Context) {
 			defer conn.Close(websocket.StatusNormalClosure, "")
-			ctx := context.Background()
+
 			for {
 				typ, payload, err := conn.Read(ctx)
 				if err != nil {
@@ -140,6 +145,7 @@ func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 					b.Logf("websocket server decode error: %v", err)
 					return
 				}
+
 				switch msg.Method {
 				case RequestMethodInitialize:
 					resp := rpcMessage{
@@ -158,9 +164,10 @@ func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 					_ = conn.Write(ctx, websocket.MessageText, raw)
 				}
 			}
-		}()
+		}(r.Context())
 	}))
 	b.Cleanup(srv.Close)
+
 	return srv, "ws" + strings.TrimPrefix(srv.URL, "http")
 }
 

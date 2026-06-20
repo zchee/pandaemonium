@@ -187,7 +187,7 @@ func TestNewRemoteClientRejectsUnsafeBearerPlaintextWebSocket(t *testing.T) {
 		},
 	} {
 		t.Run(name, func(t *testing.T) {
-			if _, err := validateRemoteConfig(cfg); err != nil {
+			if _, err := validateRemoteConfig(&cfg); err != nil {
 				t.Fatalf("validateRemoteConfig() error = %v", err)
 			}
 		})
@@ -277,10 +277,11 @@ func newRemotePendingWebSocketServer(t *testing.T, expectedAuth, pendingMethod s
 			t.Errorf("websocket.Accept() error = %v", err)
 			return
 		}
-		go func() {
+
+		go func(ctx context.Context) { //nolint:contextcheck
 			defer conn.Close(websocket.StatusNormalClosure, "")
 			for {
-				typ, payload, err := conn.Read(context.Background())
+				typ, payload, err := conn.Read(ctx)
 				if err != nil {
 					if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 						return
@@ -303,8 +304,9 @@ func newRemotePendingWebSocketServer(t *testing.T, expectedAuth, pendingMethod s
 				t.Errorf("unexpected websocket method %q", msg.Method)
 				return
 			}
-		}()
+		}(t.Context())
 	}))
+
 	t.Cleanup(srv.Close)
 	return "ws" + strings.TrimPrefix(srv.URL, "http"), requestReceived
 }

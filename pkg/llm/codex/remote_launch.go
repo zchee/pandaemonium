@@ -55,11 +55,11 @@ const (
 	// remoteAuthTokenEnv is the environment variable carrying the websocket
 	// bearer token into the attached codex child. The token value never appears
 	// in argv, error strings, or the stderr tail.
-	remoteAuthTokenEnv = "CODEX_REMOTE_AUTH_TOKEN"
+	remoteAuthTokenEnv = "CODEX_REMOTE_AUTH_TOKEN" //nolint:gosec // G101: environment variable name, not a credential value.
 
 	// remoteAuthTokenEnvFlag wires the attached codex child to read its bearer
 	// token from remoteAuthTokenEnv instead of an argv value.
-	remoteAuthTokenEnvFlag = "--remote-auth-token-env"
+	remoteAuthTokenEnvFlag = "--remote-auth-token-env" //nolint:gosec // G101: CLI flag name, not a credential value.
 
 	// defaultRemoteReadyTimeout bounds the readiness probe when
 	// RemoteAppServerConfig.ReadyTimeout is zero.
@@ -234,7 +234,8 @@ func (a *AttachedCodex) Wait() error { return a.proc.wait() }
 // fails because the port was taken surfaces the server stderr tail, and retrying
 // with a fresh port is the caller's loop.
 func ReserveLoopbackPort() (int, error) {
-	ln, err := net.Listen("tcp", "127.0.0.1:0")
+	var lc net.ListenConfig
+	ln, err := lc.Listen(context.Background(), "tcp", "127.0.0.1:0")
 	if err != nil {
 		return 0, fmt.Errorf("reserve loopback port: %w", err)
 	}
@@ -267,10 +268,7 @@ func LaunchRemoteAppServer(ctx context.Context, cfg *RemoteAppServerConfig) (*Re
 		return nil, err
 	}
 
-	args, err := buildRemoteAppServerLaunch(cfg, endpoint, codexBin)
-	if err != nil {
-		return nil, err
-	}
+	args := buildRemoteAppServerLaunch(cfg, endpoint, codexBin)
 
 	bearerToken, err := remoteAttachBearerToken(cfg.Listen.WebSocket)
 	if err != nil {
@@ -279,7 +277,7 @@ func LaunchRemoteAppServer(ctx context.Context, cfg *RemoteAppServerConfig) (*Re
 
 	env := remoteEffectiveEnv(cfg.Env)
 
-	cmd := exec.CommandContext(ctx, args[0], args[1:]...)
+	cmd := exec.CommandContext(ctx, args[0], args[1:]...) //nolint:gosec // G204: args built from the SDK-resolved server binary and validated launch flags, not user-tainted input.
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
 			return nil
@@ -378,7 +376,7 @@ func (s *RemoteAppServer) CodexCommand(ctx context.Context, args ...string) (*ex
 	}
 	cmdArgs = append(cmdArgs, args...)
 
-	cmd := exec.CommandContext(ctx, s.codexBin, cmdArgs...)
+	cmd := exec.CommandContext(ctx, s.codexBin, cmdArgs...) //nolint:gosec // G204: argv is the SDK-resolved codex binary plus caller args validated to exclude --remote; not user-tainted shell input.
 	cmd.Cancel = func() error {
 		if cmd.Process == nil {
 			return nil
@@ -464,6 +462,8 @@ func (s *RemoteAppServer) Wait() error {
 // children first (interrupt, grace, then kill), then the server child, then a
 // best-effort removal of an explicit custom unix socket file after the child
 // has exited.
+//
+//nolint:unparam // error return is kept for io.Closer-style API symmetry with Client.Close; callers may defer Close and inspect the result.
 func (s *RemoteAppServer) Close() error {
 	s.closeOnce.Do(func() {
 		s.mu.Lock()
@@ -511,7 +511,7 @@ func (s *RemoteAppServer) drainStderr(stderr io.Reader, mirror io.Writer, done c
 // resolveRemoteEndpoint validates the listen configuration and returns the
 // canonical endpoint, its transport kind, and the resolved unix socket path (""
 // for ws://). It rejects stdio/off/empty before any process is spawned.
-func resolveRemoteEndpoint(cfg *RemoteAppServerConfig) (string, listenTransportKind, string, error) {
+func resolveRemoteEndpoint(cfg *RemoteAppServerConfig) (endpoint string, transport listenTransportKind, socket string, retErr error) {
 	listenURL := strings.TrimSpace(cfg.Listen.URL)
 	if listenURL == "" || listenURL == defaultListenURL || listenURL == "off" || listenURL == "stdio" {
 		return "", listenTransportStdio, "", errRemoteListenRequired
@@ -543,14 +543,14 @@ func resolveRemoteEndpoint(cfg *RemoteAppServerConfig) (string, listenTransportK
 
 // buildRemoteAppServerLaunch resolves the server binary (standalone preferred,
 // `codex app-server` subcommand fallback) and returns the full launch argv.
-func buildRemoteAppServerLaunch(cfg *RemoteAppServerConfig, endpoint, codexBin string) ([]string, error) {
+func buildRemoteAppServerLaunch(cfg *RemoteAppServerConfig, endpoint, codexBin string) []string {
 	bin, err := resolveAppServerBinary(cfg.AppServerBin)
 	if err == nil {
-		return buildRemoteAppServerArgs(cfg, bin, endpoint, false), nil
+		return buildRemoteAppServerArgs(cfg, bin, endpoint, false)
 	}
 	// Standalone binary unavailable: fall back to the `codex app-server`
 	// subcommand, which accepts the same --listen and --remote-control surface.
-	return buildRemoteAppServerArgs(cfg, codexBin, endpoint, true), nil
+	return buildRemoteAppServerArgs(cfg, codexBin, endpoint, true)
 }
 
 // buildRemoteAppServerArgs is a pure argv builder. When useSubcommand is true it
@@ -631,7 +631,8 @@ func waitRemoteAppServerReady(ctx context.Context, s *RemoteAppServer, kind list
 		default:
 		}
 
-		conn, err := net.Dial(network, address)
+		var dialer net.Dialer
+		conn, err := dialer.DialContext(ctx, network, address)
 		if err == nil {
 			_ = conn.Close()
 			return nil
@@ -678,7 +679,7 @@ func remoteExitedBeforeReadyError(s *RemoteAppServer, kind listenTransportKind, 
 	label := remoteReadyModeLabel(kind)
 	tail := s.StderrTail(40)
 	if waitErr != nil {
-		return fmt.Errorf("%s exited before %s readiness: %v; stderr_tail=%s", appServerBinName, label, waitErr, tail)
+		return fmt.Errorf("%s exited before %s readiness: %w; stderr_tail=%s", appServerBinName, label, waitErr, tail)
 	}
 	return fmt.Errorf("%s exited before %s readiness; stderr_tail=%s", appServerBinName, label, tail)
 }
@@ -687,7 +688,7 @@ func remoteNotReadyError(s *RemoteAppServer, kind listenTransportKind, dialErr e
 	label := remoteReadyModeLabel(kind)
 	tail := s.StderrTail(40)
 	if dialErr != nil {
-		return fmt.Errorf("%s %s not ready after %d attempts: %v; stderr_tail=%s", appServerBinName, label, remoteReadyAttemptLimit, dialErr, tail)
+		return fmt.Errorf("%s %s not ready after %d attempts: %w; stderr_tail=%s", appServerBinName, label, remoteReadyAttemptLimit, dialErr, tail)
 	}
 	return fmt.Errorf("%s %s not ready after %d attempts; stderr_tail=%s", appServerBinName, label, remoteReadyAttemptLimit, tail)
 }
@@ -699,7 +700,7 @@ func remoteReadyModeLabel(kind listenTransportKind) string {
 	return "websocket"
 }
 
-func remoteDialTarget(kind listenTransportKind, endpoint, socketPath string) (string, string) {
+func remoteDialTarget(kind listenTransportKind, endpoint, socketPath string) (network, address string) {
 	if kind == listenTransportUnixWebSocket {
 		return "unix", socketPath
 	}

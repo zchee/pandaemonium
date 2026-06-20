@@ -276,7 +276,7 @@ type ExecServerClient struct {
 }
 
 // NewExecServerClient constructs a client around an existing transport.
-func NewExecServerClient(transport Transport) *ExecServerClient {
+func NewExecServerClient(ctx context.Context, transport Transport) *ExecServerClient {
 	client := &ExecServerClient{
 		rpcState:      newJSONRPCClientState(),
 		processQueues: map[ProcessID]*execServerProcessQueue{},
@@ -287,7 +287,7 @@ func NewExecServerClient(transport Transport) *ExecServerClient {
 		return client
 	}
 	client.storeTransport(transport)
-	go client.readLoop(context.Background(), transport, client.readDone)
+	go client.readLoop(ctx, transport, client.readDone)
 	return client
 }
 
@@ -470,11 +470,11 @@ func (c *ExecServerClient) readLoop(ctx context.Context, t Transport, done chan<
 
 			continue
 		}
-		c.deliverResponse(msg)
+		c.deliverResponse(&msg)
 	}
 }
 
-func (c *ExecServerClient) deliverResponse(msg rpcMessage) {
+func (c *ExecServerClient) deliverResponse(msg *rpcMessage) {
 	c.rpcState.deliverResponse(msg)
 }
 

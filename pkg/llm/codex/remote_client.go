@@ -101,7 +101,7 @@ func (c *Client) ConnectRemote(ctx context.Context, config *RemoteConfig) error 
 	}
 
 	cfg := normalizeRemoteConfig(config)
-	conn, err := dialRemoteAppServer(ctx, cfg)
+	conn, err := dialRemoteAppServer(ctx, &cfg)
 	if err != nil {
 		return err
 	}
@@ -152,7 +152,7 @@ type remoteEndpoint struct {
 	rawURL string
 }
 
-func dialRemoteAppServer(ctx context.Context, cfg RemoteConfig) (*websocket.Conn, error) {
+func dialRemoteAppServer(ctx context.Context, cfg *RemoteConfig) (*websocket.Conn, error) {
 	endpoint, err := validateRemoteConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -181,7 +181,7 @@ func dialRemoteAppServer(ctx context.Context, cfg RemoteConfig) (*websocket.Conn
 	}
 }
 
-func validateRemoteConfig(cfg RemoteConfig) (remoteEndpoint, error) {
+func validateRemoteConfig(cfg *RemoteConfig) (remoteEndpoint, error) {
 	if cfg.DialTimeout < 0 {
 		return remoteEndpoint{}, fmt.Errorf("remote app-server dial timeout must be non-negative")
 	}
@@ -204,6 +204,13 @@ func validateRemoteConfig(cfg RemoteConfig) (remoteEndpoint, error) {
 		return remoteEndpoint{kind: remoteEndpointUnixWebSocket, rawURL: rawURL}, nil
 	}
 
+	return validateRemoteWebSocketURL(rawURL, cfg)
+}
+
+// validateRemoteWebSocketURL validates a ws:// or wss:// remote endpoint,
+// rejecting embedded user info, unsupported schemes, missing hosts, and bearer
+// auth over a non-loopback plaintext ws:// URL unless explicitly opted in.
+func validateRemoteWebSocketURL(rawURL string, cfg *RemoteConfig) (remoteEndpoint, error) {
 	parsed, err := url.Parse(rawURL)
 	if err != nil {
 		return remoteEndpoint{}, fmt.Errorf("invalid remote app-server URL: %w", err)
@@ -229,7 +236,7 @@ func validateRemoteConfig(cfg RemoteConfig) (remoteEndpoint, error) {
 	}, nil
 }
 
-func validateRemoteBearerConfig(cfg RemoteConfig) error {
+func validateRemoteBearerConfig(cfg *RemoteConfig) error {
 	bearerTokenSet := cfg.BearerToken != ""
 	bearerTokenFileSet := cfg.BearerTokenFile != ""
 	if bearerTokenSet && strings.TrimSpace(cfg.BearerToken) == "" {
@@ -244,7 +251,7 @@ func validateRemoteBearerConfig(cfg RemoteConfig) error {
 	return nil
 }
 
-func remoteBearerConfigured(cfg RemoteConfig) bool {
+func remoteBearerConfigured(cfg *RemoteConfig) bool {
 	return strings.TrimSpace(cfg.BearerToken) != "" || strings.TrimSpace(cfg.BearerTokenFile) != ""
 }
 
@@ -272,5 +279,14 @@ func dialRemoteWebSocketURL(ctx context.Context, endpointURL string, cfg *WebSoc
 	if err != nil {
 		return nil, websocketDialError("remote app-server websocket dial failed", resp, err)
 	}
+	if resp == nil {
+		return conn, nil
+	}
+	// A successful websocket upgrade hijacks the connection, so resp.Body can be
+	// nil; guard the close to avoid a nil dereference on the 101 handshake path.
+	if resp.Body != nil {
+		defer resp.Body.Close()
+	}
+
 	return conn, nil
 }

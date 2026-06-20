@@ -254,7 +254,7 @@ func KnownNotificationMethods() []string {
 //
 // The boolean return is false when notification.Method does not match method.
 // In that case the zero value is returned and params are not decoded.
-func DecodeNotificationAs[T any](notif Notification, method string) (T, bool, error) {
+func DecodeNotificationAs[T any](notif Notification, method string) (decoded T, ok bool, err error) {
 	var zero T
 	if notif.Method != method {
 		return zero, false, nil

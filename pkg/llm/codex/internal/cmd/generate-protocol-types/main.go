@@ -83,7 +83,7 @@ func main() {
 	if err != nil {
 		fatalf("format generated source: %v\n%s", err, generated)
 	}
-	if err := os.WriteFile(*outPath, formatted, 0o644); err != nil {
+	if err := os.WriteFile(*outPath, formatted, 0o600); err != nil {
 		fatalf("write output: %v", err)
 	}
 }

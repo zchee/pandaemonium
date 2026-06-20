@@ -308,7 +308,7 @@ func validateInitialize(payload InitializeResponse) (InitializeResponse, error) 
 	return payload, nil
 }
 
-func splitUserAgent(userAgent string) (string, string) {
+func splitUserAgent(userAgent string) (name, version string) {
 	raw := strings.TrimSpace(userAgent)
 	if raw == "" {
 		return "", ""

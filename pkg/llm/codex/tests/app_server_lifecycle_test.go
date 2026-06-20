@@ -382,10 +382,3 @@ func filteredThreadIDs(threads []codex.ThreadPayload, ids ...string) []string {
 	slices.Sort(got)
 	return got
 }
-
-func stringValue(value *string) string {
-	if value == nil {
-		return ""
-	}
-	return *value
-}

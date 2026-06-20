@@ -53,14 +53,14 @@ type unionTaggerMethod struct {
 	targetType string
 }
 
-func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *jsonschema.Schema) error {
+func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *jsonschema.Schema) error { //nolint:cyclop,gocognit // dispatch over all union variant kinds; extracting would scatter cohesive generation logic
 	info, ok := g.interfaceUnionForSchema(goName, def)
 	if !ok || len(info.variants) == 0 {
 		return nil
 	}
 
 	// Single-variant object unions are simple aliases of that variant.
-	if len(info.rawVariants) == 1 && len(info.variants) == 1 && info.variants[0].kind == unionVariantObject {
+	if len(info.rawVariants) == 1 && len(info.variants) == 1 && info.variants[0].kind == unionVariantObject { //nolint:nestif // single-variant alias path; each guard is necessary
 		variant := info.variants[0]
 		variantType := variant.typeName
 		variantSchema := variant.schema
@@ -89,11 +89,11 @@ func (g *generator) emitUnionDefinition(out *bytes.Buffer, goName string, def *j
 	for _, variant := range info.variants {
 		switch variant.kind {
 		case unionVariantStringEnum:
-			g.emitStringEnumUnionVariant(out, goName, variant)
+			g.emitStringEnumUnionVariant(out, goName, &variant)
 		case unionVariantString, unionVariantArray:
-			g.emitTypedUnionVariant(out, goName, variant)
+			g.emitTypedUnionVariant(out, goName, &variant)
 		case unionVariantObject:
-			if variant.schema != nil && objectLikeSchema(variant.schema) {
+			if variant.schema != nil && objectLikeSchema(variant.schema) { //nolint:nestif // struct emission guards; each level checks a distinct schema condition
 				_, schemaTitleDefined := g.definitions[variant.schema.Title]
 				_, typeNameDefined := g.definitions[variant.typeName]
 				if !schemaTitleDefined && !typeNameDefined && variant.raw.Ref == "" {
@@ -168,7 +168,7 @@ func (g *generator) emitMethodConstants(out *bytes.Buffer, unionName string, inf
 	return byVariant
 }
 
-func (g *generator) emitStringEnumUnionVariant(out *bytes.Buffer, unionName string, variant unionVariant) {
+func (g *generator) emitStringEnumUnionVariant(out *bytes.Buffer, unionName string, variant *unionVariant) {
 	writeGodoc(out, "", variant.typeName, "", fmt.Sprintf("%s is a string-valued %s variant.", variant.typeName, unionName))
 	fmt.Fprintf(out, "type %s string\n\n", variant.typeName)
 	g.emitUnionTagger(out, unionName, variant.typeName)
@@ -181,7 +181,7 @@ func (g *generator) emitStringEnumUnionVariant(out *bytes.Buffer, unionName stri
 	fmt.Fprintf(out, ")\n\n")
 }
 
-func (g *generator) emitTypedUnionVariant(out *bytes.Buffer, unionName string, variant unionVariant) {
+func (g *generator) emitTypedUnionVariant(out *bytes.Buffer, unionName string, variant *unionVariant) {
 	writeGodoc(out, "", variant.typeName, "", fmt.Sprintf("%s is a %s variant.", variant.typeName, unionName))
 	fmt.Fprintf(out, "type %s %s\n\n", variant.typeName, variant.goType)
 	g.emitUnionTagger(out, unionName, variant.typeName)
@@ -231,7 +231,7 @@ func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, i
 		if probeFieldTypes[matchKey] == "string" {
 			fmt.Fprintf(out, "\t\tswitch object.%s {\n", fieldName)
 			for _, variant := range discriminatorVariants[matchKey] {
-				fmt.Fprintf(out, "\t\tcase %s:\n", unionObjectVariantMatchLabel(variant, methodConstants))
+				fmt.Fprintf(out, "\t\tcase %s:\n", unionObjectVariantMatchLabel(&variant, methodConstants))
 				emitUnionObjectVariantReturn(out, "\t\t\t", variant.typeName)
 			}
 			fmt.Fprintf(out, "\t\t}\n")
@@ -241,7 +241,7 @@ func (g *generator) emitUnionDecodeHelper(out *bytes.Buffer, unionName string, i
 			fmt.Fprintf(out, "\t\t\tif err := json.Unmarshal(object.%s, &discriminator); err == nil {\n", fieldName)
 			fmt.Fprintf(out, "\t\t\t\tswitch discriminator {\n")
 			for _, variant := range discriminatorVariants[matchKey] {
-				fmt.Fprintf(out, "\t\t\t\tcase %s:\n", unionObjectVariantMatchLabel(variant, methodConstants))
+				fmt.Fprintf(out, "\t\t\t\tcase %s:\n", unionObjectVariantMatchLabel(&variant, methodConstants))
 				emitUnionObjectVariantReturn(out, "\t\t\t\t\t", variant.typeName)
 			}
 			fmt.Fprintf(out, "\t\t\t\t}\n")
@@ -273,12 +273,12 @@ func (g *generator) emitScalarUnionDecodeBranches(out *bytes.Buffer, info *inter
 			fmt.Fprintf(out, "\t\treturn %s(text), nil\n", variant.typeName)
 			fmt.Fprintf(out, "\t}\n")
 		case unionVariantArray:
-			g.emitArrayUnionDecodeBranch(out, variant)
+			g.emitArrayUnionDecodeBranch(out, &variant)
 		}
 	}
 }
 
-func (g *generator) emitArrayUnionDecodeBranch(out *bytes.Buffer, variant unionVariant) {
+func (g *generator) emitArrayUnionDecodeBranch(out *bytes.Buffer, variant *unionVariant) {
 	itemType, ok := g.arrayVariantItemType(variant.schema)
 	if !ok {
 		fmt.Fprintf(out, "\tvar value %s\n", variant.typeName)
@@ -315,7 +315,7 @@ func (g *generator) arrayVariantItemType(def *jsonschema.Schema) (string, bool) 
 	return itemType, true
 }
 
-func unionObjectVariantMatchLabel(variant unionVariant, methodConstants map[string]string) string {
+func unionObjectVariantMatchLabel(variant *unionVariant, methodConstants map[string]string) string {
 	if variant.matchKey == "method" && methodConstants != nil {
 		if constantName, ok := methodConstants[variant.typeName]; ok {
 			return constantName
@@ -353,7 +353,7 @@ func unionObjectProbeFields(variants []unionVariant) []unionObjectProbeField {
 		}
 		seen[variant.matchKey] = shape
 	}
-	fields := make([]unionObjectProbeField, 0)
+	fields := make([]unionObjectProbeField, 0, len(keys))
 	for _, key := range keys {
 		shape := seen[key]
 		field := unionObjectProbeField{
@@ -369,7 +369,7 @@ func unionObjectProbeFields(variants []unionVariant) []unionObjectProbeField {
 	return fields
 }
 
-func unionDiscriminatorVariantGroups(variants []unionVariant) ([]string, map[string][]unionVariant) {
+func unionDiscriminatorVariantGroups(variants []unionVariant) (keyOrder []string, byKey map[string][]unionVariant) {
 	keys := make([]string, 0)
 	groups := make(map[string][]unionVariant)
 	for _, variant := range variants {
@@ -488,16 +488,17 @@ func (g *generator) unionVariantTypeName(unionName string, variant *jsonschema.S
 	return uniqueName(name, used)
 }
 
-func (g *generator) interfaceUnionForSchema(unionName string, def *jsonschema.Schema) (*interfaceUnion, bool) {
+func (g *generator) interfaceUnionForSchema(unionName string, def *jsonschema.Schema) (*interfaceUnion, bool) { //nolint:cyclop,gocognit,gocyclo,funlen // schema-to-union dispatch; all branches are cohesive classification logic
 	if def == nil {
 		return nil, false
 	}
 	var rawVariants []*jsonschema.Schema
-	if len(def.AnyOf) > 0 {
+	switch {
+	case len(def.AnyOf) > 0:
 		rawVariants = def.AnyOf
-	} else if len(def.OneOf) > 0 {
+	case len(def.OneOf) > 0:
 		rawVariants = def.OneOf
-	} else {
+	default:
 		return nil, false
 	}
 	if len(rawVariants) == 0 {
@@ -626,7 +627,7 @@ func (g *generator) allowsStringOnlyInterfaceUnion(unionName string) bool {
 	return unionName == "ReasoningSummary"
 }
 
-func (g *generator) unionVariantMatch(def *jsonschema.Schema) (string, string) {
+func (g *generator) unionVariantMatch(def *jsonschema.Schema) (matchKey, matchValue string) {
 	if def == nil {
 		return "", ""
 	}

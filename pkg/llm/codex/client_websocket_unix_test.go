@@ -438,7 +438,7 @@ func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
 		}
 		defer conn.Close(websocket.StatusNormalClosure, "")
 		for {
-			typ, data, err := conn.Read(context.Background())
+			typ, data, err := conn.Read(r.Context())
 			if err != nil {
 				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
 					return
@@ -457,14 +457,14 @@ func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
 			switch req.Method {
 			case RequestMethodInitialize:
 				if os.Getenv("CODEX_EXEC_SERVER_HANDSHAKE") == "1" {
-					_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+					_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
 						ID: req.ID,
 						Result: mustJSONValueForHelper(ExecServerInitializeResponse{
 							SessionID: "session-1",
 						}),
 					}))
 				} else {
-					_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+					_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
 						ID: req.ID,
 						Result: mustJSONValueForHelper(InitializeResponse{
 							UserAgent:  "codex-bench/1.0",
@@ -473,17 +473,17 @@ func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
 					}))
 				}
 			case "initialized":
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+				_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
 					Method: "custom/global",
 					Params: mustJSONValueForHelper(Object{"scope": "global"}),
 				}))
 			case "helper/echo":
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+				_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
 					ID:     req.ID,
 					Result: mustJSONValueForHelper(Object{"ok": true}),
 				}))
 			default:
-				_ = conn.Write(context.Background(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+				_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
 					ID:    req.ID,
 					Error: &rpcErrorBody{Code: -32601, Message: "unexpected method"},
 				}))

@@ -173,7 +173,7 @@ func readHTTPSchemaSource(source string) ([]byte, error) {
 
 func readHTTPSchemaSourceWithLimit(source string, maxBytes int64) ([]byte, error) {
 	sourceLabel := schemaSourceLabel(source)
-	request, err := http.NewRequest(http.MethodGet, source, nil)
+	request, err := http.NewRequestWithContext(context.Background(), http.MethodGet, source, http.NoBody)
 	if err != nil {
 		return nil, fmt.Errorf("create request: %w", err)
 	}

@@ -19,6 +19,7 @@ import (
 	"slices"
 	"strings"
 	"unicode"
+	"unicode/utf8"
 )
 
 var nonIdentifier = regexp.MustCompile(`[^A-Za-z0-9]+`)
@@ -36,7 +37,7 @@ func exportName(name string) string {
 	if result == "" {
 		return "Value"
 	}
-	if first := []rune(result)[0]; unicode.IsDigit(first) {
+	if first, _ := utf8.DecodeRuneInString(result); unicode.IsDigit(first) {
 		return "Value" + result
 	}
 	if result == "Type" {

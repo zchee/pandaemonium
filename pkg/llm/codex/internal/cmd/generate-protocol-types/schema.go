@@ -49,7 +49,7 @@ func (g *generator) typeForSchema(def *jsonschema.Schema, optional bool) string 
 	return g.typeForSchemaWithNullability(def, optional, false)
 }
 
-func (g *generator) typeForSchemaWithNullability(def *jsonschema.Schema, optional, nullable bool) string {
+func (g *generator) typeForSchemaWithNullability(def *jsonschema.Schema, optional, nullable bool) string { //nolint:cyclop // dispatch over all JSON Schema type combinations; cohesive single function
 	if def == nil {
 		return "jsontext.Value"
 	}
@@ -60,10 +60,10 @@ func (g *generator) typeForSchemaWithNullability(def *jsonschema.Schema, optiona
 		return g.typeForSchemaWithNullability(def.AllOf[0], optional, nullable)
 	}
 	if typ, nullType := nullableType(def); typ != "" {
-		copy := *def
-		copy.Type = typ
-		copy.Types = nil
-		return g.typeForSchemaWithNullability(&copy, optional, nullable || nullType)
+		sch := *def
+		sch.Type = typ
+		sch.Types = nil
+		return g.typeForSchemaWithNullability(&sch, optional, nullable || nullType)
 	}
 	if variant, nullVariant := nullableVariant(def.AnyOf); variant != nil {
 		return g.typeForSchemaWithNullability(variant, optional, nullable || nullVariant)

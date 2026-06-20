@@ -243,6 +243,7 @@ func (e *TurnFailedError) Unwrap() error {
 	// check can classify it into the correct typed wrapper.
 	data, err := json.Marshal(e.Err.CodexErrorInfo)
 	if err != nil {
+		//nolint:nilerr // Unwrap must not surface a marshal error as the chain cause; nil correctly means "no further cause".
 		return nil
 	}
 	return mapJSONRPCError(-32000, e.Err.Message, jsontext.Value(data))
@@ -275,7 +276,7 @@ func asJSONRPCError(err error) *JSONRPCError {
 		if err == nil {
 			return nil
 		}
-		if rpcErr, ok := err.(*JSONRPCError); ok {
+		if rpcErr, ok := err.(*JSONRPCError); ok { //nolint:errorlint // manual 32-level unwrap loop already traverses wrapped errors; the per-level concrete-type check (before the carrier-interface fallback) is intentional and errors.As would change traversal order.
 			return rpcErr
 		}
 		// Concrete wrapper types (ParseError, ServerBusyError, etc.) expose an

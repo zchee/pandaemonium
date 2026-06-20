@@ -97,7 +97,7 @@ func (q *notificationQueue) next(ctx context.Context) (Notification, error) {
 			dropped := q.dropped
 			q.dropped = 0
 			q.mu.Unlock()
-			return Notification{}, q.dropError(q.scopeID, int(dropped))
+			return Notification{}, q.dropError(q.scopeID, int(dropped)) //nolint:gosec // G115: dropped is a bounded notification-eviction counter, always within int range
 		}
 		if notification, ok := q.notifies.pop(); ok {
 			q.mu.Unlock()
