@@ -31,14 +31,14 @@ require (
 	github.com/segmentio/encoding v0.5.4 // indirect
 	github.com/toml-lang/toml-test/v2 v2.2.0 // indirect
 	github.com/yosida95/uritemplate/v3 v3.0.2 // indirect
-	github.com/zchee/goimports-rereviser/v4 v4.1.0 // indirect
+	github.com/zchee/goimports-rereviser/v4 v4.1.1 // indirect
 	github.com/zeebo/xxh3 v1.1.0 // indirect
-	golang.org/x/mod v0.36.0 // indirect
+	golang.org/x/mod v0.37.0 // indirect
 	golang.org/x/oauth2 v0.36.0 // indirect
-	golang.org/x/perf v0.0.0-20260512194132-3cf34090a3db // indirect
-	golang.org/x/sync v0.20.0 // indirect
-	golang.org/x/sys v0.45.0 // indirect
-	golang.org/x/tools v0.45.0 // indirect
+	golang.org/x/perf v0.0.0-20260615155930-9e4b9ddef5b6 // indirect
+	golang.org/x/sync v0.21.0 // indirect
+	golang.org/x/sys v0.46.0 // indirect
+	golang.org/x/tools v0.46.0 // indirect
 	zgo.at/jfmt v0.0.0-20260130232205-d030781d0fbb // indirect
 	zgo.at/runewidth v0.1.0 // indirect
 	zgo.at/termtext v1.5.0 // indirect
