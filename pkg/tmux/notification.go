@@ -329,7 +329,7 @@ func validateWindowID(window WindowID) error {
 	return nil
 }
 
-func splitFieldsBeforeValue(s string) ([]string, string, error) {
+func splitFieldsBeforeValue(s string) (out []string, val string, _ error) {
 	if s == "" {
 		return nil, "", fmt.Errorf("missing fields")
 	}

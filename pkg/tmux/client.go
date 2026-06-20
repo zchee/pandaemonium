@@ -72,10 +72,15 @@ type responseResult struct {
 //
 // ctx bounds executable lookup/startup and the initial tmux response handshake;
 // after New returns, [Client.Close] owns subprocess shutdown.
+//
+//nolint:cyclop // startup state machine: path/pipe setup, subprocess launch, and handshake are a single cohesive flow.
 func New(ctx context.Context, opts ...Option) (*Client, error) {
 	if ctx == nil {
 		ctx = context.Background()
 	}
+	ctx, cancel := context.WithCancel(ctx)
+	defer cancel()
+
 	if err := ctx.Err(); err != nil {
 		return nil, err
 	}
@@ -129,7 +134,7 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 		stdin:  stdin,
 		stdout: bufio.NewReader(stdout),
 	}
-	client := newClient(cmd, cfg, tr, stdout)
+	client := newClient(cmd, &cfg, tr, stdout)
 	startup := &pendingCommand{line: cfg.initialCommandLine(), ch: make(chan responseResult, 1)}
 	if err := client.registerPending(startup); err != nil {
 		_ = client.Close(ctx)
@@ -138,6 +143,7 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	client.stderrDone = make(chan struct{})
 	go client.drainStderr(stderr, client.stderrDone)
 	client.readDone = make(chan struct{})
+	//nolint:gosec // G118: readLoop must outlive the startup ctx; it is bound to Client.Close, not the request context
 	go client.readLoop(context.Background(), client.transport, client.readDone)
 	select {
 	case result := <-startup.ch:
@@ -153,9 +159,9 @@ func New(ctx context.Context, opts ...Option) (*Client, error) {
 	return client, nil
 }
 
-func newClient(cmd *exec.Cmd, cfg Options, tr transport, stdoutCloser io.Closer) *Client {
+func newClient(cmd *exec.Cmd, cfg *Options, tr transport, stdoutCloser io.Closer) *Client {
 	return &Client{
-		options:      cfg,
+		options:      *cfg,
 		transport:    tr,
 		stdoutCloser: stdoutCloser,
 		cmd:          cmd,
@@ -311,6 +317,7 @@ func (c *Client) Close(ctx context.Context) error {
 	c.failPending(ErrClosed)
 
 	var errs []error
+	//nolint:nestif // shutdown sequence: transport nil-guard → already-closed guard → mutex trylock → close; all levels are necessary
 	if c.transport != nil {
 		if !alreadyClosed {
 			if c.writeMu.TryLock() {
@@ -377,7 +384,7 @@ func (c *Client) readLoop(ctx context.Context, tr transport, done chan<- struct{
 		}
 		switch message.kind {
 		case protocolMessageResponse:
-			c.deliverResponse(message.response)
+			c.deliverResponse(&message.response)
 		case protocolMessageNotification:
 			c.deliverEvent(message.notification)
 			if exit, ok := message.notification.Exit(); ok {
@@ -400,7 +407,7 @@ func (c *Client) readLoop(ctx context.Context, tr transport, done chan<- struct{
 	}
 }
 
-func (c *Client) deliverResponse(response Response) {
+func (c *Client) deliverResponse(response *Response) {
 	c.pendingMu.Lock()
 	pending := c.pending
 	if pending != nil {
@@ -410,9 +417,9 @@ func (c *Client) deliverResponse(response Response) {
 	if pending == nil {
 		return
 	}
-	result := responseResult{response: response}
+	result := responseResult{response: *response}
 	if response.Error {
-		result.err = &CommandError{Line: pending.line, Response: response}
+		result.err = &CommandError{Line: pending.line, Response: *response}
 	}
 	pending.ch <- result
 }
@@ -472,15 +479,14 @@ func (c *Client) abort(err error) {
 	c.failPending(err)
 }
 
-func (c *Client) markClosed(err error) bool {
+func (c *Client) markClosed(err error) {
 	c.stateMu.Lock()
 	defer c.stateMu.Unlock()
 	if c.closed {
-		return false
+		return
 	}
 	c.closed = true
 	c.closeErr = err
-	return true
 }
 
 func (c *Client) closedError() error {

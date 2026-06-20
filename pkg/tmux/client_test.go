@@ -218,7 +218,7 @@ func newScriptedClient(t *testing.T, buffer int) (*Client, *scriptedTransport) {
 		t.Fatalf("applyOptions() error = %v", err)
 	}
 	tr := newScriptedTransport()
-	client := newClient(nil, cfg, tr, nil)
+	client := newClient(nil, &cfg, tr, nil)
 	client.readDone = make(chan struct{})
 	client.stderrDone = make(chan struct{})
 	close(client.stderrDone)
@@ -363,7 +363,7 @@ func TestClientDeliverEventDropsOldestWhenCalledDirectly(t *testing.T) {
 	if err != nil {
 		t.Fatalf("applyOptions() error = %v", err)
 	}
-	client := newClient(nil, cfg, nil, nil)
+	client := newClient(nil, &cfg, nil, nil)
 	client.events <- Notification{Kind: NotificationMessage, Raw: "%message existing"}
 	client.deliverEvent(Notification{Kind: NotificationMessage, Raw: "%message replacement"})
 	client.deliverEvent(Notification{Kind: NotificationMessage, Raw: "%message newest"})
@@ -402,7 +402,7 @@ func TestClientCloseAllowsUnstartedLoopChannels(t *testing.T) {
 		t.Fatalf("applyOptions() error = %v", err)
 	}
 	tr := newScriptedTransport()
-	client := newClient(nil, cfg, tr, nil)
+	client := newClient(nil, &cfg, tr, nil)
 	if client.readDone != nil || client.stderrDone != nil {
 		t.Fatalf("newClient() readDone = %v, stderrDone = %v; want nil channels before goroutine launch", client.readDone, client.stderrDone)
 	}
@@ -425,7 +425,7 @@ func TestReadLoopCanOutliveStartupContextCancellation(t *testing.T) {
 		t.Fatalf("applyOptions() error = %v", err)
 	}
 	tr := newBlockingTransport()
-	client := newClient(nil, cfg, tr, nil)
+	client := newClient(nil, &cfg, tr, nil)
 	client.readDone = make(chan struct{})
 	client.stderrDone = make(chan struct{})
 	close(client.stderrDone)
@@ -523,7 +523,7 @@ func TestClientCloseUnblocksExecRawStuckInTransportWrite(t *testing.T) {
 		t.Fatalf("applyOptions() error = %v", err)
 	}
 	tr := newBlockingWriteTransport()
-	client := newClient(nil, cfg, tr, nil)
+	client := newClient(nil, &cfg, tr, nil)
 
 	execDone := make(chan error, 1)
 	go func() {
@@ -572,7 +572,7 @@ func TestClientConcurrentCloseWaitsForCleanupToFinish(t *testing.T) {
 		t.Fatalf("applyOptions() error = %v", err)
 	}
 	tr := newBlockingCloseTransport()
-	client := newClient(nil, cfg, tr, nil)
+	client := newClient(nil, &cfg, tr, nil)
 
 	firstDone := make(chan error, 1)
 	go func() { firstDone <- client.Close(context.Background()) }()

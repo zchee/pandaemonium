@@ -133,6 +133,7 @@ func applyOptions(opts []Option) (Options, error) {
 	return cfg, cfg.validate()
 }
 
+//nolint:cyclop // series of independent validation guards.
 func (o Options) validate() error {
 	if o.SocketName != "" && o.SocketPath != "" {
 		return fmt.Errorf("tmux: SocketName and SocketPath are mutually exclusive")

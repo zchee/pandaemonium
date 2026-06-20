@@ -24,8 +24,8 @@ import (
 
 type transport interface {
 	io.Closer
-	ReadLine(context.Context) (string, error)
-	WriteLine(context.Context, string) error
+	ReadLine(ctx context.Context) (string, error)
+	WriteLine(ctx context.Context, line string) error
 }
 
 type stdioTransport struct {
@@ -47,7 +47,7 @@ func (t *stdioTransport) ReadLine(_ context.Context) (string, error) {
 		return "", ErrClosed
 	}
 	line, err := t.stdout.ReadString('\n')
-	if len(line) > 0 {
+	if line != "" {
 		trimmed := trimLineEnding(line)
 		if errors.Is(err, io.EOF) {
 			return trimmed, io.EOF
