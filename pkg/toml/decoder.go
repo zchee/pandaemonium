@@ -275,6 +275,7 @@ func (d *Decoder) ReadToken() (Token, error) {
 	return pub, nil
 }
 
+//nolint:cyclop,funlen,gocognit,gocyclo // central token-stream dispatch state machine; cohesive.
 func (d *Decoder) readToken() (rawToken, error) {
 	if d == nil {
 		return rawToken{}, io.ErrUnexpectedEOF
@@ -438,6 +439,7 @@ func (d *Decoder) scanCommentEnd(start int) (int, error) {
 	return 0, d.syntaxError("control character in comment", end)
 }
 
+//nolint:cyclop // bare/quoted/dotted key scan with inline limit checks; cohesive.
 func (d *Decoder) scanKeyToken() (rawToken, error) {
 	start := d.off
 	i := start
@@ -716,7 +718,7 @@ func (d *Decoder) validateHeaderKey(start, end int) error {
 			needSegment = true
 			continue
 		}
-		if d.buf[i] == '"' || d.buf[i] == '\'' {
+		if d.buf[i] == '"' || d.buf[i] == '\'' { //nolint:nestif // quoted vs bare table-key segment branch; cohesive.
 			j, err := d.scanQuoted(d.buf[i], i)
 			if err != nil {
 				return err
@@ -772,9 +774,10 @@ func (d *Decoder) scanQuoted(quote byte, off int) (int, error) {
 	return 0, d.syntaxError("unterminated quoted key", off)
 }
 
+//nolint:cyclop,funlen,gocognit // multiline/single-line string terminator scan; cohesive escape state machine.
 func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 	rest := d.buf[off:]
-	if hasBytePrefix(rest, '"', '"', '"') {
+	if hasBytePrefix(rest, '"', '"', '"') { //nolint:nestif // multiline basic-string terminator scan; cohesive.
 		for end := off + 3; end < len(d.buf); {
 			n := scan.ScanBasicString(d.buf[end:])
 			end += n
@@ -803,7 +806,7 @@ func (d *Decoder) scanString(off int) (int, TokenKind, error) {
 		}
 		return 0, TokenKindInvalid, d.syntaxError("unterminated multiline string", off)
 	}
-	if hasBytePrefix(rest, '\'', '\'', '\'') {
+	if hasBytePrefix(rest, '\'', '\'', '\'') { //nolint:nestif // multiline literal-string terminator scan; cohesive.
 		for end := off + 3; end < len(d.buf); {
 			n := scan.ScanLiteralString(d.buf[end:])
 			end += n
@@ -916,7 +919,7 @@ func (d *Decoder) syntaxError(msg string, off int) *SyntaxError {
 	return err
 }
 
-func (d *Decoder) computeLineCol(off int) (int, int) {
+func (d *Decoder) computeLineCol(off int) (line, col int) {
 	if d == nil {
 		return 1, 1
 	}
@@ -926,15 +929,15 @@ func (d *Decoder) computeLineCol(off int) (int, int) {
 	return lineColForOffset(d.buf, off)
 }
 
-func (d *Decoder) makeToken(kind TokenKind, bytes []byte, offset int, scalar tokenScalar) rawToken {
+func (d *Decoder) makeToken(kind TokenKind, raw []byte, offset int, scalar tokenScalar) rawToken {
 	d.tokenScalar = scalar
 	if d.trackTokenPositions {
 		d.tokenLine, d.tokenCol = d.computeLineCol(offset)
 	}
-	return rawToken{Kind: kind, Bytes: bytes, Offset: offset}
+	return rawToken{Kind: kind, Bytes: raw, Offset: offset}
 }
 
-func lineColForOffset(data []byte, off int) (int, int) {
+func lineColForOffset(data []byte, off int) (line, col int) {
 	if off < 0 {
 		off = 0
 	}
@@ -942,12 +945,12 @@ func lineColForOffset(data []byte, off int) (int, int) {
 		off = len(data)
 	}
 	prefix := data[:off]
-	line := 1 + scan.CountLines(prefix)
+	line = 1 + scan.CountLines(prefix)
 	lineStart := 0
 	if lastLF := bytes.LastIndexByte(prefix, '\n'); lastLF >= 0 {
 		lineStart = lastLF + 1
 	}
-	col := 1
+	col = 1
 	for _, b := range prefix[lineStart:] {
 		if b != '\r' {
 			col++
@@ -1009,7 +1012,7 @@ func displayColumnDelta(raw []byte) int {
 }
 
 func (d *Decoder) matchPrefix(prefix string) bool {
-	if len(prefix) == 0 {
+	if prefix == "" {
 		return false
 	}
 	p := []byte(prefix)
@@ -1111,7 +1114,7 @@ func classifyBareValue(raw []byte) (TokenKind, tokenScalar, string) {
 		if err != nil {
 			return TokenKindInvalid, tokenScalar{}, "malformed value"
 		}
-		return TokenKindValueInteger, tokenScalar{bits: uint64(i), kind: tokenScalarInteger}, ""
+		return TokenKindValueInteger, tokenScalar{bits: uint64(i), kind: tokenScalarInteger}, "" //nolint:gosec // G115: i is an int64 stored as raw bits; round-tripped by scalarIntegerValue.
 	case isFloatCandidateBytes(raw):
 		f, err := parseFloatLiteral(raw)
 		if err != nil {
@@ -1137,6 +1140,7 @@ func bytesTrimRightSpaces(raw []byte) []byte {
 	return raw
 }
 
+//nolint:cyclop // TOML integer-literal classification; cohesive sequence of guards.
 func isIntCandidateBytes(raw []byte) bool {
 	if len(raw) == 0 {
 		return false
@@ -1226,6 +1230,7 @@ func isSpecialFloatBytes(raw []byte) bool {
 	}
 }
 
+//nolint:cyclop // TOML float-literal classification; cohesive scan over the byte class.
 func isFloatCandidateBytes(raw []byte) bool {
 	if len(raw) == 0 {
 		return false

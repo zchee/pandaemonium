@@ -303,6 +303,7 @@ func writeHeader(buf *bytes.Buffer, path []string, array bool) {
 	}
 }
 
+//nolint:cyclop // dispatch over all reflect kinds for TOML encoding; cohesive.
 func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 	v = indirectValue(v)
 	if !v.IsValid() {
@@ -351,6 +352,7 @@ func writeValue(buf *bytes.Buffer, v reflect.Value) error {
 	}
 }
 
+//nolint:cyclop,funlen // type-switch dispatch over all encodable Go value types; cohesive.
 func writeAnyValue(buf *bytes.Buffer, value any) error {
 	switch x := value.(type) {
 	case nil:

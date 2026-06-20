@@ -49,6 +49,7 @@ var documentMapPool = sync.Pool{
 	},
 }
 
+//nolint:cyclop,funlen,gocognit,gocyclo // top-level TOML statement dispatch with table/array-table bookkeeping; cohesive state machine.
 func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMap, error) {
 	dec := NewDecoderBytes(data, decoderOptionsWithoutTokenPositions(opts)...)
 	root := newDocumentMap()
@@ -137,7 +138,7 @@ func parseDocument(data []byte, opts []Option, filter *decodeFilter) (documentMa
 				arrayTableEpochs = make(map[string]int, documentMapHint)
 			}
 			arrayTableEpochs[encodedPathKey]++
-			if nextFilter, ok := filter.lookupPath(path); ok {
+			if nextFilter, ok := filter.lookupPath(path); ok { //nolint:nestif // array-table target resolution and capacity hinting; cohesive.
 				var next documentMap
 				if len(path) == 1 {
 					capacityHint := 0
@@ -266,6 +267,7 @@ const (
 	skippedInlineSeparator
 )
 
+//nolint:cyclop,funlen,gocognit // container-skip state machine over array/inline frames; cohesive.
 func (d *Decoder) scanSkippedStructuralValue(start int) (int, error) {
 	var stack [32]skippedContainerFrame
 	frames := stack[:0]
@@ -572,7 +574,7 @@ func rawTokenIntegerValue(dec *Decoder, tok rawToken) (int64, error) {
 
 func scalarIntegerValue(scalar tokenScalar, raw []byte) (int64, error) {
 	if scalar.kind == tokenScalarInteger {
-		return int64(scalar.bits), nil
+		return int64(scalar.bits), nil //nolint:gosec // G115: bits hold an int64 stored via uint64(i); the round-trip is exact.
 	}
 	return parseIntegerLiteral(raw)
 }
@@ -716,21 +718,31 @@ func validateStringValue(raw []byte) error {
 }
 
 func stringValueBody(raw []byte) ([]byte, stringValueKind, error) {
-	if len(raw) >= 6 && raw[0] == '\'' && raw[1] == '\'' && raw[2] == '\'' &&
-		raw[len(raw)-1] == '\'' && raw[len(raw)-2] == '\'' && raw[len(raw)-3] == '\'' {
+	if hasTripleDelimiter(raw, '\'') {
 		return trimInitialMultilineStringNewline(raw[3 : len(raw)-3]), stringValueMultilineLiteral, nil
 	}
-	if len(raw) >= 6 && raw[0] == '"' && raw[1] == '"' && raw[2] == '"' &&
-		raw[len(raw)-1] == '"' && raw[len(raw)-2] == '"' && raw[len(raw)-3] == '"' {
+	if hasTripleDelimiter(raw, '"') {
 		return trimInitialMultilineStringNewline(raw[3 : len(raw)-3]), stringValueMultilineBasic, nil
 	}
-	if len(raw) >= 2 && raw[0] == '\'' && raw[len(raw)-1] == '\'' {
+	if hasPairDelimiter(raw, '\'') {
 		return raw[1 : len(raw)-1], stringValueLiteral, nil
 	}
-	if len(raw) >= 2 && raw[0] == '"' && raw[len(raw)-1] == '"' {
+	if hasPairDelimiter(raw, '"') {
 		return raw[1 : len(raw)-1], stringValueBasic, nil
 	}
 	return nil, stringValueMalformed, malformedStringError(raw)
+}
+
+// hasTripleDelimiter reports whether raw opens and closes with three q bytes.
+func hasTripleDelimiter(raw []byte, q byte) bool {
+	return len(raw) >= 6 &&
+		raw[0] == q && raw[1] == q && raw[2] == q &&
+		raw[len(raw)-1] == q && raw[len(raw)-2] == q && raw[len(raw)-3] == q
+}
+
+// hasPairDelimiter reports whether raw opens and closes with a single q byte.
+func hasPairDelimiter(raw []byte, q byte) bool {
+	return len(raw) >= 2 && raw[0] == q && raw[len(raw)-1] == q
 }
 
 func malformedStringError(raw []byte) error {
@@ -773,9 +785,10 @@ func parseBasicStringBody(raw []byte, multiline bool) (string, error) {
 	return b.String(), nil
 }
 
+//nolint:cyclop,funlen,gocognit,gocyclo // basic-string escape-processing state machine; cohesive.
 func scanBasicStringBody(raw []byte, multiline bool, b *strings.Builder) error {
 	for i := 0; i < len(raw); {
-		if !multiline {
+		if !multiline { //nolint:nestif // single-line vs multiline body handling; cohesive.
 			n := scan.ScanBasicStringStrict(raw[i:])
 			if n > 0 {
 				if b != nil {
@@ -903,6 +916,7 @@ func validateStringControls(raw []byte, multiline bool) error {
 	return nil
 }
 
+//nolint:cyclop // whitespace/newline elision after a line-ending backslash; cohesive.
 func skipEscapedMultilineStringWhitespace(raw []byte, i int) (int, bool) {
 	j := i
 	for j < len(raw) && (raw[j] == ' ' || raw[j] == '\t') {
@@ -1039,6 +1053,7 @@ func isSimpleBareKey(raw []byte) bool {
 	return true
 }
 
+//nolint:cyclop,gocognit // dotted-key parser with quoted/bare segments; cohesive.
 func parseDottedKey(raw []byte) ([]string, error) {
 	origLen := len(raw)
 	raw = bytesTrimSpace(raw)
@@ -1049,7 +1064,7 @@ func parseDottedKey(raw []byte) ([]string, error) {
 			break
 		}
 		var part string
-		if raw[0] == '\'' || raw[0] == '"' {
+		if raw[0] == '\'' || raw[0] == '"' { //nolint:nestif // quoted vs bare key-segment branch; cohesive.
 			q := raw[0]
 			end := 1
 			for end < len(raw) {
@@ -1203,9 +1218,9 @@ func parseIntegerLiteral(raw []byte) (int64, error) {
 		if u == minMagnitude {
 			return math.MinInt64, nil
 		}
-		return -int64(u), nil
+		return -int64(u), nil //nolint:gosec // G115: u < 2^63 here (u==2^63 handled above), so -int64(u) is in range.
 	}
-	return int64(u), nil
+	return int64(u), nil //nolint:gosec // G115: u <= MaxInt64 under the positive limit, so int64(u) is in range.
 }
 
 func parseUintLiteralDigits(raw []byte, base byte, limit uint64) (uint64, error) {

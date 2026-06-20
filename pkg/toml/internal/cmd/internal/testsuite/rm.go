@@ -73,7 +73,7 @@ func rmTag(typedJSON any) (any, error) {
 }
 
 // Return a primitive: read the "type" and convert the "value" to that.
-func untag(typed map[string]any) (any, error) {
+func untag(typed map[string]any) (any, error) { //nolint:cyclop // switch dispatch over every toml-test tag type; cohesive.
 	t := typed["type"].(string)
 	v := typed["value"].(string)
 	switch t {

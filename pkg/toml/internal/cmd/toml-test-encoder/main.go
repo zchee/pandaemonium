@@ -25,7 +25,7 @@ import (
 )
 
 func usage() {
-	log.Printf("Usage: %s < json-file\n", path.Base(os.Args[0]))
+	log.Printf("Usage: %s < json-file\n", path.Base(os.Args[0])) //nolint:gosec // G706: program basename in a static usage banner, not attacker-controlled.
 	flag.PrintDefaults()
 	os.Exit(1)
 }

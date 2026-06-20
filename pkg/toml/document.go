@@ -296,7 +296,7 @@ func (d *Document) Delete(path string) error {
 }
 
 // Bytes serializes the document, preserving untouched bytes exactly.
-func (d *Document) Bytes() []byte {
+func (d *Document) Bytes() []byte { //nolint:cyclop // document edit-op assembly over replace/delete/insert spans; cohesive.
 	if d == nil {
 		return nil
 	}
@@ -374,7 +374,7 @@ func (p *documentParser) readToken() (spannedToken, error) {
 	return spannedToken{Token: tok, span: tokenSpan(tok)}, nil
 }
 
-func (p *documentParser) readValue() ([]byte, [2]int, documentValueKind, error) {
+func (p *documentParser) readValue() (raw []byte, span [2]int, kind documentValueKind, err error) {
 	for {
 		tok, err := p.readToken()
 		if err != nil {
@@ -428,6 +428,7 @@ func (p *documentParser) parseHeaderPathKey(raw []byte, array bool) (string, err
 	return p.parseDottedPathKey(trimHeaderKey(raw, array))
 }
 
+//nolint:cyclop,gocognit // dotted-path key parser with quoted/bare segments; cohesive.
 func (p *documentParser) parseDottedPathKey(raw []byte) (string, error) {
 	origLen := len(raw)
 	raw = bytesTrimSpace(raw)
@@ -441,7 +442,7 @@ func (p *documentParser) parseDottedPathKey(raw []byte) (string, error) {
 			break
 		}
 		var part string
-		if raw[0] == '\'' || raw[0] == '"' {
+		if raw[0] == '\'' || raw[0] == '"' { //nolint:nestif // quoted vs bare key-segment branch; cohesive.
 			q := raw[0]
 			end := 1
 			for end < len(raw) {

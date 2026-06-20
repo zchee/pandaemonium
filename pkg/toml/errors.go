@@ -45,19 +45,8 @@ func syntaxErrorAtOffset(data []byte, off int, msg string, span [2]int) *SyntaxE
 	return &SyntaxError{Line: line, Col: col, Msg: msg, Span: span}
 }
 
-func syntaxErrorForToken(data []byte, tok Token, msg string) *SyntaxError {
-	return syntaxErrorAtOffset(data, tok.Offset, msg, tokenSpan(tok))
-}
-
 func syntaxErrorForRawToken(data []byte, tok rawToken, msg string) *SyntaxError {
 	return syntaxErrorAtOffset(data, tok.Offset, msg, rawTokenSpan(tok))
-}
-
-func decoderSyntaxErrorForToken(dec *Decoder, tok Token, msg string) *SyntaxError {
-	if dec == nil {
-		return syntaxErrorForToken(nil, tok, msg)
-	}
-	return syntaxErrorForToken(dec.buf, tok, msg)
 }
 
 func decoderSyntaxErrorForRawToken(dec *Decoder, tok rawToken, msg string) *SyntaxError {

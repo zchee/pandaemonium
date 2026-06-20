@@ -119,6 +119,7 @@ type decodeFilter struct {
 	children map[string]*decodeFilter
 }
 
+//nolint:cyclop // dispatch over reflect kinds to build the field filter; cohesive.
 func newDecodeFilter(t reflect.Type) (*decodeFilter, error) {
 	for t.Kind() == reflect.Pointer {
 		t = t.Elem()
@@ -128,7 +129,7 @@ func newDecodeFilter(t reflect.Type) (*decodeFilter, error) {
 	}
 	switch t.Kind() {
 	case reflect.Interface, reflect.Map:
-		return nil, nil
+		return nil, nil //nolint:nilnil // a nil filter signals "no field restriction"; see decodeFilter.lookup.
 	case reflect.Slice, reflect.Array:
 		return newDecodeFilter(t.Elem())
 	case reflect.Struct:
@@ -136,7 +137,7 @@ func newDecodeFilter(t reflect.Type) (*decodeFilter, error) {
 			t == reflect.TypeFor[LocalDateTime]() ||
 			t == reflect.TypeFor[LocalDate]() ||
 			t == reflect.TypeFor[LocalTime]() {
-			return nil, nil
+			return nil, nil //nolint:nilnil // a nil filter signals "no field restriction"; see decodeFilter.lookup.
 		}
 		info, err := reflectcache.Lookup(t)
 		if err != nil {
@@ -159,7 +160,7 @@ func newDecodeFilter(t reflect.Type) (*decodeFilter, error) {
 		}
 		return filter, nil
 	default:
-		return nil, nil
+		return nil, nil //nolint:nilnil // a nil filter signals "no field restriction"; see decodeFilter.lookup.
 	}
 }
 
@@ -202,6 +203,7 @@ func (f *decodeFilter) lookupPath(path []string) (*decodeFilter, bool) {
 	return cur, true
 }
 
+//nolint:cyclop,funlen,gocognit,gocyclo // core reflect value binder dispatching over every target kind; cohesive.
 func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 	if !dst.CanSet() {
 		return nil
@@ -235,10 +237,10 @@ func bindValue(dst reflect.Value, src any, cfg bindConfig) error {
 			return nil
 		}
 	}
-	if dst.CanAddr() && dst.Addr().Type().Implements(textUnmarshalerType) {
+	if dst.CanAddr() && dst.Addr().Type().Implements(textUnmarshalerType) { //nolint:nestif // text-unmarshaler fallback for non-string sources; cohesive.
 		text, ok := src.(string)
 		if !ok {
-			if tm, ok := src.(encoding.TextMarshaler); ok {
+			if tm, isMarshaler := src.(encoding.TextMarshaler); isMarshaler {
 				b, err := tm.MarshalText()
 				if err != nil {
 					return err

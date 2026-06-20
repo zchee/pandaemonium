@@ -78,7 +78,7 @@ func build(t reflect.Type) (*TypeInfo, error) {
 		if sf.PkgPath != "" && !sf.Anonymous {
 			continue
 		}
-		name, omit, skip, err := parseTag(t, sf)
+		name, omit, skip, err := parseTag(t, &sf)
 		if err != nil {
 			return nil, err
 		}
@@ -118,7 +118,7 @@ func build(t reflect.Type) (*TypeInfo, error) {
 	return info, nil
 }
 
-func parseTag(t reflect.Type, sf reflect.StructField) (name string, omitZero, skip bool, err error) {
+func parseTag(t reflect.Type, sf *reflect.StructField) (name string, omitZero, skip bool, err error) {
 	tag, ok := sf.Tag.Lookup("toml")
 	if !ok {
 		return "", false, false, nil

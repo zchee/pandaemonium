@@ -66,7 +66,7 @@ const (
 )
 
 // String returns a stable token kind name.
-func (k TokenKind) String() string {
+func (k TokenKind) String() string { //nolint:cyclop // dispatch over all TokenKind values; cohesive.
 	switch k {
 	case TokenKindInvalid:
 		return "Invalid"

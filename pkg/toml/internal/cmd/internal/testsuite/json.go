@@ -22,6 +22,8 @@ import (
 	"time"
 )
 
+// CmpJSON asserts that the decoded value have matches the expected toml-test
+// value want for the given key, recursing through tables and arrays.
 func CmpJSON(t *testing.T, key string, want, have any) {
 	t.Helper()
 	switch w := want.(type) {
@@ -224,7 +226,7 @@ func cmpAsDatetimes(t *testing.T, key, kind, want, have string) {
 }
 
 func kjoin(old, key string) string {
-	if len(old) == 0 {
+	if old == "" {
 		return key
 	}
 	return old + "." + key

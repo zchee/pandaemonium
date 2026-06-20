@@ -21,12 +21,12 @@ import (
 
 // MarshalerTo is the fast-path TOML encoder hook.
 type MarshalerTo interface {
-	MarshalTOMLTo(*Encoder) error
+	MarshalTOMLTo(enc *Encoder) error
 }
 
 // UnmarshalerFrom is the fast-path TOML decoder hook.
 type UnmarshalerFrom interface {
-	UnmarshalTOMLFrom(*Decoder) error
+	UnmarshalTOMLFrom(dec *Decoder) error
 }
 
 // Encoder writes one TOML document to an io.Writer.

@@ -138,6 +138,8 @@ func directTypeContainsMap(t reflect.Type, seen map[reflect.Type]bool) (bool, er
 // bindDocumentDirect decodes the token stream directly into dst. It avoids the
 // intermediate documentMap used by generic callers while preserving the same
 // Decoder.ReadToken source of truth as the rest of the facade.
+//
+//nolint:cyclop,funlen,gocognit,gocyclo // direct-decode token dispatch with table/array bookkeeping; cohesive state machine.
 func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindConfig) error {
 	dec := NewDecoderBytes(data, decoderOptionsWithoutTokenPositions(opts)...)
 	current := dst
@@ -214,7 +216,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 			}
 			currentPath = directPathState{text: path, valid: true, arrayIndex: index}
 		case TokenKindKey:
-			if isSimpleBareKey(tok.Bytes) {
+			if isSimpleBareKey(tok.Bytes) { //nolint:nestif // bare-key fast path with map/struct target resolution; cohesive.
 				target, ok, err := directAssignmentForKeyInfo(current, currentInfo, tok.Bytes)
 				if err != nil {
 					return err
@@ -230,7 +232,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 				}
 				continue
 			}
-			if path, ok := parseDirectRawPath(tok.Bytes); ok {
+			if path, ok := parseDirectRawPath(tok.Bytes); ok { //nolint:nestif // raw dotted-path destination resolution; cohesive.
 				dst, valueKind, ok, err := directDestinationRaw(current, path)
 				if err != nil {
 					return err
@@ -290,7 +292,7 @@ func bindDocumentDirect(data []byte, dst reflect.Value, opts []Option, cfg bindC
 func directStructInfo(v reflect.Value) (*reflectcache.TypeInfo, error) {
 	v = directWritableValue(v)
 	if !v.IsValid() || v.Kind() != reflect.Struct {
-		return nil, nil
+		return nil, nil //nolint:nilnil // a nil TypeInfo means "not a struct"; callers treat it as absent field metadata.
 	}
 	info, err := reflectcache.Lookup(v.Type())
 	if err != nil {
@@ -599,7 +601,7 @@ func directDestinationRaw(root reflect.Value, path directRawPath) (reflect.Value
 		return reflect.Value{}, directValueGeneric, false, nil
 	}
 	cur := root
-	for i := 0; i < path.len(); i++ {
+	for i := range path.len() {
 		cur = directWritableValue(cur)
 		switch cur.Kind() {
 		case reflect.Struct:
@@ -709,15 +711,15 @@ func directArrayTableCapacityHint(data, header []byte, pathLen, currentLen int) 
 	return bytes.Count(data, header)
 }
 
-func appendDirectSliceElement(slot reflect.Value, capacityHint int) (reflect.Value, int) {
-	index := slot.Len()
+func appendDirectSliceElement(slot reflect.Value, capacityHint int) (elem reflect.Value, index int) {
+	index = slot.Len()
 	if index == 0 && capacityHint > 0 {
 		slot.Grow(capacityHint)
 	} else {
 		slot.Grow(1)
 	}
 	slot.SetLen(index + 1)
-	elem := slot.Index(index)
+	elem = slot.Index(index)
 	elem.SetZero()
 	return directWritableValue(elem), index
 }
@@ -730,7 +732,7 @@ func directAssignRaw(root reflect.Value, path directRawPath, value any, cfg bind
 		return &SyntaxError{Line: 1, Col: 1, Msg: "empty key", Span: [2]int{0, 0}}
 	}
 	cur := root
-	for i := 0; i < path.len()-1; i++ {
+	for i := range path.len() - 1 {
 		next, err := directFieldRaw(cur, path.part(i))
 		if errors.Is(err, errDirectUnknownField) {
 			return nil
@@ -894,6 +896,7 @@ func (d *Decoder) arenaString(raw []byte) (string, bool) {
 	return d.stringArena[int(off) : int(off)+len(raw)], true
 }
 
+//nolint:cyclop,funlen,gocognit // typed fast-path bind dispatch over direct value kinds; cohesive.
 func directBindTypedToken(dec *Decoder, tok rawToken, dst reflect.Value, valueKind directValueKind, cfg bindConfig) error {
 	if !dst.CanSet() {
 		return nil

@@ -44,7 +44,7 @@ type dispatchSmokeCase struct {
 // per-variant dispatch test. The cases concentrate on inputs that
 // exercise:
 //
-//   - 16-byte SSE2 stride boundaries and their immediate neighbours
+//   - 16-byte SSE2 stride boundaries and their immediate neighbors
 //     (15/16/17) so the SSE2 main loop vs. scalar-tail transition is hit;
 //   - 32-byte AVX2 stride boundaries (31/32/33) so the AVX2 main loop
 //     and its <32-byte SSE2 tail fall-through are both exercised;

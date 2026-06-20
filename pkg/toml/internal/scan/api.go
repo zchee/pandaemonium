@@ -50,31 +50,31 @@ func (e *LimitError) Error() string {
 // TOML bare-key character class [A-Za-z0-9_-]. Returns 0 when s is empty
 // or the first byte is not in the class; returns len(s) when every byte
 // in s is in the class.
-func ScanBareKey(s []byte) int { return scanBareIdent(s) }
+func ScanBareKey(s []byte) int { return scanBareIdent(s) } //nolint:revive // deliberate Scan* scanner-kernel family naming (see doc.go); internal pkg, renaming ripples across documented oracle/property tests.
 
 // ScanBasicString returns the byte index of the first '"' or '\\' in s,
 // or len(s) when neither byte appears. ScanBasicString is the
 // basic-string inner-loop kernel: the decoder consumes the prefix
 // returned by this call as a literal run, then dispatches on whichever of
 // the two terminator bytes was found.
-func ScanBasicString(s []byte) int { return scanBasicString(s) }
+func ScanBasicString(s []byte) int { return scanBasicString(s) } //nolint:revive // deliberate Scan* scanner-kernel family naming (see doc.go); internal pkg, renaming ripples across documented oracle/property tests.
 
 // ScanBasicStringStrict returns the byte index of the first byte that
 // needs slow-path handling in a single-line TOML basic string: a double
 // quote, a backslash, DEL (0x7f), or a C0 control byte below 0x20 other
 // than tab. It returns len(s) when every byte is plain body text.
-func ScanBasicStringStrict(s []byte) int { return scanBasicStringStrict(s) }
+func ScanBasicStringStrict(s []byte) int { return scanBasicStringStrict(s) } //nolint:revive // deliberate Scan* scanner-kernel family naming (see doc.go); internal pkg, renaming ripples across documented oracle/property tests.
 
 // ScanCommentBody returns the byte index of the first byte that needs
 // parser-level handling in a TOML comment body: a line-feed, carriage
 // return, DEL (0x7f), or a C0 control byte below 0x20 other than tab.
 // It returns len(s) when every byte is valid comment body text.
-func ScanCommentBody(s []byte) int { return scanCommentBody(s) }
+func ScanCommentBody(s []byte) int { return scanCommentBody(s) } //nolint:revive // deliberate Scan* scanner-kernel family naming (see doc.go); internal pkg, renaming ripples across documented oracle/property tests.
 
 // ScanBareValueEnd returns the byte index of the first TOML bare-value
 // delimiter in s: space, tab, CR, LF, comma, right bracket, right brace,
 // hash, or equals. It returns len(s) when no delimiter appears.
-func ScanBareValueEnd(s []byte) int { return scanBareValueEnd(s) }
+func ScanBareValueEnd(s []byte) int { return scanBareValueEnd(s) } //nolint:revive // deliberate Scan* scanner-kernel family naming (see doc.go); internal pkg, renaming ripples across documented oracle/property tests.
 
 // CountLines returns the number of line-feed bytes ('\n') in s. It is
 // intentionally LF-only: callers that care about CRLF or lone CR retain
@@ -84,7 +84,7 @@ func CountLines(s []byte) int { return countLines(s) }
 // ScanLiteralString returns the byte index of the first single-quote
 // byte (0x27) in s, or len(s) when the byte is absent. Literal strings
 // perform no escape processing, so a single byte class suffices.
-func ScanLiteralString(s []byte) int { return scanLiteralString(s) }
+func ScanLiteralString(s []byte) int { return scanLiteralString(s) } //nolint:revive // deliberate Scan* scanner-kernel family naming (see doc.go); internal pkg, renaming ripples across documented oracle/property tests.
 
 // SkipWhitespace returns the count of leading ' ' (U+0020) or '\t'
 // (U+0009) bytes in s. Newline ('\n', U+000A) is intentionally NOT

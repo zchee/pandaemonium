@@ -26,6 +26,8 @@ import (
 )
 
 // addTag adds JSON tags to a data structure as expected by toml-test.
+//
+//nolint:cyclop // type-switch dispatch over every toml-test value kind; cohesive.
 func addTag(tomlData any) (any, error) {
 	// Switch on the data type.
 	switch orig := tomlData.(type) {
@@ -110,7 +112,7 @@ func addTag(tomlData any) (any, error) {
 
 func addTagReflect(v reflect.Value) (any, error) {
 	if !v.IsValid() {
-		return nil, nil
+		return nil, nil //nolint:nilnil // an invalid reflect value maps to a nil tagged value without error.
 	}
 	switch v.Kind() {
 	case reflect.Map:
