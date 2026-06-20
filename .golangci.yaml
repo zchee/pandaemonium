@@ -1,0 +1,289 @@
+# yaml-language-server: $schema=https://raw.githubusercontent.com/golangci/golangci-lint/refs/heads/main/jsonschema/golangci.next.jsonschema.json
+
+version: "2"
+
+run:
+  relative-path-mode: gitroot
+  issues-exit-code: 1
+  tests: true
+  allow-parallel-runners: true
+  go: "1.27"
+
+output:
+  formats:
+    text:
+      path: stdout
+      print-linter-name: true
+      print-issued-lines: true
+      colors: true
+  show-stats: true
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0
+  uniq-by-line: false
+
+formatters:
+  enable:
+    - gofmt
+    - gofumpt
+    - goimports
+  settings:
+    gofmt:
+      simplify: true
+      rewrite-rules:
+        - pattern: "interface{}"
+          replacement: "any"
+    gofumpt:
+      module-path: github.com/zchee/pandaemonium
+      extra-rules: true
+    goimports:
+      local-prefixes:
+        - github.com/zchee/pandaemonium
+  exclusions:
+    generated: lax
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/genlsp
+
+linters:
+  default: none
+  enable:
+    - asasalint
+    - asciicheck
+    - bidichk
+    - bodyclose
+    - containedctx
+    - cyclop
+    - decorder
+    - dogsled
+    - dupword
+    - durationcheck
+    - errchkjson
+    - errname
+    - errorlint
+    - funlen
+    - ginkgolinter
+    - gocheckcompilerdirectives
+    - gocognit
+    - gocritic
+    - gocyclo
+    - godot
+    - gomodguard_v2
+    - gosec
+    - gosmopolitan
+    - govet
+    - grouper
+    - importas
+    - inamedparam
+    - ineffassign
+    - intrange
+    - loggercheck
+    - maintidx
+    - makezero
+    - mirror
+    - misspell
+    - musttag
+    - nakedret
+    - nestif
+    - nilerr
+    - nilnil
+    - noctx
+    - nolintlint
+    - nosprintfhostport
+    - prealloc
+    - predeclared
+    - promlinter
+    - protogetter
+    - reassign
+    - revive
+    - rowserrcheck
+    - sloglint
+    - spancheck
+    - sqlclosecheck
+    # - staticcheck
+    - tagalign
+    - tagliatelle
+    - testableexamples
+    - thelper
+    - unconvert
+    - unparam
+    - unused
+    - usestdlibvars
+    - varnamelen
+    - wastedassign
+    - zerologlint
+
+  settings:
+    asasalint:
+      use-builtin-exclusions: true
+    cyclop:
+      max-complexity: 15
+    errorlint:
+      errorf: true
+      asserts: true
+      comparison: true
+    funlen:
+      lines: 120
+      statements: 60
+    gocognit:
+      min-complexity: 30
+    gocritic:
+      disabled-checks:
+        - commentedOutCode
+        - deprecatedComment
+        - whyNoLint
+      enabled-tags:
+        - diagnostic
+        - experimental
+        - opinionated
+        - performance
+        - style
+      settings:
+        hugeParam:
+          sizeThreshold: 80
+        rangeExprCopy:
+          sizeThreshold: 512
+        rangeValCopy:
+          sizeThreshold: 128
+    gocyclo:
+      min-complexity: 30
+    godot:
+      scope: declarations
+      capital: false
+    govet:
+      disable:
+        - fieldalignment
+        - shadow
+      enable-all: true
+    importas:
+      no-unaliased: true
+    lll:
+      line-length: 200
+      tab-width: 1
+    maintidx:
+      under: 15
+    misspell:
+      locale: US
+      ignore-rules:
+        - cancelled
+        - cancelling
+    nakedret:
+      max-func-lines: 30
+    nestif:
+      min-complexity: 4
+    prealloc:
+      simple: true
+      range-loops: true
+      for-loops: true
+    testpackage:
+      skip-regexp: .*(export)_test\.go
+    unparam:
+      check-exported: true
+    varnamelen:
+      max-distance: 5
+      min-name-length: 1
+      check-receiver: true
+      check-return: true
+      ignore-type-assert-ok: false
+      ignore-map-index-ok: false
+      ignore-chan-recv-ok: false
+    whitespace:
+      multi-if: true
+      multi-func: true
+  exclusions:
+    generated: lax
+    presets:
+      - common-false-positives
+      - legacy
+      - std-error-handling
+    paths:
+      - third_party$
+      - builtin$
+      - examples$
+      - internal/genlsp
+    rules:
+      # Test code is intentionally long, branchy, and table-driven; complexity
+      # and several style linters are noise there rather than signal.
+      - linters:
+          - cyclop
+          - dogsled
+          - dupword
+          - errcheck
+          - funlen
+          - gocognit
+          - goconst
+          - gocritic
+          - gocyclo
+          - gosec
+          - gosmopolitan
+          - intrange
+          - lll
+          - maintidx
+          - nestif
+          - nilnil
+          - noctx
+          - prealloc
+          - revive
+          - thelper
+          - unconvert
+          - unparam
+          - varnamelen
+          - wrapcheck
+        path: _test\.go
+      # Example programs and perf-gate helper scripts under hack/ are
+      # illustrative and not part of the shipped library surface.
+      - linters:
+          - cyclop
+          - funlen
+          - gocognit
+          - gocritic
+          - gocyclo
+          - gosec
+          - ineffassign
+          - maintidx
+          - mirror
+          - nestif
+          - noctx
+          - prealloc
+          - revive
+          - wastedassign
+        path: (^hack/|/examples/)
+      # internal/memchr has intentional repeated tokens: assembly pseudocode
+      # uses the same register three times (VADDP V6,V6,V6) and the dispatch
+      # table repeats column values (OFF/OFF, ANY/ANY) for different flag
+      # columns. dupword cannot be suppressed inline in pure-comment lines.
+      - linters:
+          - dupword
+        path: internal/memchr/(doc|memchr_arm64)\.go
+      # These files serialize the Codex and Claude CLI wire protocols, whose
+      # JSON member names are fixed snake_case/PascalCase by upstream schemas.
+      # Renaming the json tags to camelCase would break IPC compatibility, so
+      # tagliatelle must not police them.
+      - linters:
+          - tagliatelle
+        path: (pkg/llm/codex/(hook|hook_test|notification_scan)\.go|pkg/llm/claude/(public_types|control_protocol|control_protocol_test|message_parser|session_store|client|client_envelope_test)\.go|internal/memchr/golden_test\.go)
+      # gocritic hugeParam fires on the value-receiver methods and value-typed
+      # path structs in these files, but the value semantics are load-bearing:
+      # public_types.go and hook.go use value receivers so concrete types
+      # satisfy the sealed Message/ContentBlock interfaces and json.MarshalerTo
+      # by value (a pointer receiver removes the value type from the method set
+      # and breaks the public API); unmarshal_direct.go's directPathState /
+      # directRawPath are deliberately stack-resident value types whose inline
+      # [8][]byte array keeps dotted-key binding alloc-free (asserted by
+      # value_hotpath_test.go). These files contain no other gocritic findings,
+      # so scoping gocritic out here is equivalent to the per-line hugeParam
+      # nolints it replaces, without the per-method comment noise.
+      - linters:
+          - gocritic
+        path: (pkg/llm/claude/public_types\.go|pkg/llm/codex/hook\.go|pkg/toml/unmarshal_direct\.go)
+
+      - linters:
+          - gocritic
+        path: pkg/tmux/options.go
+
+      - linters:
+          - cyclop
+        text: calculated cyclomatic complexity for function isBareArg is 19, max is 15
