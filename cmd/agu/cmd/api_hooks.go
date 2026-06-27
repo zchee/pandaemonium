@@ -29,19 +29,24 @@ import (
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 )
 
-var hookLogDir = filepath.Join(os.Getenv("XDG_STATE_HOME"), "agu")
-
 type hook struct {
 	log       *os.File
 	mkdirOnce sync.Once
 }
 
-func newAPIHooksCommand() *cobra.Command {
+func newAPIHooksCommand(loadConfig configLoader) *cobra.Command {
 	return &cobra.Command{
 		Use:   "hooks",
 		Short: "Manage agent hooks",
 		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg := loadConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("load config: nil config")
+			}
+
+			hookLogDir := filepath.Join(cfg.StateHome, "agu")
+
 			h := &hook{}
 			var err error
 			h.mkdirOnce.Do(func() {
@@ -51,12 +56,11 @@ func newAPIHooksCommand() *cobra.Command {
 				return err
 			}
 
-			f, err := os.OpenFile(filepath.Join(hookLogDir, "hooks.log.jsonl"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+			h.log, err = os.OpenFile(filepath.Join(hookLogDir, "hooks.log.jsonl"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
 			if err != nil {
 				return fmt.Errorf("open hooks log: %w", err)
 			}
-			defer f.Close()
-			h.log = f
+			defer h.log.Close()
 
 			return h.runAPIHooksCommand(cmd.Context(), cmd.InOrStdin())
 		},
@@ -78,6 +82,7 @@ func (h *hook) runAPIHooksCommand(_ context.Context, stdin io.Reader) error {
 	if err != nil {
 		return fmt.Errorf("marshal payload: %w", err)
 	}
+
 	_, err = io.WriteString(h.log, string(data)+"\n")
 	return err
 }

@@ -38,6 +38,11 @@ func ProcessConfig(ctx context.Context) *Config {
 	return processConfig(ctx, envconfig.OsLookuper())
 }
 
+// ProcessConfigMap reads environment values from values into a Config.
+func ProcessConfigMap(ctx context.Context, values map[string]string) *Config {
+	return processConfig(ctx, envconfig.MapLookuper(values))
+}
+
 func processConfig(ctx context.Context, lookuper envconfig.Lookuper) *Config {
 	cfg := new(Config)
 	if err := envconfig.ProcessWith(ctx, &envconfig.Config{
