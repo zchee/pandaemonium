@@ -160,8 +160,11 @@ if [ %[3]q != "1" ]; then
 JSON
 fi
 `, argsPath, exitCode, skipSchema, generatedSchemaFilename)
-	if err := os.WriteFile(fakePath, []byte(script), 0o700); err != nil {
+	if err := os.WriteFile(fakePath, []byte(script), 0o600); err != nil {
 		t.Fatalf("os.WriteFile(%s) error = %v", fakePath, err)
+	}
+	if err := os.Chmod(fakePath, 0o700); err != nil {
+		t.Fatalf("os.Chmod(%s) error = %v", fakePath, err)
 	}
 	return fakePath
 }
