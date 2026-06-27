@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
 	"github.com/zchee/pandaemonium/cmd/agu/env"
 )
 
@@ -35,8 +36,6 @@ type Options struct {
 	Stdout io.Writer
 	Stderr io.Writer
 }
-
-type configLoader func(context.Context) *env.Config
 
 // Execute runs the agu command using the process environment and stdio.
 func Execute(ctx context.Context) error {
@@ -59,9 +58,9 @@ func NewRootCommand(opts Options) *cobra.Command {
 		envMap = environMap(os.Environ())
 	}
 
-	loadConfig := func(ctx context.Context) *env.Config {
+	loadConfig := env.ConfigLoader(func(ctx context.Context) *env.Config {
 		return env.ProcessConfigMap(ctx, envMap)
-	}
+	})
 
 	c := &cobra.Command{
 		Use:   "agu",
