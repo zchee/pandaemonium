@@ -22,6 +22,9 @@ import (
 	envconfig "github.com/sethvargo/go-envconfig"
 )
 
+// ConfigLoader represents a function that loads a Config from the environment.
+type ConfigLoader func(context.Context) *Config
+
 // Config holds environment-derived configuration for agu.
 type Config struct {
 	*XDG

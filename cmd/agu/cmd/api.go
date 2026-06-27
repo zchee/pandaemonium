@@ -16,9 +16,11 @@ package cmd
 
 import (
 	"github.com/spf13/cobra"
+
+	"github.com/zchee/pandaemonium/cmd/agu/env"
 )
 
-func newAPICommand(loadConfig configLoader) *cobra.Command {
+func newAPICommand(loadConfig env.ConfigLoader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api [command]",
 		Short: "agu API commands",

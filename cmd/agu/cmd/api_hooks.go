@@ -26,6 +26,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/spf13/cobra"
 
+	"github.com/zchee/pandaemonium/cmd/agu/env"
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 )
 
@@ -34,7 +35,7 @@ type hook struct {
 	mkdirOnce sync.Once
 }
 
-func newAPIHooksCommand(loadConfig configLoader) *cobra.Command {
+func newAPIHooksCommand(loadConfig env.ConfigLoader) *cobra.Command {
 	return &cobra.Command{
 		Use:   "hooks",
 		Short: "Manage agent hooks",
