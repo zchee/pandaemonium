@@ -18,13 +18,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
-func newAPICommand() *cobra.Command {
+func newAPICommand(loadConfig configLoader) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "api [command]",
 		Short: "agu API commands",
 		Args:  cobra.MinimumNArgs(1),
 	}
-	cmd.AddCommand(newAPIHooksCommand())
+	cmd.AddCommand(newAPIHooksCommand(loadConfig))
 
 	return cmd
 }
