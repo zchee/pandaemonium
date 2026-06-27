@@ -164,15 +164,26 @@ func parseSystemMessage(data, line []byte) (Message, error) {
 		// (legacy). Decode the looser shape and copy whichever one is present
 		// into HookEventName so callers see a single normalized field.
 		var raw struct {
-			Subtype       string         `json:"subtype"`
-			HookEvent     string         `json:"hook_event"`
-			HookName      string         `json:"hook_name"`
-			HookEventName string         `json:"hook_event_name"`
-			SessionID     string         `json:"session_id"`
-			UUID          string         `json:"uuid"`
-			Raw           jsontext.Value `json:",inline"`
+			Subtype       string `json:"subtype"`
+			HookEvent     string `json:"hook_event"`
+			HookName      string `json:"hook_name"`
+			HookEventName string `json:"hook_event_name"`
+			SessionID     string `json:"session_id"`
+			UUID          string `json:"uuid"`
 		}
 		if err := json.Unmarshal(data, &raw); err != nil {
+			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+		}
+		preserved, err := rawObjectExcluding(
+			jsontext.Value(data),
+			"subtype",
+			"hook_event",
+			"hook_name",
+			"hook_event_name",
+			"session_id",
+			"uuid",
+		)
+		if err != nil {
 			return nil, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 		}
 		name := raw.HookEvent
@@ -187,7 +198,7 @@ func parseSystemMessage(data, line []byte) (Message, error) {
 			HookEventName: name,
 			SessionID:     raw.SessionID,
 			UUID:          raw.UUID,
-			Raw:           raw.Raw,
+			Raw:           preserved,
 		}, nil
 	default:
 		var m SystemMessage
@@ -217,9 +228,12 @@ func parseAssistantMessage(data, line []byte) (AssistantMessage, error) {
 		Error           jsontext.Value `json:"error,omitzero"`
 		SessionID       string         `json:"session_id,omitzero"`
 		UUID            string         `json:"uuid,omitzero"`
-		Raw             jsontext.Value `json:",inline"` // captures type and unknown keys
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
+		return AssistantMessage{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+	}
+	preserved, err := rawObjectExcluding(jsontext.Value(data), "message", "parent_tool_use_id", "error", "session_id", "uuid")
+	if err != nil {
 		return AssistantMessage{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 	}
 	blocks, err := parseContentBlocks(raw.Message.Content, line)
@@ -236,7 +250,7 @@ func parseAssistantMessage(data, line []byte) (AssistantMessage, error) {
 		Error:           raw.Error,
 		SessionID:       raw.SessionID,
 		UUID:            raw.UUID,
-		Raw:             raw.Raw,
+		Raw:             preserved,
 	}, nil
 }
 
@@ -252,9 +266,12 @@ func parseUserMessage(data, line []byte) (UserMessage, error) {
 		ParentToolUseID string         `json:"parent_tool_use_id,omitzero"`
 		ToolUseResult   jsontext.Value `json:"tool_use_result,omitzero"`
 		UUID            string         `json:"uuid,omitzero"`
-		Raw             jsontext.Value `json:",inline"` // captures type, session_id, unknown keys
 	}
 	if err := json.Unmarshal(data, &raw); err != nil {
+		return UserMessage{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+	}
+	preserved, err := rawObjectExcluding(jsontext.Value(data), "message", "parent_tool_use_id", "tool_use_result", "uuid")
+	if err != nil {
 		return UserMessage{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 	}
 	blocks, err := parseContentBlocks(raw.Message.Content, line)
@@ -266,7 +283,7 @@ func parseUserMessage(data, line []byte) (UserMessage, error) {
 		ParentToolUseID: raw.ParentToolUseID,
 		ToolUseResult:   raw.ToolUseResult,
 		UUID:            raw.UUID,
-		Raw:             raw.Raw,
+		Raw:             preserved,
 	}, nil
 }
 
@@ -348,9 +365,12 @@ func parseToolResultBlock(v jsontext.Value, line []byte) (ToolResultBlock, error
 		ToolUseID string           `json:"tool_use_id,omitzero"`
 		Content   []jsontext.Value `json:"content,omitzero"`
 		IsError   bool             `json:"is_error,omitzero"`
-		Raw       jsontext.Value   `json:",inline"`
 	}
 	if err := json.Unmarshal(v, &raw); err != nil {
+		return ToolResultBlock{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
+	}
+	preserved, err := rawObjectExcluding(v, "tool_use_id", "content", "is_error")
+	if err != nil {
 		return ToolResultBlock{}, &CLIJSONDecodeError{Line: line, Offset: parseOffset(err)}
 	}
 	blocks, err := parseContentBlocks(raw.Content, line)
@@ -361,7 +381,7 @@ func parseToolResultBlock(v jsontext.Value, line []byte) (ToolResultBlock, error
 		ToolUseID: raw.ToolUseID,
 		Content:   blocks,
 		IsError:   raw.IsError,
-		Raw:       raw.Raw,
+		Raw:       preserved,
 	}, nil
 }
 
