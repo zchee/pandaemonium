@@ -182,7 +182,6 @@ func tuningBenchmarkCases() []tuningBenchmarkCase {
 
 func runTuningScan(b *testing.B, variant string, cases []tuningBenchmarkCase, body func([]byte) int) {
 	for _, tc := range cases {
-		tc := tc
 		for _, n := range tuningBenchSizes() {
 			hay := benchHaystack(n)
 			if tc.prepare != nil {

@@ -40,7 +40,7 @@ func main() {
 	fmt.Println("remote-control.status:", status.Status)
 	fmt.Println("remote-control.server:", status.ServerName)
 
-	environmentID := environmentIDFromStatus(status)
+	environmentID := status.EnvironmentID
 	if exampleutil.BoolEnv("CODEX_EXAMPLE_ENABLE_REMOTE_CONTROL") {
 		enabled, err := remote.Enable(ctx)
 		if err != nil {
@@ -86,8 +86,4 @@ func main() {
 	} else {
 		fmt.Println("remote-control.pairing: skipped (set CODEX_EXAMPLE_START_PAIRING=1)")
 	}
-}
-
-func environmentIDFromStatus(status codex.RemoteControlStatusReadResponse) string {
-	return status.EnvironmentID
 }

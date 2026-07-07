@@ -49,11 +49,6 @@ func DrainLines(r io.Reader, appendLine func(string)) {
 
 // Tail joins the final limit entries in lines with newlines.
 func Tail(lines []string, limit int) string {
-	if limit < 0 {
-		limit = 0
-	}
-	if limit > len(lines) {
-		limit = len(lines)
-	}
+	limit = min(max(limit, 0), len(lines))
 	return strings.Join(lines[len(lines)-limit:], "\n")
 }

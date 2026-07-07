@@ -419,7 +419,7 @@ func TestExecServerClientCloseUnblocksProcessNotificationWaiters(t *testing.T) {
 
 	waiterDone := make(chan error, 1)
 	go func() {
-		_, err := handle.NextNotification(context.Background())
+		_, err := handle.NextNotification(t.Context())
 		waiterDone <- err
 	}()
 

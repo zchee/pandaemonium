@@ -720,10 +720,10 @@ func singularCandidates(verb string) []string {
 }
 
 func startsWithIdentifier(line, name string) bool {
-	if !strings.HasPrefix(line, name) {
+	rest, ok := strings.CutPrefix(line, name)
+	if !ok {
 		return false
 	}
-	rest := line[len(name):]
 	if rest == "" {
 		return true
 	}

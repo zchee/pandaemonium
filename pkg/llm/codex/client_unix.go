@@ -103,10 +103,10 @@ func invalidUnixListenURLPrefixError(listenURL string) error {
 
 func unixSocketPathFromListenURL(listenURL string, env map[string]string, cwd string) (string, error) {
 	listenURL = strings.TrimSpace(listenURL)
-	if !strings.HasPrefix(listenURL, unixListenPrefix) {
+	suffix, ok := strings.CutPrefix(listenURL, unixListenPrefix)
+	if !ok {
 		return "", invalidUnixListenURLPrefixError(listenURL)
 	}
-	suffix := strings.TrimPrefix(listenURL, unixListenPrefix)
 	if strings.Contains(suffix, "%") {
 		return "", fmt.Errorf("invalid unix listen URL %q: percent-encoded unix socket paths are not supported", listenURL)
 	}

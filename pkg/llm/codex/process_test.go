@@ -15,7 +15,6 @@
 package codex
 
 import (
-	"context"
 	"errors"
 	"strings"
 	"testing"
@@ -163,7 +162,7 @@ func TestAppServerProcessHandleCloseUnblocksWaiter(t *testing.T) {
 
 	waiter := make(chan error, 1)
 	go func() {
-		_, err := handle.NextNotification(context.Background())
+		_, err := handle.NextNotification(t.Context())
 		waiter <- err
 	}()
 

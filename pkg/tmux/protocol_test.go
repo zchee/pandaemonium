@@ -122,14 +122,13 @@ func TestProtocolParserEOFMidBlock(t *testing.T) {
 }
 
 func marker(seconds int64, command, flags int) BlockMarker {
-	m, err := parseMarker("%begin "+strconvFormat(seconds)+" "+strconvFormat(int64(command))+" "+strconvFormat(int64(flags)), "%begin")
+	line := "%begin " + strconv.FormatInt(seconds, 10) + " " + strconv.FormatInt(int64(command), 10) + " " + strconv.FormatInt(int64(flags), 10)
+	m, err := parseMarker(line, "%begin")
 	if err != nil {
 		panic(err)
 	}
 	return m
 }
-
-func strconvFormat(v int64) string { return strconv.FormatInt(v, 10) }
 
 func assertResponse(t *testing.T, got, want Response) {
 	t.Helper()

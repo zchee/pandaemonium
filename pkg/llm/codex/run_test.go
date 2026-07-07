@@ -15,7 +15,6 @@
 package codex
 
 import (
-	"context"
 	"errors"
 	"testing"
 
@@ -162,7 +161,7 @@ func TestCollectRunResultMissingCompletion(t *testing.T) {
 	// rather than blocking — simulating the stream ending before TurnCompleted.
 	client.turnRouter.close(&TransportClosedError{Message: "stream ended before TurnCompleted"})
 
-	_, err := collectRunResult(context.Background(), client, turnID)
+	_, err := collectRunResult(t.Context(), client, turnID)
 	if err == nil {
 		t.Fatal("collectRunResult() error = nil, want non-nil when stream closes before TurnCompleted")
 	}
@@ -200,7 +199,7 @@ func TestRunReturnsTurnFailedError(t *testing.T) {
 		t.Fatalf("routeNotification() error = %v", err)
 	}
 
-	_, err := collectRunResult(context.Background(), client, turnID)
+	_, err := collectRunResult(t.Context(), client, turnID)
 	if err == nil {
 		t.Fatal("collectRunResult() error = nil, want *TurnFailedError")
 	}
@@ -260,7 +259,7 @@ func TestRunFailedErrorWithoutCodexErrorInfo(t *testing.T) {
 		t.Fatalf("routeNotification() error = %v", err)
 	}
 
-	_, err := collectRunResult(context.Background(), client, turnID)
+	_, err := collectRunResult(t.Context(), client, turnID)
 	if err == nil {
 		t.Fatal("collectRunResult() error = nil, want *TurnFailedError")
 	}

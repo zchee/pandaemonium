@@ -70,7 +70,6 @@ func TestAVX512TinyHaystacks(t *testing.T) {
 	}
 
 	for _, p := range patterns {
-		p := p
 		t.Run(p.name, func(t *testing.T) {
 			t.Parallel()
 			for n := 0; n <= 191; n++ {
