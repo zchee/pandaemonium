@@ -45,12 +45,12 @@ func hookInputSamples() map[string]struct {
 				SessionID:      "sess-1",
 				ToolInput:      jsontext.Value(`{"command":["git","diff"]}`),
 				ToolName:       "shell",
-				TranscriptPath: new("/tmp/transcript.jsonl"),
+				TranscriptPath: "/tmp/transcript.jsonl",
 				TurnID:         "turn-1",
 			},
 		},
-		"success: PostCompact with null transcript_path": {
-			payload: `{"cwd":"/work","hook_event_name":"PostCompact","model":"gpt-5.1-codex","session_id":"sess-1","transcript_path":null,"trigger":"auto","turn_id":"turn-2"}`,
+		"success: PostCompact without transcript_path": {
+			payload: `{"cwd":"/work","hook_event_name":"PostCompact","model":"gpt-5.1-codex","session_id":"sess-1","trigger":"auto","turn_id":"turn-2"}`,
 			want: PostCompactHookInput{
 				Cwd:           "/work",
 				HookEventName: HookInputEventNamePostCompact,
@@ -72,7 +72,7 @@ func hookInputSamples() map[string]struct {
 				ToolName:       "read_file",
 				ToolResponse:   jsontext.Value(`{"ok":true}`),
 				ToolUseID:      "call-7",
-				TranscriptPath: new("/tmp/t.jsonl"),
+				TranscriptPath: "/tmp/t.jsonl",
 				TurnID:         "turn-3",
 			},
 		},
@@ -83,13 +83,13 @@ func hookInputSamples() map[string]struct {
 				HookEventName:  HookInputEventNamePreCompact,
 				Model:          "gpt-5.1-codex",
 				SessionID:      "sess-1",
-				TranscriptPath: new("/tmp/t.jsonl"),
+				TranscriptPath: "/tmp/t.jsonl",
 				Trigger:        HookCompactTriggerManual,
 				TurnID:         "turn-4",
 			},
 		},
 		"success: PreToolUse with scalar tool_input": {
-			payload: `{"agent_id":"agent-2","agent_type":"explorer","cwd":"/work","hook_event_name":"PreToolUse","model":"gpt-5.1-codex","permission_mode":"plan","session_id":"sess-1","tool_input":"ls -la","tool_name":"shell","tool_use_id":"call-9","transcript_path":null,"turn_id":"turn-5"}`,
+			payload: `{"agent_id":"agent-2","agent_type":"explorer","cwd":"/work","hook_event_name":"PreToolUse","model":"gpt-5.1-codex","permission_mode":"plan","session_id":"sess-1","tool_input":"ls -la","tool_name":"shell","tool_use_id":"call-9","turn_id":"turn-5"}`,
 			want: PreToolUseHookInput{
 				AgentID:        "agent-2",
 				AgentType:      "explorer",
@@ -105,7 +105,7 @@ func hookInputSamples() map[string]struct {
 			},
 		},
 		"success: SessionStart startup source": {
-			payload: `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","source":"startup","transcript_path":null}`,
+			payload: `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","source":"startup"}`,
 			want: SessionStartHookInput{
 				Cwd:            "/work",
 				HookEventName:  HookInputEventNameSessionStart,
@@ -124,7 +124,7 @@ func hookInputSamples() map[string]struct {
 				Model:                "gpt-5.1-codex",
 				PermissionMode:       HookPermissionModeDefault,
 				SessionID:            "sess-2",
-				TranscriptPath:       new("/tmp/t.jsonl"),
+				TranscriptPath:       "/tmp/t.jsonl",
 				TurnID:               "turn-6",
 			},
 		},
@@ -138,7 +138,7 @@ func hookInputSamples() map[string]struct {
 				Model:          "gpt-5.1-codex",
 				PermissionMode: HookPermissionModeBypassPermissions,
 				SessionID:      "sess-2",
-				TranscriptPath: new("/tmp/t.jsonl"),
+				TranscriptPath: "/tmp/t.jsonl",
 				TurnID:         "turn-7",
 			},
 		},
@@ -153,12 +153,12 @@ func hookInputSamples() map[string]struct {
 				PermissionMode: HookPermissionModeDefault,
 				SessionID:      "sess-2",
 				StopHookActive: true,
-				TranscriptPath: new("/tmp/t.jsonl"),
+				TranscriptPath: "/tmp/t.jsonl",
 				TurnID:         "turn-7",
 			},
 		},
 		"success: UserPromptSubmit dontAsk mode": {
-			payload: `{"cwd":"/work","hook_event_name":"UserPromptSubmit","model":"gpt-5.1-codex","permission_mode":"dontAsk","prompt":"fix the bug","session_id":"sess-3","transcript_path":null,"turn_id":"turn-8"}`,
+			payload: `{"cwd":"/work","hook_event_name":"UserPromptSubmit","model":"gpt-5.1-codex","permission_mode":"dontAsk","prompt":"fix the bug","session_id":"sess-3","turn_id":"turn-8"}`,
 			want: UserPromptSubmitHookInput{
 				Cwd:            "/work",
 				HookEventName:  HookInputEventNameUserPromptSubmit,
@@ -335,7 +335,7 @@ func TestHookInputUnmarshalRejectsMismatchedEvent(t *testing.T) {
 			wantErr: `unexpected hook_event_name "Stop"`,
 		},
 		"error: SessionStart payload into SubagentStop": {
-			payload: `{"cwd":"/work","hook_event_name":"SessionStart","model":"m","permission_mode":"default","session_id":"s","source":"startup","transcript_path":null}`,
+			payload: `{"cwd":"/work","hook_event_name":"SessionStart","model":"m","permission_mode":"default","session_id":"s","source":"startup"}`,
 			into:    &SubagentStopHookInput{},
 			wantErr: `unexpected hook_event_name "SessionStart"`,
 		},
@@ -459,7 +459,7 @@ func TestDecodeHookInputs(t *testing.T) {
 	t.Parallel()
 
 	permission := `{"agent_id":"agent-1","agent_type":"reviewer","cwd":"/work","hook_event_name":"PermissionRequest","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-1","tool_input":{"command":["git","diff"]},"tool_name":"shell","transcript_path":"/tmp/transcript.jsonl","turn_id":"turn-1"}`
-	sessionStart := `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","source":"startup","transcript_path":null}`
+	sessionStart := `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","source":"startup"}`
 	stop := `{"cwd":"/work","hook_event_name":"Stop","last_assistant_message":"done","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","stop_hook_active":false,"transcript_path":"/tmp/t.jsonl","turn_id":"turn-6"}`
 
 	wantPermission := PermissionRequestHookInput{
@@ -472,7 +472,7 @@ func TestDecodeHookInputs(t *testing.T) {
 		SessionID:      "sess-1",
 		ToolInput:      jsontext.Value(`{"command":["git","diff"]}`),
 		ToolName:       "shell",
-		TranscriptPath: new("/tmp/transcript.jsonl"),
+		TranscriptPath: "/tmp/transcript.jsonl",
 		TurnID:         "turn-1",
 	}
 	wantSessionStart := SessionStartHookInput{
@@ -490,7 +490,7 @@ func TestDecodeHookInputs(t *testing.T) {
 		Model:                "gpt-5.1-codex",
 		PermissionMode:       HookPermissionModeDefault,
 		SessionID:            "sess-2",
-		TranscriptPath:       new("/tmp/t.jsonl"),
+		TranscriptPath:       "/tmp/t.jsonl",
 		TurnID:               "turn-6",
 	}
 
@@ -565,7 +565,7 @@ func TestDecodeHookInputs(t *testing.T) {
 func TestDecodeHookInputsPartialProgress(t *testing.T) {
 	t.Parallel()
 
-	good := `{"cwd":"/work","hook_event_name":"SessionStart","model":"m","permission_mode":"default","session_id":"s","source":"startup","transcript_path":null}`
+	good := `{"cwd":"/work","hook_event_name":"SessionStart","model":"m","permission_mode":"default","session_id":"s","source":"startup"}`
 	wantGood := SessionStartHookInput{
 		Cwd:            "/work",
 		HookEventName:  HookInputEventNameSessionStart,

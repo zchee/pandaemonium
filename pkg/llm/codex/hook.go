@@ -226,7 +226,7 @@ type PermissionRequestHookInput struct {
 	SessionID      string             `json:"session_id"`
 	ToolInput      jsontext.Value     `json:"tool_input"`
 	ToolName       string             `json:"tool_name"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -257,7 +257,7 @@ func (value PermissionRequestHookInput) MarshalJSONTo(enc *jsontext.Encoder) err
 		SessionID      string             `json:"session_id"`
 		ToolInput      jsontext.Value     `json:"tool_input"`
 		ToolName       string             `json:"tool_name"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}{
 		AgentID:        value.AgentID,
@@ -291,7 +291,7 @@ func (value *PermissionRequestHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder
 		SessionID      string             `json:"session_id"`
 		ToolInput      jsontext.Value     `json:"tool_input"`
 		ToolName       string             `json:"tool_name"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -323,7 +323,7 @@ type PostCompactHookInput struct {
 	HookEventName  HookInputEventName `json:"hook_event_name"`
 	Model          string             `json:"model"`
 	SessionID      string             `json:"session_id"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	Trigger        HookCompactTrigger `json:"trigger"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
@@ -350,7 +350,7 @@ func (value PostCompactHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		HookEventName  HookInputEventName `json:"hook_event_name"`
 		Model          string             `json:"model"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		Trigger        HookCompactTrigger `json:"trigger"`
 		TurnID         string             `json:"turn_id"`
 	}{
@@ -380,7 +380,7 @@ func (value *PostCompactHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		HookEventName  HookInputEventName `json:"hook_event_name"`
 		Model          string             `json:"model"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		Trigger        HookCompactTrigger `json:"trigger"`
 		TurnID         string             `json:"turn_id"`
 	}
@@ -416,7 +416,7 @@ type PostToolUseHookInput struct {
 	ToolName       string             `json:"tool_name"`
 	ToolResponse   jsontext.Value     `json:"tool_response"`
 	ToolUseID      string             `json:"tool_use_id"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -447,7 +447,7 @@ func (value PostToolUseHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		ToolName       string             `json:"tool_name"`
 		ToolResponse   jsontext.Value     `json:"tool_response"`
 		ToolUseID      string             `json:"tool_use_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}{
 		AgentID:        value.AgentID,
@@ -485,7 +485,7 @@ func (value *PostToolUseHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) erro
 		ToolName       string             `json:"tool_name"`
 		ToolResponse   jsontext.Value     `json:"tool_response"`
 		ToolUseID      string             `json:"tool_use_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -519,7 +519,7 @@ type PreCompactHookInput struct {
 	HookEventName  HookInputEventName `json:"hook_event_name"`
 	Model          string             `json:"model"`
 	SessionID      string             `json:"session_id"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	Trigger        HookCompactTrigger `json:"trigger"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
@@ -546,7 +546,7 @@ func (value PreCompactHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		HookEventName  HookInputEventName `json:"hook_event_name"`
 		Model          string             `json:"model"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		Trigger        HookCompactTrigger `json:"trigger"`
 		TurnID         string             `json:"turn_id"`
 	}{
@@ -576,7 +576,7 @@ func (value *PreCompactHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		HookEventName  HookInputEventName `json:"hook_event_name"`
 		Model          string             `json:"model"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		Trigger        HookCompactTrigger `json:"trigger"`
 		TurnID         string             `json:"turn_id"`
 	}
@@ -611,7 +611,7 @@ type PreToolUseHookInput struct {
 	ToolInput      jsontext.Value     `json:"tool_input"`
 	ToolName       string             `json:"tool_name"`
 	ToolUseID      string             `json:"tool_use_id"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -641,7 +641,7 @@ func (value PreToolUseHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		ToolInput      jsontext.Value     `json:"tool_input"`
 		ToolName       string             `json:"tool_name"`
 		ToolUseID      string             `json:"tool_use_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}{
 		AgentID:        value.AgentID,
@@ -677,7 +677,7 @@ func (value *PreToolUseHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error
 		ToolInput      jsontext.Value     `json:"tool_input"`
 		ToolName       string             `json:"tool_name"`
 		ToolUseID      string             `json:"tool_use_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -710,7 +710,7 @@ type SessionStartHookInput struct {
 	PermissionMode HookPermissionMode     `json:"permission_mode"`
 	SessionID      string                 `json:"session_id"`
 	Source         HookSessionStartSource `json:"source"`
-	TranscriptPath *string                `json:"transcript_path"`
+	TranscriptPath string                 `json:"transcript_path,omitzero"`
 }
 
 var (
@@ -734,7 +734,7 @@ func (value SessionStartHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		PermissionMode HookPermissionMode     `json:"permission_mode"`
 		SessionID      string                 `json:"session_id"`
 		Source         HookSessionStartSource `json:"source"`
-		TranscriptPath *string                `json:"transcript_path"`
+		TranscriptPath string                 `json:"transcript_path,omitzero"`
 	}{
 		Cwd:            value.Cwd,
 		HookEventName:  value.HookEventName,
@@ -760,7 +760,7 @@ func (value *SessionStartHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		PermissionMode HookPermissionMode     `json:"permission_mode"`
 		SessionID      string                 `json:"session_id"`
 		Source         HookSessionStartSource `json:"source"`
-		TranscriptPath *string                `json:"transcript_path"`
+		TranscriptPath string                 `json:"transcript_path,omitzero"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
 		return err
@@ -788,7 +788,7 @@ type StopHookInput struct {
 	PermissionMode       HookPermissionMode `json:"permission_mode"`
 	SessionID            string             `json:"session_id"`
 	StopHookActive       bool               `json:"stop_hook_active"`
-	TranscriptPath       *string            `json:"transcript_path"`
+	TranscriptPath       string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -815,7 +815,7 @@ func (value StopHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		PermissionMode       HookPermissionMode `json:"permission_mode"`
 		SessionID            string             `json:"session_id"`
 		StopHookActive       bool               `json:"stop_hook_active"`
-		TranscriptPath       *string            `json:"transcript_path"`
+		TranscriptPath       string             `json:"transcript_path,omitzero"`
 		TurnID               string             `json:"turn_id"`
 	}{
 		Cwd:                  value.Cwd,
@@ -845,7 +845,7 @@ func (value *StopHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 		PermissionMode       HookPermissionMode `json:"permission_mode"`
 		SessionID            string             `json:"session_id"`
 		StopHookActive       bool               `json:"stop_hook_active"`
-		TranscriptPath       *string            `json:"transcript_path"`
+		TranscriptPath       string             `json:"transcript_path,omitzero"`
 		TurnID               string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -876,7 +876,7 @@ type SubagentStartHookInput struct {
 	Model          string             `json:"model"`
 	PermissionMode HookPermissionMode `json:"permission_mode"`
 	SessionID      string             `json:"session_id"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -903,7 +903,7 @@ func (value SubagentStartHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		Model          string             `json:"model"`
 		PermissionMode HookPermissionMode `json:"permission_mode"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}{
 		AgentID:        value.AgentID,
@@ -933,7 +933,7 @@ func (value *SubagentStartHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) er
 		Model          string             `json:"model"`
 		PermissionMode HookPermissionMode `json:"permission_mode"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -967,7 +967,7 @@ type SubagentStopHookInput struct {
 	PermissionMode       HookPermissionMode `json:"permission_mode"`
 	SessionID            string             `json:"session_id"`
 	StopHookActive       bool               `json:"stop_hook_active"`
-	TranscriptPath       *string            `json:"transcript_path"`
+	TranscriptPath       string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -997,7 +997,7 @@ func (value SubagentStopHookInput) MarshalJSONTo(enc *jsontext.Encoder) error {
 		PermissionMode       HookPermissionMode `json:"permission_mode"`
 		SessionID            string             `json:"session_id"`
 		StopHookActive       bool               `json:"stop_hook_active"`
-		TranscriptPath       *string            `json:"transcript_path"`
+		TranscriptPath       string             `json:"transcript_path,omitzero"`
 		TurnID               string             `json:"turn_id"`
 	}{
 		AgentID:              value.AgentID,
@@ -1033,7 +1033,7 @@ func (value *SubagentStopHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder) err
 		PermissionMode       HookPermissionMode `json:"permission_mode"`
 		SessionID            string             `json:"session_id"`
 		StopHookActive       bool               `json:"stop_hook_active"`
-		TranscriptPath       *string            `json:"transcript_path"`
+		TranscriptPath       string             `json:"transcript_path,omitzero"`
 		TurnID               string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
@@ -1068,7 +1068,7 @@ type UserPromptSubmitHookInput struct {
 	PermissionMode HookPermissionMode `json:"permission_mode"`
 	Prompt         string             `json:"prompt"`
 	SessionID      string             `json:"session_id"`
-	TranscriptPath *string            `json:"transcript_path"`
+	TranscriptPath string             `json:"transcript_path,omitzero"`
 	// TurnID Codex extension: expose the active turn id to internal turn-scoped hooks.
 	TurnID string `json:"turn_id"`
 }
@@ -1098,7 +1098,7 @@ func (value UserPromptSubmitHookInput) MarshalJSONTo(enc *jsontext.Encoder) erro
 		PermissionMode HookPermissionMode `json:"permission_mode"`
 		Prompt         string             `json:"prompt"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}{
 		AgentID:        value.AgentID,
@@ -1130,7 +1130,7 @@ func (value *UserPromptSubmitHookInput) UnmarshalJSONFrom(dec *jsontext.Decoder)
 		PermissionMode HookPermissionMode `json:"permission_mode"`
 		Prompt         string             `json:"prompt"`
 		SessionID      string             `json:"session_id"`
-		TranscriptPath *string            `json:"transcript_path"`
+		TranscriptPath string             `json:"transcript_path,omitzero"`
 		TurnID         string             `json:"turn_id"`
 	}
 	if err := json.UnmarshalDecode(dec, &raw); err != nil {
