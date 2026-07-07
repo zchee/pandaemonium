@@ -127,6 +127,7 @@ type systemMessageJSON struct {
 	Subtype string `json:"subtype,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (m SystemMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if err := setStringJSONField(fields, "subtype", m.Subtype); err != nil {
@@ -135,6 +136,7 @@ func (m SystemMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, m.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (m *SystemMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -173,6 +175,7 @@ type resultMessageJSON struct {
 	UUID              string           `json:"uuid,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (m ResultMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields, err := resultMessageFields(m)
 	if err != nil {
@@ -181,6 +184,7 @@ func (m ResultMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, m.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (m *ResultMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -286,6 +290,7 @@ type textBlockJSON struct {
 	Text string `json:"text,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (b TextBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if err := setStringJSONField(fields, "text", b.Text); err != nil {
@@ -294,6 +299,7 @@ func (b TextBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, b.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (b *TextBlock) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -318,6 +324,7 @@ type toolUseBlockJSON struct {
 	Input jsontext.Value `json:"input,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (b ToolUseBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if err := setStringJSONField(fields, "id", b.ID); err != nil {
@@ -330,6 +337,7 @@ func (b ToolUseBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, b.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (b *ToolUseBlock) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -356,6 +364,7 @@ type toolResultBlockJSON struct {
 	IsError   bool             `json:"is_error,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (b ToolResultBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if err := setStringJSONField(fields, "tool_use_id", b.ToolUseID); err != nil {
@@ -372,6 +381,7 @@ func (b ToolResultBlock) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, b.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (b *ToolResultBlock) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -405,6 +415,7 @@ type hookEventJSON struct {
 	Prompt     string         `json:"prompt,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (e HookEvent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if err := setJSONField(fields, "hook_event_name", e.Kind); err != nil {
@@ -427,6 +438,7 @@ func (e HookEvent) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, e.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (e *HookEvent) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -456,6 +468,7 @@ type hookDecisionJSON struct {
 	AdditionalContext  string             `json:"additionalContext,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (d HookDecision) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if !d.HookSpecificOutput.isZero() {
@@ -472,6 +485,7 @@ func (d HookDecision) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, d.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (d *HookDecision) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -498,6 +512,7 @@ type hookSpecificOutputJSON struct {
 	PermissionDecisionReason string             `json:"permissionDecisionReason,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (o HookSpecificOutput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if o.HookEventName != "" {
@@ -516,6 +531,7 @@ func (o HookSpecificOutput) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, o.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (o *HookSpecificOutput) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
@@ -550,6 +566,7 @@ type hookEventMessageJSON struct {
 	UUID          string `json:"uuid,omitzero"`
 }
 
+// MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (m HookEventMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	fields := make(map[string]jsontext.Value)
 	if err := setStringJSONField(fields, "subtype", m.Subtype); err != nil {
@@ -567,6 +584,7 @@ func (m HookEventMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
 	return marshalRawObjectTo(enc, m.Raw, fields)
 }
 
+// UnmarshalJSONFrom implements [json.UnmarshalerFrom], decoding the typed fields and preserving unknown fields in Raw.
 func (m *HookEventMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	raw, err := rawValueFromDecoder(dec)
 	if err != nil {
