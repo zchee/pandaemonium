@@ -223,7 +223,7 @@ func TestControlProtocol_Initialize_Handshake(t *testing.T) {
 	cli.OnWrite(
 		func(p []byte) bool { return bytes.Contains(p, []byte(`"subtype":"initialize"`)) },
 		func() []string {
-			id := extractRequestID(t, lastInitializeWrite(cli))
+			id := extractRequestID(t, lastWriteWithSubtype(cli, "initialize"))
 			return []string{
 				`{"type":"control_response","response":{"subtype":"success","request_id":"` + id +
 					`","response":{"commands":["compact"],"output_style":"default"}}}`,
@@ -318,7 +318,7 @@ func TestControlProtocol_Initialize_NoAgents(t *testing.T) {
 	cli.OnWrite(
 		func(p []byte) bool { return bytes.Contains(p, []byte(`"subtype":"initialize"`)) },
 		func() []string {
-			id := extractRequestID(t, lastInitializeWrite(cli))
+			id := extractRequestID(t, lastWriteWithSubtype(cli, "initialize"))
 			return []string{
 				`{"type":"control_response","response":{"subtype":"success","request_id":"` + id + `","response":{}}}`,
 			}
@@ -407,7 +407,7 @@ func TestControlProtocol_Initialize_HooksWire(t *testing.T) {
 	cli.OnWrite(
 		func(p []byte) bool { return bytes.Contains(p, []byte(`"subtype":"initialize"`)) },
 		func() []string {
-			id := extractRequestID(t, lastInitializeWrite(cli))
+			id := extractRequestID(t, lastWriteWithSubtype(cli, "initialize"))
 			return []string{`{"type":"control_response","response":{"subtype":"success","request_id":"` + id + `","response":{}}}`}
 		},
 	)
@@ -434,7 +434,7 @@ func TestControlProtocol_Initialize_HooksWire(t *testing.T) {
 			} `json:"hooks"`
 		} `json:"request"`
 	}
-	if err := json.Unmarshal(lastInitializeWrite(cli), &env); err != nil {
+	if err := json.Unmarshal(lastWriteWithSubtype(cli, "initialize"), &env); err != nil {
 		t.Fatalf("unmarshal initialize request: %v", err)
 	}
 
@@ -1134,19 +1134,6 @@ func TestControlProtocol_Envelope_DeterministicKeyOrder(t *testing.T) {
 }
 
 // ── test helpers ─────────────────────────────────────────────────────────────
-
-// lastInitializeWrite returns the most recently written payload that contains
-// the initialize subtype. It is used by OnWrite respond closures to read back
-// the request_id the SDK just generated.
-func lastInitializeWrite(cli *fakecli.FakeCLI) []byte {
-	written := cli.Written()
-	for _, w := range slices.Backward(written) {
-		if bytes.Contains(w, []byte(`"subtype":"initialize"`)) {
-			return w
-		}
-	}
-	return nil
-}
 
 // extractRequestID parses the request_id from a written control_request payload.
 func extractRequestID(t *testing.T, payload []byte) string {

@@ -526,12 +526,7 @@ func TestClaudeSDKClient_MultiTurn(t *testing.T) {
 		t.Fatalf("turn1[0] = %T, want AssistantMessage", turn1[0])
 	}
 	if tb, ok := am1.Content[0].(TextBlock); !ok || tb.Text != "Turn 1 response" {
-		t.Errorf("turn1 text = %q, want Turn 1 response", func() string {
-			if ok {
-				return tb.Text
-			}
-			return "not-a-TextBlock"
-		}())
+		t.Errorf("turn1 text = %q, want Turn 1 response", tb.Text)
 	}
 
 	// Turn 2
@@ -553,12 +548,7 @@ func TestClaudeSDKClient_MultiTurn(t *testing.T) {
 		t.Fatalf("turn2[0] = %T, want AssistantMessage", turn2[0])
 	}
 	if tb, ok := am2.Content[0].(TextBlock); !ok || tb.Text != "Turn 2 response" {
-		t.Errorf("turn2 text = %q, want Turn 2 response", func() string {
-			if ok {
-				return tb.Text
-			}
-			return "not-a-TextBlock"
-		}())
+		t.Errorf("turn2 text = %q, want Turn 2 response", tb.Text)
 	}
 }
 

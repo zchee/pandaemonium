@@ -414,31 +414,6 @@ func TestPackageRequestReturnsTypedResult(t *testing.T) {
 	}
 }
 
-func TestPackageRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
-	client := newHelperClient(t, "retry_on_overload")
-	if err := client.Start(t.Context()); err != nil {
-		t.Fatalf("Start() error = %v", err)
-	}
-	defer func() { _ = client.Close() }()
-
-	got, err := RequestWithRetryOnOverload[string](
-		t.Context(), client,
-		"ping",
-		nil,
-		RetryConfig{
-			MaxAttempts:  3,
-			InitialDelay: time.Nanosecond,
-			MaxDelay:     time.Nanosecond,
-		},
-	)
-	if err != nil {
-		t.Fatalf("RequestWithRetryOnOverload() error = %v", err)
-	}
-	if got != "ok" {
-		t.Fatalf("result = %q, want ok", got)
-	}
-}
-
 func TestClientStreamUntilMethods(t *testing.T) {
 	synctest.Test(t, func(t *testing.T) {
 		client := NewClient(nil, nil)

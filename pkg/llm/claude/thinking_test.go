@@ -63,19 +63,11 @@ func TestThinkingDisplay_Literals(t *testing.T) {
 	}
 }
 
-// TestThinkingConfig_SealedInterface verifies each variant implements
-// ThinkingConfig and that all three are assignable to a ThinkingConfig
-// variable. The unexported isThinkingConfig() method keeps the set closed.
-func TestThinkingConfig_SealedInterface(t *testing.T) {
-	t.Parallel()
-	configs := []ThinkingConfig{
-		ThinkingConfigAdaptive{},
-		ThinkingConfigAdaptive{Display: ThinkingDisplaySummarized},
-		ThinkingConfigEnabled{BudgetTokens: 1024},
-		ThinkingConfigEnabled{BudgetTokens: 2048, Display: ThinkingDisplayOmitted},
-		ThinkingConfigDisabled{},
-	}
-	if len(configs) != 5 {
-		t.Errorf("got %d variants, want 5", len(configs))
-	}
-}
+// The following compile-time assertions verify each of the three variants
+// implements ThinkingConfig. The unexported isThinkingConfig() method keeps
+// the set closed.
+var (
+	_ ThinkingConfig = ThinkingConfigAdaptive{}
+	_ ThinkingConfig = ThinkingConfigEnabled{}
+	_ ThinkingConfig = ThinkingConfigDisabled{}
+)

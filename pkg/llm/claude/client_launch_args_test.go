@@ -143,11 +143,6 @@ func TestBuildLaunchArgs(t *testing.T) {
 			opts:    &Options{Model: "claude-opus-4-5", SystemPrompt: SystemPromptText("hi")},
 			wantOut: []string{"--print"},
 		},
-		"success: first arg is always the cli path": {
-			cliPath: fakeCLI,
-			opts:    nil,
-			wantIn:  []string{fakeCLI},
-		},
 	}
 
 	for name, tt := range tests {

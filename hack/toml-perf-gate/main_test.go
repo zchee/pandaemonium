@@ -385,7 +385,7 @@ func TestParseGate(t *testing.T) {
 			if !tc.wantPass && tc.wantFailMatch != "" {
 				if got.failReason == "" {
 					t.Errorf("failReason is empty; want substring %q", tc.wantFailMatch)
-				} else if !contains(got.failReason, tc.wantFailMatch) {
+				} else if !strings.Contains(got.failReason, tc.wantFailMatch) {
 					t.Errorf("failReason = %q, want substring %q", got.failReason, tc.wantFailMatch)
 				}
 			}
@@ -823,13 +823,4 @@ func workflowScanRatios(jobBlock string) map[string]string {
 		ratios[match[1]] = match[2]
 	}
 	return ratios
-}
-
-func contains(s, sub string) bool {
-	for i := 0; i+len(sub) <= len(s); i++ {
-		if s[i:i+len(sub)] == sub {
-			return true
-		}
-	}
-	return false
 }

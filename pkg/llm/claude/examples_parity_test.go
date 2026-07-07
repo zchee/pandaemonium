@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package claude (test) — hermetic parity tests for pkg/claude/examples/.
+// Package claude (test) — hermetic parity tests for pkg/llm/claude/examples/.
 //
 // Each test mirrors one example program's API surface against a scripted
 // [fakecli.FakeCLI] transport, verifying correct behavior without a real
@@ -392,15 +392,8 @@ func TestExampleParity_SystemPrompt_LaunchArgs(t *testing.T) {
 	const prompt = "You respond only in haiku."
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{SystemPrompt: SystemPromptText(prompt)}, "")
 
-	found := false
-	for i, a := range args {
-		if a == "--system-prompt" && i+1 < len(args) && args[i+1] == prompt {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("buildLaunchArgs args = %v; want --system-prompt %q", args, prompt)
+	if got := argValue(args, "--system-prompt"); got != prompt {
+		t.Errorf("buildLaunchArgs --system-prompt = %q, want %q (args = %v)", got, prompt, args)
 	}
 }
 
@@ -440,15 +433,8 @@ func TestExampleParity_MaxBudgetUSD_LaunchArgs(t *testing.T) {
 	opts := &Options{MaxBudgetUSD: 0.01}
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
 
-	found := false
-	for i, a := range args {
-		if a == "--max-budget-usd" && i+1 < len(args) && args[i+1] == "0.01" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("buildLaunchArgs args = %v; want --max-budget-usd 0.01", args)
+	if got := argValue(args, "--max-budget-usd"); got != "0.01" {
+		t.Errorf("buildLaunchArgs --max-budget-usd = %q, want 0.01 (args = %v)", got, args)
 	}
 }
 
@@ -489,15 +475,8 @@ func TestExampleParity_Plugins_LaunchArgs(t *testing.T) {
 	}
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
 
-	found := false
-	for i, a := range args {
-		if a == "--plugin-dir" && i+1 < len(args) && args[i+1] == "/usr/local/lib/my-plugin" {
-			found = true
-			break
-		}
-	}
-	if !found {
-		t.Errorf("buildLaunchArgs args = %v; want --plugin-dir /usr/local/lib/my-plugin", args)
+	if got := argValue(args, "--plugin-dir"); got != "/usr/local/lib/my-plugin" {
+		t.Errorf("buildLaunchArgs --plugin-dir = %q, want /usr/local/lib/my-plugin (args = %v)", got, args)
 	}
 }
 

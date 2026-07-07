@@ -40,58 +40,6 @@ func TestAgentDefinition_ZeroValue(t *testing.T) {
 	}
 }
 
-func TestAgentDefinition_Fields(t *testing.T) {
-	t.Parallel()
-
-	tests := map[string]struct {
-		agent AgentDefinition
-	}{
-		"success: full agent definition": {
-			agent: AgentDefinition{
-				Name:         "helper",
-				Description:  "A helpful subagent.",
-				SystemPrompt: "You are a helpful assistant.",
-				AllowedTools: []string{"Bash", "Read", "Write"},
-				Model:        "claude-opus-4-5",
-			},
-		},
-		"success: minimal agent definition": {
-			agent: AgentDefinition{
-				Name: "minimal",
-			},
-		},
-		"success: agent with multiple allowed tools": {
-			agent: AgentDefinition{
-				Name:         "tooled",
-				AllowedTools: []string{"Bash", "Read", "Write", "Edit"},
-			},
-		},
-	}
-
-	for name, tt := range tests {
-		t.Run(name, func(t *testing.T) {
-			t.Parallel()
-			// Round-trip: verify the struct retains all set fields.
-			got := tt.agent
-			if got.Name != tt.agent.Name {
-				t.Errorf("Name = %q, want %q", got.Name, tt.agent.Name)
-			}
-			if got.Description != tt.agent.Description {
-				t.Errorf("Description = %q, want %q", got.Description, tt.agent.Description)
-			}
-			if got.SystemPrompt != tt.agent.SystemPrompt {
-				t.Errorf("SystemPrompt = %q, want %q", got.SystemPrompt, tt.agent.SystemPrompt)
-			}
-			if len(got.AllowedTools) != len(tt.agent.AllowedTools) {
-				t.Errorf("len(AllowedTools) = %d, want %d", len(got.AllowedTools), len(tt.agent.AllowedTools))
-			}
-			if got.Model != tt.agent.Model {
-				t.Errorf("Model = %q, want %q", got.Model, tt.agent.Model)
-			}
-		})
-	}
-}
-
 // TestAgentDefinition_NotInCLIArgs verifies that AgentDefinition values in
 // Options.Agents do not appear as CLI flags. Agents are sent via the streaming
 // initialize request (matching the TypeScript and Python SDKs), not via

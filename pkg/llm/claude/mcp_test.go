@@ -16,6 +16,7 @@ package claude
 
 import (
 	"context"
+	"slices"
 	"strings"
 	"testing"
 	"time"
@@ -106,20 +107,11 @@ func TestBuildLaunchArgs_MCPConfig(t *testing.T) {
 	}
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", opts, "")
 
-	var cfg string
-	var strict bool
-	for i, a := range args {
-		if a == "--mcp-config" && i+1 < len(args) {
-			cfg = args[i+1]
-		}
-		if a == "--strict-mcp-config" {
-			strict = true
-		}
-	}
+	cfg := argValue(args, "--mcp-config")
 	if cfg == "" {
 		t.Fatalf("--mcp-config not emitted; args = %v", args)
 	}
-	if !strict {
+	if !slices.Contains(args, "--strict-mcp-config") {
 		t.Errorf("--strict-mcp-config not emitted; args = %v", args)
 	}
 
@@ -145,10 +137,8 @@ func TestBuildLaunchArgs_NoMCPServers(t *testing.T) {
 	t.Parallel()
 
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{}, "")
-	for _, a := range args {
-		if a == "--mcp-config" {
-			t.Fatalf("--mcp-config emitted with no MCPServers; args = %v", args)
-		}
+	if slices.Contains(args, "--mcp-config") {
+		t.Fatalf("--mcp-config emitted with no MCPServers; args = %v", args)
 	}
 }
 
@@ -159,19 +149,10 @@ func TestBuildLaunchArgs_StrictWithoutServers(t *testing.T) {
 	t.Parallel()
 
 	args := mustLaunchArgs(t, "/usr/local/bin/claude", &Options{StrictMCPConfig: true}, "")
-	var strict, hasConfig bool
-	for _, a := range args {
-		switch a {
-		case "--strict-mcp-config":
-			strict = true
-		case "--mcp-config":
-			hasConfig = true
-		}
-	}
-	if !strict {
+	if !slices.Contains(args, "--strict-mcp-config") {
 		t.Errorf("--strict-mcp-config not emitted; args = %v", args)
 	}
-	if hasConfig {
+	if slices.Contains(args, "--mcp-config") {
 		t.Errorf("--mcp-config emitted with no MCPServers; args = %v", args)
 	}
 }

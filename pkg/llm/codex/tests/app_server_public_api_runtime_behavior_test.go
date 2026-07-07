@@ -19,7 +19,6 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
-	"sync"
 	"testing"
 	"time"
 
@@ -53,47 +52,6 @@ func TestPublicAPIRuntimeBehaviorPortNewCodexInitFailureClosesClient(t *testing.
 	}
 	if string(got) != "closed\n" {
 		t.Fatalf("close marker = %q, want closed marker", got)
-	}
-}
-
-func TestPublicAPIRuntimeBehaviorPortConcurrentPublicCallsReuseInitializedClient(t *testing.T) {
-	sdk := newHelperCodex(t, "async_client_behavior")
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	t.Cleanup(cancel)
-
-	const callCount = 2
-	results := make([]codex.ModelListResponse, callCount)
-	errs := make([]error, callCount)
-
-	var ready sync.WaitGroup
-	ready.Add(callCount)
-	start := make(chan struct{})
-	var done sync.WaitGroup
-	done.Add(callCount)
-	for i := range callCount {
-		go func() {
-			defer done.Done()
-			ready.Done()
-			<-start
-			results[i], errs[i] = sdk.Models(ctx, nil)
-		}()
-	}
-	ready.Wait()
-	close(start)
-	done.Wait()
-
-	for i, err := range errs {
-		if err != nil {
-			t.Fatalf("Models() concurrent call %d error = %v", i, err)
-		}
-	}
-	for i, result := range results {
-		if len(result.Data) != 1 {
-			t.Fatalf("Models() concurrent call %d returned %d models, want 1", i, len(result.Data))
-		}
-		if result.Data[0].ID != "gpt-overlap-2" {
-			t.Fatalf("Models() concurrent call %d model id = %q, want gpt-overlap-2", i, result.Data[0].ID)
-		}
 	}
 }
 

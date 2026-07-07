@@ -28,7 +28,6 @@ import (
 
 	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
-	"github.com/go-json-experiment/json/jsontext"
 )
 
 func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
@@ -218,7 +217,7 @@ func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket
 		case RequestMethodInitialize:
 			if err := writeServerRPC(ctx, conn, rpcMessage{
 				ID: msg.ID,
-				Result: mustJSONValue(t, InitializeResponse{
+				Result: mustJSON(t, InitializeResponse{
 					UserAgent:  "ws-test/1.2.3",
 					ServerInfo: &ServerInfo{Name: "ws-test", Version: "1.2.3"},
 				}),
@@ -237,7 +236,7 @@ func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket
 			if err := writeServerRPC(ctx, conn, rpcMessage{
 				ID:     "srv-approval",
 				Method: "item/commandExecution/requestApproval",
-				Params: mustJSONValue(t, Object{"reason": "approve"}),
+				Params: mustJSON(t, Object{"reason": "approve"}),
 			}); err != nil {
 				if webSocketRoundTripStopped(ctx, err) {
 					return
@@ -247,7 +246,7 @@ func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket
 			}
 			if err := writeServerRPC(ctx, conn, rpcMessage{
 				Method: "unknown/global",
-				Params: mustJSONValue(t, Object{"scope": "global"}),
+				Params: mustJSON(t, Object{"scope": "global"}),
 			}); err != nil {
 				if webSocketRoundTripStopped(ctx, err) {
 					return
@@ -258,7 +257,7 @@ func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket
 		case "test/echo":
 			if err := writeServerRPC(ctx, conn, rpcMessage{
 				ID:     msg.ID,
-				Result: mustJSONValue(t, Object{"echo": "hello"}),
+				Result: mustJSON(t, Object{"echo": "hello"}),
 			}); err != nil {
 				if webSocketRoundTripStopped(ctx, err) {
 					return
@@ -288,15 +287,6 @@ func writeServerRPC(ctx context.Context, conn *websocket.Conn, msg rpcMessage) e
 		return err
 	}
 	return conn.Write(ctx, websocket.MessageText, payload)
-}
-
-func mustJSONValue(t *testing.T, value any) jsontext.Value {
-	t.Helper()
-	payload, err := json.Marshal(value)
-	if err != nil {
-		t.Fatalf("json.Marshal(%T) error = %v", value, err)
-	}
-	return jsontext.Value(payload)
 }
 
 func writeTempFile(t *testing.T, body string) string {

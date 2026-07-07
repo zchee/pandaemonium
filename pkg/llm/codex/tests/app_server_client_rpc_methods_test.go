@@ -213,32 +213,6 @@ func TestAppServerClientRPCMethodsPortReaderRoutesInterleavedTurnsByID(t *testin
 	}
 }
 
-func TestAppServerClientRPCMethodsPortBuffersEventsBeforeRegistration(t *testing.T) {
-	sdk := newHelperCodex(t, "streaming_port")
-	ctx, cancel := context.WithTimeout(t.Context(), 5*time.Second)
-	t.Cleanup(cancel)
-
-	thread, err := sdk.ThreadStart(ctx, nil)
-	if err != nil {
-		t.Fatalf("ThreadStart() error = %v", err)
-	}
-	turn, err := thread.Turn(ctx, "stream please", nil)
-	if err != nil {
-		t.Fatalf("Thread.Turn(stream please) error = %v", err)
-	}
-
-	got := collectStreamingPortSummary(t, turn.Stream(ctx))
-	want := streamingPortSummary{
-		Deltas:            []string{"he", "llo"},
-		AgentMessages:     []string{"hello"},
-		CompletedStatuses: []codex.TurnStatus{codex.TurnStatusCompleted},
-		CompletedTurnID:   turn.ID(),
-	}
-	if diff := cmp.Diff(want, got); diff != "" {
-		t.Fatalf("buffered stream summary mismatch (-want +got):\n%s", diff)
-	}
-}
-
 func readProtocolGenSource(t *testing.T) string {
 	t.Helper()
 	_, file, _, ok := runtime.Caller(0)

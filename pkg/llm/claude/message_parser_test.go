@@ -605,17 +605,12 @@ func TestParseMessage_ResultMessage_PromotedFields(t *testing.T) {
 
 // ── helpers ──────────────────────────────────────────────────────────────────
 
-// typeName returns the package-qualified type name of v using fmt.Sprintf.
+// typeName returns the package-qualified type name of v.
 func typeName(v any) string {
 	if v == nil {
 		return "<nil>"
 	}
-	// Use %T which includes package path for unexported types.
-	// Trim the leading module path to keep the name stable across environments.
-	import_prefix := "github.com/zchee/pandaemonium/"
-	name := typeNameRaw(v)
-	name = strings.TrimPrefix(name, import_prefix)
-	return name
+	return typeNameRaw(v)
 }
 
 func typeNameRaw(v any) string {

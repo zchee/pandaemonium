@@ -90,19 +90,16 @@ func TestDiscoverCLI_WellKnownPath(t *testing.T) {
 	staticWellKnownCLIPaths = nil
 	t.Cleanup(func() { staticWellKnownCLIPaths = origStatic })
 
+	// Force PATH lookup to fail so discovery falls through to well-known paths.
+	t.Setenv("PATH", t.TempDir())
+
 	// Use a nil opts (no CLIPath) so discovery falls through to well-known paths.
-	// We also need PATH to not contain a "claude" binary. We can't control PATH
-	// easily, but the test verifies the return value regardless.
 	got, err := discoverCLI(nil)
 	if err != nil {
-		// If a real claude binary exists on PATH, the test should still pass:
-		// the discovered path just won't be our fake.
-		t.Logf("discoverCLI() error = %v (may be expected if PATH lacks claude)", err)
-		return
+		t.Fatalf("discoverCLI() error = %v, want success via injected well-known path", err)
 	}
-	// If discovery succeeded and used our injected fake, verify it.
-	if got == fakePath {
-		t.Logf("discoverCLI() = %q (from injected well-known path)", got)
+	if got != fakePath {
+		t.Fatalf("discoverCLI() = %q, want %q (from injected well-known path)", got, fakePath)
 	}
 }
 
