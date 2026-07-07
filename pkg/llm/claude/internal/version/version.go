@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Package version records pinned dependency versions for pkg/claude.
+// Package version records pinned dependency versions for pkg/llm/claude.
 //
 // Version constants are bumped in dedicated commits with vendor refresh,
-// mirroring the schema-pin discipline of pkg/codex/generate.go:17.
+// mirroring the schema-pin discipline of pkg/llm/codex/generate.go.
 package version
 
 const (
-	// SDKVersion is the pkg/claude SDK version string.
+	// SDKVersion is the pkg/llm/claude SDK version string.
 	SDKVersion = "0.1.0-dev"
 
 	// MCPGoSDKVersion is the pinned tag of github.com/modelcontextprotocol/go-sdk.

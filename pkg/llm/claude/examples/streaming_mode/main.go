@@ -20,7 +20,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/streaming_mode
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/streaming_mode
 package main
 
 import (
@@ -50,7 +50,6 @@ func main() {
 		switch m := msg.(type) {
 		case claude.SystemMessage:
 			// init message — session is starting
-			_ = m
 		case claude.AssistantMessage:
 			for _, b := range m.Content {
 				if tb, ok := b.(claude.TextBlock); ok {

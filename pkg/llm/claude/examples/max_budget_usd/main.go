@@ -20,7 +20,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/max_budget_usd
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/max_budget_usd
 package main
 
 import (

@@ -13,12 +13,12 @@
 // limitations under the License.
 
 // Command capture-fakecli-fixtures connects to the real claude CLI and captures raw
-// stream-JSON output to pkg/claude/testdata/stream/*.jsonl.
+// stream-JSON output to pkg/llm/claude/testdata/stream/*.jsonl.
 //
 // # Usage
 //
 //	RUN_REAL_CLAUDE_TESTS=1 go run -tags capture \
-//	  ./pkg/claude/internal/cmd/capture-fakecli-fixtures
+//	  ./pkg/llm/claude/internal/cmd/capture-fakecli-fixtures
 //
 // The tool skips execution unless RUN_REAL_CLAUDE_TESTS=1 is set to prevent
 // accidental invocation in CI without a real claude binary.
@@ -29,7 +29,7 @@
 // generated .jsonl files in testdata/stream/ are committed to the repository
 // and used by message_parser_test.go. After refreshing:
 //
-//  1. Verify go test -race -count=1 ./pkg/claude/... passes.
+//  1. Verify go test -race -count=1 ./pkg/llm/claude/... passes.
 //  2. Commit the updated fixtures with the CLI version in the commit message.
 //
 // All source files in this package carry the //go:build capture build tag so
@@ -63,7 +63,7 @@ func main() {
 	}
 	log.Printf("using claude binary: %s", cliPath)
 
-	// Output directory: pkg/claude/testdata/stream/ relative to this file.
+	// Output directory: pkg/llm/claude/testdata/stream/ relative to this file.
 	_, thisFile, _, _ := runtime.Caller(0)
 	outDir := filepath.Join(filepath.Dir(thisFile), "../../../../testdata/stream")
 	if err := os.MkdirAll(outDir, 0o755); err != nil {

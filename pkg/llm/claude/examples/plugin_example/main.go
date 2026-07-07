@@ -21,7 +21,7 @@
 //
 // Usage:
 //
-//	CLAUDE_PLUGIN_PATH=/path/to/plugin RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/plugin_example
+//	CLAUDE_PLUGIN_PATH=/path/to/plugin RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/plugin_example
 package main
 
 import (

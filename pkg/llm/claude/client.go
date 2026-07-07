@@ -131,7 +131,7 @@ func (b *rawMessageBuffer) signalLocked() {
 // # Race-safety
 //
 // The transport field is a plain field guarded by the snapshot-as-arg +
-// writeMu-symmetry pattern below. (pkg/codex uses an atomic.Pointer for the
+// writeMu-symmetry pattern below. (pkg/llm/codex uses an atomic.Pointer for the
 // equivalent field; this package instead serializes all transport access
 // through writeMu/closeMu — either discipline is sound, so switching to
 // atomic.Pointer here would be a valid refactor, not a regression.)
@@ -189,7 +189,7 @@ type ClaudeSDKClient struct {
 	readDone chan struct{}
 
 	// stderrLines is the bounded stderr ring buffer. Protected by stderrMu.
-	// Capacity mirrors pkg/codex/client.go:737 (400-line ring).
+	// Capacity mirrors the 400-line drainStderr ring in pkg/llm/codex/client.go.
 	stderrMu    sync.Mutex
 	stderrLines []string
 
@@ -398,7 +398,7 @@ func (c *ClaudeSDKClient) Fork(ctx context.Context, fromMessageID string) (*Clau
 // Close is idempotent; subsequent calls return nil.
 //
 // The transport is cleared inside the writeMu critical section, mirroring
-// pkg/codex/client.go:265-271 (write-symmetric clear from commit 8c16376).
+// the write-symmetric clear in pkg/llm/codex/client.go's Close (commit 8c16376).
 //
 //nolint:unparam // Close() error is the idiomatic io.Closer-style signature kept for API compatibility; the current teardown cannot fail.
 func (c *ClaudeSDKClient) Close() error {
@@ -435,7 +435,7 @@ func (c *ClaudeSDKClient) Close() error {
 	// Clear c.transport inside writeMu — write-symmetric clear with writeMessage,
 	// which reads c.transport under writeMu. This is the only critical section
 	// where transport transitions from non-nil to nil. (We diverge from
-	// pkg/codex/client.go:265-271, which closes the transport INSIDE writeMu;
+	// pkg/llm/codex/client.go's Close, which closes the transport INSIDE its write lock;
 	// closing it before the lock is what bounds Close against a hung write.)
 	c.writeMu.Lock()
 	c.transport = nil
@@ -472,7 +472,7 @@ func (c *ClaudeSDKClient) Close() error {
 	// Signal and wait for the subprocess.
 	terminateProcess(cmd, cmdDone)
 
-	// Wait for readLoop and drainStderr to exit — mirrors pkg/codex/client.go:293,297.
+	// Wait for readLoop and drainStderr to exit — mirrors the Close sequence in pkg/llm/codex/client.go.
 	// Budget 500ms each, matching the codex drain timeout.
 	waitOrTimeout(readDone, 500*time.Millisecond)
 	waitOrTimeout(stderrDone, 500*time.Millisecond)
@@ -517,7 +517,7 @@ func waitOrTimeout(done <-chan struct{}, timeout time.Duration) {
 //
 // It MUST be called with c.closeMu held so that the transport snapshot
 // captured by readLoop is consistent with c.transport — mirrors
-// pkg/codex/client.go:244 (snapshot-as-arg discipline).
+// Start in pkg/llm/codex/client.go (snapshot-as-arg discipline).
 //
 // cmd and cmdDone may be nil for test transports that do not back a real
 // subprocess (e.g. FakeCLI). stderrR may be nil; if so, stderrDone is
@@ -552,7 +552,7 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 	// Launch readLoop with a snapshot of c.transport and c.cp captured under
 	// closeMu. The goroutine receives both as arguments and never reads
 	// c.transport or c.cp directly — this is the snapshot-as-arg discipline that
-	// prevents the Close/readMessage data race fixed in pkg/codex commit 8c16376.
+	// prevents the Close/readMessage data race fixed in pkg/llm/codex commit 8c16376.
 	go c.readLoop(ctx, c.transport, c.cp, c.rawMessages, c.readDone) // snapshot under closeMu
 }
 
@@ -634,7 +634,7 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 // Returns CLIConnectionError if the transport is nil (i.e. after Close).
 // This is the symmetric half of the Close pattern: both writeMessage and
 // Close access c.transport under writeMu, so they cannot interleave.
-// (pkg/codex/client.go:637-648).
+// (Mirrors writeMessage in pkg/llm/codex/client.go.)
 func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 	c.writeMu.Lock()
 	defer c.writeMu.Unlock()
@@ -649,7 +649,7 @@ func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 //
 // The goroutine argument t MUST be the snapshot captured under closeMu — it
 // never reads c.transport directly. This is the core of the race-safety
-// discipline from pkg/codex commit 8c16376 (pkg/codex/client.go:244).
+// discipline from pkg/llm/codex commit 8c16376.
 func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *controlProtocol, rawMessages *rawMessageBuffer, done chan<- struct{}) {
 	defer close(done)
 	for {
@@ -694,9 +694,9 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *control
 // drainStderr reads lines from r into a bounded ring buffer so that
 // ProcessError.StderrTail is populated on subprocess crash.
 //
-// Mirrors pkg/codex/client.go:737. The ring capacity is 400 lines;
+// Mirrors drainStderr in pkg/llm/codex/client.go. The ring capacity is 400 lines;
 // stderrTail(40) returns the last 40 for ProcessError, matching the codex
-// pattern at pkg/codex/client.go:657.
+// stderrTail pattern.
 func (c *ClaudeSDKClient) drainStderr(r io.Reader, done chan<- struct{}) {
 	defer close(done)
 	llm.DrainLines(r, func(line string) {

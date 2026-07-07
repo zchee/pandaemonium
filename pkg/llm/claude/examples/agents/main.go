@@ -21,7 +21,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/agents
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/agents
 package main
 
 import (

@@ -1,4 +1,4 @@
-# pkg/claude examples
+# pkg/llm/claude examples
 
 Go ports of the [claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python) example programs.
 
@@ -9,17 +9,17 @@ All examples require the real `claude` CLI and the environment variable
 exits 0 so the hermetic `go test ./...` suite is unaffected.
 
 ```sh
-RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/quick_start
+RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/quick_start
 ```
 
 ## Hermetic parity tests
 
-Every example has a corresponding test in `pkg/claude/examples_parity_test.go`
+Every example has a corresponding test in `pkg/llm/claude/examples_parity_test.go`
 that exercises the same API surface against the in-process `FakeCLI` transport.
 Run them without the real CLI:
 
 ```sh
-go test -v -race -count=1 -shuffle=on -run TestExampleParity ./pkg/claude
+go test -v -race -count=1 -shuffle=on -run TestExampleParity ./pkg/llm/claude
 ```
 
 ## Examples index

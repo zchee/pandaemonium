@@ -747,7 +747,7 @@ func assertNamedPublicTypes(t *testing.T, types map[string]reflect.Type) {
 			t.Fatalf("%s reflected name = %q, want %q", name, got, name)
 		}
 		if typ.PkgPath() != "github.com/zchee/pandaemonium/pkg/llm/codex" {
-			t.Fatalf("%s package path = %q, want pkg/codex", name, typ.PkgPath())
+			t.Fatalf("%s package path = %q, want pkg/llm/codex", name, typ.PkgPath())
 		}
 	}
 }

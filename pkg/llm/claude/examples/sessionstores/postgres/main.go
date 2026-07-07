@@ -16,7 +16,7 @@
 // adapter using github.com/jackc/pgx/v5.
 //
 // This is a separate Go module (its own go.mod) so that the pgx driver never
-// enters pkg/claude's own module graph (spec §Non-Goals).
+// enters pkg/llm/claude's own module graph (spec §Non-Goals).
 //
 // Port of examples/session_stores/postgres.py from claude-agent-sdk-python.
 //

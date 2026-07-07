@@ -94,7 +94,7 @@ func TestSandboxSettings_JSONTagsParity(t *testing.T) {
 
 // TestSandboxSettings_DefaultTrueBoolsOmitWhenNil verifies that nil *bool for
 // the upstream-default-true fields produces no key on the wire (so the CLI's
-// default applies), and that BoolPtr(false) does send an explicit false.
+// default applies), and that new(false) does send an explicit false.
 func TestSandboxSettings_DefaultTrueBoolsOmitWhenNil(t *testing.T) {
 	t.Parallel()
 
@@ -127,10 +127,10 @@ func TestSandboxSettings_DefaultTrueBoolsOmitWhenNil(t *testing.T) {
 		t.Fatalf("unmarshal explicit settings: %v", err)
 	}
 	if got2["autoAllowBashIfSandboxed"] != false {
-		t.Errorf("BoolPtr(false) must send false; got %v", got2["autoAllowBashIfSandboxed"])
+		t.Errorf("new(false) must send false; got %v", got2["autoAllowBashIfSandboxed"])
 	}
 	if got2["allowUnsandboxedCommands"] != true {
-		t.Errorf("BoolPtr(true) must send true; got %v", got2["allowUnsandboxedCommands"])
+		t.Errorf("new(true) must send true; got %v", got2["allowUnsandboxedCommands"])
 	}
 }
 

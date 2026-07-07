@@ -21,7 +21,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/include_partial_messages
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/include_partial_messages
 package main
 
 import (

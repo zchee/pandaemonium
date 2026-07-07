@@ -16,7 +16,7 @@
 // using github.com/redis/go-redis/v9.
 //
 // This is a separate Go module (its own go.mod) so that the go-redis driver
-// never enters pkg/claude's own module graph (spec §Non-Goals).
+// never enters pkg/llm/claude's own module graph (spec §Non-Goals).
 //
 // Each session is stored as a Redis hash keyed by "claude:session:<id>":
 //   - "parent_id" → parent session ID (or "")

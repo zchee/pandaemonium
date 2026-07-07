@@ -18,7 +18,7 @@ import (
 	"fmt"
 )
 
-// Error is the base interface implemented by all pkg/claude SDK errors.
+// Error is the base interface implemented by all pkg/llm/claude SDK errors.
 // Callers can use errors.As to unwrap to a concrete type.
 type Error interface {
 	error
@@ -60,7 +60,7 @@ type ProcessError struct {
 	ExitCode int
 
 	// StderrTail contains the last ≤ 40 lines of subprocess stderr output,
-	// captured by a drainStderr goroutine mirroring pkg/codex/client.go:737.
+	// captured by a drainStderr goroutine mirroring the one in pkg/llm/codex/client.go.
 	StderrTail string
 }
 

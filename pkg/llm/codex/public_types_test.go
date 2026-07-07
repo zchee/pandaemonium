@@ -60,7 +60,7 @@ func TestPublicGeneratedTypeRenamePolicy(t *testing.T) {
 				t.Fatalf("type name = %q, want %q", got, want)
 			}
 			if got := tt.typ.PkgPath(); got != "github.com/zchee/pandaemonium/pkg/llm/codex" {
-				t.Fatalf("type package path = %q, want pkg/codex", got)
+				t.Fatalf("type package path = %q, want pkg/llm/codex", got)
 			}
 		})
 	}

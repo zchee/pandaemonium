@@ -88,7 +88,7 @@ func TestArtifactWorkflowPortSDKHasNoCheckedInRuntimeBinaries(t *testing.T) {
 		t.Fatalf("filepath.WalkDir(%s) error = %v", packageRoot, err)
 	}
 	if len(offenders) != 0 {
-		t.Fatalf("checked-in runtime binary artifacts under pkg/codex = %v, want none", offenders)
+		t.Fatalf("checked-in runtime binary artifacts under pkg/llm/codex = %v, want none", offenders)
 	}
 }
 

@@ -15,13 +15,13 @@
 // Command stderr_callback demonstrates surfacing subprocess stderr output when
 // the claude CLI exits non-zero. The [claude.ProcessError] type carries a
 // StderrTail field with the last ≤40 lines of stderr, populated by the SDK's
-// drainStderr goroutine (mirrors pkg/codex/client.go:737).
+// drainStderr goroutine (mirrors drainStderr in pkg/llm/codex/client.go).
 //
 // Port of examples/stderr_callback_example.py from claude-agent-sdk-python.
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/stderr_callback
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/stderr_callback
 package main
 
 import (

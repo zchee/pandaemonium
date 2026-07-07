@@ -16,7 +16,7 @@
 // using github.com/aws/aws-sdk-go-v2.
 //
 // This is a separate Go module (its own go.mod) so that the AWS SDK never
-// enters pkg/claude's own module graph (spec §Non-Goals).
+// enters pkg/llm/claude's own module graph (spec §Non-Goals).
 //
 // Each session is stored as a JSON object at key "sessions/<id>.json" in the
 // configured S3 bucket.

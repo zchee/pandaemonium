@@ -21,7 +21,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/filesystem_agents
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/filesystem_agents
 package main
 
 import (

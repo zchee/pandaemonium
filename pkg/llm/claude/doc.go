@@ -30,7 +30,7 @@
 //
 // [NewClient] returns a [*ClaudeSDKClient] for bidirectional interactive use.
 // The client owns a subprocess transport following the same snapshot-as-arg +
-// writeMu-symmetry race pattern as pkg/codex (commit 8c16376): the transport
+// writeMu-symmetry race pattern as pkg/llm/codex (commit 8c16376): the transport
 // field is a plain field (not atomic.Pointer); readLoop receives a snapshot
 // captured under closeMu at Start; Close clears c.transport inside the writeMu
 // critical section.
@@ -55,7 +55,7 @@
 // Protocol; see [SessionStore]'s godoc for the rationale.
 //
 // The package ships an in-memory implementation ([NewInMemorySessionStore])
-// and a conformance harness at pkg/claude/testing/sessionstoreconformance.
+// and a conformance harness at pkg/llm/claude/testing/sessionstoreconformance.
 //
 // # Fixture refresh
 //
@@ -63,7 +63,7 @@
 // fixture-capture tool at internal/cmd/capture-fakecli-fixtures (build tag
 // "capture", requires RUN_REAL_CLAUDE_TESTS=1):
 //
-//	go run -tags capture ./pkg/claude/internal/cmd/capture-fakecli-fixtures
+//	go run -tags capture ./pkg/llm/claude/internal/cmd/capture-fakecli-fixtures
 //
 // # iter.Seq2 early-break idiom
 //
@@ -88,6 +88,6 @@
 // # Real-CLI integration tests
 //
 // Set RUN_REAL_CLAUDE_TESTS=1 to opt in to the integration test lane that
-// exercises the real claude binary on PATH, mirroring pkg/codex's
+// exercises the real claude binary on PATH, mirroring pkg/llm/codex's
 // RUN_REAL_CODEX_TESTS=1 lane.
 package claude

@@ -20,7 +20,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/tools_option
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/tools_option
 package main
 
 import (

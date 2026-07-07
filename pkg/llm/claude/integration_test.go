@@ -26,7 +26,8 @@ import (
 
 // runRealClaudeTestsEnv gates the real-CLI integration test lane.
 // Set RUN_REAL_CLAUDE_TESTS=1 in the environment to opt in.
-// This mirrors the RUN_REAL_CODEX_TESTS=1 gate in pkg/codex/integration_test.go.
+// This mirrors the RUN_REAL_CODEX_TESTS=1 gate (runRealCodexTestsEnv) in
+// pkg/llm/codex/integration_test.go.
 const runRealClaudeTestsEnv = "RUN_REAL_CLAUDE_TESTS"
 
 // TestRealCLI_Query sends a minimal prompt to the real claude binary and

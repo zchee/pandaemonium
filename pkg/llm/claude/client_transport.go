@@ -29,7 +29,7 @@ import (
 // safe for concurrent calls to WriteJSON; ReadJSON is called only from the
 // single readLoop goroutine.
 //
-// Mirrors pkg/codex/client_transport.go:35-39.
+// Mirrors the Transport interface in pkg/llm/codex/client_transport.go.
 type transport interface {
 	io.Closer
 
@@ -45,7 +45,7 @@ type transport interface {
 //
 // It is created by ClaudeSDKClient.start after the subprocess is launched.
 // Concurrent safety for WriteJSON is provided by ClaudeSDKClient.writeMu, not
-// by an internal mutex — the same discipline used by pkg/codex/client_transport.go:41.
+// by an internal mutex — the same discipline used by stdioTransport in pkg/llm/codex/client_transport.go.
 type stdioTransport struct {
 	stdin  io.WriteCloser
 	stdout *bufio.Reader

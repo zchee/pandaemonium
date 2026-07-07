@@ -16,7 +16,7 @@
 // for [claude.SessionStore] implementations.
 //
 // Call [Run] from a *testing.T to validate that a [SessionStore] implementation
-// satisfies the full contract expected by pkg/claude.
+// satisfies the full contract expected by pkg/llm/claude.
 //
 // Usage:
 //

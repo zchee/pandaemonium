@@ -20,7 +20,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/system_prompt
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/system_prompt
 package main
 
 import (

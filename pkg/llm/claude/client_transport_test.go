@@ -187,12 +187,12 @@ func TestStdioTransport_Close(t *testing.T) {
 // It concurrently calls Close and writeMessage on a ClaudeSDKClient backed by a
 // FakeCLI transport and verifies that the race detector (go test -race) reports
 // no data races. The race-safety relies on the write-symmetric clear from
-// pkg/codex commit 8c16376: both writeMessage and Close access c.transport
+// pkg/llm/codex commit 8c16376: both writeMessage and Close access c.transport
 // exclusively under writeMu.
 //
 // Recommended invocation for full stress coverage:
 //
-//	go test -race -run TestTransport_CloseDuringReadWrite -count=1000 ./pkg/claude
+//	go test -race -run TestTransport_CloseDuringReadWrite -count=1000 ./pkg/llm/claude
 func TestTransport_CloseDuringReadWrite(t *testing.T) {
 	t.Parallel()
 

@@ -1,4 +1,4 @@
-# pkg/claude
+# pkg/llm/claude
 
 Go port of [anthropics/claude-agent-sdk-python](https://github.com/anthropics/claude-agent-sdk-python) for the pandaemonium module.
 
@@ -206,7 +206,7 @@ if err != nil {
 defer child.Close()
 ```
 
-Reusable conformance tests for custom stores live in `pkg/claude/testing/sessionstoreconformance`.
+Reusable conformance tests for custom stores live in `pkg/llm/claude/testing/sessionstoreconformance`.
 
 ## Control requests
 
@@ -230,7 +230,7 @@ Content blocks are also typed: `TextBlock`, `ToolUseBlock`, `ToolResultBlock`, `
 ## Directory layout
 
 ```text
-pkg/claude/
+pkg/llm/claude/
 ├── api.go                       # NewClient constructor
 ├── cli_discovery.go             # claude binary discovery
 ├── client.go                    # ClaudeSDKClient: Query, ReceiveResponse, Fork, Close
@@ -268,29 +268,29 @@ pkg/claude/
 
 ## Examples
 
-Runnable examples live under `pkg/claude/examples`. They require a real `claude` binary and `RUN_REAL_CLAUDE_TESTS=1`; without that opt-in, examples exit 0 so hermetic tests stay offline.
+Runnable examples live under `pkg/llm/claude/examples`. They require a real `claude` binary and `RUN_REAL_CLAUDE_TESTS=1`; without that opt-in, examples exit 0 so hermetic tests stay offline.
 
 ```sh
-RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/quick_start
+RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/quick_start
 ```
 
-Hermetic parity coverage for examples lives in `pkg/claude/examples_parity_test.go`:
+Hermetic parity coverage for examples lives in `pkg/llm/claude/examples_parity_test.go`:
 
 ```sh
-go test -v -race -count=1 -shuffle=on -run TestExampleParity ./pkg/claude
+go test -v -race -count=1 -shuffle=on -run TestExampleParity ./pkg/llm/claude
 ```
 
 ## Testing
 
 ```sh
 # Unit tests (no real CLI required)
-go test -v -race -count=1 -shuffle=on ./pkg/claude
+go test -v -race -count=1 -shuffle=on ./pkg/llm/claude
 
 # Package tree, including examples that self-skip without RUN_REAL_CLAUDE_TESTS
-go test -v -race -count=1 -shuffle=on ./pkg/claude/...
+go test -v -race -count=1 -shuffle=on ./pkg/llm/claude/...
 
 # Integration tests (real claude binary required)
-RUN_REAL_CLAUDE_TESTS=1 go test -v -race -count=1 -shuffle=on -timeout 120s ./pkg/claude/...
+RUN_REAL_CLAUDE_TESTS=1 go test -v -race -count=1 -shuffle=on -timeout 120s ./pkg/llm/claude/...
 ```
 
 ## License

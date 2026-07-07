@@ -22,7 +22,7 @@ import "strings"
 // accurately.
 const sdkEntrypoint = "sdk-go"
 
-// sdkVersion is the pkg/claude version reported to the CLI as
+// sdkVersion is the pkg/llm/claude version reported to the CLI as
 // CLAUDE_AGENT_SDK_VERSION. It is hand-maintained (not derived from build info,
 // which is unreliable across go run / vendoring / replace directives) and
 // bumped as part of the package's release process.

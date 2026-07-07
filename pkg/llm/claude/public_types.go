@@ -76,7 +76,7 @@ type AssistantMessage struct {
 
 	// Raw preserves unknown top-level fields for forward compatibility. Fields
 	// promoted above (and the nested message.* object) are excluded.
-	// Mirrors pkg/codex/public_types.go:33-37.
+	// Mirrors the inline-catchall pattern in pkg/llm/codex/public_types.go.
 	Raw jsontext.Value `json:",inline"`
 }
 
@@ -765,7 +765,7 @@ const (
 //
 // Only the fields relevant to the event Kind are populated; the rest are zero.
 // Unknown CLI fields are preserved in Raw for forward compatibility, mirroring
-// the inline catchall pattern in pkg/codex/public_types.go:33-37.
+// the inline catchall pattern in pkg/llm/codex/public_types.go.
 type HookEvent struct {
 	// Kind identifies the lifecycle event.
 	Kind HookEventKind `json:"hook_event_name,omitzero"`

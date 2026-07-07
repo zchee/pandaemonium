@@ -21,7 +21,7 @@
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/hooks
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/hooks
 package main
 
 import (
@@ -39,8 +39,7 @@ import (
 // dangerousPatterns lists substrings that indicate a dangerous Bash command.
 var dangerousPatterns = []string{"rm ", "rmdir", " dd ", "mkfs", "> /dev"}
 
-func bashGuard(ctx context.Context, event claude.HookEvent) (claude.HookDecision, error) {
-	_ = ctx
+func bashGuard(_ context.Context, event claude.HookEvent) (claude.HookDecision, error) {
 	if event.Kind != claude.HookEventPreToolUse || event.ToolName != "Bash" {
 		return claude.HookDecision{}, nil
 	}

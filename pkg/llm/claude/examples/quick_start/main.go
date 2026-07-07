@@ -12,14 +12,14 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// Command quick_start demonstrates the simplest possible use of pkg/claude:
+// Command quick_start demonstrates the simplest possible use of pkg/llm/claude:
 // send one prompt with [claude.Query] and print the assistant's text response.
 //
 // Port of examples/quick_start.py from claude-agent-sdk-python.
 //
 // Usage:
 //
-//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/claude/examples/quick_start
+//	RUN_REAL_CLAUDE_TESTS=1 go run ./pkg/llm/claude/examples/quick_start
 package main
 
 import (

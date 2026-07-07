@@ -66,9 +66,9 @@ type Session struct {
 // machinery for a Protocol that has no Go consumer.
 //
 // The package ships an in-memory implementation ([NewInMemorySessionStore])
-// and a conformance harness at pkg/claude/testing/sessionstoreconformance.
+// and a conformance harness at pkg/llm/claude/testing/sessionstoreconformance.
 // No built-in database backends (Postgres, Redis, S3) are provided; example
-// adapters under pkg/claude/examples/sessionstores/ are separate Go modules.
+// adapters under pkg/llm/claude/examples/sessionstores/ are separate Go modules.
 type SessionStore interface {
 	// Load retrieves the session with the given ID.
 	// Returns an error satisfying errors.Is(err, ErrSessionNotFound) if absent.
@@ -114,7 +114,7 @@ type inMemorySessionStore struct {
 // The store holds all sessions in process memory and is lost when the process
 // exits. It is suitable for testing and short-lived scripts.
 //
-// The conformance harness at pkg/claude/testing/sessionstoreconformance
+// The conformance harness at pkg/llm/claude/testing/sessionstoreconformance
 // validates that this implementation satisfies the full SessionStore contract.
 func NewInMemorySessionStore() SessionStore {
 	return &inMemorySessionStore{

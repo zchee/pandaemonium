@@ -171,7 +171,7 @@ type SandboxSettings struct {
 
 	// AutoAllowBashIfSandboxed auto-approves bash commands when sandboxed.
 	// Upstream default is true, so a nil pointer omits the field and lets the
-	// CLI default apply; pass [BoolPtr] to send an explicit value.
+	// CLI default apply; pass new(false) or new(true) to send an explicit value.
 	AutoAllowBashIfSandboxed *bool `json:"autoAllowBashIfSandboxed,omitzero"`
 
 	// ExcludedCommands lists commands that should run outside the sandbox
@@ -181,7 +181,7 @@ type SandboxSettings struct {
 	// AllowUnsandboxedCommands controls whether commands may bypass the
 	// sandbox via dangerouslyDisableSandbox. When false, all commands must
 	// run sandboxed (or be in ExcludedCommands). Upstream default is true;
-	// nil omits the field. Pass [BoolPtr] to send an explicit value.
+	// nil omits the field. Pass new(false) or new(true) to send an explicit value.
 	AllowUnsandboxedCommands *bool `json:"allowUnsandboxedCommands,omitzero"`
 
 	// Network configures sandbox network access.
