@@ -35,7 +35,6 @@ func BenchmarkClientTransportRoundTripStdIO(b *testing.B) {
 	defer cancel()
 	benchmarkInitializeClient(b, b.Context(), client)
 	b.ReportAllocs()
-	b.ResetTimer()
 	for b.Loop() {
 		if _, err := client.RequestRaw(b.Context(), "helper/echo", Object{"hello": "world"}); err != nil {
 			b.Fatalf("RequestRaw() error = %v", err)
@@ -51,7 +50,6 @@ func BenchmarkClientTransportRoundTripWebSocket(b *testing.B) {
 	defer cancel()
 	benchmarkInitializeClient(b, b.Context(), client)
 	b.ReportAllocs()
-	b.ResetTimer()
 	for b.Loop() {
 		if _, err := client.RequestRaw(b.Context(), "helper/echo", Object{"hello": "world"}); err != nil {
 			b.Fatalf("RequestRaw() error = %v", err)
@@ -87,7 +85,12 @@ func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.Canc
 	if err != nil {
 		b.Fatalf("websocket.Dial() error = %v", err)
 	}
-	defer resp.Body.Close()
+	// A successful websocket upgrade hijacks the connection, so resp (and
+	// resp.Body) can be nil; guard the close like the dial paths in
+	// client_transport.go do.
+	if resp != nil && resp.Body != nil {
+		defer resp.Body.Close()
+	}
 
 	client := NewClient(&Config{}, nil)
 	client.storeTransport(&websocketTransport{conn: conn})
