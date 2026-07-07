@@ -15,7 +15,10 @@
 package codex
 
 import (
+	"bytes"
+	"errors"
 	"fmt"
+	"io"
 	"reflect"
 
 	"github.com/go-json-experiment/json"
@@ -166,6 +169,41 @@ func DecodeHookInput(data []byte) (HookInput, error) {
 	default:
 		return nil, fmt.Errorf("unsupported hook input event name %q", probe.HookEventName)
 	}
+}
+
+// DecodeHookInputs decodes a stream of hook command input payloads into their
+// concrete [HookInput] types. The stream is a sequence of JSON values, one per
+// JSON Lines record, decoded in order via a single streaming decoder so a
+// payload may span multiple physical lines. Blank lines and whitespace between
+// records are tolerated.
+//
+// Decoding stops at the first malformed record and returns the hooks decoded
+// so far alongside a record-indexed error, so partial progress is never
+// discarded.
+func DecodeHookInputs(data []byte) ([]HookInput, error) {
+	dec := jsontext.NewDecoder(bytes.NewReader(data))
+	var hooks []HookInput
+	for {
+		hook, err := decodeHookInputValue(dec)
+		if errors.Is(err, io.EOF) {
+			return hooks, nil
+		}
+		if err != nil {
+			return hooks, fmt.Errorf("decode hook input at record %d: %w", len(hooks), err)
+		}
+		hooks = append(hooks, hook)
+	}
+}
+
+// decodeHookInputValue reads the next top-level JSON value from dec and decodes
+// it into its concrete [HookInput] type. It reports [io.EOF] once the stream is
+// exhausted.
+func decodeHookInputValue(dec *jsontext.Decoder) (HookInput, error) {
+	raw, err := dec.ReadValue()
+	if err != nil {
+		return nil, err
+	}
+	return DecodeHookInput(raw)
 }
 
 func decodeHookInputPayload[T HookInput](data []byte) (HookInput, error) {

@@ -452,3 +452,170 @@ func TestEncodeHookInputErrors(t *testing.T) {
 		})
 	}
 }
+
+// TestDecodeHookInputs proves DecodeHookInputs decodes a JSON Lines stream of
+// hook command input payloads in order into their concrete types.
+func TestDecodeHookInputs(t *testing.T) {
+	t.Parallel()
+
+	permission := `{"agent_id":"agent-1","agent_type":"reviewer","cwd":"/work","hook_event_name":"PermissionRequest","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-1","tool_input":{"command":["git","diff"]},"tool_name":"shell","transcript_path":"/tmp/transcript.jsonl","turn_id":"turn-1"}`
+	sessionStart := `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","source":"startup","transcript_path":null}`
+	stop := `{"cwd":"/work","hook_event_name":"Stop","last_assistant_message":"done","model":"gpt-5.1-codex","permission_mode":"default","session_id":"sess-2","stop_hook_active":false,"transcript_path":"/tmp/t.jsonl","turn_id":"turn-6"}`
+
+	wantPermission := PermissionRequestHookInput{
+		AgentID:        "agent-1",
+		AgentType:      "reviewer",
+		Cwd:            "/work",
+		HookEventName:  HookInputEventNamePermissionRequest,
+		Model:          "gpt-5.1-codex",
+		PermissionMode: HookPermissionModeDefault,
+		SessionID:      "sess-1",
+		ToolInput:      jsontext.Value(`{"command":["git","diff"]}`),
+		ToolName:       "shell",
+		TranscriptPath: new("/tmp/transcript.jsonl"),
+		TurnID:         "turn-1",
+	}
+	wantSessionStart := SessionStartHookInput{
+		Cwd:            "/work",
+		HookEventName:  HookInputEventNameSessionStart,
+		Model:          "gpt-5.1-codex",
+		PermissionMode: HookPermissionModeDefault,
+		SessionID:      "sess-2",
+		Source:         HookSessionStartSourceStartup,
+	}
+	wantStop := StopHookInput{
+		Cwd:                  "/work",
+		HookEventName:        HookInputEventNameStop,
+		LastAssistantMessage: new("done"),
+		Model:                "gpt-5.1-codex",
+		PermissionMode:       HookPermissionModeDefault,
+		SessionID:            "sess-2",
+		TranscriptPath:       new("/tmp/t.jsonl"),
+		TurnID:               "turn-6",
+	}
+
+	// A pretty-printed record proves a single hook value may span multiple
+	// physical lines, so DecodeHookInputs must not split the stream on newlines.
+	multiline := `{
+  "cwd": "/work",
+  "hook_event_name": "SessionStart",
+  "model": "gpt-5.1-codex",
+  "permission_mode": "default",
+  "session_id": "sess-2",
+  "source": "startup",
+  "transcript_path": null
+}`
+
+	tests := map[string]struct {
+		data string
+		want []HookInput
+	}{
+		"success: empty input": {
+			data: "",
+			want: nil,
+		},
+		"success: only whitespace": {
+			data: "\n  \n\t\n",
+			want: nil,
+		},
+		"success: single record": {
+			data: permission,
+			want: []HookInput{wantPermission},
+		},
+		"success: single record with trailing newline": {
+			data: permission + "\n",
+			want: []HookInput{wantPermission},
+		},
+		"success: multiple records": {
+			data: permission + "\n" + sessionStart + "\n" + stop + "\n",
+			want: []HookInput{wantPermission, wantSessionStart, wantStop},
+		},
+		"success: blank lines between records": {
+			data: permission + "\n\n" + sessionStart + "\n   \n" + stop,
+			want: []HookInput{wantPermission, wantSessionStart, wantStop},
+		},
+		"success: records separated by spaces": {
+			data: permission + " " + sessionStart,
+			want: []HookInput{wantPermission, wantSessionStart},
+		},
+		"success: pretty-printed multi-line record": {
+			data: multiline + "\n" + stop,
+			want: []HookInput{wantSessionStart, wantStop},
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := DecodeHookInputs([]byte(tt.data))
+			if err != nil {
+				t.Fatalf("DecodeHookInputs returned error: %v", err)
+			}
+			if diff := gocmp.Diff(tt.want, got); diff != "" {
+				t.Fatalf("DecodeHookInputs mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestDecodeHookInputsPartialProgress proves DecodeHookInputs stops at the
+// first malformed record and returns the hooks decoded before it alongside a
+// record-indexed error, so upstream progress is never silently dropped.
+func TestDecodeHookInputsPartialProgress(t *testing.T) {
+	t.Parallel()
+
+	good := `{"cwd":"/work","hook_event_name":"SessionStart","model":"m","permission_mode":"default","session_id":"s","source":"startup","transcript_path":null}`
+	wantGood := SessionStartHookInput{
+		Cwd:            "/work",
+		HookEventName:  HookInputEventNameSessionStart,
+		Model:          "m",
+		PermissionMode: HookPermissionModeDefault,
+		SessionID:      "s",
+		Source:         HookSessionStartSourceStartup,
+	}
+
+	tests := map[string]struct {
+		data    string
+		want    []HookInput
+		wantErr string
+	}{
+		"error: unsupported event mid-stream": {
+			data:    good + "\n" + `{"hook_event_name":"Bogus"}`,
+			want:    []HookInput{wantGood},
+			wantErr: `record 1: unsupported hook input event name "Bogus"`,
+		},
+		"error: missing event name mid-stream": {
+			data:    good + "\n" + `{"cwd":"/work"}`,
+			want:    []HookInput{wantGood},
+			wantErr: "record 1: hook input is missing hook_event_name",
+		},
+		"error: malformed JSON in first record": {
+			data:    `{"hook_event_name":` + "\n" + good,
+			want:    nil,
+			wantErr: "record 0",
+		},
+		"error: payload type mismatch mid-stream": {
+			data:    good + "\n" + `{"hook_event_name":"Stop","stop_hook_active":"not-a-bool"}`,
+			want:    []HookInput{wantGood},
+			wantErr: "record 1: decode Stop hook input",
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := DecodeHookInputs([]byte(tt.data))
+			if err == nil {
+				t.Fatalf("DecodeHookInputs succeeded with %#v, want error containing %q", got, tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("DecodeHookInputs error = %q, want substring %q", err, tt.wantErr)
+			}
+			if diff := gocmp.Diff(tt.want, got); diff != "" {
+				t.Fatalf("DecodeHookInputs partial result mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
