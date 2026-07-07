@@ -378,3 +378,77 @@ func TestHookInputUnmarshalNormalizesEventName(t *testing.T) {
 		t.Fatalf("normalized decode mismatch (-want +got):\n%s", diff)
 	}
 }
+
+// TestEncodeHookInput proves EncodeHook emits schema-complete JSON that
+// DecodeHookInput accepts and maps back to the identical concrete value.
+func TestEncodeHookInput(t *testing.T) {
+	t.Parallel()
+
+	for name, tt := range hookInputSamples() {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			encoded, err := EncodeHookInput(tt.want)
+			if err != nil {
+				t.Fatalf("EncodeHookInput returned error: %v", err)
+			}
+
+			var wantJSON, gotJSON any
+			if err := json.Unmarshal([]byte(tt.payload), &wantJSON); err != nil {
+				t.Fatalf("unmarshal original payload: %v", err)
+			}
+			if err := json.Unmarshal(encoded, &gotJSON); err != nil {
+				t.Fatalf("unmarshal encoded payload %s: %v", encoded, err)
+			}
+			if diff := gocmp.Diff(wantJSON, gotJSON); diff != "" {
+				t.Fatalf("encoded JSON mismatch (-want +got):\n%s", diff)
+			}
+
+			decoded, err := DecodeHookInput(encoded)
+			if err != nil {
+				t.Fatalf("DecodeHookInput on encoded payload: %v", err)
+			}
+			if diff := gocmp.Diff(tt.want, decoded); diff != "" {
+				t.Fatalf("encode/decode round-trip mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
+}
+
+// TestEncodeHookInputErrors proves EncodeHook rejects payloads that could not
+// round-trip through DecodeHookInput.
+func TestEncodeHookInputErrors(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		hook    HookInput
+		wantErr string
+	}{
+		"error: nil hook": {
+			hook:    nil,
+			wantErr: "nil Hook",
+		},
+		"error: typed-nil pointer hook": {
+			hook:    (*StopHookInput)(nil),
+			wantErr: "nil Hook",
+		},
+		"error: mismatched event name": {
+			hook:    PreToolUseHookInput{HookEventName: HookInputEventNameStop},
+			wantErr: `unexpected hook_event_name "Stop" for PreToolUse hook input`,
+		},
+	}
+
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+
+			got, err := EncodeHookInput(tt.hook)
+			if err == nil {
+				t.Fatalf("EncodeHookInput succeeded with %s, want error containing %q", got, tt.wantErr)
+			}
+			if !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("EncodeHookInput error = %q, want substring %q", err, tt.wantErr)
+			}
+		})
+	}
+}

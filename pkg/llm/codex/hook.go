@@ -16,6 +16,7 @@ package codex
 
 import (
 	"fmt"
+	"reflect"
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
@@ -103,6 +104,31 @@ type HookInput interface {
 	EventName() HookInputEventName
 
 	isHookInput()
+}
+
+// EncodeHook encodes a hook command input payload into the JSON wire form
+// accepted by [DecodeHookInput]. The concrete type's marshaler pins an empty
+// hook_event_name to the type's event, and a payload carrying a
+// hook_event_name that names a different hook event is rejected so the output
+// always round-trips through [DecodeHookInput].
+func EncodeHookInput(hook HookInput) ([]byte, error) {
+	if value := reflect.ValueOf(hook); !value.IsValid() || (value.Kind() == reflect.Pointer && value.IsNil()) {
+		return nil, fmt.Errorf("encode hook input: nil Hook")
+	}
+	data, err := json.Marshal(hook)
+	if err != nil {
+		return nil, fmt.Errorf("encode %s hook input: %w", hook.EventName(), err)
+	}
+	var probe struct {
+		HookEventName HookInputEventName `json:"hook_event_name"`
+	}
+	if err := json.Unmarshal(data, &probe); err != nil {
+		return nil, fmt.Errorf("encode %s hook input: probe event name: %w", hook.EventName(), err)
+	}
+	if probe.HookEventName != hook.EventName() {
+		return nil, fmt.Errorf("unexpected hook_event_name %q for %s hook input", probe.HookEventName, hook.EventName())
+	}
+	return data, nil
 }
 
 // DecodeHookInput decodes a hook command input payload into the concrete
