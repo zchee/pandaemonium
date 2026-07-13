@@ -34,9 +34,83 @@ import (
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 )
 
+func newAPIHooksCommand(loadConfig env.ConfigLoader) *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "hooks",
+		Short: "Manage agent hooks",
+		Args:  cobra.NoArgs,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			cfg := loadConfig(cmd.Context())
+			if cfg == nil {
+				return fmt.Errorf("load config: nil config")
+			}
+
+			hookLogDir := filepath.Join(cfg.StateHome, "agu")
+
+			h := &hook{
+				logs: make(map[codex.HookInputEventName]*os.File),
+			}
+			var err error
+			h.mkdirOnce.Do(func() {
+				err = os.MkdirAll(hookLogDir, 0o755)
+			})
+			if err != nil {
+				return fmt.Errorf("mkdir hooks log dir: %w", err)
+			}
+
+			deferFn := make([]func() error, 0, len(logMap))
+			for ev, f := range logMap {
+				logf, err := os.OpenFile(filepath.Join(hookLogDir, f), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
+				if err != nil {
+					return fmt.Errorf("open hooks log for %s: %w", ev, err)
+				}
+				h.logs[ev] = logf
+				deferFn = append(deferFn, logf.Close)
+			}
+			defer func() {
+				for _, fn := range deferFn {
+					fn()
+				}
+			}()
+
+			return h.run(cmd.Context(), cmd.InOrStdin())
+		},
+	}
+
+	cmd.AddCommand(newAPIHooksParseCommand())
+
+	return cmd
+}
+
+func newAPIHooksParseCommand() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "parse [filepath]",
+		Short: "Parse agent hooks",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return (&hook{}).runParse(cmd.Context(), args[0], cmd.OutOrStdout())
+		},
+	}
+
+	return cmd
+}
+
 type hook struct {
-	log       *os.File
+	logs      map[codex.HookInputEventName]*os.File
 	mkdirOnce sync.Once
+}
+
+var logMap = map[codex.HookInputEventName]string{
+	codex.HookInputEventNamePermissionRequest: "hooks.PermissionRequest.jsonl",
+	codex.HookInputEventNamePreCompact:        "hooks.PreCompact.jsonl",
+	codex.HookInputEventNamePostCompact:       "hooks.PostCompact.jsonl",
+	codex.HookInputEventNamePreToolUse:        "hooks.PreToolUse.jsonl",
+	codex.HookInputEventNamePostToolUse:       "hooks.PostToolUse.jsonl",
+	codex.HookInputEventNameSessionStart:      "hooks.SessionStart.jsonl",
+	codex.HookInputEventNameStop:              "hooks.Stop.jsonl",
+	codex.HookInputEventNameSubagentStart:     "hooks.SubagentStart.jsonl",
+	codex.HookInputEventNameSubagentStop:      "hooks.SubagentStop.jsonl",
+	codex.HookInputEventNameUserPromptSubmit:  "hooks.UserPromptSubmit.jsonl",
 }
 
 func (h *hook) run(_ context.Context, stdin io.Reader) error {
@@ -55,7 +129,12 @@ func (h *hook) run(_ context.Context, stdin io.Reader) error {
 		return fmt.Errorf("marshal payload: %w", err)
 	}
 
-	_, err = io.WriteString(h.log, string(data)+"\n")
+	out, ok := h.logs[payload.EventName()]
+	if !ok {
+		return fmt.Errorf("unknown event name: %s", payload.EventName())
+	}
+
+	_, err = io.WriteString(out, string(data)+"\n")
 	return err
 }
 
@@ -96,54 +175,4 @@ func (h *hook) runParse(_ context.Context, path string, out io.Writer) error {
 
 	_, err = out.Write(buf.Bytes())
 	return err
-}
-
-func newAPIHooksCommand(loadConfig env.ConfigLoader) *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "hooks",
-		Short: "Manage agent hooks",
-		Args:  cobra.NoArgs,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			cfg := loadConfig(cmd.Context())
-			if cfg == nil {
-				return fmt.Errorf("load config: nil config")
-			}
-
-			hookLogDir := filepath.Join(cfg.StateHome, "agu")
-
-			h := &hook{}
-			var err error
-			h.mkdirOnce.Do(func() {
-				err = os.MkdirAll(hookLogDir, 0o755)
-			})
-			if err != nil {
-				return err
-			}
-
-			h.log, err = os.OpenFile(filepath.Join(hookLogDir, "hooks.log.jsonl"), os.O_RDWR|os.O_CREATE|os.O_APPEND, 0o666)
-			if err != nil {
-				return fmt.Errorf("open hooks log: %w", err)
-			}
-			defer h.log.Close()
-
-			return h.run(cmd.Context(), cmd.InOrStdin())
-		},
-	}
-
-	cmd.AddCommand(newAPIHooksParseCommand())
-
-	return cmd
-}
-
-func newAPIHooksParseCommand() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "parse [filepath]",
-		Short: "Parse agent hooks",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return (&hook{}).runParse(cmd.Context(), args[0], cmd.OutOrStdout())
-		},
-	}
-
-	return cmd
 }

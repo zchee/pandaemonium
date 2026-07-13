@@ -26,11 +26,13 @@ import (
 
 func TestAPIHooksCommandWritesLogUnderConfiguredStateHome(t *testing.T) {
 	tests := map[string]struct {
-		input   string
-		wantLog string
+		input       string
+		wantLogFile string
+		wantLog     string
 	}{
 		"success: session start hook is logged": {
-			input: `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.5","permission_mode":"default","session_id":"sess-1","source":"startup","transcript_path":null}`,
+			input:       `{"cwd":"/work","hook_event_name":"SessionStart","model":"gpt-5.5","permission_mode":"default","session_id":"sess-1","source":"startup","transcript_path":null}`,
+			wantLogFile: "hooks.SessionStart.jsonl",
 			wantLog: `{
   "cwd": "/work",
   "hook_event_name": "SessionStart",
@@ -38,6 +40,20 @@ func TestAPIHooksCommandWritesLogUnderConfiguredStateHome(t *testing.T) {
   "permission_mode": "default",
   "session_id": "sess-1",
   "source": "startup"
+}
+`,
+		},
+		"success: user prompt submit hook is logged to its own file": {
+			input:       `{"cwd":"/work","hook_event_name":"UserPromptSubmit","model":"gpt-5.5","permission_mode":"default","prompt":"hello","session_id":"sess-2","transcript_path":null,"turn_id":"turn-1"}`,
+			wantLogFile: "hooks.UserPromptSubmit.jsonl",
+			wantLog: `{
+  "cwd": "/work",
+  "hook_event_name": "UserPromptSubmit",
+  "model": "gpt-5.5",
+  "permission_mode": "default",
+  "prompt": "hello",
+  "session_id": "sess-2",
+  "turn_id": "turn-1"
 }
 `,
 		},
@@ -63,12 +79,24 @@ func TestAPIHooksCommandWritesLogUnderConfiguredStateHome(t *testing.T) {
 				t.Fatalf("ExecuteContext() returned error: %v\nstderr:\n%s", err, stderr.String())
 			}
 
-			got, err := os.ReadFile(filepath.Join(stateHome, "agu", "hooks.log.jsonl"))
+			got, err := os.ReadFile(filepath.Join(stateHome, "agu", tt.wantLogFile))
 			if err != nil {
 				t.Fatalf("ReadFile() returned error: %v", err)
 			}
 			if diff := gocmp.Diff(tt.wantLog, string(got)); diff != "" {
 				t.Fatalf("hooks log mismatch (-want +got):\n%s", diff)
+			}
+			for _, logFile := range logMap {
+				if logFile == tt.wantLogFile {
+					continue
+				}
+				other, err := os.ReadFile(filepath.Join(stateHome, "agu", logFile))
+				if err != nil {
+					t.Fatalf("ReadFile(%s) returned error: %v", logFile, err)
+				}
+				if len(other) != 0 {
+					t.Fatalf("log file %s: want empty, got:\n%s", logFile, other)
+				}
 			}
 			if diff := gocmp.Diff("", stdout.String()); diff != "" {
 				t.Fatalf("stdout mismatch (-want +got):\n%s", diff)
