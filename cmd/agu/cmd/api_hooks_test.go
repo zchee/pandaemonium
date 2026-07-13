@@ -37,8 +37,7 @@ func TestAPIHooksCommandWritesLogUnderConfiguredStateHome(t *testing.T) {
   "model": "gpt-5.5",
   "permission_mode": "default",
   "session_id": "sess-1",
-  "source": "startup",
-  "transcript_path": null
+  "source": "startup"
 }
 `,
 		},
