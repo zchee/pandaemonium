@@ -261,10 +261,12 @@ linters:
       # These files serialize the Codex and Claude CLI wire protocols, whose
       # JSON member names are fixed snake_case/PascalCase by upstream schemas.
       # Renaming the json tags to camelCase would break IPC compatibility, so
-      # tagliatelle must not police them.
+      # tagliatelle must not police them. pkg/llm/opencode/types.go hand-writes
+      # the OpenCode HTTP wire format, whose OpenAPI document fixes member
+      # names like sessionID/messageID/providerID (testdata/openapi.json).
       - linters:
           - tagliatelle
-        path: (pkg/llm/codex/(hook|hook_test|notification_scan)\.go|pkg/llm/claude/(public_types|control_protocol|control_protocol_test|message_parser|session_store|client|client_envelope_test)\.go|internal/memchr/golden_test\.go)
+        path: (pkg/llm/codex/(hook|hook_test|notification_scan)\.go|pkg/llm/claude/(public_types|control_protocol|control_protocol_test|message_parser|session_store|client|client_envelope_test)\.go|pkg/llm/opencode/types\.go|internal/memchr/golden_test\.go)
       # gocritic hugeParam fires on the value-receiver methods and value-typed
       # path structs in these files, but the value semantics are load-bearing:
       # public_types.go and hook.go use value receivers so concrete types
