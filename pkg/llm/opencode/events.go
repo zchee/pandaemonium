@@ -53,25 +53,20 @@ func newSSEScanner(r io.Reader) *sseScanner {
 // maxSSELineLength. It returns the line without its terminator. err is
 // io.EOF only when the stream ended before any byte of a new line.
 func (s *sseScanner) readLine() (string, error) {
-	var builder strings.Builder
-	for {
-		chunk, err := s.reader.ReadString('\n')
-		if builder.Len()+len(chunk) > maxSSELineLength {
-			return "", fmt.Errorf("opencode: SSE line exceeds %d bytes", maxSSELineLength)
-		}
-		builder.WriteString(chunk)
-		if err != nil {
-			if errors.Is(err, io.EOF) && builder.Len() > 0 {
-				// Final unterminated line: deliver it; the next call reports EOF.
-				return strings.TrimSuffix(builder.String(), "\r"), nil
-			}
-			return "", err
-		}
-		line := builder.String()
-		line = strings.TrimSuffix(line, "\n")
-		line = strings.TrimSuffix(line, "\r")
-		return line, nil
+	line, err := s.reader.ReadString('\n')
+	if len(line) > maxSSELineLength {
+		return "", fmt.Errorf("opencode: SSE line exceeds %d bytes", maxSSELineLength)
 	}
+	if err != nil {
+		if errors.Is(err, io.EOF) && line != "" {
+			// Final unterminated line: deliver it; the next call reports EOF.
+			return strings.TrimSuffix(line, "\r"), nil
+		}
+		return "", err
+	}
+	line = strings.TrimSuffix(line, "\n")
+	line = strings.TrimSuffix(line, "\r")
+	return line, nil
 }
 
 // next returns the next complete frame. Frames without data (heartbeat
