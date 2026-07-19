@@ -21,7 +21,6 @@ import (
 	"fmt"
 	"io"
 	"net"
-	"net/http"
 	"os"
 	"path/filepath"
 	"strconv"
@@ -145,9 +144,9 @@ func TestCodexTransportHelperProcess(t *testing.T) {
 	}
 	switch os.Getenv("CODEX_PORT_HELPER_SCENARIO") {
 	case "websocket_roundtrip":
-		runTransportHelperWebSocket()
+		runTransportHelperWebSocket(t)
 	case "unix_websocket_roundtrip":
-		runTransportHelperUnixWebSocket()
+		runTransportHelperUnixWebSocket(t)
 	case "exit_without_websocket":
 		fmt.Fprintln(os.Stderr, "helper exited before websocket readiness")
 		os.Exit(7)
@@ -260,7 +259,8 @@ func runTransportHelperStdio() {
 	}
 }
 
-func runTransportHelperWebSocket() {
+func runTransportHelperWebSocket(t *testing.T) {
+	t.Helper()
 	port := os.Getenv("CODEX_WEBSOCKET_LISTEN_PORT")
 	if port == "" {
 		port = "49815"
@@ -274,11 +274,7 @@ func runTransportHelperWebSocket() {
 	if startupLog := os.Getenv("CODEX_WEBSOCKET_STARTUP_LOG"); startupLog != "" {
 		fmt.Fprintln(os.Stderr, startupLog)
 	}
-	srv := &http.Server{Handler: newTransportHelperWebSocketHandler(expectedBearer)}
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
+	serveTrackedTransportHelper(t, ln, expectedBearer)
 }
 
 func mustJSONValueForHelper(value any) jsontext.Value {

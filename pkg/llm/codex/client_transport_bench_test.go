@@ -25,9 +25,9 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+	"github.com/zchee/gows"
 )
 
 func BenchmarkClientTransportRoundTripStdIO(b *testing.B) {
@@ -44,7 +44,7 @@ func BenchmarkClientTransportRoundTripStdIO(b *testing.B) {
 
 func BenchmarkClientTransportRoundTripWebSocket(b *testing.B) {
 	srv, wsURL := benchmarkWebSocketServer(b)
-	b.Cleanup(srv.Close)
+	cleanupTrackedTestServer(b, srv)
 
 	client, cancel := benchmarkWebSocketClient(b, wsURL)
 	defer cancel()
@@ -111,22 +111,21 @@ func benchmarkInitializeClient(b *testing.B, ctx context.Context, client *Client
 
 func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 	b.Helper()
+	tracker := newConnectionTracker(b)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		conn, err := websocket.Accept(w, r, nil)
+		defer tracker.beginWorker()()
+		conn, err := acceptTestWebSocket(w, r, tracker)
 		if err != nil {
 			b.Errorf("websocket.Accept() error = %v", err)
 			return
 		}
-		r = r.WithContext(b.Context()) //nolint:contextcheck
-
-		//nolint:contextcheck
-		go func(ctx context.Context) {
-			defer conn.Close(websocket.StatusNormalClosure, "")
+		tracker.goWorker(func() {
+			defer conn.Close(gows.CloseNormalClosure, "")
 
 			for {
-				typ, payload, err := conn.Read(ctx)
+				typ, payload, err := conn.ReadMessage()
 				if err != nil {
-					if websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+					if gowsCloseCode(err) == gows.CloseNormalClosure {
 						return
 					}
 					if !errors.Is(err, io.EOF) && !errors.Is(err, context.Canceled) {
@@ -134,7 +133,7 @@ func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 					}
 					return
 				}
-				if typ != websocket.MessageText {
+				if typ != gows.OpcodeText {
 					continue
 				}
 				var msg rpcMessage
@@ -153,15 +152,15 @@ func benchmarkWebSocketServer(b *testing.B) (*httptest.Server, string) {
 						}),
 					}
 					raw, _ := json.Marshal(resp)
-					_ = conn.Write(ctx, websocket.MessageText, raw)
+					_ = conn.WriteMessage(gows.OpcodeText, raw)
 				case "initialized":
 				case "helper/echo":
 					resp := rpcMessage{ID: msg.ID, Result: jsontextValueMust(Object{"ok": "world"})}
 					raw, _ := json.Marshal(resp)
-					_ = conn.Write(ctx, websocket.MessageText, raw)
+					_ = conn.WriteMessage(gows.OpcodeText, raw)
 				}
 			}
-		}(r.Context())
+		})
 	}))
 	b.Cleanup(srv.Close)
 

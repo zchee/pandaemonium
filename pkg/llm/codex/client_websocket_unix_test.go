@@ -22,14 +22,15 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
+	"github.com/zchee/gows"
 )
 
 func TestClientBuildAppServerArgsUnixWebSocket(t *testing.T) {
@@ -365,6 +366,7 @@ func TestClientStartUnixWebSocketHelperProcessExitDoesNotHang(t *testing.T) {
 func newUnixWebSocketRoundTripServer(t *testing.T, expectedAuth string) string {
 	t.Helper()
 	ctx := t.Context()
+	tracker := newConnectionTracker(t)
 
 	socketPath := filepath.Join(shortTempDir(t), "roundtrip.sock")
 	ln, err := net.Listen("unix", socketPath)
@@ -372,15 +374,16 @@ func newUnixWebSocketRoundTripServer(t *testing.T, expectedAuth string) string {
 		t.Fatalf("net.Listen(unix, %s) error = %v", socketPath, err)
 	}
 	srv := &http.Server{Handler: http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer tracker.beginWorker()()
 		if got := r.Header.Get("Authorization"); got != expectedAuth {
 			t.Errorf("Authorization header = %q, want %q", got, expectedAuth)
 		}
-		conn, err := websocket.Accept(w, r, nil)
+		conn, err := acceptTestWebSocket(w, r, tracker)
 		if err != nil {
 			t.Errorf("websocket.Accept() unix error = %v", err)
 			return
 		}
-		go handleWebSocketRoundTrip(ctx, t, conn)
+		tracker.goWorker(func() { handleWebSocketRoundTrip(ctx, t, conn) })
 	})}
 	done := make(chan error, 1)
 	go func() {
@@ -395,7 +398,8 @@ func newUnixWebSocketRoundTripServer(t *testing.T, expectedAuth string) string {
 	return "unix://" + socketPath
 }
 
-func runTransportHelperUnixWebSocket() {
+func runTransportHelperUnixWebSocket(t *testing.T) {
+	t.Helper()
 	if expectedListen := os.Getenv("CODEX_UNIX_WEBSOCKET_EXPECT_LISTEN"); expectedListen != "" && !helperArgsContainListen(expectedListen) {
 		fmt.Fprintf(os.Stderr, "missing --listen %s in helper args\n", expectedListen)
 		os.Exit(2)
@@ -418,35 +422,34 @@ func runTransportHelperUnixWebSocket() {
 	defer os.Remove(socketPath)
 
 	expectedBearer := os.Getenv("CODEX_WEBSOCKET_EXPECT_BEARER")
-	srv := &http.Server{Handler: newTransportHelperWebSocketHandler(expectedBearer)}
-	if err := srv.Serve(ln); err != nil && !errors.Is(err, http.ErrServerClosed) {
-		fmt.Fprintln(os.Stderr, err)
-		os.Exit(2)
-	}
+	serveTrackedTransportHelper(t, ln, expectedBearer)
 }
 
-func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
+func newTransportHelperWebSocketHandler(expectedBearer string, trackers ...*connectionTracker) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if len(trackers) != 0 {
+			defer trackers[0].beginWorker()()
+		}
 		if expectedBearer != "" && r.Header.Get("Authorization") != "Bearer "+expectedBearer {
 			http.Error(w, "unauthorized", http.StatusUnauthorized)
 			return
 		}
-		conn, err := websocket.Accept(w, r, nil)
+		conn, err := acceptTestWebSocket(w, r, trackers...)
 		if err != nil {
 			fmt.Fprintln(os.Stderr, err)
 			return
 		}
-		defer conn.Close(websocket.StatusNormalClosure, "")
+		defer conn.Close(gows.CloseNormalClosure, "")
 		for {
-			typ, data, err := conn.Read(r.Context())
+			typ, data, err := conn.ReadMessage()
 			if err != nil {
-				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+				if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || gowsCloseCode(err) == gows.CloseNormalClosure {
 					return
 				}
 				fmt.Fprintln(os.Stderr, err)
 				return
 			}
-			if typ != websocket.MessageText {
+			if typ != gows.OpcodeText {
 				continue
 			}
 			var req rpcMessage
@@ -457,14 +460,14 @@ func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
 			switch req.Method {
 			case RequestMethodInitialize:
 				if os.Getenv("CODEX_EXEC_SERVER_HANDSHAKE") == "1" {
-					_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+					_ = conn.WriteMessage(gows.OpcodeText, mustJSONValueForHelper(rpcMessage{
 						ID: req.ID,
 						Result: mustJSONValueForHelper(ExecServerInitializeResponse{
 							SessionID: "session-1",
 						}),
 					}))
 				} else {
-					_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+					_ = conn.WriteMessage(gows.OpcodeText, mustJSONValueForHelper(rpcMessage{
 						ID: req.ID,
 						Result: mustJSONValueForHelper(InitializeResponse{
 							UserAgent:  "codex-bench/1.0",
@@ -473,23 +476,54 @@ func newTransportHelperWebSocketHandler(expectedBearer string) http.Handler {
 					}))
 				}
 			case "initialized":
-				_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+				_ = conn.WriteMessage(gows.OpcodeText, mustJSONValueForHelper(rpcMessage{
 					Method: "custom/global",
 					Params: mustJSONValueForHelper(Object{"scope": "global"}),
 				}))
 			case "helper/echo":
-				_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+				_ = conn.WriteMessage(gows.OpcodeText, mustJSONValueForHelper(rpcMessage{
 					ID:     req.ID,
 					Result: mustJSONValueForHelper(Object{"ok": true}),
 				}))
 			default:
-				_ = conn.Write(r.Context(), websocket.MessageText, mustJSONValueForHelper(rpcMessage{
+				_ = conn.WriteMessage(gows.OpcodeText, mustJSONValueForHelper(rpcMessage{
 					ID:    req.ID,
 					Error: &rpcErrorBody{Code: -32601, Message: "unexpected method"},
 				}))
 			}
 		}
 	})
+}
+
+func serveTrackedTransportHelper(t *testing.T, listener net.Listener, expectedBearer string) {
+	t.Helper()
+	tracker := newConnectionTracker(t)
+	server := &http.Server{Handler: newTransportHelperWebSocketHandler(expectedBearer, tracker)}
+	serveDone := make(chan error, 1)
+	tracker.goWorker(func() { serveDone <- server.Serve(listener) })
+	ctx, stop := signal.NotifyContext(t.Context(), os.Interrupt)
+	defer stop()
+	select {
+	case err := <-serveDone:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Fatalf("transport helper server error = %v", err)
+		}
+		return
+	case <-ctx.Done():
+	}
+	shutdownCtx, cancel := context.WithTimeout(context.Background(), time.Second)
+	defer cancel()
+	if err := server.Shutdown(shutdownCtx); err != nil {
+		_ = listener.Close()
+	}
+	select {
+	case err := <-serveDone:
+		if err != nil && !errors.Is(err, http.ErrServerClosed) {
+			t.Errorf("transport helper shutdown error = %v", err)
+		}
+	case <-shutdownCtx.Done():
+		t.Error("timed out joining transport helper server")
+	}
 }
 
 func helperArgsContainListen(expectedListen string) bool {

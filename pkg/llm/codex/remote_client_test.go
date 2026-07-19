@@ -25,8 +25,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
+	"github.com/zchee/gows"
 )
 
 func TestNewRemoteClientWebSocketRoundTripAndClose(t *testing.T) {
@@ -265,31 +265,33 @@ func assertRemoteAppServerMetadata(t *testing.T, metadata InitializeResponse) {
 
 func newRemotePendingWebSocketServer(t *testing.T, expectedAuth, pendingMethod string) (string, <-chan struct{}) {
 	t.Helper()
+	tracker := newConnectionTracker(t)
 
 	requestReceived := make(chan struct{})
 	var closeRequestReceived sync.Once
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer tracker.beginWorker()()
 		if got := r.Header.Get("Authorization"); got != expectedAuth {
 			t.Errorf("Authorization header = %q, want %q", got, expectedAuth)
 		}
-		conn, err := websocket.Accept(w, r, nil)
+		conn, err := acceptTestWebSocket(w, r, tracker)
 		if err != nil {
 			t.Errorf("websocket.Accept() error = %v", err)
 			return
 		}
 
-		go func(ctx context.Context) { //nolint:contextcheck
-			defer conn.Close(websocket.StatusNormalClosure, "")
+		tracker.goWorker(func() {
+			defer conn.Close(gows.CloseNormalClosure, "")
 			for {
-				typ, payload, err := conn.Read(ctx)
+				typ, payload, err := conn.ReadMessage()
 				if err != nil {
-					if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || websocket.CloseStatus(err) == websocket.StatusNormalClosure {
+					if errors.Is(err, context.Canceled) || errors.Is(err, io.EOF) || gowsCloseCode(err) == gows.CloseNormalClosure {
 						return
 					}
 					t.Errorf("websocket Read() error = %v", err)
 					return
 				}
-				if typ != websocket.MessageText {
+				if typ != gows.OpcodeText {
 					continue
 				}
 				var msg rpcMessage
@@ -304,7 +306,7 @@ func newRemotePendingWebSocketServer(t *testing.T, expectedAuth, pendingMethod s
 				t.Errorf("unexpected websocket method %q", msg.Method)
 				return
 			}
-		}(t.Context())
+		})
 	}))
 
 	t.Cleanup(srv.Close)

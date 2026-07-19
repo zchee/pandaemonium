@@ -26,8 +26,8 @@ import (
 	"testing"
 	"time"
 
-	"github.com/coder/websocket"
 	"github.com/go-json-experiment/json"
+	"github.com/zchee/gows"
 )
 
 func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
@@ -168,27 +168,53 @@ func TestDialWebSocketSignedBearerAuthFailureIsRedacted(t *testing.T) {
 func newWebSocketRoundTripServer(t *testing.T, expectedAuth string) (*httptest.Server, string) {
 	t.Helper()
 	ctx := t.Context()
+	tracker := newConnectionTracker(t)
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		defer tracker.beginWorker()()
 		if got := r.Header.Get("Authorization"); got != expectedAuth {
 			t.Errorf("Authorization header = %q, want %q", got, expectedAuth)
 		}
-		conn, err := websocket.Accept(w, r, nil)
+		conn, err := acceptTestWebSocket(w, r, tracker)
 		if err != nil {
 			t.Errorf("websocket.Accept() error = %v", err)
 			return
 		}
-		go handleWebSocketRoundTrip(ctx, t, conn)
+		tracker.goWorker(func() { handleWebSocketRoundTrip(ctx, t, conn) })
 	}))
+	cleanupTrackedTestServer(t, srv)
 	return srv, "ws" + strings.TrimPrefix(srv.URL, "http")
 }
 
-func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket.Conn) {
+func acceptTestWebSocket(w http.ResponseWriter, r *http.Request, trackers ...*connectionTracker) (*gows.Conn, error) {
+	raw, hs, err := gows.UpgradeHTTP(w, r)
+	if err != nil {
+		return nil, err
+	}
+	if len(trackers) != 0 {
+		trackers[0].track(raw)
+	}
+	return gows.NewServerConn(
+		raw,
+		gows.WithBuffered(hs.Buffered),
+		gows.WithReadLimit(32<<10),
+	), nil
+}
+
+func gowsCloseCode(err error) gows.CloseCode {
+	var closeErr *gows.CloseError
+	if errors.As(err, &closeErr) {
+		return closeErr.Code
+	}
+	return 0
+}
+
+func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *gows.Conn) {
 	t.Helper()
-	defer conn.Close(websocket.StatusNormalClosure, "")
+	defer conn.Close(gows.CloseNormalClosure, "")
 
 	sentGlobalNotification := false
 	for {
-		typ, payload, err := conn.Read(ctx)
+		typ, payload, err := conn.ReadMessage()
 		if err != nil {
 			if webSocketRoundTripStopped(ctx, err) {
 				return
@@ -196,7 +222,7 @@ func handleWebSocketRoundTrip(ctx context.Context, t *testing.T, conn *websocket
 			t.Errorf("websocket Read() error = %v", err)
 			return
 		}
-		if typ != websocket.MessageText {
+		if typ != gows.OpcodeText {
 			continue
 		}
 		var msg rpcMessage
@@ -278,15 +304,15 @@ func webSocketRoundTripStopped(ctx context.Context, err error) bool {
 	}
 	return errors.Is(err, context.Canceled) ||
 		errors.Is(err, io.EOF) ||
-		websocket.CloseStatus(err) == websocket.StatusNormalClosure
+		gowsCloseCode(err) == gows.CloseNormalClosure
 }
 
-func writeServerRPC(ctx context.Context, conn *websocket.Conn, msg rpcMessage) error {
+func writeServerRPC(_ context.Context, conn *gows.Conn, msg rpcMessage) error {
 	payload, err := json.Marshal(msg)
 	if err != nil {
 		return err
 	}
-	return conn.Write(ctx, websocket.MessageText, payload)
+	return conn.WriteMessage(gows.OpcodeText, payload)
 }
 
 func writeTempFile(t *testing.T, body string) string {
