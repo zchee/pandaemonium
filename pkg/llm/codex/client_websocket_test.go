@@ -81,7 +81,7 @@ func TestClientWebSocketTransportRoundTripAndRouting(t *testing.T) {
 			if err != nil {
 				t.Fatalf("dialWebSocket() error = %v", err)
 			}
-			client.storeTransport(&websocketTransport{conn: conn})
+			client.storeTransport(conn)
 			client.rpcState = newJSONRPCClientState()
 			client.turnRouter = newTurnNotificationRouter()
 			client.stderrDone = make(chan struct{})

@@ -161,7 +161,7 @@ func TestDialWebSocketUnixRoundTripOmitsAuthorization(t *testing.T) {
 	if err != nil {
 		t.Fatalf("dialWebSocket(%q) error = %v", listenURL, err)
 	}
-	client.storeTransport(&websocketTransport{conn: conn})
+	client.storeTransport(conn)
 	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.stderrDone = make(chan struct{})

@@ -54,9 +54,17 @@ func (e *JSONRPCError) Unwrap() error { return &e.AppServerError }
 // TransportClosedError is returned when the app-server stdio transport closes.
 type TransportClosedError struct {
 	Message string
+	cause   error
 }
 
 func (e *TransportClosedError) Error() string { return e.Message }
+
+// Unwrap returns the transport-level cause, when one is available.
+func (e *TransportClosedError) Unwrap() error { return e.cause }
+
+func newTransportClosedError(message string, cause error) *TransportClosedError {
+	return &TransportClosedError{Message: message, cause: cause}
+}
 
 // NotificationDroppedError is returned by a turn notification consumer when one
 // or more notifications were silently dropped due to per-turn queue overflow.

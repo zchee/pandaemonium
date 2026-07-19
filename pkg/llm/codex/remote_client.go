@@ -18,12 +18,9 @@ import (
 	"context"
 	"fmt"
 	"net"
-	"net/http"
 	"net/url"
 	"strings"
 	"time"
-
-	"github.com/coder/websocket"
 )
 
 // RemoteConfig connects to an already-running app-server endpoint.
@@ -117,7 +114,7 @@ func (c *Client) ConnectRemote(ctx context.Context, config *RemoteConfig) error 
 	c.stderrDone = make(chan struct{})
 	close(c.stderrDone)
 	c.readDone = make(chan struct{})
-	c.storeTransport(&websocketTransport{conn: conn})
+	c.storeTransport(conn)
 
 	go c.readLoop(ctx, c.loadTransport(), c.readDone)
 	return nil
@@ -152,7 +149,7 @@ type remoteEndpoint struct {
 	rawURL string
 }
 
-func dialRemoteAppServer(ctx context.Context, cfg *RemoteConfig) (*websocket.Conn, error) {
+func dialRemoteAppServer(ctx context.Context, cfg *RemoteConfig) (*websocketTransport, error) {
 	endpoint, err := validateRemoteConfig(cfg)
 	if err != nil {
 		return nil, err
@@ -264,29 +261,6 @@ func remoteHostIsLoopback(host string) bool {
 	return ip != nil && ip.IsLoopback()
 }
 
-func dialRemoteWebSocketURL(ctx context.Context, endpointURL string, cfg *WebSocketConfig) (*websocket.Conn, error) {
-	token, err := websocketBearerToken(cfg)
-	if err != nil {
-		return nil, err
-	}
-	opts := &websocket.DialOptions{}
-	if token != "" {
-		opts.HTTPHeader = http.Header{
-			"Authorization": {fmt.Sprintf("Bearer %s", token)},
-		}
-	}
-	conn, resp, err := websocket.Dial(ctx, endpointURL, opts)
-	if err != nil {
-		return nil, websocketDialError("remote app-server websocket dial failed", resp, err)
-	}
-	if resp == nil {
-		return conn, nil
-	}
-	// A successful websocket upgrade hijacks the connection, so resp.Body can be
-	// nil; guard the close to avoid a nil dereference on the 101 handshake path.
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	return conn, nil
+func dialRemoteWebSocketURL(ctx context.Context, endpointURL string, cfg *WebSocketConfig) (*websocketTransport, error) {
+	return dialWebSocket(ctx, endpointURL, cfg, nil, "")
 }

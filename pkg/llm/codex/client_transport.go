@@ -17,7 +17,10 @@ package codex
 import (
 	"bufio"
 	"context"
+	"crypto/tls"
+	"encoding/base64"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -27,8 +30,9 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"unicode/utf8"
 
-	"github.com/coder/websocket"
+	"github.com/zchee/gows"
 
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
@@ -38,6 +42,12 @@ type Transport interface {
 	io.Closer
 	WriteJSON(ctx context.Context, data []byte) error
 	ReadJSON(ctx context.Context) ([]byte, error)
+}
+
+const defaultCloseTimeout = 10 * time.Second
+
+type deadlineTransport interface {
+	closeByDeadline(time.Time) error
 }
 
 // stdioTransport represents a bidirectional JSON message transport over the app-server process's standard input and output streams.
@@ -80,53 +90,356 @@ func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 
 // websocketTransport represents a bidirectional JSON message transport over a websocket connection to the app-server.
 type websocketTransport struct {
-	conn *websocket.Conn
-	mu   sync.Mutex
+	raw             net.Conn
+	conn            *gows.Conn
+	writeGate       chan struct{}
+	readGate        chan struct{}
+	done            chan struct{}
+	terminalOnce    sync.Once
+	terminalErr     *TransportClosedError
+	shutdownOnce    sync.Once
+	shutdownErr     error
+	deadlineMu      sync.Mutex
+	closeTimeout    time.Duration
+	now             func() time.Time
+	redactor        transportRedactor
+	beforeTerminate func()
 }
 
 var _ Transport = (*websocketTransport)(nil)
 
 // Close implements [Transport].
 func (t *websocketTransport) Close() error {
-	if t.conn != nil {
-		return t.conn.Close(websocket.StatusNormalClosure, "")
+	if t == nil || t.conn == nil || t.raw == nil {
+		return nil
 	}
-	return nil
+	timeout := t.closeTimeout
+	if timeout <= 0 {
+		timeout = defaultCloseTimeout
+	}
+	now := t.now
+	if now == nil {
+		now = time.Now
+	}
+	return t.closeByDeadline(now().Add(timeout))
+}
+
+func (t *websocketTransport) closeByDeadline(deadline time.Time) error {
+	t.shutdownOnce.Do(func() {
+		t.markTerminal(newTransportClosedError("websocket transport closed", net.ErrClosed))
+		t.deadlineMu.Lock()
+		_ = t.raw.SetDeadline(deadline)
+		t.deadlineMu.Unlock()
+
+		if t.acquireUntil(t.writeGate, deadline) {
+			_ = t.conn.WriteClose(gows.CloseNormalClosure, "")
+			t.writeGate <- struct{}{}
+		}
+		if t.acquireUntil(t.readGate, deadline) {
+			ctx, cancel := context.WithDeadline(context.Background(), deadline)
+			t.shutdownErr = t.conn.CloseContext(ctx, gows.CloseNormalClosure, "")
+			cancel()
+			t.readGate <- struct{}{}
+		}
+		_ = t.closeRaw()
+		if errors.Is(t.shutdownErr, net.ErrClosed) || errors.Is(t.shutdownErr, io.ErrClosedPipe) || errors.Is(t.shutdownErr, os.ErrDeadlineExceeded) || errors.Is(t.shutdownErr, gows.ErrCloseTimeout) {
+			t.shutdownErr = nil
+		}
+	})
+	return t.shutdownErr
 }
 
 // WriteJSON implements [Transport].
 func (t *websocketTransport) WriteJSON(ctx context.Context, data []byte) error {
-	t.mu.Lock()
-	defer t.mu.Unlock()
-
-	if t.conn == nil {
+	if t == nil || t.conn == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
 	}
-	return t.conn.Write(ctx, websocket.MessageText, data)
+	if err := t.acquire(ctx, t.writeGate); err != nil {
+		return err
+	}
+	defer func() { t.writeGate <- struct{}{} }()
+	if err := t.closedError(); err != nil {
+		return err
+	}
+	err := t.contextIO(ctx, t.conn.SetWriteDeadline, func() error {
+		return t.conn.WriteMessage(gows.OpcodeText, data)
+	})
+	if err != nil {
+		closed := newTransportClosedError("websocket write failed", t.sanitizedTransportCause(err))
+		t.terminate(closed)
+		return t.terminalErr
+	}
+	return nil
 }
 
 // ReadJSON implements [Transport].
 func (t *websocketTransport) ReadJSON(ctx context.Context) ([]byte, error) {
+	if t == nil || t.conn == nil {
+		return nil, &TransportClosedError{Message: "app-server is not running"}
+	}
+	if err := t.acquire(ctx, t.readGate); err != nil {
+		return nil, err
+	}
+	defer func() { t.readGate <- struct{}{} }()
+	if err := t.closedError(); err != nil {
+		return nil, err
+	}
 	for {
-		if t.conn == nil {
-			return nil, &TransportClosedError{Message: "app-server is not running"}
-		}
-
-		typ, payload, err := t.conn.Read(ctx)
+		var typ gows.Opcode
+		var payload []byte
+		err := t.contextIO(ctx, t.conn.SetReadDeadline, func() error {
+			var err error
+			typ, payload, err = t.conn.ReadMessage()
+			return err
+		})
 		if err != nil {
-			if status := websocket.CloseStatus(err); status != websocket.StatusNormalClosure {
-				return nil, &TransportClosedError{Message: err.Error()}
+			var closeErr *gows.CloseError
+			if errors.As(err, &closeErr) && closeErr.Code == gows.CloseNormalClosure {
+				t.terminate(newTransportClosedError("websocket closed normally", t.sanitizedCloseError(closeErr)))
+				return nil, io.EOF
 			}
-			return nil, io.EOF
+			closed := newTransportClosedError("websocket read failed", t.sanitizedTransportCause(err))
+			if errors.As(err, &closeErr) {
+				sanitized := t.sanitizedCloseError(closeErr)
+				closed = newTransportClosedError(fmt.Sprintf("websocket closed with code %d", closeErr.Code), sanitized)
+			}
+			t.terminate(closed)
+			return nil, t.terminalErr
 		}
 
 		switch typ {
-		case websocket.MessageText:
-			return append(payload, '\n'), nil
-		case websocket.MessageBinary:
+		case gows.OpcodeText:
+			owned := make([]byte, len(payload)+1)
+			copy(owned, payload)
+			owned[len(payload)] = '\n'
+			return owned, nil
+		case gows.OpcodeBinary:
+			t.terminate(newTransportClosedError("unexpected binary websocket message", net.ErrClosed))
 			return nil, &AppServerError{Message: "unexpected binary websocket message"}
 		}
 	}
+}
+
+func newWebsocketTransport(raw net.Conn, hs gows.Handshake, redactors ...transportRedactor) *websocketTransport {
+	raw = &onceCloseConn{Conn: raw}
+	var redactor transportRedactor
+	if len(redactors) != 0 {
+		redactor = redactors[0].clone()
+	}
+	t := &websocketTransport{
+		raw: raw,
+		conn: gows.NewClientConn(
+			raw,
+			gows.WithBuffered(hs.Buffered),
+			gows.WithReadLimit(32<<10),
+		),
+		writeGate:    make(chan struct{}, 1),
+		readGate:     make(chan struct{}, 1),
+		done:         make(chan struct{}),
+		closeTimeout: defaultCloseTimeout,
+		now:          time.Now,
+		redactor:     redactor,
+	}
+	t.writeGate <- struct{}{}
+	t.readGate <- struct{}{}
+	return t
+}
+
+func (t *websocketTransport) closeRaw() error {
+	return t.raw.Close()
+}
+
+func (t *websocketTransport) acquire(ctx context.Context, gate chan struct{}) error {
+	if err := t.closedError(); err != nil {
+		return err
+	}
+	select {
+	case <-t.done:
+		return t.terminalErr
+	case <-ctx.Done():
+		if err := t.closedError(); err != nil {
+			return err
+		}
+		closed := newTransportClosedError("websocket operation canceled", ctx.Err())
+		if t.beforeTerminate != nil {
+			t.beforeTerminate()
+		}
+		t.terminate(closed)
+		return t.terminalErr
+	case <-gate:
+		return nil
+	}
+}
+
+func (t *websocketTransport) acquireUntil(gate chan struct{}, deadline time.Time) bool {
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		return false
+	}
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	select {
+	case <-gate:
+		return true
+	case <-timer.C:
+		return false
+	}
+}
+
+func (t *websocketTransport) closedError() error {
+	select {
+	case <-t.done:
+		return t.terminalErr
+	default:
+		return nil
+	}
+}
+
+func (t *websocketTransport) markTerminal(err *TransportClosedError) {
+	t.terminalOnce.Do(func() {
+		t.terminalErr = err
+		close(t.done)
+	})
+}
+
+func (t *websocketTransport) terminate(err *TransportClosedError) {
+	t.markTerminal(err)
+	_ = t.closeRaw()
+}
+
+func (t *websocketTransport) sanitizedTransportCause(err error) error {
+	if errors.Is(err, context.Canceled) {
+		return context.Canceled
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return context.DeadlineExceeded
+	}
+	var closeErr *gows.CloseError
+	if errors.As(err, &closeErr) {
+		return t.sanitizedCloseError(closeErr)
+	}
+	return net.ErrClosed
+}
+
+func (t *websocketTransport) sanitizedCloseError(err *gows.CloseError) *gows.CloseError {
+	reason := t.redactor.sanitize(err.Reason)
+	return &gows.CloseError{Code: err.Code, Reason: reason, Sent: err.Sent}
+}
+
+func (t *websocketTransport) contextIO(ctx context.Context, setDeadline func(time.Time) error, fn func() error) error {
+	if err := ctx.Err(); err != nil {
+		return err
+	}
+	deadline, hasDeadline := ctx.Deadline()
+	if !hasDeadline {
+		deadline = time.Time{}
+	}
+	t.deadlineMu.Lock()
+	if closed := t.closedError(); closed != nil {
+		t.deadlineMu.Unlock()
+		return closed
+	}
+	err := setDeadline(deadline)
+	t.deadlineMu.Unlock()
+	if err != nil {
+		return err
+	}
+	canceled := make(chan struct{})
+	stop := context.AfterFunc(ctx, func() {
+		t.deadlineMu.Lock()
+		if t.closedError() == nil {
+			_ = setDeadline(time.Now())
+		}
+		t.deadlineMu.Unlock()
+		close(canceled)
+	})
+	err = fn()
+	if !stop() {
+		<-canceled
+	}
+	t.deadlineMu.Lock()
+	if t.closedError() == nil {
+		_ = setDeadline(time.Time{})
+	}
+	t.deadlineMu.Unlock()
+	if ctx.Err() != nil {
+		return ctx.Err()
+	}
+	return err
+}
+
+type transportRedactor struct {
+	secrets []string
+}
+
+func newTransportRedactor(u *url.URL, token string) transportRedactor {
+	secrets := []string{token}
+	if u != nil {
+		secrets = append(secrets, urlSecrets(u)...)
+	}
+	return transportRedactor{secrets: secrets}.clone()
+}
+
+func (r *transportRedactor) addURL(u *url.URL) {
+	if u != nil {
+		r.secrets = append(r.secrets, urlSecrets(u)...)
+		r.secrets = r.clone().secrets
+	}
+}
+
+func urlSecrets(u *url.URL) []string {
+	secrets := []string{u.RawQuery}
+	for key, values := range u.Query() {
+		secrets = append(secrets, key)
+		secrets = append(secrets, values...)
+	}
+	if u.User != nil {
+		username := u.User.Username()
+		secrets = append(secrets, username, u.User.String())
+		if password, ok := u.User.Password(); ok {
+			pair := username + ":" + password
+			secrets = append(secrets, password, pair, base64.StdEncoding.EncodeToString([]byte(pair)))
+		}
+	}
+	return secrets
+}
+
+func (r transportRedactor) clone() transportRedactor {
+	cloned := transportRedactor{secrets: make([]string, 0, len(r.secrets))}
+	for _, secret := range r.secrets {
+		if secret = strings.TrimSpace(secret); secret != "" {
+			cloned.secrets = append(cloned.secrets, secret)
+		}
+	}
+	return cloned
+}
+
+func (r transportRedactor) sanitize(reason string) string {
+	reason = strings.TrimSpace(reason)
+	if reason == "" {
+		return ""
+	}
+	lower := strings.ToLower(reason)
+	for _, secret := range r.secrets {
+		if strings.Contains(reason, secret) {
+			return "[redacted peer reason]"
+		}
+	}
+	if !utf8.ValidString(reason) || len(reason) > 96 || strings.ContainsAny(reason, "\r\n\x00@?=&:") || strings.Contains(lower, "bearer") || strings.Contains(lower, "proxy") || strings.Contains(lower, "token") || strings.Contains(lower, "://") {
+		return "[redacted peer reason]"
+	}
+	return reason
+}
+
+type onceCloseConn struct {
+	net.Conn
+	once sync.Once
+	err  error
+}
+
+func (c *onceCloseConn) Close() error {
+	c.once.Do(func() { c.err = c.Conn.Close() })
+	return c.err
 }
 
 func validateWebSocketConfig(cfg *WebSocketConfig, tokenSource bool) error {
@@ -240,17 +553,6 @@ func websocketAuthFieldsSet(cfg *WebSocketConfig) bool {
 		cfg.MaxClockSkewSeconds != nil
 }
 
-func newUnixWebSocketHTTPClient(socketPath string) *http.Client {
-	transport := &http.Transport{
-		Proxy: nil,
-		DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
-			var dialer net.Dialer
-			return dialer.DialContext(ctx, "unix", socketPath)
-		},
-	}
-	return &http.Client{Transport: transport}
-}
-
 func wsLaunchArgs(cfg *WebSocketConfig) []string {
 	if cfg == nil || cfg.AuthMode == WebSocketAuthNone {
 		return nil
@@ -309,7 +611,7 @@ func websocketHasClientBearerToken(cfg *WebSocketConfig) bool {
 	return cfg.AuthMode == WebSocketAuthCapabilityToken && strings.TrimSpace(cfg.TokenFile) != ""
 }
 
-func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocket.Conn, error) {
+func dialWebSocketWithWait(ctx context.Context, procDone <-chan error, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocketTransport, error) {
 	mode, socketPath, err := websocketListenMode(listen, env, cwd)
 	if err != nil {
 		return nil, err
@@ -380,34 +682,21 @@ func appServerNotReadyError(mode, socketPath string, attemptLimit int) error {
 }
 
 // dialUnixWebSocket dials the app-server websocket over a unix domain socket.
-func dialUnixWebSocket(ctx context.Context, socketPath string) (*websocket.Conn, error) {
-	httpClient := newUnixWebSocketHTTPClient(socketPath)
-	if transport, ok := httpClient.Transport.(*http.Transport); ok {
-		defer transport.CloseIdleConnections()
+func dialUnixWebSocket(ctx context.Context, socketPath string) (*websocketTransport, error) {
+	var netDialer net.Dialer
+	dialer := gows.Dialer{
+		NetDial: func(ctx context.Context, _, _ string) (net.Conn, error) {
+			return netDialer.DialContext(ctx, "unix", socketPath)
+		},
 	}
-	opts := &websocket.DialOptions{}
-	opts.HTTPClient = httpClient
-	conn, resp, err := websocket.Dial(ctx, "ws://localhost/", opts)
+	raw, hs, err := dialer.Dial(ctx, "ws://localhost/")
 	if err != nil {
-		return nil, websocketDialError(fmt.Sprintf("dial unix websocket %q", socketPath), resp, err)
+		return nil, websocketDialError(fmt.Sprintf("dial unix websocket %q", socketPath), err, transportRedactor{})
 	}
-	if resp == nil {
-		return conn, nil
-	}
-	// A successful websocket upgrade hijacks the connection, so resp.Body can be
-	// nil; guard the close to avoid a nil dereference on the 101 handshake path.
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	if resp.StatusCode != http.StatusSwitchingProtocols {
-		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
-		return nil, fmt.Errorf("dial unix websocket %q failed: %s", socketPath, resp.Status)
-	}
-	return conn, nil
+	return newWebsocketTransport(raw, hs), nil
 }
 
-func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocket.Conn, error) {
+func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocketTransport, error) {
 	mode, socketPath, err := websocketListenMode(listen, env, cwd)
 	if err != nil {
 		return nil, err
@@ -423,37 +712,64 @@ func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env
 	if err != nil {
 		return nil, err
 	}
-	opts := &websocket.DialOptions{}
+	return dialWebSocketURL(ctx, u, token, http.ProxyFromEnvironment, nil)
+}
+
+func dialWebSocketURL(ctx context.Context, u *url.URL, token string, proxy func(*http.Request) (*url.URL, error), tlsConfig *tls.Config) (*websocketTransport, error) {
+	redactor := newTransportRedactor(u, token)
+	wrappedProxy := proxy
+	if proxy != nil {
+		wrappedProxy = func(req *http.Request) (*url.URL, error) {
+			proxyURL, err := proxy(req)
+			redactor.addURL(proxyURL)
+			return proxyURL, err
+		}
+	}
+	dialer := gows.Dialer{
+		TLSConfig:     tlsConfig,
+		Proxy:         wrappedProxy,
+		CheckRedirect: func(*http.Request, []*http.Request) error { return nil },
+	}
 	if token != "" {
-		opts.HTTPHeader = http.Header{
+		dialer.HTTPHeader = http.Header{
 			"Authorization": {fmt.Sprintf("Bearer %s", token)},
 		}
 	}
-	conn, resp, err := websocket.Dial(ctx, u.String(), opts)
+	raw, hs, err := dialer.Dial(ctx, u.String())
 	if err != nil {
-		return nil, websocketDialError("websocket dial failed", resp, err)
+		return nil, websocketDialError("websocket dial failed", err, redactor)
 	}
-	if resp == nil {
-		return conn, nil
-	}
-	// A successful websocket upgrade hijacks the connection, so resp.Body can be
-	// nil; guard the close to avoid a nil dereference on the 101 handshake path.
-	if resp.Body != nil {
-		defer resp.Body.Close()
-	}
-
-	if resp.StatusCode != http.StatusSwitchingProtocols {
-		_ = conn.Close(websocket.StatusProtocolError, resp.Status)
-		return nil, fmt.Errorf("websocket dial failed: %s", resp.Status)
-	}
-	return conn, nil
+	return newWebsocketTransport(raw, hs, redactor), nil
 }
 
-func websocketDialError(prefix string, resp *http.Response, err error) error {
-	if resp == nil {
-		return fmt.Errorf("%s: %w", prefix, err)
+func websocketDialError(prefix string, err error, redactor transportRedactor) error {
+	var statusErr *gows.UnexpectedStatusError
+	if errors.As(err, &statusErr) {
+		sanitized := &gows.UnexpectedStatusError{StatusCode: statusErr.StatusCode, Reason: redactor.sanitize(statusErr.Reason)}
+		if errors.Is(err, gows.ErrProxyConnectFailed) {
+			return fmt.Errorf("%s: HTTP status %d %s: %w: %w", prefix, statusErr.StatusCode, http.StatusText(statusErr.StatusCode), gows.ErrProxyConnectFailed, sanitized)
+		}
+		return fmt.Errorf("%s: HTTP status %d %s: %w", prefix, statusErr.StatusCode, http.StatusText(statusErr.StatusCode), sanitized)
 	}
-	return fmt.Errorf("%s: %s: %w", prefix, resp.Status, err)
+	if errors.Is(err, context.Canceled) {
+		return fmt.Errorf("%s: %w", prefix, context.Canceled)
+	}
+	if errors.Is(err, context.DeadlineExceeded) {
+		return fmt.Errorf("%s: %w", prefix, context.DeadlineExceeded)
+	}
+	for _, sentinel := range []error{
+		gows.ErrProxyConnectFailed,
+		gows.ErrProxyUnsupportedScheme,
+		gows.ErrTooManyRedirects,
+		gows.ErrMalformedLocation,
+		gows.ErrReservedHeader,
+		gows.ErrMalformedHeader,
+	} {
+		if errors.Is(err, sentinel) {
+			return fmt.Errorf("%s: %w", prefix, sentinel)
+		}
+	}
+	return fmt.Errorf("%s: %s", prefix, redactor.sanitize(err.Error()))
 }
 
 func websocketBearerToken(cfg *WebSocketConfig) (string, error) {

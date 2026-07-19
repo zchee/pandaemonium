@@ -8,16 +8,8 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.6.0
+	github.com/zchee/gows v0.0.0-20260719044349-c5b56fb51eb8
 	mvdan.cc/gofumpt v0.10.0
-)
-
-tool (
-	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
-	github.com/klauspost/asmfmt/cmd/asmfmt
-	github.com/toml-lang/toml-test/v2/cmd/toml-test
-	github.com/zchee/goimports-rereviser/v4
-	golang.org/x/perf/cmd/benchstat
-	mvdan.cc/gofumpt
 )
 
 require (
@@ -249,4 +241,13 @@ require (
 	zgo.at/termtext v1.5.0 // indirect
 	zgo.at/zli v0.0.0-20251226224229-7bb9a5cf3265 // indirect
 	zgo.at/zstd v0.0.0-20260423150213-85e323702691 // indirect
+)
+
+tool (
+	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+	github.com/klauspost/asmfmt/cmd/asmfmt
+	github.com/toml-lang/toml-test/v2/cmd/toml-test
+	github.com/zchee/goimports-rereviser/v4
+	golang.org/x/perf/cmd/benchstat
+	mvdan.cc/gofumpt
 )

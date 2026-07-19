@@ -81,19 +81,13 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 func benchmarkWebSocketClient(b *testing.B, wsURL string) (*Client, context.CancelFunc) {
 	b.Helper()
 	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
-	conn, resp, err := websocket.Dial(ctx, wsURL, nil)
+	conn, err := dialWebSocket(ctx, wsURL, nil, nil, "")
 	if err != nil {
-		b.Fatalf("websocket.Dial() error = %v", err)
-	}
-	// A successful websocket upgrade hijacks the connection, so resp (and
-	// resp.Body) can be nil; guard the close like the dial paths in
-	// client_transport.go do.
-	if resp != nil && resp.Body != nil {
-		defer resp.Body.Close()
+		b.Fatalf("dialWebSocket() error = %v", err)
 	}
 
 	client := NewClient(&Config{}, nil)
-	client.storeTransport(&websocketTransport{conn: conn})
+	client.storeTransport(conn)
 	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})

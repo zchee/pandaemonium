@@ -311,7 +311,7 @@ func (c *Client) startWebSocketTransport(ctx context.Context, cmd *exec.Cmd, ser
 	}
 	c.cmd = cmd
 	c.cmdDone = cmdDone
-	c.storeTransport(&websocketTransport{conn: conn})
+	c.storeTransport(conn)
 	return nil
 }
 
