@@ -36,9 +36,9 @@ lane, and verification commits are merged.
    - For the default `unix://` case, the hermetic helper process must resolve
      the same effective child `CODEX_HOME` as the launched app-server so launch
      and dial stay in sync.
-4. The Unix dialer uses the standard library `net.Dialer` and an
-   `http.Transport` supplied through `github.com/coder/websocket.DialOptions`;
-   no additional dependency is needed.
+4. The Unix dialer uses the standard library `net.Dialer` through
+   `gows.Dialer.NetDial`, keeps proxy selection disabled, and constructs the
+   framed connection with the handshake's buffered bytes.
 5. Readiness failures for a missing socket or an app-server process that exits
    before listening return promptly with actionable context.
 6. Hermetic coverage exercises initialize, request/response, server-initiated
