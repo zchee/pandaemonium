@@ -126,6 +126,8 @@ type Client struct {
 	cmdDone      chan error
 
 	closeMu     sync.Mutex
+	closeBudget clientCloseBudget
+	closeNow    func() time.Time
 	rpcState    *jsonRPCClientState
 	turnRouter  *turnNotificationRouter
 	stderrMu    sync.Mutex
@@ -158,6 +160,8 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 	return &Client{
 		config:          cfg,
 		approvalHandler: approvalHandler,
+		closeBudget:     defaultClientCloseBudget,
+		closeNow:        time.Now,
 		rpcState:        newJSONRPCClientState(),
 		turnRouter:      newTurnNotificationRouter(),
 		stderrDone:      make(chan struct{}),
@@ -347,34 +351,55 @@ func (c *Client) startStdioTransport(cmd *exec.Cmd, serverName string) error {
 // Close closes the transport and terminates the app-server process.
 func (c *Client) Close() error {
 	c.closeMu.Lock()
-	defer c.closeMu.Unlock()
 
-	if c.loadTransport() == nil {
+	transport := c.loadTransport()
+	if transport == nil {
+		c.closeMu.Unlock()
 		return nil
 	}
+	budget := c.closeBudget.withDefaults()
+	now := c.closeNow
+	if now == nil {
+		now = time.Now
+	}
+	started := now()
+	deadlines := budget.deadlines(started)
 
 	cmd := c.cmd
 	cmdDone := c.cmdDone
 	readDone := c.readDone
 	stderrDone := c.stderrDone
+	stderr := c.stderr
 	c.cmd = nil
 	c.cmdDone = nil
 	c.turnRouter.close(&TransportClosedError{Message: "app-server closed"})
 	c.failPending(&TransportClosedError{Message: "app-server closed"})
 
-	c.rpcState.lockWrite()
-	transport := c.loadTransport()
-	c.storeTransport(nil)
-	c.stdin = nil
-	stdoutCloser := c.stdoutCloser
-	c.stdoutCloser = nil
-	if transport != nil {
+	// Close the transport before waiting for the write gate. A write may be
+	// blocked in the kernel while holding that gate; closing its raw connection
+	// is what makes the write return and allows shutdown to proceed.
+	if deadlineTransport, ok := transport.(deadlineTransport); ok {
+		_ = deadlineTransport.closeByDeadline(deadlines.transport)
+	} else {
 		_ = transport.Close()
 	}
+	c.rpcState.lockWrite()
+	c.storeTransport(nil)
+	c.stdin = nil
+	c.stdout = nil
+	stdoutCloser := c.stdoutCloser
+	c.stdoutCloser = nil
+	c.stderr = nil
+	c.readDone = nil
+	c.stderrDone = nil
 	c.rpcState.unlockWrite()
+	c.closeMu.Unlock()
 
 	if stdoutCloser != nil {
 		_ = stdoutCloser.Close()
+	}
+	if stderr != nil {
+		_ = stderr.Close()
 	}
 
 	if cmd != nil {
@@ -385,34 +410,97 @@ func (c *Client) Close() error {
 		if done == nil {
 			done = waitForCommand(cmd)
 		}
-		killTimer := time.NewTimer(2 * time.Second)
-		select {
-		case <-done:
-			// Close initiated termination, so process exit status is not actionable.
-			killTimer.Stop()
-		case <-killTimer.C:
+		if !waitUntil(done, deadlines.interrupt) {
 			if cmd.Process != nil {
 				_ = cmd.Process.Kill()
 			}
-			<-done
+			_ = waitUntil(done, deadlines.process)
 		}
 	}
 
-	readTimer := time.NewTimer(500 * time.Millisecond)
-	select {
-	case <-readDone:
-		readTimer.Stop()
-	case <-readTimer.C:
-	}
-
-	stderrTimer := time.NewTimer(500 * time.Millisecond)
-	select {
-	case <-stderrDone:
-		stderrTimer.Stop()
-	case <-stderrTimer.C:
-	}
+	_ = waitUntil(readDone, deadlines.read)
+	_ = waitUntil(stderrDone, deadlines.stderr)
 
 	return nil
+}
+
+type clientCloseBudget struct {
+	transport time.Duration
+	process   time.Duration
+	killReap  time.Duration
+	read      time.Duration
+	stderr    time.Duration
+}
+
+var defaultClientCloseBudget = clientCloseBudget{
+	transport: defaultCloseTimeout,
+	process:   2 * time.Second,
+	killReap:  250 * time.Millisecond,
+	read:      500 * time.Millisecond,
+	stderr:    500 * time.Millisecond,
+}
+
+func (b clientCloseBudget) withDefaults() clientCloseBudget {
+	if b.transport <= 0 {
+		b.transport = defaultClientCloseBudget.transport
+	}
+	if b.process <= 0 {
+		b.process = defaultClientCloseBudget.process
+	}
+	if b.killReap <= 0 || b.killReap >= b.process {
+		b.killReap = defaultClientCloseBudget.killReap
+	}
+	if b.read <= 0 {
+		b.read = defaultClientCloseBudget.read
+	}
+	if b.stderr <= 0 {
+		b.stderr = defaultClientCloseBudget.stderr
+	}
+	return b
+}
+
+type clientCloseDeadlines struct {
+	transport time.Time
+	interrupt time.Time
+	process   time.Time
+	read      time.Time
+	stderr    time.Time
+}
+
+func (b clientCloseBudget) deadlines(start time.Time) clientCloseDeadlines {
+	transport := start.Add(b.transport)
+	process := transport.Add(b.process)
+	read := process.Add(b.read)
+	return clientCloseDeadlines{
+		transport: transport,
+		interrupt: process.Add(-b.killReap),
+		process:   process,
+		read:      read,
+		stderr:    read.Add(b.stderr),
+	}
+}
+
+func waitUntil[T any](done <-chan T, deadline time.Time) bool {
+	if done == nil {
+		return false
+	}
+	remaining := time.Until(deadline)
+	if remaining <= 0 {
+		select {
+		case <-done:
+			return true
+		default:
+			return false
+		}
+	}
+	timer := time.NewTimer(remaining)
+	defer timer.Stop()
+	select {
+	case <-done:
+		return true
+	case <-timer.C:
+		return false
+	}
 }
 
 // Initialize performs the initialize/initialized handshake.

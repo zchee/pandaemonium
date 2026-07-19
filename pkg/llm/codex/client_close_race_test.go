@@ -18,11 +18,15 @@ import (
 	"bufio"
 	"context"
 	"errors"
+	"fmt"
 	"io"
 	"os"
+	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"runtime"
 	"strconv"
+	"strings"
 	"sync"
 	"testing"
 	"time"
@@ -177,6 +181,166 @@ func TestCloseDuringConcurrentRead(t *testing.T) {
 			t.Fatal("timed out waiting for NextNotification to unblock after Close")
 		}
 	}
+}
+
+func TestClientCloseUsesOneAbsoluteDeadlineBeforeWriteGate(t *testing.T) {
+	t.Parallel()
+	client := NewClient(&Config{}, nil)
+	client.closeBudget = clientCloseBudget{
+		transport: 50 * time.Millisecond,
+		process:   20 * time.Millisecond,
+		killReap:  5 * time.Millisecond,
+		read:      10 * time.Millisecond,
+		stderr:    5 * time.Millisecond,
+	}
+	base := time.Now()
+	client.closeNow = func() time.Time { return base }
+	transport := &recordingDeadlineTransport{closed: make(chan struct{})}
+	client.storeTransport(transport)
+	stdinR, stdinW := io.Pipe()
+	t.Cleanup(func() { _ = stdinR.Close() })
+	client.stdin = stdinW
+	client.stdout = bufio.NewReader(strings.NewReader(""))
+	client.stdoutCloser = io.NopCloser(strings.NewReader(""))
+	client.stderr = io.NopCloser(strings.NewReader(""))
+	client.readDone = make(chan struct{})
+	close(client.readDone)
+	client.stderrDone = make(chan struct{})
+	close(client.stderrDone)
+
+	client.rpcState.lockWrite()
+	closeDone := make(chan error, 1)
+	go func() { closeDone <- client.Close() }()
+	select {
+	case <-transport.closed:
+	case <-time.After(time.Second):
+		t.Fatal("Client.Close() waited for write gate before closing transport")
+	}
+	wantDeadline := base.Add(50 * time.Millisecond)
+	if !transport.deadline.Equal(wantDeadline) {
+		t.Fatalf("transport deadline = %v, want %v", transport.deadline, wantDeadline)
+	}
+	client.rpcState.unlockWrite()
+	if err := <-closeDone; err != nil {
+		t.Fatalf("Client.Close() error = %v", err)
+	}
+	if got := client.loadTransport(); got != nil {
+		t.Fatalf("Client.Close() retained transport = %T, want nil", got)
+	}
+	if client.stdin != nil || client.stdout != nil || client.stdoutCloser != nil || client.stderr != nil || client.readDone != nil || client.stderrDone != nil {
+		t.Fatalf("Client.Close() retained detached process state: stdin=%v stdout=%v stdoutCloser=%v stderr=%v readDone=%v stderrDone=%v", client.stdin, client.stdout, client.stdoutCloser, client.stderr, client.readDone, client.stderrDone)
+	}
+}
+
+func TestClientCloseBudgetDeadlinesAreCumulative(t *testing.T) {
+	t.Parallel()
+	start := time.Unix(123, 456)
+	budget := clientCloseBudget{
+		transport: 10 * time.Second,
+		process:   2 * time.Second,
+		killReap:  250 * time.Millisecond,
+		read:      500 * time.Millisecond,
+		stderr:    500 * time.Millisecond,
+	}
+	got := budget.deadlines(start)
+	if want := start.Add(10 * time.Second); !got.transport.Equal(want) {
+		t.Fatalf("transport deadline = %v, want %v", got.transport, want)
+	}
+	if want := start.Add(12 * time.Second); !got.process.Equal(want) {
+		t.Fatalf("process deadline = %v, want %v", got.process, want)
+	}
+	if want := start.Add(11750 * time.Millisecond); !got.interrupt.Equal(want) {
+		t.Fatalf("interrupt deadline = %v, want %v", got.interrupt, want)
+	}
+	if want := start.Add(12500 * time.Millisecond); !got.read.Equal(want) {
+		t.Fatalf("read deadline = %v, want %v", got.read, want)
+	}
+	if want := start.Add(13 * time.Second); !got.stderr.Equal(want) {
+		t.Fatalf("stderr deadline = %v, want %v", got.stderr, want)
+	}
+}
+
+func TestClientCloseKillsAndReapsInterruptIgnoringProcessWithinBudget(t *testing.T) {
+	if os.Getenv("CODEX_CLOSE_IGNORE_INTERRUPT_HELPER") == "1" {
+		signal.Ignore(os.Interrupt)
+		fmt.Fprintln(os.Stdout, "ready")
+		select {}
+	}
+	exe, err := os.Executable()
+	if err != nil {
+		t.Fatalf("os.Executable() error = %v", err)
+	}
+	cmd := exec.Command(exe, "-test.run=TestClientCloseKillsAndReapsInterruptIgnoringProcessWithinBudget")
+	cmd.Env = append(os.Environ(), "CODEX_CLOSE_IGNORE_INTERRUPT_HELPER=1")
+	stdout, err := cmd.StdoutPipe()
+	if err != nil {
+		t.Fatalf("StdoutPipe() error = %v", err)
+	}
+	if err := cmd.Start(); err != nil {
+		t.Fatalf("cmd.Start() error = %v", err)
+	}
+	ready := bufio.NewScanner(stdout)
+	if !ready.Scan() || ready.Text() != "ready" {
+		_ = cmd.Process.Kill()
+		t.Fatalf("helper readiness = %q err=%v", ready.Text(), ready.Err())
+	}
+	done := waitForCommand(cmd)
+	client := NewClient(&Config{}, nil)
+	client.closeBudget = clientCloseBudget{
+		transport: 5 * time.Millisecond,
+		process:   100 * time.Millisecond,
+		killReap:  25 * time.Millisecond,
+		read:      5 * time.Millisecond,
+		stderr:    5 * time.Millisecond,
+	}
+	client.cmd = cmd
+	client.cmdDone = done
+	client.storeTransport(&recordingDeadlineTransport{closed: make(chan struct{})})
+	client.readDone = make(chan struct{})
+	close(client.readDone)
+	client.stderrDone = make(chan struct{})
+	close(client.stderrDone)
+	start := time.Now()
+	if err := client.Close(); err != nil {
+		t.Fatalf("Client.Close() error = %v", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("Client.Close() elapsed = %v, want bounded process schedule", elapsed)
+	}
+	select {
+	case _, ok := <-done:
+		if ok {
+			select {
+			case _, ok = <-done:
+				if ok {
+					t.Fatal("cmdDone remained open after kill/reap")
+				}
+			default:
+				t.Fatal("cmdDone remained open after kill/reap")
+			}
+		}
+	default:
+		t.Fatal("Client.Close() returned before interrupt-ignoring process was reaped")
+	}
+}
+
+type recordingDeadlineTransport struct {
+	deadline time.Time
+	closed   chan struct{}
+}
+
+func (t *recordingDeadlineTransport) closeByDeadline(deadline time.Time) error {
+	t.deadline = deadline
+	close(t.closed)
+	return nil
+}
+
+func (t *recordingDeadlineTransport) Close() error { return t.closeByDeadline(time.Time{}) }
+
+func (*recordingDeadlineTransport) WriteJSON(context.Context, []byte) error { return nil }
+
+func (*recordingDeadlineTransport) ReadJSON(context.Context) ([]byte, error) {
+	return nil, io.EOF
 }
 
 // TestStdioReadCancellable verifies that stdioTransport.ReadJSON honors context
