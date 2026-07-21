@@ -7,7 +7,7 @@ require (
 	github.com/google/go-cmp v0.7.0
 	github.com/google/jsonschema-go v0.4.3
 	github.com/modelcontextprotocol/go-sdk v1.6.0
-	github.com/zchee/gows v0.0.0-20260719044349-c5b56fb51eb8
+	github.com/zchee/gows v0.0.0-20260721124913-04066551b78e
 	mvdan.cc/gofumpt v0.10.0
 )
 
