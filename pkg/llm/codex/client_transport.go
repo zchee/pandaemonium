@@ -142,7 +142,7 @@ func (t *websocketTransport) closeByDeadline(deadline time.Time) error {
 			t.readGate <- struct{}{}
 		}
 		_ = t.closeRaw()
-		if errors.Is(t.shutdownErr, net.ErrClosed) || errors.Is(t.shutdownErr, io.ErrClosedPipe) || errors.Is(t.shutdownErr, os.ErrDeadlineExceeded) || errors.Is(t.shutdownErr, gows.ErrCloseTimeout) {
+		if errors.Is(t.shutdownErr, net.ErrClosed) || errors.Is(t.shutdownErr, io.ErrClosedPipe) || errors.Is(t.shutdownErr, os.ErrDeadlineExceeded) || errors.Is(t.shutdownErr, gows.ErrCloseTimeout) || errors.Is(t.shutdownErr, context.DeadlineExceeded) {
 			t.shutdownErr = nil
 		}
 	})

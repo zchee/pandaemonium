@@ -209,6 +209,33 @@ func TestWebSocketTransportCloseIsBoundedAndIdempotent(t *testing.T) {
 	}
 }
 
+func TestWebSocketTransportCloseNilWhenPeerStallsCloseHandshake(t *testing.T) {
+	t.Parallel()
+	clientRaw, serverRaw := net.Pipe()
+	counted := &closeCountingConn{Conn: clientRaw}
+	transport := newWebsocketTransport(counted, gows.Handshake{})
+	transport.closeTimeout = 20 * time.Millisecond
+	t.Cleanup(func() { _ = serverRaw.Close() })
+	drained := make(chan struct{})
+	go func() { defer close(drained); _, _ = io.Copy(io.Discard, serverRaw) }()
+
+	start := time.Now()
+	if err := transport.Close(); err != nil {
+		t.Fatalf("Close() error = %v, want nil when the peer drains the handshake but never replies", err)
+	}
+	if elapsed := time.Since(start); elapsed > time.Second {
+		t.Fatalf("Close() elapsed = %v, want bounded short test budget", elapsed)
+	}
+	if got := counted.closes.Load(); got != 1 {
+		t.Fatalf("raw Close() calls = %d, want exactly 1", got)
+	}
+	select {
+	case <-drained:
+	case <-time.After(time.Second):
+		t.Fatal("Close() left the raw connection open for the draining peer")
+	}
+}
+
 func TestWebSocketTransportCloseUnblocksPendingRead(t *testing.T) {
 	t.Parallel()
 	clientRaw, serverRaw := net.Pipe()
