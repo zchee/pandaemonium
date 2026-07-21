@@ -11,6 +11,15 @@ require (
 	mvdan.cc/gofumpt v0.10.0
 )
 
+tool (
+	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
+	github.com/klauspost/asmfmt/cmd/asmfmt
+	github.com/toml-lang/toml-test/v2/cmd/toml-test
+	github.com/zchee/goimports-rereviser/v4
+	golang.org/x/perf/cmd/benchstat
+	mvdan.cc/gofumpt
+)
+
 require (
 	4d63.com/gocheckcompilerdirectives v1.3.0 // indirect
 	4d63.com/gochecknoglobals v0.2.2 // indirect
@@ -240,13 +249,4 @@ require (
 	zgo.at/termtext v1.5.0 // indirect
 	zgo.at/zli v0.0.0-20251226224229-7bb9a5cf3265 // indirect
 	zgo.at/zstd v0.0.0-20260423150213-85e323702691 // indirect
-)
-
-tool (
-	github.com/golangci/golangci-lint/v2/cmd/golangci-lint
-	github.com/klauspost/asmfmt/cmd/asmfmt
-	github.com/toml-lang/toml-test/v2/cmd/toml-test
-	github.com/zchee/goimports-rereviser/v4
-	golang.org/x/perf/cmd/benchstat
-	mvdan.cc/gofumpt
 )
