@@ -493,7 +493,7 @@ func asciiQuoteEscapeIndex(s string) int {
 	for i := range len(s) {
 		c := s[i]
 		switch {
-		case c < 0x20 || c >= 0x80:
+		case c < 0x20 || c >= 0x7f:
 			return quoteFallback
 		case c == '"' || c == '\\':
 			if first < 0 {

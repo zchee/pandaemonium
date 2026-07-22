@@ -683,6 +683,7 @@ func TestMarshalWriteQuotedStringMatchesStrconvQuote(t *testing.T) {
 		"success: ascii":           "simple text",
 		"success: quote backslash": "quote \" and slash \\",
 		"success: control":         "line\n tab\t nul\x00",
+		"success: delete control":  "|\x7f.",
 		"success: unicode":         "snowman ☃ and 日本語",
 		"success: invalid utf8":    string([]byte{'o', 'k', 0xff}),
 	}
@@ -710,6 +711,7 @@ func TestMarshalASCIIQuoteEscapeIndex(t *testing.T) {
 		"success: quote":            {input: `needs"quote`, want: 5},
 		"success: backslash":        {input: `needs\\slash`, want: 5},
 		"success: control fallback": {input: "line\n", want: quoteFallback},
+		"success: delete fallback":  {input: "del\x7f", want: quoteFallback},
 		"success: unicode fallback": {input: "snowman ☃", want: quoteFallback},
 	}
 	for name, tc := range tests {
