@@ -47,7 +47,7 @@ type Transport interface {
 const defaultCloseTimeout = 10 * time.Second
 
 type deadlineTransport interface {
-	closeByDeadline(time.Time) error
+	closeByDeadline(deadline time.Time) error
 }
 
 // stdioTransport represents a bidirectional JSON message transport over the app-server process's standard input and output streams.
@@ -220,7 +220,7 @@ func (t *websocketTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	}
 }
 
-func newWebsocketTransport(raw net.Conn, hs gows.Handshake, redactors ...transportRedactor) *websocketTransport {
+func newWebsocketTransport(raw net.Conn, hs *gows.Handshake, redactors ...transportRedactor) *websocketTransport {
 	raw = &onceCloseConn{Conn: raw}
 	var redactor transportRedactor
 	if len(redactors) != 0 {
@@ -314,8 +314,7 @@ func (t *websocketTransport) sanitizedTransportCause(err error) error {
 	if errors.Is(err, context.DeadlineExceeded) {
 		return context.DeadlineExceeded
 	}
-	var closeErr *gows.CloseError
-	if errors.As(err, &closeErr) {
+	if closeErr, ok := errors.AsType[*gows.CloseError](err); ok {
 		return t.sanitizedCloseError(closeErr)
 	}
 	return net.ErrClosed
@@ -693,7 +692,7 @@ func dialUnixWebSocket(ctx context.Context, socketPath string) (*websocketTransp
 	if err != nil {
 		return nil, websocketDialError(fmt.Sprintf("dial unix websocket %q", socketPath), err, transportRedactor{})
 	}
-	return newWebsocketTransport(raw, hs), nil
+	return newWebsocketTransport(raw, &hs), nil
 }
 
 func dialWebSocket(ctx context.Context, listen string, cfg *WebSocketConfig, env map[string]string, cwd string) (*websocketTransport, error) {
@@ -739,12 +738,11 @@ func dialWebSocketURL(ctx context.Context, u *url.URL, token string, proxy func(
 	if err != nil {
 		return nil, websocketDialError("websocket dial failed", err, redactor)
 	}
-	return newWebsocketTransport(raw, hs, redactor), nil
+	return newWebsocketTransport(raw, &hs, redactor), nil
 }
 
 func websocketDialError(prefix string, err error, redactor transportRedactor) error {
-	var statusErr *gows.UnexpectedStatusError
-	if errors.As(err, &statusErr) {
+	if statusErr, ok := errors.AsType[*gows.UnexpectedStatusError](err); ok {
 		sanitized := &gows.UnexpectedStatusError{StatusCode: statusErr.StatusCode, Reason: redactor.sanitize(statusErr.Reason)}
 		if errors.Is(err, gows.ErrProxyConnectFailed) {
 			return fmt.Errorf("%s: HTTP status %d %s: %w: %w", prefix, statusErr.StatusCode, http.StatusText(statusErr.StatusCode), gows.ErrProxyConnectFailed, sanitized)

@@ -201,8 +201,7 @@ func acceptTestWebSocket(w http.ResponseWriter, r *http.Request, trackers ...*co
 }
 
 func gowsCloseCode(err error) gows.CloseCode {
-	var closeErr *gows.CloseError
-	if errors.As(err, &closeErr) {
+	if closeErr, ok := errors.AsType[*gows.CloseError](err); ok {
 		return closeErr.Code
 	}
 	return 0

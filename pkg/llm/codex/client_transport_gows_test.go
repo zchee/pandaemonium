@@ -106,7 +106,7 @@ func TestWebSocketTransportMessageContracts(t *testing.T) {
 					t.Fatal("terminal path did not retain a stable TransportClosedError")
 				}
 				_, next := transport.ReadJSON(t.Context())
-				if next != first {
+				if next != first { //nolint:errorlint // Exact pointer identity is the contract; errors.Is would admit wrappers.
 					t.Fatalf("subsequent ReadJSON() error = %p %v, want stable %p %v", next, next, first, first)
 				}
 				if _, rawErr := transport.raw.Write([]byte("after terminal")); rawErr == nil {
@@ -135,7 +135,7 @@ func TestWebSocketTransportCanceledWriteIsTerminal(t *testing.T) {
 	if _, err := transport.raw.Write([]byte("after cancellation")); err == nil {
 		t.Fatal("raw connection remained writable after terminal cancellation")
 	}
-	if next := transport.WriteJSON(t.Context(), []byte(`{"id":2}`)); next != err {
+	if next := transport.WriteJSON(t.Context(), []byte(`{"id":2}`)); next != err { //nolint:errorlint // Exact pointer identity is the contract; errors.Is would admit wrappers.
 		t.Fatalf("subsequent WriteJSON() error = %p %v, want stable %p %v", next, next, err, err)
 	}
 }
@@ -172,7 +172,7 @@ func TestWebSocketTransportTerminalIdentityWinsOverCanceledContext(t *testing.T)
 		t.Fatal("initial canceled WriteJSON() error = nil")
 	}
 	for range 100 {
-		if got := transport.WriteJSON(ctx, []byte(`{"id":2}`)); got != first {
+		if got := transport.WriteJSON(ctx, []byte(`{"id":2}`)); got != first { //nolint:errorlint // Exact pointer identity is the contract; errors.Is would admit wrappers.
 			t.Fatalf("terminal error identity = %p %v, want %p %v", got, got, first, first)
 		}
 	}
@@ -182,7 +182,7 @@ func TestWebSocketTransportCloseIsBoundedAndIdempotent(t *testing.T) {
 	t.Parallel()
 	clientRaw, serverRaw := net.Pipe()
 	counted := &closeCountingConn{Conn: clientRaw}
-	transport := newWebsocketTransport(counted, gows.Handshake{})
+	transport := newWebsocketTransport(counted, &gows.Handshake{})
 	transport.closeTimeout = 20 * time.Millisecond
 	t.Cleanup(func() { _ = serverRaw.Close() })
 
@@ -213,7 +213,7 @@ func TestWebSocketTransportCloseNilWhenPeerStallsCloseHandshake(t *testing.T) {
 	t.Parallel()
 	clientRaw, serverRaw := net.Pipe()
 	counted := &closeCountingConn{Conn: clientRaw}
-	transport := newWebsocketTransport(counted, gows.Handshake{})
+	transport := newWebsocketTransport(counted, &gows.Handshake{})
 	transport.closeTimeout = 20 * time.Millisecond
 	t.Cleanup(func() { _ = serverRaw.Close() })
 	drained := make(chan struct{})
@@ -240,7 +240,7 @@ func TestWebSocketTransportCloseUnblocksPendingRead(t *testing.T) {
 	t.Parallel()
 	clientRaw, serverRaw := net.Pipe()
 	counted := &closeCountingConn{Conn: clientRaw}
-	transport := newWebsocketTransport(counted, gows.Handshake{})
+	transport := newWebsocketTransport(counted, &gows.Handshake{})
 	transport.closeTimeout = 20 * time.Millisecond
 	t.Cleanup(func() { _ = serverRaw.Close() })
 	readDone := make(chan error, 1)
@@ -266,7 +266,7 @@ func TestWebSocketTransportCloseUnblocksBlockedWrite(t *testing.T) {
 	clientRaw, serverRaw := net.Pipe()
 	counted := &closeCountingConn{Conn: clientRaw}
 	signaled := &writeSignalingConn{Conn: counted, started: make(chan struct{})}
-	transport := newWebsocketTransport(signaled, gows.Handshake{})
+	transport := newWebsocketTransport(signaled, &gows.Handshake{})
 	transport.closeTimeout = 20 * time.Millisecond
 	t.Cleanup(func() { _ = serverRaw.Close() })
 	writeDone := make(chan error, 1)
@@ -398,7 +398,7 @@ func TestWebSocketTransportCancellationCloseRaceReturnsCanonicalError(t *testing
 	if err := <-closeDone; err != nil {
 		t.Fatalf("Close() error = %v", err)
 	}
-	if writeErr != transport.terminalErr {
+	if writeErr != transport.terminalErr { //nolint:errorlint // Exact pointer identity is the contract; errors.Is would admit wrappers.
 		t.Fatalf("cancellation-vs-close error = %p %v, want canonical %p %v", writeErr, writeErr, transport.terminalErr, transport.terminalErr)
 	}
 }
@@ -511,5 +511,5 @@ func newPipeWebSocketTransport(t *testing.T) (*websocketTransport, *gows.Conn) {
 		_ = clientRaw.Close()
 		_ = serverRaw.Close()
 	})
-	return newWebsocketTransport(clientRaw, gows.Handshake{}, transportRedactor{secrets: []string{"secret peer detail"}}), gows.NewServerConn(serverRaw)
+	return newWebsocketTransport(clientRaw, &gows.Handshake{}, transportRedactor{secrets: []string{"secret peer detail"}}), gows.NewServerConn(serverRaw)
 }
