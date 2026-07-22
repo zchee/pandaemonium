@@ -402,26 +402,31 @@ func (c *Client) Close() error {
 		_ = stderr.Close()
 	}
 
-	if cmd != nil {
-		if cmd.Process != nil {
-			_ = cmd.Process.Signal(os.Interrupt)
-		}
-		done := cmdDone
-		if done == nil {
-			done = waitForCommand(cmd)
-		}
-		if !waitUntil(done, deadlines.interrupt) {
-			if cmd.Process != nil {
-				_ = cmd.Process.Kill()
-			}
-			_ = waitUntil(done, deadlines.process)
-		}
-	}
+	terminateCommand(cmd, cmdDone, deadlines.interrupt, deadlines.process)
 
 	_ = waitUntil(readDone, deadlines.read)
 	_ = waitUntil(stderrDone, deadlines.stderr)
 
 	return nil
+}
+
+func terminateCommand(cmd *exec.Cmd, done <-chan error, interruptDeadline, processDeadline time.Time) {
+	if cmd == nil {
+		return
+	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Signal(os.Interrupt)
+	}
+	if done == nil {
+		done = waitForCommand(cmd)
+	}
+	if waitUntil(done, interruptDeadline) {
+		return
+	}
+	if cmd.Process != nil {
+		_ = cmd.Process.Kill()
+	}
+	_ = waitUntil(done, processDeadline)
 }
 
 type clientCloseBudget struct {
