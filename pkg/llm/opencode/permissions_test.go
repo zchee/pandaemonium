@@ -89,12 +89,22 @@ func TestPermissionPolicySyncPath(t *testing.T) {
 				t.Error("legacy permission.asked must be answered on the legacy endpoint")
 			}
 
-			counters := oc.Client().Counters()
-			if tt.permissionAuto && counters.PermissionsAutoApproved != 1 {
-				t.Errorf("PermissionsAutoApproved = %d, want 1", counters.PermissionsAutoApproved)
-			}
-			if !tt.permissionAuto && counters.PermissionsRejected != 1 {
-				t.Errorf("PermissionsRejected = %d, want 1", counters.PermissionsRejected)
+			// The consumer counts a reply after its HTTP round-trip
+			// completes, while the fake unblocks the gated turn as soon as
+			// the reply arrives — so the counter lags Run returning.
+			deadline := time.Now().Add(10 * time.Second)
+			for {
+				counters := oc.Client().Counters()
+				if tt.permissionAuto && counters.PermissionsAutoApproved == 1 {
+					break
+				}
+				if !tt.permissionAuto && counters.PermissionsRejected == 1 {
+					break
+				}
+				if time.Now().After(deadline) {
+					t.Fatalf("counters = %+v, want one reply counted (PermissionAuto=%v)", counters, tt.permissionAuto)
+				}
+				time.Sleep(10 * time.Millisecond)
 			}
 		})
 	}
