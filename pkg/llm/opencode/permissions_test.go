@@ -17,6 +17,7 @@ package opencode
 import (
 	"strings"
 	"testing"
+	"testing/synctest"
 	"time"
 )
 
@@ -45,67 +46,66 @@ func TestPermissionPolicySyncPath(t *testing.T) {
 		t.Run(name, func(t *testing.T) {
 			t.Parallel()
 
-			fake := newFakeOpencode()
-			fake.permissionGate = true
-			oc := startFakeOpencode(t, fake, func(cfg *RemoteConfig) {
-				cfg.PermissionAuto = tt.permissionAuto
-			})
+			synctest.Test(t, func(t *testing.T) {
+				fake := newFakeOpencode()
+				fake.permissionGate = true
+				oc := startFakeOpencodeMem(t, fake, func(cfg *RemoteConfig) {
+					cfg.PermissionAuto = tt.permissionAuto
+				})
 
-			session, err := oc.SessionStart(t.Context(), nil)
-			if err != nil {
-				t.Fatalf("SessionStart: %v", err)
-			}
-
-			done := make(chan error, 1)
-			go func() {
-				_, err := session.Run(t.Context(), "run a gated tool", nil)
-				done <- err
-			}()
-
-			select {
-			case err := <-done:
+				session, err := oc.SessionStart(t.Context(), nil)
 				if err != nil {
-					t.Fatalf("sync Run with permission gate: %v", err)
+					t.Fatalf("SessionStart: %v", err)
 				}
-			case <-time.After(15 * time.Second):
-				t.Fatal("sync Run hung on permission.asked — the client-lifetime consumer did not reply")
-			}
 
-			replies := fake.permissionRepliesSeen()
-			if len(replies) != 1 {
-				t.Fatalf("permission replies = %d, want 1 (%+v)", len(replies), replies)
-			}
-			reply := replies[0]
-			if reply.Response != tt.wantResponse {
-				t.Errorf("reply = %q, want %q", reply.Response, tt.wantResponse)
-			}
-			if reply.SessionID != session.ID() {
-				t.Errorf("reply session = %q, want %q", reply.SessionID, session.ID())
-			}
-			if !strings.HasPrefix(reply.PermissionID, "per_") {
-				t.Errorf("permission id = %q, want per_ prefix", reply.PermissionID)
-			}
-			if reply.V2 {
-				t.Error("legacy permission.asked must be answered on the legacy endpoint")
-			}
+				done := make(chan error, 1)
+				go func() {
+					_, err := session.Run(t.Context(), "run a gated tool", nil)
+					done <- err
+				}()
 
-			// The consumer counts a reply after its HTTP round-trip
-			// completes, while the fake unblocks the gated turn as soon as
-			// the reply arrives — so the counter lags Run returning.
-			deadline := time.Now().Add(10 * time.Second)
-			for {
+				// Under the bubble's fake clock the timeout fires instantly
+				// on a genuine hang instead of burning 15 real seconds.
+				select {
+				case err := <-done:
+					if err != nil {
+						t.Fatalf("sync Run with permission gate: %v", err)
+					}
+				case <-time.After(15 * time.Second):
+					t.Fatal("sync Run hung on permission.asked — the client-lifetime consumer did not reply")
+				}
+
+				replies := fake.permissionRepliesSeen()
+				if len(replies) != 1 {
+					t.Fatalf("permission replies = %d, want 1 (%+v)", len(replies), replies)
+				}
+				reply := replies[0]
+				if reply.Response != tt.wantResponse {
+					t.Errorf("reply = %q, want %q", reply.Response, tt.wantResponse)
+				}
+				if reply.SessionID != session.ID() {
+					t.Errorf("reply session = %q, want %q", reply.SessionID, session.ID())
+				}
+				if !strings.HasPrefix(reply.PermissionID, "per_") {
+					t.Errorf("permission id = %q, want per_ prefix", reply.PermissionID)
+				}
+				if reply.V2 {
+					t.Error("legacy permission.asked must be answered on the legacy endpoint")
+				}
+
+				// The fake unblocks the gated turn as soon as the reply
+				// arrives, while the consumer counts it only after its HTTP
+				// round-trip completes — wait for the bubble to go idle so
+				// the increment is ordered before the read.
+				synctest.Wait()
 				counters := oc.Client().Counters()
-				if tt.permissionAuto && counters.PermissionsAutoApproved == 1 {
-					break
+				if tt.permissionAuto && counters.PermissionsAutoApproved != 1 {
+					t.Errorf("PermissionsAutoApproved = %d, want 1", counters.PermissionsAutoApproved)
 				}
-				if !tt.permissionAuto && counters.PermissionsRejected == 1 {
-					break
+				if !tt.permissionAuto && counters.PermissionsRejected != 1 {
+					t.Errorf("PermissionsRejected = %d, want 1", counters.PermissionsRejected)
 				}
-				if time.Now().After(deadline) {
-					t.Fatalf("counters = %+v, want one reply counted (PermissionAuto=%v)", counters, tt.permissionAuto)
-				}
-				time.Sleep(10 * time.Millisecond)
-			}
+			})
 		})
 	}
 }
@@ -116,28 +116,30 @@ func TestPermissionPolicySyncPath(t *testing.T) {
 func TestPermissionPolicyAsyncPath(t *testing.T) {
 	t.Parallel()
 
-	fake := newFakeOpencode()
-	fake.permissionGate = true
-	oc := startFakeOpencode(t, fake, func(cfg *RemoteConfig) { cfg.PermissionAuto = true })
+	synctest.Test(t, func(t *testing.T) {
+		fake := newFakeOpencode()
+		fake.permissionGate = true
+		oc := startFakeOpencodeMem(t, fake, func(cfg *RemoteConfig) { cfg.PermissionAuto = true })
 
-	session, err := oc.SessionStart(t.Context(), nil)
-	if err != nil {
-		t.Fatalf("SessionStart: %v", err)
-	}
-	handle, err := session.Turn(t.Context(), "gated async work", nil)
-	if err != nil {
-		t.Fatalf("Turn: %v", err)
-	}
-	result, err := handle.Run(t.Context())
-	if err != nil {
-		t.Fatalf("Run: %v", err)
-	}
-	if result.FinalResponse == "" {
-		t.Error("FinalResponse empty")
-	}
-	if replies := fake.permissionRepliesSeen(); len(replies) != 1 || replies[0].Response != PermissionOnce {
-		t.Errorf("replies = %+v, want one 'once'", replies)
-	}
+		session, err := oc.SessionStart(t.Context(), nil)
+		if err != nil {
+			t.Fatalf("SessionStart: %v", err)
+		}
+		handle, err := session.Turn(t.Context(), "gated async work", nil)
+		if err != nil {
+			t.Fatalf("Turn: %v", err)
+		}
+		result, err := handle.Run(t.Context())
+		if err != nil {
+			t.Fatalf("Run: %v", err)
+		}
+		if result.FinalResponse == "" {
+			t.Error("FinalResponse empty")
+		}
+		if replies := fake.permissionRepliesSeen(); len(replies) != 1 || replies[0].Response != PermissionOnce {
+			t.Errorf("replies = %+v, want one 'once'", replies)
+		}
+	})
 }
 
 // TestRespondPermissionAfterClose: the permission consumer must refuse work
@@ -146,22 +148,25 @@ func TestPermissionPolicyAsyncPath(t *testing.T) {
 func TestRespondPermissionAfterClose(t *testing.T) {
 	t.Parallel()
 
-	fake := newFakeOpencode()
-	oc := startFakeOpencode(t, fake, func(cfg *RemoteConfig) { cfg.PermissionAuto = true })
-	client := oc.Client()
-	if err := oc.Close(); err != nil {
-		t.Fatalf("Close: %v", err)
-	}
+	synctest.Test(t, func(t *testing.T) {
+		fake := newFakeOpencode()
+		oc := startFakeOpencodeMem(t, fake, func(cfg *RemoteConfig) { cfg.PermissionAuto = true })
+		client := oc.Client()
+		if err := oc.Close(); err != nil {
+			t.Fatalf("Close: %v", err)
+		}
 
-	// Must be a silent no-op: no panic, no reply attempt.
-	client.respondPermission(Event{
-		Type:       EventTypePermissionAsked,
-		Properties: []byte(`{"id":"per_after_close","sessionID":"ses_x"}`),
+		// Must be a silent no-op: no panic, no reply attempt. Any stray
+		// reply goroutine would have to finish before Wait returns.
+		client.respondPermission(Event{
+			Type:       EventTypePermissionAsked,
+			Properties: []byte(`{"id":"per_after_close","sessionID":"ses_x"}`),
+		})
+		synctest.Wait()
+		if replies := fake.permissionRepliesSeen(); len(replies) != 0 {
+			t.Fatalf("permission replies after Close = %+v, want none", replies)
+		}
 	})
-	time.Sleep(50 * time.Millisecond)
-	if replies := fake.permissionRepliesSeen(); len(replies) != 0 {
-		t.Fatalf("permission replies after Close = %+v, want none", replies)
-	}
 }
 
 // TestPermissionV2Reply: a permission.v2.asked event is answered on the v2
@@ -169,32 +174,30 @@ func TestRespondPermissionAfterClose(t *testing.T) {
 func TestPermissionV2Reply(t *testing.T) {
 	t.Parallel()
 
-	fake := newFakeOpencode()
-	oc := startFakeOpencode(t, fake, func(cfg *RemoteConfig) { cfg.PermissionAuto = true })
+	synctest.Test(t, func(t *testing.T) {
+		fake := newFakeOpencode()
+		oc := startFakeOpencodeMem(t, fake, func(cfg *RemoteConfig) { cfg.PermissionAuto = true })
 
-	session, err := oc.SessionStart(t.Context(), nil)
-	if err != nil {
-		t.Fatalf("SessionStart: %v", err)
-	}
-	fake.emit(fakeEvent(EventTypePermissionV2Asked, map[string]any{
-		"id":        "per_v2fake",
-		"sessionID": session.ID(),
-		"action":    "bash",
-		"resources": []string{"echo hi"},
-	}))
+		session, err := oc.SessionStart(t.Context(), nil)
+		if err != nil {
+			t.Fatalf("SessionStart: %v", err)
+		}
+		fake.emit(fakeEvent(EventTypePermissionV2Asked, map[string]any{
+			"id":        "per_v2fake",
+			"sessionID": session.ID(),
+			"action":    "bash",
+			"resources": []string{"echo hi"},
+		}))
 
-	deadline := time.Now().Add(10 * time.Second)
-	for {
+		// The emitted event travels SSE → consumer → v2 reply POST entirely
+		// over bubble-internal pipes, so one idle point replaces the poll.
+		synctest.Wait()
 		replies := fake.permissionRepliesSeen()
-		if len(replies) == 1 {
-			if !replies[0].V2 || replies[0].PermissionID != "per_v2fake" || replies[0].Response != PermissionOnce {
-				t.Fatalf("v2 reply = %+v", replies[0])
-			}
-			return
+		if len(replies) != 1 {
+			t.Fatalf("v2 replies = %+v, want exactly one", replies)
 		}
-		if time.Now().After(deadline) {
-			t.Fatal("v2 permission never answered")
+		if !replies[0].V2 || replies[0].PermissionID != "per_v2fake" || replies[0].Response != PermissionOnce {
+			t.Fatalf("v2 reply = %+v", replies[0])
 		}
-		time.Sleep(10 * time.Millisecond)
-	}
+	})
 }
