@@ -266,11 +266,12 @@ linters:
       # names like sessionID/messageID/providerID (testdata/openapi.json).
       - linters:
           - tagliatelle
-        path: (pkg/llm/codex/(hook|hook_test|notification_scan)\.go|pkg/llm/claude/(public_types|control_protocol|control_protocol_test|message_parser|session_store|client|client_envelope_test)\.go|pkg/llm/opencode/types\.go|internal/memchr/golden_test\.go)
+        path: (pkg/llm/codex/(hook|hook_test|notification_scan)\.go|pkg/llm/claude/(public_types|raw_json|control_protocol|control_protocol_test|message_parser|session_store|client|client_envelope_test)\.go|pkg/llm/opencode/types\.go|internal/memchr/golden_test\.go)
       # gocritic hugeParam fires on the value-receiver methods and value-typed
       # path structs in these files, but the value semantics are load-bearing:
-      # public_types.go and hook.go use value receivers so concrete types
-      # satisfy the sealed Message/ContentBlock interfaces and json.MarshalerTo
+      # public_types.go/raw_json.go and hook.go use value receivers so concrete
+      # types satisfy the sealed Message/ContentBlock interfaces and
+      # json.MarshalerTo
       # by value (a pointer receiver removes the value type from the method set
       # and breaks the public API); unmarshal_direct.go's directPathState /
       # directRawPath are deliberately stack-resident value types whose inline
@@ -280,7 +281,7 @@ linters:
       # nolints it replaces, without the per-method comment noise.
       - linters:
           - gocritic
-        path: (pkg/llm/claude/public_types\.go|pkg/llm/codex/hook\.go|pkg/toml/unmarshal_direct\.go)
+        path: (pkg/llm/claude/(public_types|raw_json)\.go|pkg/llm/codex/hook\.go|pkg/toml/unmarshal_direct\.go)
 
       - linters:
           - gocritic

@@ -177,7 +177,7 @@ type resultMessageJSON struct {
 
 // MarshalJSONTo implements [json.MarshalerTo], merging the typed fields with the preserved unknown fields in Raw.
 func (m ResultMessage) MarshalJSONTo(enc *jsontext.Encoder) error {
-	fields, err := resultMessageFields(m)
+	fields, err := resultMessageFields(&m)
 	if err != nil {
 		return err
 	}
@@ -240,7 +240,7 @@ func (m *ResultMessage) UnmarshalJSONFrom(dec *jsontext.Decoder) error {
 	return nil
 }
 
-func resultMessageFields(m ResultMessage) (map[string]jsontext.Value, error) {
+func resultMessageFields(m *ResultMessage) (map[string]jsontext.Value, error) {
 	fields := make(map[string]jsontext.Value)
 	if err := setStringJSONField(fields, "subtype", m.Subtype); err != nil {
 		return nil, err
