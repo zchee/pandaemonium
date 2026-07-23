@@ -34,7 +34,7 @@ import (
 
 	"github.com/zchee/gows"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 const defaultCloseTimeout = 10 * time.Second

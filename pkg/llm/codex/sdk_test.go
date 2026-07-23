@@ -34,7 +34,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 func TestNormalizeInput(t *testing.T) {

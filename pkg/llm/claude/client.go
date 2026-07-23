@@ -29,7 +29,7 @@ import (
 
 	"github.com/go-json-experiment/json"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // rawMessageBuffer is a single-consumer, unbounded FIFO for stream-JSON data

@@ -20,7 +20,7 @@ import (
 	"testing"
 	"time"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // busyError returns a *JSONRPCError with Kind="server_busy", which IsRetryableError accepts.

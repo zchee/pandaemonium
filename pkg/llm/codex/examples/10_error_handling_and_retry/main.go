@@ -20,7 +20,7 @@ import (
 	"log"
 	"time"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 	"github.com/zchee/pandaemonium/pkg/llm/codex/examples/internal/exampleutil"
 )

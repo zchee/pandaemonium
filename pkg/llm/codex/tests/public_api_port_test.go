@@ -25,7 +25,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/google/go-cmp/cmp"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 )
 

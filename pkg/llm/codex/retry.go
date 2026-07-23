@@ -17,7 +17,7 @@ package codex
 import (
 	"context"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // RetryOnOverload retries op when it returns a retryable overload error.

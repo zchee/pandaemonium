@@ -18,7 +18,7 @@ import (
 	"bufio"
 	"io"
 
-	llm "github.com/zchee/pandaemonium/pkg/llm"
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // newStdioTransport returns the stdio-backed transport for a launched claude
