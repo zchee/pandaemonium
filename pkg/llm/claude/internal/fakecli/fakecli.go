@@ -21,8 +21,8 @@
 // inspected after the fact with [FakeCLI.Written].
 //
 // Tests import this package and pass the returned *FakeCLI directly as a
-// transport value inside tests in the pkg/llm/claude package (same-package access
-// to the unexported transport interface).
+// transport value inside tests in the pkg/llm/claude package (it implements
+// the shared pkg/llm Transport interface).
 package fakecli
 
 import (
@@ -52,8 +52,8 @@ type writeHook struct {
 	respond func() []string
 }
 
-// FakeCLI is a hermetic transport double that implements the pkg/llm/claude
-// transport interface (Close + WriteJSON + ReadJSON) without launching a
+// FakeCLI is a hermetic transport double that implements the shared pkg/llm
+// Transport interface (Close + WriteJSON + ReadJSON) without launching a
 // real subprocess.
 //
 // Create with [New]; close automatically via t.Cleanup.
@@ -101,7 +101,7 @@ func New(t *testing.T, script []Frame) *FakeCLI {
 // Close signals EOF to any pending ReadJSON call and prevents further writes.
 // Idempotent; t.Cleanup calls it automatically.
 //
-//nolint:unparam // Close() error satisfies the pkg/llm/claude transport interface; this double cannot fail but must match the signature.
+//nolint:unparam // Close() error satisfies the shared llm.Transport interface; this double cannot fail but must match the signature.
 func (f *FakeCLI) Close() error {
 	f.closeOnce.Do(func() { close(f.closed) })
 	return nil

@@ -25,6 +25,8 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 const (
@@ -264,7 +266,7 @@ func (n ExecServerProcessClosedNotification) SeqValue() uint64 { return n.Seq }
 
 // ExecServerClient is a lightweight JSON-RPC client for the local exec-server protocol.
 type ExecServerClient struct {
-	transport atomic.Pointer[Transport]
+	transport atomic.Pointer[llm.Transport]
 
 	closeMu  sync.Mutex
 	rpcState *jsonRPCClientState
@@ -276,7 +278,7 @@ type ExecServerClient struct {
 }
 
 // NewExecServerClient constructs a client around an existing transport.
-func NewExecServerClient(ctx context.Context, transport Transport) *ExecServerClient {
+func NewExecServerClient(ctx context.Context, transport llm.Transport) *ExecServerClient {
 	client := &ExecServerClient{
 		rpcState:      newJSONRPCClientState(),
 		processQueues: map[ProcessID]*execServerProcessQueue{},
@@ -387,7 +389,7 @@ func request[T any](ctx context.Context, c *ExecServerClient, method string, par
 	return result, nil
 }
 
-func (c *ExecServerClient) loadTransport() Transport {
+func (c *ExecServerClient) loadTransport() llm.Transport {
 	p := c.transport.Load()
 	if p == nil {
 		return nil
@@ -395,7 +397,7 @@ func (c *ExecServerClient) loadTransport() Transport {
 	return *p
 }
 
-func (c *ExecServerClient) storeTransport(t Transport) {
+func (c *ExecServerClient) storeTransport(t llm.Transport) {
 	if t == nil {
 		c.transport.Store(nil)
 		return
@@ -419,7 +421,7 @@ func (c *ExecServerClient) writeMessage(ctx context.Context, payload any) error 
 	return t.WriteJSON(ctx, line)
 }
 
-func (c *ExecServerClient) readMessage(ctx context.Context, t Transport) (rpcMessage, error) {
+func (c *ExecServerClient) readMessage(ctx context.Context, t llm.Transport) (rpcMessage, error) {
 	if t == nil {
 		return rpcMessage{}, &TransportClosedError{Message: execServerTransportClosedMessage}
 	}
@@ -439,7 +441,7 @@ func (c *ExecServerClient) readMessage(ctx context.Context, t Transport) (rpcMes
 	return msg, nil
 }
 
-func (c *ExecServerClient) readLoop(ctx context.Context, t Transport, done chan<- struct{}) {
+func (c *ExecServerClient) readLoop(ctx context.Context, t llm.Transport, done chan<- struct{}) {
 	defer close(done)
 
 	for {

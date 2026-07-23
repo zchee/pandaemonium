@@ -16,32 +16,10 @@ package claude
 
 import (
 	"bufio"
-	"context"
 	"io"
 
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
-
-// transport is the low-level read/write interface for the claude CLI subprocess.
-//
-// The interface is intentionally unexported so callers cannot bypass the
-// race-safety discipline enforced by ClaudeSDKClient. Implementations must be
-// safe for concurrent calls to WriteJSON; ReadJSON is called only from the
-// single readLoop goroutine.
-//
-// Matches the exported Transport interface in pkg/llm/codex/client_transport.go.
-type transport interface {
-	io.Closer
-
-	// WriteJSON writes a newline-terminated JSON payload to the subprocess stdin.
-	WriteJSON(ctx context.Context, p []byte) error
-
-	// ReadJSON reads the next newline-terminated JSON payload from the subprocess
-	// stdout. It returns io.EOF when the stream ends cleanly.
-	ReadJSON(ctx context.Context) ([]byte, error)
-}
-
-var _ transport = (*llm.StdioTransport)(nil)
 
 // newStdioTransport returns the stdio-backed transport for a launched claude
 // CLI subprocess, wiring [CLIConnectionError] into the shared

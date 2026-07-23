@@ -21,6 +21,19 @@ import (
 	"io"
 )
 
+// Transport is a bidirectional newline-delimited JSON message transport
+// between an SDK client and its CLI/server process.
+//
+// WriteJSON writes one newline-terminated JSON payload; ReadJSON returns the
+// next payload and io.EOF when the stream ends cleanly. Implementations rely
+// on the owning client to serialize WriteJSON calls (write mutex or gate),
+// and ReadJSON is called only from the single read-loop goroutine.
+type Transport interface {
+	io.Closer
+	WriteJSON(ctx context.Context, data []byte) error
+	ReadJSON(ctx context.Context) ([]byte, error)
+}
+
 // errStdioTransportClosed is the fallback closed-stream error used when a
 // StdioTransport is built without a ClosedErr.
 var errStdioTransportClosed = errors.New("llm: stdio transport closed")
@@ -48,6 +61,8 @@ type StdioTransport struct {
 	// type. A nil WrapWriteErr returns the underlying error unchanged.
 	WrapWriteErr WrapErrorFunc
 }
+
+var _ Transport = (*StdioTransport)(nil)
 
 // Close closes the subprocess stdin pipe, signaling EOF to the child process.
 func (t *StdioTransport) Close() error {

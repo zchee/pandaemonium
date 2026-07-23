@@ -37,22 +37,13 @@ import (
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
-// Transport represents a bidirectional JSON message Transport between the client and the app-server.
-type Transport interface {
-	io.Closer
-	WriteJSON(ctx context.Context, data []byte) error
-	ReadJSON(ctx context.Context) ([]byte, error)
-}
-
 const defaultCloseTimeout = 10 * time.Second
 
 type deadlineTransport interface {
 	closeByDeadline(deadline time.Time) error
 }
 
-var _ Transport = (*llm.StdioTransport)(nil)
-
-// newStdioTransport returns the stdio-backed [Transport] for a launched
+// newStdioTransport returns the stdio-backed [llm.Transport] for a launched
 // app-server process, wiring [TransportClosedError] into the shared
 // [llm.StdioTransport].
 //
@@ -86,9 +77,9 @@ type websocketTransport struct {
 	beforeTerminate func()
 }
 
-var _ Transport = (*websocketTransport)(nil)
+var _ llm.Transport = (*websocketTransport)(nil)
 
-// Close implements [Transport].
+// Close implements [llm.Transport].
 func (t *websocketTransport) Close() error {
 	if t == nil || t.conn == nil || t.raw == nil {
 		return nil
@@ -142,7 +133,7 @@ func ignorableShutdownError(err error) bool {
 	return ok && netErr.Timeout()
 }
 
-// WriteJSON implements [Transport].
+// WriteJSON implements [llm.Transport].
 func (t *websocketTransport) WriteJSON(ctx context.Context, data []byte) error {
 	if t == nil || t.conn == nil {
 		return &TransportClosedError{Message: "app-server is not running"}
@@ -165,7 +156,7 @@ func (t *websocketTransport) WriteJSON(ctx context.Context, data []byte) error {
 	return nil
 }
 
-// ReadJSON implements [Transport].
+// ReadJSON implements [llm.Transport].
 func (t *websocketTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	if t == nil || t.conn == nil {
 		return nil, &TransportClosedError{Message: "app-server is not running"}

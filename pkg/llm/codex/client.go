@@ -122,7 +122,7 @@ type Client struct {
 	stdout       *bufio.Reader
 	stdoutCloser io.Closer // raw stdout pipe; Close() closes this to unblock ReadJSON on ctx cancel
 	stderr       io.ReadCloser
-	transport    atomic.Pointer[Transport]
+	transport    atomic.Pointer[llm.Transport]
 	cmdDone      chan error
 
 	closeMu     sync.Mutex
@@ -958,7 +958,7 @@ func (c *Client) effectiveEnv() map[string]string {
 	return env
 }
 
-func (c *Client) loadTransport() Transport {
+func (c *Client) loadTransport() llm.Transport {
 	p := c.transport.Load()
 	if p == nil {
 		return nil
@@ -966,7 +966,7 @@ func (c *Client) loadTransport() Transport {
 	return *p
 }
 
-func (c *Client) storeTransport(t Transport) {
+func (c *Client) storeTransport(t llm.Transport) {
 	if t == nil {
 		c.transport.Store(nil)
 		return
@@ -990,7 +990,7 @@ func (c *Client) writeMessage(ctx context.Context, payload any) error {
 	return t.WriteJSON(ctx, line)
 }
 
-func (c *Client) readMessage(ctx context.Context, t Transport) (rpcMessage, error) {
+func (c *Client) readMessage(ctx context.Context, t llm.Transport) (rpcMessage, error) {
 	if t == nil {
 		return rpcMessage{}, &TransportClosedError{Message: "app-server is not running"}
 	}
@@ -1018,7 +1018,7 @@ func (c *Client) handleServerRequest(msg *rpcMessage) Object {
 	return Object{"id": msg.ID, "result": result}
 }
 
-func (c *Client) readLoop(ctx context.Context, t Transport, done chan<- struct{}) {
+func (c *Client) readLoop(ctx context.Context, t llm.Transport, done chan<- struct{}) {
 	defer close(done)
 	defer c.turnRouter.close(&TransportClosedError{Message: "app-server notification stream closed"})
 

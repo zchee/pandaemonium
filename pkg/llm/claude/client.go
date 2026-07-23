@@ -109,7 +109,7 @@ type ClaudeSDKClient struct {
 	// point. Thereafter it is read under writeMu (writes) and snapshot-captured
 	// under closeMu (the readLoop goroutine argument); its non-nil→nil clear
 	// happens under writeMu in Close. See race-safety documentation above.
-	transport transport
+	transport llm.Transport
 
 	// cp is the control-protocol layer bound to this client's transport. It is
 	// constructed in start under closeMu and passed to readLoop as a goroutine
@@ -450,7 +450,7 @@ func terminateProcess(cmd *exec.Cmd, cmdDone chan error) {
 // cmd and cmdDone may be nil for test transports that do not back a real
 // subprocess (e.g. FakeCLI). stderrR may be nil; if so, stderrDone is
 // closed immediately.
-func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd, cmdDone chan error, stderrR io.Reader) {
+func (c *ClaudeSDKClient) start(ctx context.Context, t llm.Transport, cmd *exec.Cmd, cmdDone chan error, stderrR io.Reader) {
 	// Assigning c.transport and c.cp here (rather than under writeMu) is safe:
 	// start runs with closeMu held, before readLoop is launched and before
 	// writeMessage can be called, so there is no concurrent reader yet. The
@@ -578,7 +578,7 @@ func (c *ClaudeSDKClient) writeMessage(ctx context.Context, data []byte) error {
 // The goroutine argument t MUST be the snapshot captured under closeMu — it
 // never reads c.transport directly. This is the core of the race-safety
 // discipline from pkg/llm/codex commit 8c16376.
-func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *controlProtocol, rawMessages *rawMessageBuffer, done chan<- struct{}) {
+func (c *ClaudeSDKClient) readLoop(ctx context.Context, t llm.Transport, cp *controlProtocol, rawMessages *rawMessageBuffer, done chan<- struct{}) {
 	defer close(done)
 	for {
 		line, err := t.ReadJSON(ctx)
