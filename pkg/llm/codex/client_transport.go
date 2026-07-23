@@ -142,11 +142,24 @@ func (t *websocketTransport) closeByDeadline(deadline time.Time) error {
 			t.readGate <- struct{}{}
 		}
 		_ = t.closeRaw()
-		if errors.Is(t.shutdownErr, net.ErrClosed) || errors.Is(t.shutdownErr, io.ErrClosedPipe) || errors.Is(t.shutdownErr, os.ErrDeadlineExceeded) || errors.Is(t.shutdownErr, gows.ErrCloseTimeout) || errors.Is(t.shutdownErr, context.DeadlineExceeded) {
+		if ignorableShutdownError(t.shutdownErr) {
 			t.shutdownErr = nil
 		}
 	})
 	return t.shutdownErr
+}
+
+// ignorableShutdownError reports whether a close-handshake failure is an
+// expected teardown outcome (the connection is already gone or the close
+// budget is spent) rather than an actionable transport fault. Timeouts are
+// matched through [net.Error] so deadline errors count however the platform
+// wraps them; [os.ErrDeadlineExceeded] itself satisfies that interface.
+func ignorableShutdownError(err error) bool {
+	if errors.Is(err, net.ErrClosed) || errors.Is(err, io.ErrClosedPipe) || errors.Is(err, gows.ErrCloseTimeout) || errors.Is(err, context.DeadlineExceeded) {
+		return true
+	}
+	netErr, ok := errors.AsType[net.Error](err)
+	return ok && netErr.Timeout()
 }
 
 // WriteJSON implements [Transport].
@@ -403,10 +416,15 @@ func urlSecrets(u *url.URL) []string {
 	return secrets
 }
 
+// minRedactorSecretLen drops URL-derived fragments too short to identify a
+// credential: single-character query keys or values such as "v" or "1" would
+// substring-match harmless peer reasons and over-redact them.
+const minRedactorSecretLen = 4
+
 func (r transportRedactor) clone() transportRedactor {
 	cloned := transportRedactor{secrets: make([]string, 0, len(r.secrets))}
 	for _, secret := range r.secrets {
-		if secret = strings.TrimSpace(secret); secret != "" {
+		if secret = strings.TrimSpace(secret); len(secret) >= minRedactorSecretLen {
 			cloned.secrets = append(cloned.secrets, secret)
 		}
 	}

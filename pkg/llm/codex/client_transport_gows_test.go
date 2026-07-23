@@ -21,6 +21,8 @@ import (
 	"io"
 	"net"
 	"net/http"
+	"net/url"
+	"os"
 	"strings"
 	"sync"
 	"sync/atomic"
@@ -373,6 +375,99 @@ func TestWebSocketTypedPeerErrorsAreSanitized(t *testing.T) {
 	}
 }
 
+func TestTransportRedactorDropsShortURLFragments(t *testing.T) {
+	t.Parallel()
+	u, err := url.Parse("ws://host.invalid/socket?v=1&id=7&session=longer-query-secret")
+	if err != nil {
+		t.Fatalf("url.Parse() error = %v", err)
+	}
+	redactor := newTransportRedactor(u, "cap-secret-value")
+
+	tests := map[string]struct {
+		reason string
+		want   string
+	}{
+		"success: short query fragments keep harmless reasons intact": {
+			reason: "invalid payload",
+			want:   "invalid payload",
+		},
+		"success: long query value still redacts": {
+			reason: "denied longer-query-secret",
+			want:   "[redacted peer reason]",
+		},
+		"success: dial token still redacts": {
+			reason: "denied cap-secret-value",
+			want:   "[redacted peer reason]",
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got := redactor.sanitize(tt.reason); got != tt.want {
+				t.Fatalf("sanitize(%q) = %q, want %q", tt.reason, got, tt.want)
+			}
+		})
+	}
+}
+
+func TestIgnorableShutdownError(t *testing.T) {
+	t.Parallel()
+
+	tests := map[string]struct {
+		err  error
+		want bool
+	}{
+		"success: nil error is not ignorable": {
+			err:  nil,
+			want: false,
+		},
+		"success: closed connection is ignorable": {
+			err:  fmt.Errorf("close handshake: %w", net.ErrClosed),
+			want: true,
+		},
+		"success: closed pipe is ignorable": {
+			err:  io.ErrClosedPipe,
+			want: true,
+		},
+		"success: gows close timeout is ignorable": {
+			err:  gows.ErrCloseTimeout,
+			want: true,
+		},
+		"success: context deadline is ignorable": {
+			err:  fmt.Errorf("close handshake: %w", context.DeadlineExceeded),
+			want: true,
+		},
+		"success: bare os deadline satisfies net.Error timeout": {
+			err:  os.ErrDeadlineExceeded,
+			want: true,
+		},
+		"success: wrapped net.OpError timeout is ignorable": {
+			err:  &net.OpError{Op: "read", Net: "tcp", Err: os.ErrDeadlineExceeded},
+			want: true,
+		},
+		"success: platform-wrapped net.Error timeout is ignorable": {
+			err:  fmt.Errorf("close handshake: %w", &fakeNetError{timeout: true}),
+			want: true,
+		},
+		"error: non-timeout net.Error stays actionable": {
+			err:  &fakeNetError{timeout: false},
+			want: false,
+		},
+		"error: generic failure stays actionable": {
+			err:  errors.New("tls: handshake failure"),
+			want: false,
+		},
+	}
+	for name, tt := range tests {
+		t.Run(name, func(t *testing.T) {
+			t.Parallel()
+			if got := ignorableShutdownError(tt.err); got != tt.want {
+				t.Fatalf("ignorableShutdownError(%v) = %t, want %t", tt.err, got, tt.want)
+			}
+		})
+	}
+}
+
 func TestWebSocketTransportCancellationCloseRaceReturnsCanonicalError(t *testing.T) {
 	t.Parallel()
 	transport, _ := newPipeWebSocketTransport(t)
@@ -464,6 +559,14 @@ func TestWebSocketTransportReadLimitBoundary(t *testing.T) {
 		})
 	}
 }
+
+type fakeNetError struct {
+	timeout bool
+}
+
+func (e *fakeNetError) Error() string   { return "fake network error" }
+func (e *fakeNetError) Timeout() bool   { return e.timeout }
+func (e *fakeNetError) Temporary() bool { return false }
 
 type closeCountingConn struct {
 	net.Conn
