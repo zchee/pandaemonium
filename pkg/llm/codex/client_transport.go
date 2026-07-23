@@ -78,10 +78,10 @@ func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
 
 // ReadJSON implements [Transport].
 func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
-	// The goroutine in ReadJSONLineContext is orphaned when ctx is cancelled; it
+	// The goroutine in ReadJSONLine is orphaned when ctx is cancelled; it
 	// exits naturally when [stdioTransport.Close] closes stdoutCloser (the raw
 	// stdout pipe), which causes ReadBytes to return an error.
-	return llm.ReadJSONLineContext(
+	return llm.ReadJSONLine(
 		ctx,
 		t.stdout,
 		func() error { return &TransportClosedError{Message: "app-server is not running"} },

@@ -44,14 +44,11 @@ func WriteJSONLine(stdin io.Writer, data []byte, closedErr ErrorFunc, writeErr W
 	return nil
 }
 
-// ReadJSONLine reads the next newline-terminated JSON line from stdout.
+// readJSONLine reads the next newline-terminated JSON line from stdout.
 //
 // EOF is normalized to io.EOF so SDK packages can share their clean shutdown
 // handling while still supplying package-specific closed-stream errors.
-func ReadJSONLine(stdout *bufio.Reader, closedErr ErrorFunc) ([]byte, error) {
-	if stdout == nil {
-		return nil, closedErr()
-	}
+func readJSONLine(stdout *bufio.Reader) ([]byte, error) {
 	line, err := stdout.ReadBytes('\n')
 	if err != nil {
 		if errors.Is(err, io.EOF) {
@@ -62,11 +59,11 @@ func ReadJSONLine(stdout *bufio.Reader, closedErr ErrorFunc) ([]byte, error) {
 	return line, nil
 }
 
-// ReadJSONLineContext reads one JSON line and returns ctx.Err if ctx is
+// ReadJSONLine reads one JSON line and returns ctx.Err if ctx is
 // cancelled before the line is available.
 //
 // The read goroutine exits naturally when the underlying reader is closed.
-func ReadJSONLineContext(ctx context.Context, stdout *bufio.Reader, closedErr ErrorFunc) ([]byte, error) {
+func ReadJSONLine(ctx context.Context, stdout *bufio.Reader, closedErr ErrorFunc) ([]byte, error) {
 	if stdout == nil {
 		return nil, closedErr()
 	}
@@ -76,7 +73,7 @@ func ReadJSONLineContext(ctx context.Context, stdout *bufio.Reader, closedErr Er
 	}
 	done := make(chan result, 1)
 	go func() {
-		line, err := ReadJSONLine(stdout, closedErr)
+		line, err := readJSONLine(stdout)
 		done <- result{data: line, err: err}
 	}()
 

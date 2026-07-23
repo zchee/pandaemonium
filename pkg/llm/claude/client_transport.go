@@ -74,8 +74,9 @@ func (t *stdioTransport) WriteJSON(_ context.Context, p []byte) error {
 
 // ReadJSON reads the next newline-terminated line from the subprocess stdout.
 // Returns io.EOF when the subprocess closes its stdout.
-func (t *stdioTransport) ReadJSON(_ context.Context) ([]byte, error) {
+func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
 	return llm.ReadJSONLine(
+		ctx,
 		t.stdout,
 		func() error { return &CLIConnectionError{Message: "\"claude\" is not running"} },
 	)
