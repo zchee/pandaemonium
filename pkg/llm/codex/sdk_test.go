@@ -686,12 +686,9 @@ func TestClientDrainsStderrTailOverflow(t *testing.T) {
 		go client.drainStderr(strings.NewReader(stderr.String()), done)
 		<-done
 
-		client.stderrMu.Lock()
-		if got := len(client.stderrLines); got != 400 {
-			client.stderrMu.Unlock()
+		if got := len(client.stderrBuf.Lines()); got != 400 {
 			t.Fatalf("stderr line count = %d, want 400", got)
 		}
-		client.stderrMu.Unlock()
 
 		got := strings.Split(client.stderrTail(5), "\n")
 		want := []string{"line-396", "line-397", "line-398", "line-399", "line-400"}

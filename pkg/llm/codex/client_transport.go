@@ -50,42 +50,22 @@ type deadlineTransport interface {
 	closeByDeadline(deadline time.Time) error
 }
 
-// stdioTransport represents a bidirectional JSON message transport over the app-server process's standard input and output streams.
-type stdioTransport struct {
-	stdin  io.WriteCloser
-	stdout *bufio.Reader
-}
+var _ Transport = (*llm.StdioTransport)(nil)
 
-var _ Transport = (*stdioTransport)(nil)
-
-// Close implements [Transport].
-func (t *stdioTransport) Close() error {
-	if t.stdin != nil {
-		return t.stdin.Close()
+// newStdioTransport returns the stdio-backed [Transport] for a launched
+// app-server process, wiring [TransportClosedError] into the shared
+// [llm.StdioTransport].
+//
+// The read goroutine orphaned when ReadJSON's ctx is cancelled exits
+// naturally when [Client.Close] closes stdoutCloser (the raw stdout pipe),
+// which causes the blocked read to return an error.
+func newStdioTransport(stdin io.WriteCloser, stdout *bufio.Reader) *llm.StdioTransport {
+	return &llm.StdioTransport{
+		Stdin:        stdin,
+		Stdout:       stdout,
+		ClosedErr:    func() error { return &TransportClosedError{Message: "app-server is not running"} },
+		WrapWriteErr: func(err error) error { return &TransportClosedError{Message: err.Error()} },
 	}
-	return nil
-}
-
-// WriteJSON implements [Transport].
-func (t *stdioTransport) WriteJSON(_ context.Context, data []byte) error {
-	return llm.WriteJSONLine(
-		t.stdin,
-		data,
-		func() error { return &TransportClosedError{Message: "app-server is not running"} },
-		func(err error) error { return &TransportClosedError{Message: err.Error()} },
-	)
-}
-
-// ReadJSON implements [Transport].
-func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
-	// The goroutine in ReadJSONLine is orphaned when ctx is cancelled; it
-	// exits naturally when [stdioTransport.Close] closes stdoutCloser (the raw
-	// stdout pipe), which causes ReadBytes to return an error.
-	return llm.ReadJSONLine(
-		ctx,
-		t.stdout,
-		func() error { return &TransportClosedError{Message: "app-server is not running"} },
-	)
 }
 
 // websocketTransport represents a bidirectional JSON message transport over a websocket connection to the app-server.

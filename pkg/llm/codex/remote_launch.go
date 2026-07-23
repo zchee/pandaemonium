@@ -170,8 +170,7 @@ type RemoteAppServer struct {
 
 	proc *trackedCommand
 
-	stderrMu    sync.Mutex
-	stderrLines []string
+	stderrBuf *llm.LineBuffer
 
 	mu        sync.Mutex
 	attached  []*trackedCommand
@@ -297,6 +296,7 @@ func LaunchRemoteAppServer(ctx context.Context, cfg *RemoteAppServerConfig) (*Re
 		removeSocketOnClose: kind == listenTransportUnixWebSocket && socketPath != "" && remoteEndpointHasExplicitPath(cfg.Listen.URL),
 		bearerToken:         bearerToken,
 		env:                 env,
+		stderrBuf:           llm.NewLineBuffer(remoteStderrTailLines),
 	}
 
 	stderr, err := cmd.StderrPipe()
@@ -442,9 +442,7 @@ func (s *RemoteAppServer) StartCodexWithCmd(cmd *exec.Cmd) (*AttachedCodex, erro
 
 // StderrTail returns the most recent n server stderr lines joined by newlines.
 func (s *RemoteAppServer) StderrTail(n int) string {
-	s.stderrMu.Lock()
-	defer s.stderrMu.Unlock()
-	return llm.Tail(s.stderrLines, n)
+	return s.stderrBuf.Tail(n)
 }
 
 // Wait blocks until the server child exits and returns its exit error. It is
@@ -499,9 +497,7 @@ func (s *RemoteAppServer) reapAttached(tracked *trackedCommand) {
 func (s *RemoteAppServer) drainStderr(stderr io.Reader, mirror io.Writer, done chan<- struct{}) {
 	defer close(done)
 	llm.DrainLines(stderr, func(line string) {
-		s.stderrMu.Lock()
-		s.stderrLines = llm.AppendBoundedLine(s.stderrLines, line, remoteStderrTailLines)
-		s.stderrMu.Unlock()
+		s.stderrBuf.Append(line)
 		if mirror != nil {
 			_, _ = io.WriteString(mirror, line+"\n")
 		}

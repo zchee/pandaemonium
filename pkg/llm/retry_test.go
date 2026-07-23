@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package opencode
+package llm
 
 import (
 	"context"
@@ -21,11 +21,35 @@ import (
 	"time"
 )
 
-func retryableBusyError() error {
-	return &ServerBusyError{APIError: &APIError{StatusCode: 429, Method: "POST", Path: "/session"}}
+// errTransient stands in for a package-specific retryable error.
+var errTransient = errors.New("transient overload")
+
+func isTransient(err error) bool { return errors.Is(err, errTransient) }
+
+func TestRetryConfigWithDefaults(t *testing.T) {
+	t.Parallel()
+
+	cfg := RetryConfig{}.WithDefaults()
+	if cfg.MaxAttempts != 3 {
+		t.Errorf("MaxAttempts = %d, want 3", cfg.MaxAttempts)
+	}
+	if cfg.InitialDelay != 250*time.Millisecond {
+		t.Errorf("InitialDelay = %v, want 250ms", cfg.InitialDelay)
+	}
+	if cfg.MaxDelay != 2*time.Second {
+		t.Errorf("MaxDelay = %v, want 2s", cfg.MaxDelay)
+	}
+	if cfg.JitterRatio != 0.2 {
+		t.Errorf("JitterRatio = %v, want 0.2", cfg.JitterRatio)
+	}
+
+	negative := RetryConfig{JitterRatio: -1}.WithDefaults()
+	if negative.JitterRatio != 0 {
+		t.Errorf("negative JitterRatio = %v, want 0 (disabled)", negative.JitterRatio)
+	}
 }
 
-func TestRetryOnOverload(t *testing.T) {
+func TestRetryOn(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
@@ -41,7 +65,7 @@ func TestRetryOnOverload(t *testing.T) {
 		},
 		"success: retryable failures then success": {
 			cfg:       RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
-			results:   []error{retryableBusyError(), retryableBusyError(), nil},
+			results:   []error{errTransient, errTransient, nil},
 			wantCalls: 3,
 		},
 		"error: non-retryable error stops immediately": {
@@ -52,7 +76,7 @@ func TestRetryOnOverload(t *testing.T) {
 		},
 		"error: attempts exhausted returns last error": {
 			cfg:       RetryConfig{MaxAttempts: 2, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
-			results:   []error{retryableBusyError(), retryableBusyError()},
+			results:   []error{errTransient, errTransient},
 			wantCalls: 2,
 			wantErr:   true,
 		},
@@ -69,7 +93,7 @@ func TestRetryOnOverload(t *testing.T) {
 			t.Parallel()
 
 			calls := 0
-			got, err := RetryOnOverload(t.Context(), tt.cfg, func() (string, error) {
+			got, err := RetryOn(t.Context(), tt.cfg, isTransient, func() (string, error) {
 				result := tt.results[calls]
 				calls++
 				if result != nil {
@@ -90,20 +114,53 @@ func TestRetryOnOverload(t *testing.T) {
 	}
 }
 
-func TestRetryOnOverloadContextCancel(t *testing.T) {
+func TestRetryOnContextCancel(t *testing.T) {
 	t.Parallel()
 
 	ctx, cancel := context.WithCancel(t.Context())
 	calls := 0
-	_, err := RetryOnOverload(ctx, RetryConfig{MaxAttempts: 5, InitialDelay: time.Hour, MaxDelay: time.Hour}, func() (int, error) {
+	_, err := RetryOn(ctx, RetryConfig{MaxAttempts: 5, InitialDelay: time.Hour, MaxDelay: time.Hour}, isTransient, func() (int, error) {
 		calls++
 		cancel() // cancel while the retry loop would sleep
-		return 0, retryableBusyError()
+		return 0, errTransient
 	})
 	if !errors.Is(err, context.Canceled) {
 		t.Fatalf("err = %v, want context.Canceled", err)
 	}
 	if calls != 1 {
 		t.Errorf("op called %d times, want 1 (canceled during backoff)", calls)
+	}
+}
+
+func TestRetryBackoffDoublesAndClamps(t *testing.T) {
+	t.Parallel()
+
+	cfg := RetryConfig{
+		MaxAttempts:  4,
+		InitialDelay: time.Millisecond,
+		MaxDelay:     4 * time.Millisecond,
+		JitterRatio:  -1, // deterministic: jitter disabled
+	}.WithDefaults()
+
+	delay := cfg.InitialDelay
+	var observed []time.Duration
+	for range 3 {
+		start := time.Now()
+		next, err := cfg.SleepDelay(t.Context(), delay)
+		if err != nil {
+			t.Fatalf("SleepDelay: %v", err)
+		}
+		observed = append(observed, time.Since(start))
+		delay = next
+	}
+
+	// 1ms -> 2ms -> 4ms doubling, clamped at MaxDelay for the follow-up.
+	if delay != cfg.MaxDelay {
+		t.Errorf("final delay = %v, want clamped %v", delay, cfg.MaxDelay)
+	}
+	for i, slept := range observed {
+		if slept > 500*time.Millisecond {
+			t.Errorf("sleep %d took %v; backoff not bounded", i, slept)
+		}
 	}
 }

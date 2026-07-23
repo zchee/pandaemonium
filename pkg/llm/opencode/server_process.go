@@ -61,9 +61,8 @@ var errAnnounceTimeout = errors.New("opencode serve announce line not observed")
 type serverProcess struct {
 	cmd *exec.Cmd
 
-	mu          sync.Mutex
-	stdoutLines []string
-	stderrLines []string
+	stdoutBuf *llm.LineBuffer
+	stderrBuf *llm.LineBuffer
 
 	drained  sync.WaitGroup
 	waitOnce sync.Once
@@ -132,15 +131,17 @@ func spawnServer(ctx context.Context, cfg *Config, port int) (*serverProcess, st
 		return nil, "", fmt.Errorf("opencode: start %s serve: %w", cfg.OpencodeBin, err)
 	}
 
-	proc := &serverProcess{cmd: cmd}
+	proc := &serverProcess{
+		cmd:       cmd,
+		stdoutBuf: llm.NewLineBuffer(serverOutputMaxLines),
+		stderrBuf: llm.NewLineBuffer(serverOutputMaxLines),
+	}
 	announceCh := make(chan string, 1)
 	proc.drained.Add(2)
 	go func() {
 		defer proc.drained.Done()
 		llm.DrainLines(stdout, func(line string) {
-			proc.mu.Lock()
-			proc.stdoutLines = llm.AppendBoundedLine(proc.stdoutLines, line, serverOutputMaxLines)
-			proc.mu.Unlock()
+			proc.stdoutBuf.Append(line)
 			if match := announceLineRE.FindStringSubmatch(line); match != nil {
 				select {
 				case announceCh <- match[1]:
@@ -152,9 +153,7 @@ func spawnServer(ctx context.Context, cfg *Config, port int) (*serverProcess, st
 	go func() {
 		defer proc.drained.Done()
 		llm.DrainLines(stderr, func(line string) {
-			proc.mu.Lock()
-			proc.stderrLines = llm.AppendBoundedLine(proc.stderrLines, line, serverOutputMaxLines)
-			proc.mu.Unlock()
+			proc.stderrBuf.Append(line)
 		})
 	}()
 
@@ -180,9 +179,7 @@ func spawnServer(ctx context.Context, cfg *Config, port int) (*serverProcess, st
 // outputTail returns recent child output for diagnostics. The password never
 // appears here: the child receives it via env and does not echo it.
 func (p *serverProcess) outputTail() string {
-	p.mu.Lock()
-	defer p.mu.Unlock()
-	return llm.Tail(p.stdoutLines, 20) + "\n" + llm.Tail(p.stderrLines, 20)
+	return p.stdoutBuf.Tail(20) + "\n" + p.stderrBuf.Tail(20)
 }
 
 // wait reaps the child exactly once, after both pipe drains complete (the
@@ -201,21 +198,10 @@ func (p *serverProcess) Close() error {
 	if p == nil || p.cmd == nil || p.cmd.Process == nil {
 		return nil
 	}
-	_ = p.cmd.Process.Signal(syscall.SIGTERM)
-
 	waitCh := make(chan error, 1)
 	go func() { waitCh <- p.wait() }()
-
-	timer := time.NewTimer(serverStopTimeout)
-	defer timer.Stop()
-	select {
-	case <-waitCh:
-		return nil
-	case <-timer.C:
-		_ = p.cmd.Process.Kill()
-		<-waitCh
-		return nil
-	}
+	llm.TerminateCommand(p.cmd, waitCh, syscall.SIGTERM, time.Now().Add(serverStopTimeout), time.Time{})
+	return nil
 }
 
 // reserveLoopbackPort binds host:0, records the assigned port, and releases

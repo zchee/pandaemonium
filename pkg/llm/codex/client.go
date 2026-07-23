@@ -130,8 +130,7 @@ type Client struct {
 	closeNow    func() time.Time
 	rpcState    *jsonRPCClientState
 	turnRouter  *turnNotificationRouter
-	stderrMu    sync.Mutex
-	stderrLines []string
+	stderrBuf   *llm.LineBuffer
 	stderrDone  chan struct{}
 	readDone    chan struct{}
 }
@@ -164,6 +163,7 @@ func NewClient(config *Config, approvalHandler ApprovalHandler) *Client {
 		closeNow:        time.Now,
 		rpcState:        newJSONRPCClientState(),
 		turnRouter:      newTurnNotificationRouter(),
+		stderrBuf:       llm.NewLineBuffer(maxStderrLines),
 		stderrDone:      make(chan struct{}),
 		readDone:        make(chan struct{}),
 	}
@@ -302,7 +302,7 @@ func (c *Client) startWebSocketTransport(ctx context.Context, cmd *exec.Cmd, ser
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", serverName, err)
 	}
-	cmdDone := waitForCommand(cmd)
+	cmdDone := llm.WaitForCommand(cmd)
 	go c.drainStderr(stderr, c.stderrDone)
 	c.stderr = stderr
 	conn, err := dialWebSocketWithWait(ctx, cmdDone, listenURL, listenCfg.WebSocket, effectiveEnv, c.config.Cwd)
@@ -337,13 +337,13 @@ func (c *Client) startStdioTransport(cmd *exec.Cmd, serverName string) error {
 	if err := cmd.Start(); err != nil {
 		return fmt.Errorf("start %s: %w", serverName, err)
 	}
-	c.cmdDone = waitForCommand(cmd)
+	c.cmdDone = llm.WaitForCommand(cmd)
 	c.cmd = cmd
 	c.stderr = stderr
 	c.stdin = stdin
 	c.stdout = bufio.NewReader(stdout)
 	c.stdoutCloser = stdout
-	c.storeTransport(&stdioTransport{stdin: stdin, stdout: c.stdout})
+	c.storeTransport(newStdioTransport(stdin, c.stdout))
 	go c.drainStderr(stderr, c.stderrDone)
 	return nil
 }
@@ -402,31 +402,12 @@ func (c *Client) Close() error {
 		_ = stderr.Close()
 	}
 
-	terminateCommand(cmd, cmdDone, deadlines.interrupt, deadlines.process)
+	llm.TerminateCommand(cmd, cmdDone, os.Interrupt, deadlines.interrupt, deadlines.process)
 
-	_ = waitUntil(readDone, deadlines.read)
-	_ = waitUntil(stderrDone, deadlines.stderr)
+	_ = llm.WaitUntil(readDone, deadlines.read)
+	_ = llm.WaitUntil(stderrDone, deadlines.stderr)
 
 	return nil
-}
-
-func terminateCommand(cmd *exec.Cmd, done <-chan error, interruptDeadline, processDeadline time.Time) {
-	if cmd == nil {
-		return
-	}
-	if cmd.Process != nil {
-		_ = cmd.Process.Signal(os.Interrupt)
-	}
-	if done == nil {
-		done = waitForCommand(cmd)
-	}
-	if waitUntil(done, interruptDeadline) {
-		return
-	}
-	if cmd.Process != nil {
-		_ = cmd.Process.Kill()
-	}
-	_ = waitUntil(done, processDeadline)
 }
 
 type clientCloseBudget struct {
@@ -482,29 +463,6 @@ func (b clientCloseBudget) deadlines(start time.Time) clientCloseDeadlines {
 		process:   process,
 		read:      read,
 		stderr:    read.Add(b.stderr),
-	}
-}
-
-func waitUntil[T any](done <-chan T, deadline time.Time) bool {
-	if done == nil {
-		return false
-	}
-	remaining := time.Until(deadline)
-	if remaining <= 0 {
-		select {
-		case <-done:
-			return true
-		default:
-			return false
-		}
-	}
-	timer := time.NewTimer(remaining)
-	defer timer.Stop()
-	select {
-	case <-done:
-		return true
-	case <-timer.C:
-		return false
 	}
 }
 
@@ -983,15 +941,6 @@ func validateListenConfig(listenCfg ListenConfig, kind listenTransportKind, list
 	}
 }
 
-func waitForCommand(cmd *exec.Cmd) chan error {
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-		close(done)
-	}()
-	return done
-}
-
 func (c *Client) effectiveListenConfig() ListenConfig {
 	return c.config.Listen
 }
@@ -1113,20 +1062,18 @@ func (c *Client) failPending(err error) {
 	c.rpcState.failPending(err)
 }
 
+// maxStderrLines bounds the retained stderr tail ring.
+const maxStderrLines = 400
+
 func (c *Client) drainStderr(stderr io.Reader, done chan<- struct{}) {
 	defer close(done)
 	llm.DrainLines(stderr, func(line string) {
-		c.stderrMu.Lock()
-		c.stderrLines = llm.AppendBoundedLine(c.stderrLines, line, 400)
-		c.stderrMu.Unlock()
+		c.stderrBuf.Append(line)
 	})
 }
 
 func (c *Client) stderrTail(limit int) string {
-	c.stderrMu.Lock()
-	defer c.stderrMu.Unlock()
-
-	return llm.Tail(c.stderrLines, limit)
+	return c.stderrBuf.Tail(limit)
 }
 
 func defaultApprovalHandler(method string, _ jsontext.Value) (Object, error) {

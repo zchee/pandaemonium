@@ -16,12 +16,15 @@ package opencode
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"sync"
 	"time"
 
 	"github.com/go-json-experiment/json"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // eventQueueCapacity bounds each consumer's buffered event queue. On
@@ -31,22 +34,21 @@ const eventQueueCapacity = 128
 // busConsumer is one router registration on the shared event bus, scoped to
 // a session. It is not a connection: all consumers share the bus's single
 // GET /event stream.
+//
+// Queueing is the shared [llm.NotifyQueue] bounded to eventQueueCapacity with
+// the gap-marker overflow policy; this wrapper pins the opencode close
+// contract (a default TransportClosedError when closed without a cause).
 type busConsumer struct {
 	id        uint64
 	sessionID string
-
-	mu     sync.Mutex
-	queue  []Event
-	notify chan struct{} // 1-buffered wakeup signal
-	closed bool
-	err    error
+	q         *llm.NotifyQueue[Event]
 }
 
 func newBusConsumer(id uint64, sessionID string) *busConsumer {
 	return &busConsumer{
 		id:        id,
 		sessionID: sessionID,
-		notify:    make(chan struct{}, 1),
+		q:         llm.NewNotifyQueue[Event](),
 	}
 }
 
@@ -54,82 +56,29 @@ func newBusConsumer(id uint64, sessionID string) *busConsumer {
 // newest — and the loss is coalesced into a single gap marker at the head so
 // the consumer learns events were lost.
 func (bc *busConsumer) push(ev Event) {
-	bc.mu.Lock()
-	if bc.closed {
-		bc.mu.Unlock()
-		return
-	}
-	if len(bc.queue) >= eventQueueCapacity {
-		// Keep the newest (capacity-2) events: one slot for the head gap
-		// marker, one for ev appended below.
-		tail := bc.queue[len(bc.queue)-(eventQueueCapacity-2):]
-		queue := make([]Event, 0, eventQueueCapacity)
-		queue = append(queue, Event{Type: EventTypeGap})
-		queue = append(queue, tail...)
-		bc.queue = queue
-	}
-	bc.queue = append(bc.queue, ev)
-	bc.mu.Unlock()
-
-	select {
-	case bc.notify <- struct{}{}:
-	default:
-	}
+	bc.q.PushBounded(ev, eventQueueCapacity, func(int) (Event, bool) {
+		return Event{Type: EventTypeGap}, true
+	})
 }
 
 // close terminates the consumer with err; pending queued events remain
 // readable before the error is surfaced.
 func (bc *busConsumer) close(err error) {
-	bc.mu.Lock()
-	if bc.closed {
-		bc.mu.Unlock()
-		return
-	}
-	bc.closed = true
-	bc.err = err
-	bc.mu.Unlock()
-
-	select {
-	case bc.notify <- struct{}{}:
-	default:
-	}
+	bc.q.Close(err)
 }
 
 // next returns the next queued event, blocking until one arrives, the
 // consumer is closed (its terminal error is returned after the queue
 // drains), or ctx is done.
 func (bc *busConsumer) next(ctx context.Context) (Event, error) {
-	for {
-		bc.mu.Lock()
-		if len(bc.queue) > 0 {
-			ev := bc.queue[0]
-			bc.queue = bc.queue[1:]
-			if len(bc.queue) > 0 || bc.closed {
-				// Keep the wakeup armed for remaining work.
-				select {
-				case bc.notify <- struct{}{}:
-				default:
-				}
-			}
-			bc.mu.Unlock()
-			return ev, nil
+	ev, err := bc.q.Next(ctx)
+	if err != nil {
+		if errors.Is(err, llm.ErrQueueClosed) {
+			return Event{}, &TransportClosedError{Message: "opencode event bus consumer closed"}
 		}
-		if bc.closed {
-			err := bc.err
-			bc.mu.Unlock()
-			if err == nil {
-				err = &TransportClosedError{Message: "opencode event bus consumer closed"}
-			}
-			return Event{}, err
-		}
-		bc.mu.Unlock()
-
-		select {
-		case <-ctx.Done():
-			return Event{}, ctx.Err()
-		case <-bc.notify:
-		}
+		return Event{}, err
 	}
+	return ev, nil
 }
 
 // eventBus owns the single client-lifetime GET /event connection and fans
@@ -335,7 +284,7 @@ func (b *eventBus) broadcastGap() {
 func (b *eventBus) run() {
 	defer close(b.done)
 
-	retry := b.client.config.Retry.withDefaults()
+	retry := llm.RetryConfig(b.client.config.Retry).WithDefaults()
 	firstConnection := true
 	attempt := 0
 	delay := retry.InitialDelay
@@ -372,7 +321,7 @@ func (b *eventBus) run() {
 			return
 		}
 		var err error
-		delay, err = retry.sleepDelay(b.ctx, delay)
+		delay, err = retry.SleepDelay(b.ctx, delay)
 		if err != nil {
 			b.close(&TransportClosedError{Message: "opencode event bus closed during reconnect backoff"})
 			return

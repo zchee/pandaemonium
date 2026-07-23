@@ -36,90 +36,41 @@ import (
 // messages. It deliberately decouples readLoop from ReceiveResponse: the read
 // loop must keep reading so it can route control_response traffic even when the
 // application is slow to consume ordinary assistant/user/result messages.
+//
+// Queueing is the shared [llm.NotifyQueue]; this wrapper pins the
+// claude-specific contract: push clones the line and reports io.ErrClosedPipe
+// after close, and next returns (nil, nil) as the drained-EOF sentinel.
 type rawMessageBuffer struct {
-	mu       sync.Mutex
-	notify   chan struct{}
-	signaled bool
-	closed   bool
-	queue    [][]byte
-	head     int
+	q *llm.NotifyQueue[[]byte]
 }
 
 func newRawMessageBuffer() *rawMessageBuffer {
-	return &rawMessageBuffer{notify: make(chan struct{})}
+	return &rawMessageBuffer{q: llm.NewNotifyQueue[[]byte]()}
 }
 
 func (b *rawMessageBuffer) push(ctx context.Context, line []byte) error {
 	if err := ctx.Err(); err != nil {
 		return err
 	}
-	cp := slices.Clone(line)
-	b.mu.Lock()
-	defer b.mu.Unlock()
-	if b.closed {
+	if !b.q.Push(slices.Clone(line)) {
 		return io.ErrClosedPipe
 	}
-	b.queue = append(b.queue, cp)
-	b.signalLocked()
 	return nil
 }
 
 func (b *rawMessageBuffer) close() {
-	b.mu.Lock()
-	b.closed = true
-	b.signalLocked()
-	b.mu.Unlock()
+	b.q.Close(nil)
 }
 
 func (b *rawMessageBuffer) next(ctx context.Context) ([]byte, error) {
-	for {
-		b.mu.Lock()
-		if b.head < len(b.queue) {
-			line := b.queue[b.head]
-			b.queue[b.head] = nil
-			b.head++
-			if b.head == len(b.queue) {
-				b.queue = b.queue[:0]
-				b.head = 0
-			} else if b.head > 1024 && b.head*2 >= len(b.queue) {
-				copy(b.queue, b.queue[b.head:])
-				for i := len(b.queue) - b.head; i < len(b.queue); i++ {
-					b.queue[i] = nil
-				}
-				b.queue = b.queue[:len(b.queue)-b.head]
-				b.head = 0
-			}
-			if b.head == len(b.queue) && b.signaled && !b.closed {
-				b.notify = make(chan struct{})
-				b.signaled = false
-			}
-			b.mu.Unlock()
-			return line, nil
-		}
-		if b.closed {
-			b.mu.Unlock()
+	line, err := b.q.Next(ctx)
+	if err != nil {
+		if errors.Is(err, llm.ErrQueueClosed) {
 			return nil, nil
 		}
-		if b.signaled {
-			b.notify = make(chan struct{})
-			b.signaled = false
-		}
-		notify := b.notify
-		b.mu.Unlock()
-
-		select {
-		case <-ctx.Done():
-			return nil, ctx.Err()
-		case <-notify:
-		}
+		return nil, err
 	}
-}
-
-func (b *rawMessageBuffer) signalLocked() {
-	if !b.signaled {
-		close(b.notify)
-		b.signaled = true
-	}
+	return line, nil
 }
 
 // ClaudeSDKClient is a bidirectional interactive client for the claude CLI
@@ -188,10 +139,9 @@ type ClaudeSDKClient struct {
 	// readDone is closed by readLoop when it exits.
 	readDone chan struct{}
 
-	// stderrLines is the bounded stderr ring buffer. Protected by stderrMu.
-	// Capacity mirrors the 400-line drainStderr ring in pkg/llm/codex/client.go.
-	stderrMu    sync.Mutex
-	stderrLines []string
+	// stderrBuf is the bounded stderr ring buffer. Capacity mirrors the
+	// 400-line drainStderr ring in pkg/llm/codex/client.go.
+	stderrBuf *llm.LineBuffer
 
 	// stderrDone is closed by drainStderr when it exits.
 	stderrDone chan struct{}
@@ -474,8 +424,8 @@ func (c *ClaudeSDKClient) Close() error {
 
 	// Wait for readLoop and drainStderr to exit — mirrors the Close sequence in pkg/llm/codex/client.go.
 	// Budget 500ms each, matching the codex drain timeout.
-	waitOrTimeout(readDone, 500*time.Millisecond)
-	waitOrTimeout(stderrDone, 500*time.Millisecond)
+	_ = llm.WaitUntil(readDone, time.Now().Add(500*time.Millisecond))
+	_ = llm.WaitUntil(stderrDone, time.Now().Add(500*time.Millisecond))
 	return nil
 }
 
@@ -486,29 +436,7 @@ func terminateProcess(cmd *exec.Cmd, cmdDone chan error) {
 	if cmd == nil || cmd.Process == nil {
 		return
 	}
-	_ = cmd.Process.Signal(os.Interrupt) // ignore: process may have exited before signal delivery.
-	done := cmdDone
-	if done == nil {
-		done = waitForCmd(cmd)
-	}
-	select {
-	case <-done:
-	case <-time.After(2 * time.Second):
-		_ = cmd.Process.Kill() // ignore: process exit path is best-effort; timed out.
-		<-done
-	}
-}
-
-// waitOrTimeout blocks until done is closed or timeout elapses. A nil channel
-// returns immediately, since the corresponding goroutine was never started.
-func waitOrTimeout(done <-chan struct{}, timeout time.Duration) {
-	if done == nil {
-		return
-	}
-	select {
-	case <-done:
-	case <-time.After(timeout):
-	}
+	llm.TerminateCommand(cmd, cmdDone, os.Interrupt, time.Now().Add(2*time.Second), time.Time{})
 }
 
 // ── unexported infrastructure ────────────────────────────────────────────────
@@ -531,6 +459,9 @@ func (c *ClaudeSDKClient) start(ctx context.Context, t transport, cmd *exec.Cmd,
 	c.cmd = cmd
 	c.cmdDone = cmdDone
 	c.rawMessages = newRawMessageBuffer()
+	if c.stderrBuf == nil {
+		c.stderrBuf = llm.NewLineBuffer(maxStderrLines)
+	}
 	c.readDone = make(chan struct{})
 	c.stderrDone = make(chan struct{})
 
@@ -613,11 +544,8 @@ func (c *ClaudeSDKClient) launchSubprocess(ctx context.Context) error {
 		return &CLIConnectionError{Message: fmt.Sprintf("start claude CLI %q: %v", cliPath, err)}
 	}
 
-	cmdDone := waitForCmd(cmd)
-	t := &stdioTransport{
-		stdin:  stdin,
-		stdout: bufio.NewReader(stdout),
-	}
+	cmdDone := llm.WaitForCommand(cmd)
+	t := newStdioTransport(stdin, bufio.NewReader(stdout))
 	c.start(ctx, t, cmd, cmdDone, stderr)
 
 	// Perform the initialize handshake now that readLoop is running and c.cp
@@ -691,35 +619,23 @@ func (c *ClaudeSDKClient) readLoop(ctx context.Context, t transport, cp *control
 	}
 }
 
-// drainStderr reads lines from r into a bounded ring buffer so that
-// ProcessError.StderrTail is populated on subprocess crash.
+// drainStderr reads lines from r into the bounded stderr ring buffer.
 //
-// Mirrors drainStderr in pkg/llm/codex/client.go. The ring capacity is 400 lines;
-// stderrTail(40) returns the last 40 for ProcessError, matching the codex
-// stderrTail pattern.
+// Mirrors drainStderr in pkg/llm/codex/client.go; the ring retains the
+// newest maxStderrLines lines as the subprocess diagnostic tail.
 func (c *ClaudeSDKClient) drainStderr(r io.Reader, done chan<- struct{}) {
 	defer close(done)
+	buf := c.stderrBuf
+	if buf == nil {
+		// Zero-value clients (tests) reach drainStderr without start; the
+		// launched path initializes the buffer in start under closeMu.
+		buf = llm.NewLineBuffer(maxStderrLines)
+		c.stderrBuf = buf
+	}
 	llm.DrainLines(r, func(line string) {
-		c.stderrMu.Lock()
-		c.appendStderrLineLocked(line)
-		c.stderrMu.Unlock()
+		buf.Append(line)
 	})
 }
 
-// appendStderrLineLocked appends line to the fixed-size stderr tail.
-// c.stderrMu must be held by the caller.
-func (c *ClaudeSDKClient) appendStderrLineLocked(line string) {
-	const maxStderrLines = 400
-	c.stderrLines = llm.AppendBoundedLine(c.stderrLines, line, maxStderrLines)
-}
-
-// waitForCmd starts a goroutine that calls cmd.Wait and returns a channel that
-// receives the exit error once the process exits.
-func waitForCmd(cmd *exec.Cmd) chan error {
-	done := make(chan error, 1)
-	go func() {
-		done <- cmd.Wait()
-		close(done)
-	}()
-	return done
-}
+// maxStderrLines bounds the retained stderr tail ring.
+const maxStderrLines = 400

@@ -33,6 +33,8 @@ import (
 
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
+
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // TestCloseDuringConcurrentWrite verifies that concurrent RequestRaw calls
@@ -46,7 +48,7 @@ func TestCloseDuringConcurrentWrite(t *testing.T) {
 	t.Cleanup(cancel)
 
 	client := NewClient(&Config{}, nil)
-	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
+	client.storeTransport(newStdioTransport(stdinW, bufio.NewReader(stdoutR)))
 	client.stdoutCloser = stdoutR
 	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
@@ -144,7 +146,7 @@ func TestCloseDuringConcurrentRead(t *testing.T) {
 	})
 
 	client := NewClient(&Config{}, nil)
-	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
+	client.storeTransport(newStdioTransport(stdinW, bufio.NewReader(stdoutR)))
 	client.stdoutCloser = stdoutR
 	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
@@ -284,7 +286,7 @@ func TestClientCloseKillsAndReapsInterruptIgnoringProcessWithinBudget(t *testing
 		_ = cmd.Process.Kill()
 		t.Fatalf("helper readiness = %q err=%v", ready.Text(), ready.Err())
 	}
-	done := waitForCommand(cmd)
+	done := llm.WaitForCommand(cmd)
 	client := NewClient(&Config{}, nil)
 	client.closeBudget = clientCloseBudget{
 		transport: 5 * time.Millisecond,
@@ -351,7 +353,7 @@ func TestStdioReadCancellable(t *testing.T) {
 	// that exits after ctx cancellation returns to the caller.
 	t.Cleanup(func() { _ = stdoutW.Close() })
 
-	tr := &stdioTransport{stdout: bufio.NewReader(stdoutR)}
+	tr := newStdioTransport(nil, bufio.NewReader(stdoutR))
 	ctx, cancel := context.WithTimeout(t.Context(), 50*time.Millisecond)
 	defer cancel()
 

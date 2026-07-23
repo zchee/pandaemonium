@@ -36,7 +36,7 @@ func TestStdioTransport_WriteJSON(t *testing.T) {
 		stdinR, stdinW := io.Pipe()
 		t.Cleanup(func() { stdinR.Close(); stdinW.Close() })
 
-		tr := &stdioTransport{stdin: stdinW}
+		tr := newStdioTransport(stdinW, nil)
 		payload := []byte(`{"type":"ping"}`)
 		want := append(payload, '\n')
 
@@ -61,7 +61,7 @@ func TestStdioTransport_WriteJSON(t *testing.T) {
 		stdinR, stdinW := io.Pipe()
 		t.Cleanup(func() { stdinR.Close(); stdinW.Close() })
 
-		tr := &stdioTransport{stdin: stdinW}
+		tr := newStdioTransport(stdinW, nil)
 		payload := []byte(`{"k":"v"}`)
 
 		errCh := make(chan error, 1)
@@ -85,7 +85,7 @@ func TestStdioTransport_WriteJSON(t *testing.T) {
 	t.Run("error: nil stdin returns CLIConnectionError", func(t *testing.T) {
 		t.Parallel()
 
-		tr := &stdioTransport{}
+		tr := newStdioTransport(nil, nil)
 		err := tr.WriteJSON(t.Context(), []byte(`{}`))
 		if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 			t.Fatalf("WriteJSON() error type = %T, want *CLIConnectionError", err)
@@ -104,7 +104,7 @@ func TestStdioTransport_ReadJSON(t *testing.T) {
 		stdoutR, stdoutW := io.Pipe()
 		t.Cleanup(func() { stdoutR.Close(); stdoutW.Close() })
 
-		tr := &stdioTransport{stdout: bufio.NewReader(stdoutR)}
+		tr := newStdioTransport(nil, bufio.NewReader(stdoutR))
 		line := `{"type":"pong"}` + "\n"
 
 		go func() {
@@ -126,7 +126,7 @@ func TestStdioTransport_ReadJSON(t *testing.T) {
 		stdoutR, stdoutW := io.Pipe()
 		t.Cleanup(func() { stdoutR.Close() })
 
-		tr := &stdioTransport{stdout: bufio.NewReader(stdoutR)}
+		tr := newStdioTransport(nil, bufio.NewReader(stdoutR))
 
 		// Close the write end immediately → ReadJSON should return io.EOF.
 		stdoutW.Close()
@@ -140,7 +140,7 @@ func TestStdioTransport_ReadJSON(t *testing.T) {
 	t.Run("error: nil stdout returns CLIConnectionError", func(t *testing.T) {
 		t.Parallel()
 
-		tr := &stdioTransport{}
+		tr := newStdioTransport(nil, nil)
 		_, err := tr.ReadJSON(t.Context())
 		if _, ok := errors.AsType[*CLIConnectionError](err); !ok {
 			t.Fatalf("ReadJSON() error type = %T, want *CLIConnectionError", err)
@@ -159,7 +159,7 @@ func TestStdioTransport_Close(t *testing.T) {
 		stdinR, stdinW := io.Pipe()
 		t.Cleanup(func() { stdinR.Close() })
 
-		tr := &stdioTransport{stdin: stdinW}
+		tr := newStdioTransport(stdinW, nil)
 		if err := tr.Close(); err != nil {
 			t.Fatalf("Close() = %v, want nil", err)
 		}
@@ -175,7 +175,7 @@ func TestStdioTransport_Close(t *testing.T) {
 	t.Run("success: close nil stdin is idempotent", func(t *testing.T) {
 		t.Parallel()
 
-		tr := &stdioTransport{}
+		tr := newStdioTransport(nil, nil)
 		if err := tr.Close(); err != nil {
 			t.Fatalf("Close() nil stdin = %v, want nil", err)
 		}

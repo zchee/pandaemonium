@@ -77,11 +77,9 @@ func TestClient_DrainStderrKeepsLast400Lines(t *testing.T) {
 	c.drainStderr(strings.NewReader(b.String()), done)
 	<-done
 
-	c.stderrMu.Lock()
-	got := append([]string(nil), c.stderrLines...)
-	c.stderrMu.Unlock()
+	got := c.stderrBuf.Lines()
 	if len(got) != 400 {
-		t.Fatalf("stderrLines len = %d, want 400", len(got))
+		t.Fatalf("stderr lines len = %d, want 400", len(got))
 	}
 	if got[0] != "line-005" || got[len(got)-1] != "line-404" {
 		t.Fatalf("stderr tail bounds = %q..%q, want line-005..line-404", got[0], got[len(got)-1])

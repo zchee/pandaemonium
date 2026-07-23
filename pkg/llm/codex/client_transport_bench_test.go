@@ -64,7 +64,7 @@ func benchmarkStdIOClient(b *testing.B) (*Client, context.CancelFunc) {
 
 	ctx, cancel := context.WithTimeout(b.Context(), 15*time.Second)
 	client := NewClient(&Config{}, nil)
-	client.storeTransport(&stdioTransport{stdin: stdinW, stdout: bufio.NewReader(stdoutR)})
+	client.storeTransport(newStdioTransport(stdinW, bufio.NewReader(stdoutR)))
 	client.rpcState = newJSONRPCClientState()
 	client.turnRouter = newTurnNotificationRouter()
 	client.readDone = make(chan struct{})

@@ -29,7 +29,7 @@ import (
 // safe for concurrent calls to WriteJSON; ReadJSON is called only from the
 // single readLoop goroutine.
 //
-// Mirrors the Transport interface in pkg/llm/codex/client_transport.go.
+// Matches the exported Transport interface in pkg/llm/codex/client_transport.go.
 type transport interface {
 	io.Closer
 
@@ -41,43 +41,18 @@ type transport interface {
 	ReadJSON(ctx context.Context) ([]byte, error)
 }
 
-// stdioTransport is a transport backed by a subprocess stdin/stdout pair.
-//
-// It is created by ClaudeSDKClient.start after the subprocess is launched.
-// Concurrent safety for WriteJSON is provided by ClaudeSDKClient.writeMu, not
-// by an internal mutex — the same discipline used by stdioTransport in pkg/llm/codex/client_transport.go.
-type stdioTransport struct {
-	stdin  io.WriteCloser
-	stdout *bufio.Reader
-}
+var _ transport = (*llm.StdioTransport)(nil)
 
-var _ transport = (*stdioTransport)(nil)
-
-// Close closes the subprocess stdin pipe, signaling EOF to the CLI.
-func (t *stdioTransport) Close() error {
-	if t.stdin == nil {
-		return nil
+// newStdioTransport returns the stdio-backed transport for a launched claude
+// CLI subprocess, wiring [CLIConnectionError] into the shared
+// [llm.StdioTransport]. Concurrent safety for WriteJSON is provided by
+// ClaudeSDKClient.writeMu, not by an internal mutex — the same discipline
+// used by the codex client in pkg/llm/codex.
+func newStdioTransport(stdin io.WriteCloser, stdout *bufio.Reader) *llm.StdioTransport {
+	return &llm.StdioTransport{
+		Stdin:        stdin,
+		Stdout:       stdout,
+		ClosedErr:    func() error { return &CLIConnectionError{Message: "\"claude\" is not running"} },
+		WrapWriteErr: func(err error) error { return &CLIConnectionError{Message: err.Error()} },
 	}
-	return t.stdin.Close()
-}
-
-// WriteJSON writes p followed by a newline to the subprocess stdin.
-// The data is cloned so the caller may reuse the slice immediately.
-func (t *stdioTransport) WriteJSON(_ context.Context, p []byte) error {
-	return llm.WriteJSONLine(
-		t.stdin,
-		p,
-		func() error { return &CLIConnectionError{Message: "\"claude\" is not running"} },
-		func(err error) error { return &CLIConnectionError{Message: err.Error()} },
-	)
-}
-
-// ReadJSON reads the next newline-terminated line from the subprocess stdout.
-// Returns io.EOF when the subprocess closes its stdout.
-func (t *stdioTransport) ReadJSON(ctx context.Context) ([]byte, error) {
-	return llm.ReadJSONLine(
-		ctx,
-		t.stdout,
-		func() error { return &CLIConnectionError{Message: "\"claude\" is not running"} },
-	)
 }
