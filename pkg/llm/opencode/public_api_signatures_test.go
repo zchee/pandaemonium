@@ -19,6 +19,8 @@ import (
 	"iter"
 	"reflect"
 	"testing"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // TestPublicAPISignatures is AC2: the exported facade surface mapped from
@@ -126,6 +128,6 @@ func TestNoSteerMethod(t *testing.T) {
 
 // Compile-time shape checks that reflect cannot express for generic code.
 var (
-	_ func(context.Context, RetryConfig, func() (int, error)) (int, error) = RetryOnOverload[int]
-	_ func(context.Context) iter.Seq2[Event, error]                        = (&TurnHandle{}).Stream
+	_ func(context.Context, llm.RetryConfig, func() (int, error)) (int, error) = RetryOnOverload[int]
+	_ func(context.Context) iter.Seq2[Event, error]                            = (&TurnHandle{}).Stream
 )

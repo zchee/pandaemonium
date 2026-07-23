@@ -20,6 +20,7 @@ import (
 	"log"
 	"time"
 
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 	"github.com/zchee/pandaemonium/pkg/llm/codex/examples/internal/exampleutil"
 )
@@ -38,7 +39,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
-	result, err := codex.RetryOnOverload(ctx, codex.RetryConfig{
+	result, err := codex.RetryOnOverload(ctx, llm.RetryConfig{
 		MaxAttempts:  3,
 		InitialDelay: 250 * time.Millisecond,
 		MaxDelay:     2 * time.Second,

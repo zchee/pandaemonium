@@ -19,6 +19,8 @@ import (
 	"errors"
 	"testing"
 	"time"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 func retryableBusyError() error {
@@ -29,35 +31,35 @@ func TestRetryOnOverload(t *testing.T) {
 	t.Parallel()
 
 	tests := map[string]struct {
-		cfg       RetryConfig
+		cfg       llm.RetryConfig
 		results   []error // successive op outcomes; nil = success
 		wantCalls int
 		wantErr   bool
 	}{
 		"success: first attempt needs no retry": {
-			cfg:       RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
+			cfg:       llm.RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
 			results:   []error{nil},
 			wantCalls: 1,
 		},
 		"success: retryable failures then success": {
-			cfg:       RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
+			cfg:       llm.RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
 			results:   []error{retryableBusyError(), retryableBusyError(), nil},
 			wantCalls: 3,
 		},
 		"error: non-retryable error stops immediately": {
-			cfg:       RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
+			cfg:       llm.RetryConfig{MaxAttempts: 3, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
 			results:   []error{errors.New("boom")},
 			wantCalls: 1,
 			wantErr:   true,
 		},
 		"error: attempts exhausted returns last error": {
-			cfg:       RetryConfig{MaxAttempts: 2, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
+			cfg:       llm.RetryConfig{MaxAttempts: 2, InitialDelay: time.Millisecond, MaxDelay: 2 * time.Millisecond},
 			results:   []error{retryableBusyError(), retryableBusyError()},
 			wantCalls: 2,
 			wantErr:   true,
 		},
 		"error: invalid jitter ratio rejected": {
-			cfg:       RetryConfig{JitterRatio: 2},
+			cfg:       llm.RetryConfig{JitterRatio: 2},
 			results:   []error{nil},
 			wantCalls: 0,
 			wantErr:   true,
@@ -95,7 +97,7 @@ func TestRetryOnOverloadContextCancel(t *testing.T) {
 
 	ctx, cancel := context.WithCancel(t.Context())
 	calls := 0
-	_, err := RetryOnOverload(ctx, RetryConfig{MaxAttempts: 5, InitialDelay: time.Hour, MaxDelay: time.Hour}, func() (int, error) {
+	_, err := RetryOnOverload(ctx, llm.RetryConfig{MaxAttempts: 5, InitialDelay: time.Hour, MaxDelay: time.Hour}, func() (int, error) {
 		calls++
 		cancel() // cancel while the retry loop would sleep
 		return 0, retryableBusyError()

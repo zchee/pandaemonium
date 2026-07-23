@@ -27,6 +27,8 @@ import (
 	"time"
 
 	"github.com/go-json-experiment/json"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 const (
@@ -77,7 +79,7 @@ type Config struct {
 
 	// Retry bounds HTTP overload retries (RetryOnOverload) and SSE bus
 	// auto-reconnect attempts.
-	Retry RetryConfig
+	Retry llm.RetryConfig
 
 	// DialTimeout bounds server readiness (announce line + health) and the
 	// event bus dial (HTTP 200 + first server.connected). Zero means 30s.

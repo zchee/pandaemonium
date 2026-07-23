@@ -49,7 +49,6 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		_ codex.InputItem = codex.LocalImageInput{}
 		_ codex.InputItem = codex.SkillInput{}
 		_ codex.InputItem = codex.MentionInput{}
-		_ codex.RetryConfig
 		_ *codex.AppServerError
 		_ *codex.TransportClosedError
 		_ *codex.LoginNotificationDroppedError
@@ -88,7 +87,6 @@ func TestPublicAPISignaturePortRootExports(t *testing.T) {
 		"LocalImageInput":               reflect.TypeFor[codex.LocalImageInput](),
 		"SkillInput":                    reflect.TypeFor[codex.SkillInput](),
 		"MentionInput":                  reflect.TypeFor[codex.MentionInput](),
-		"RetryConfig":                   reflect.TypeFor[codex.RetryConfig](),
 		"AppServerError":                reflect.TypeFor[codex.AppServerError](),
 		"TransportClosedError":          reflect.TypeFor[codex.TransportClosedError](),
 		"LoginNotificationDroppedError": reflect.TypeFor[codex.LoginNotificationDroppedError](),

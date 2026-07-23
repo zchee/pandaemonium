@@ -33,6 +33,8 @@ import (
 	"github.com/go-json-experiment/json"
 	"github.com/go-json-experiment/json/jsontext"
 	gocmp "github.com/google/go-cmp/cmp"
+
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
 func TestNormalizeInput(t *testing.T) {
@@ -349,7 +351,7 @@ func TestRetryOnOverload(t *testing.T) {
 	for name, tt := range tests {
 		t.Run(name, func(t *testing.T) {
 			calls := 0
-			_, err := RetryOnOverload(t.Context(), RetryConfig{MaxAttempts: tt.maxRetry, InitialDelay: time.Nanosecond, MaxDelay: time.Nanosecond}, func() (string, error) {
+			_, err := RetryOnOverload(t.Context(), llm.RetryConfig{MaxAttempts: tt.maxRetry, InitialDelay: time.Nanosecond, MaxDelay: time.Nanosecond}, func() (string, error) {
 				err := tt.errs[calls]
 				calls++
 				return "ok", err
@@ -375,7 +377,7 @@ func TestClientRequestWithRetryOnOverloadRetriesAndReturnsResult(t *testing.T) {
 		t.Context(), client,
 		"ping",
 		nil,
-		RetryConfig{
+		llm.RetryConfig{
 			MaxAttempts:  3,
 			InitialDelay: time.Nanosecond,
 			MaxDelay:     time.Nanosecond,

@@ -16,22 +16,13 @@ package codex
 
 import (
 	"context"
-	"time"
 
 	llm "github.com/zchee/pandaemonium/pkg/llm"
 )
 
-// RetryConfig controls RetryOnOverload behavior.
-type RetryConfig struct {
-	MaxAttempts  int
-	InitialDelay time.Duration
-	MaxDelay     time.Duration
-	JitterRatio  float64
-}
-
 // RetryOnOverload retries op when it returns a retryable overload error.
-func RetryOnOverload[T any](ctx context.Context, cfg RetryConfig, op func() (T, error)) (T, error) {
-	return llm.RetryOn(ctx, llm.RetryConfig(cfg), isRetryableOp, op)
+func RetryOnOverload[T any](ctx context.Context, cfg llm.RetryConfig, op func() (T, error)) (T, error) {
+	return llm.RetryOn(ctx, cfg, isRetryableOp, op)
 }
 
 // isRetryableOp reports whether err should be retried. It checks the internal

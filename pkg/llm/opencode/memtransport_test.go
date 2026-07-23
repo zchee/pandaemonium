@@ -21,6 +21,8 @@ import (
 	"sync"
 	"testing"
 	"time"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // memListener is an in-memory net.Listener whose connections are net.Pipe
@@ -99,7 +101,7 @@ func startFakeOpencodeMem(t *testing.T, fake *fakeOpencode, mutate func(*RemoteC
 		HTTPClient:  &http.Client{Transport: transport},
 		DialTimeout: 10 * time.Second,
 		DrainWindow: 300 * time.Millisecond,
-		Retry:       RetryConfig{MaxAttempts: 2, InitialDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond, JitterRatio: -1},
+		Retry:       llm.RetryConfig{MaxAttempts: 2, InitialDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond, JitterRatio: -1},
 	}
 	if mutate != nil {
 		mutate(cfg)

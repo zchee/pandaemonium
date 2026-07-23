@@ -23,6 +23,8 @@ import (
 	"strings"
 	"testing"
 	"time"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // startFakeOpencode serves fake over httptest and attaches a facade to it.
@@ -36,7 +38,7 @@ func startFakeOpencode(t *testing.T, fake *fakeOpencode, mutate func(*RemoteConf
 		BaseURL:     server.URL,
 		DialTimeout: 10 * time.Second,
 		DrainWindow: 300 * time.Millisecond,
-		Retry:       RetryConfig{MaxAttempts: 2, InitialDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond, JitterRatio: -1},
+		Retry:       llm.RetryConfig{MaxAttempts: 2, InitialDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond, JitterRatio: -1},
 	}
 	if mutate != nil {
 		mutate(cfg)
@@ -347,7 +349,7 @@ func TestTurnReconnectGapNotification(t *testing.T) {
 
 	fake := newFakeOpencode()
 	oc := startFakeOpencode(t, fake, func(cfg *RemoteConfig) {
-		cfg.Retry = RetryConfig{MaxAttempts: 5, InitialDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond, JitterRatio: -1}
+		cfg.Retry = llm.RetryConfig{MaxAttempts: 5, InitialDelay: 10 * time.Millisecond, MaxDelay: 20 * time.Millisecond, JitterRatio: -1}
 	})
 	session, handle := startBlockedTurn(t, oc, fake)
 

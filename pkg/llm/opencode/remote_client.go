@@ -23,6 +23,8 @@ import (
 	"net/url"
 	"strings"
 	"time"
+
+	"github.com/zchee/pandaemonium/pkg/llm"
 )
 
 // RemoteConfig attaches to an already-running `opencode serve` without
@@ -43,7 +45,7 @@ type RemoteConfig struct {
 
 	// Retry, DialTimeout, DrainWindow, PermissionAuto, and HTTPClient behave
 	// exactly as their Config counterparts.
-	Retry          RetryConfig
+	Retry          llm.RetryConfig
 	DialTimeout    time.Duration
 	DrainWindow    time.Duration
 	PermissionAuto bool

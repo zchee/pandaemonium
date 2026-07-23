@@ -536,14 +536,14 @@ func (c *Client) RequestRaw(ctx context.Context, method string, params any) (jso
 }
 
 // RequestWithRetryOnOverload sends a request and retries retryable overload responses.
-func (c *Client) RequestWithRetryOnOverload(ctx context.Context, method string, params any, cfg RetryConfig) (jsontext.Value, error) {
+func (c *Client) RequestWithRetryOnOverload(ctx context.Context, method string, params any, cfg llm.RetryConfig) (jsontext.Value, error) {
 	return RetryOnOverload(ctx, cfg, func() (jsontext.Value, error) {
 		return c.RequestRaw(ctx, method, params)
 	})
 }
 
 // RequestWithRetryOnOverload sends a typed request and retries retryable overload responses.
-func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method string, params any, cfg RetryConfig) (T, error) {
+func RequestWithRetryOnOverload[T any](ctx context.Context, c *Client, method string, params any, cfg llm.RetryConfig) (T, error) {
 	var zero T
 	if c == nil {
 		return zero, fmt.Errorf("codex client is nil")

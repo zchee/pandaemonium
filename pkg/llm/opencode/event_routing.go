@@ -284,7 +284,7 @@ func (b *eventBus) broadcastGap() {
 func (b *eventBus) run() {
 	defer close(b.done)
 
-	retry := llm.RetryConfig(b.client.config.Retry).WithDefaults()
+	retry := b.client.config.Retry.WithDefaults()
 	firstConnection := true
 	attempt := 0
 	delay := retry.InitialDelay

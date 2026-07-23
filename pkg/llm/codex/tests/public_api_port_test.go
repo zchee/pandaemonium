@@ -25,6 +25,7 @@ import (
 	"github.com/go-json-experiment/json/jsontext"
 	"github.com/google/go-cmp/cmp"
 
+	llm "github.com/zchee/pandaemonium/pkg/llm"
 	"github.com/zchee/pandaemonium/pkg/llm/codex"
 )
 
@@ -104,7 +105,6 @@ func TestPublicAPISurfaceMatchesPythonSDKIntent(t *testing.T) {
 		"LocalImageInput":                   reflect.TypeFor[codex.LocalImageInput](),
 		"SkillInput":                        reflect.TypeFor[codex.SkillInput](),
 		"MentionInput":                      reflect.TypeFor[codex.MentionInput](),
-		"RetryConfig":                       reflect.TypeFor[codex.RetryConfig](),
 		"Account":                           reflect.TypeFor[codex.Account](),
 		"AccountLoginCompletedNotification": reflect.TypeFor[codex.AccountLoginCompletedNotification](),
 		"CancelLoginAccountResponse":        reflect.TypeFor[codex.CancelLoginAccountResponse](),
@@ -272,7 +272,7 @@ func TestPublicClientRoutingAndRetryPort(t *testing.T) {
 		t.Fatalf("StreamText deltas mismatch (-want +got):\n%s", diff)
 	}
 
-	got, err := codex.RequestWithRetryOnOverload[string](ctx, client, "ping", nil, codex.RetryConfig{
+	got, err := codex.RequestWithRetryOnOverload[string](ctx, client, "ping", nil, llm.RetryConfig{
 		MaxAttempts:  2,
 		InitialDelay: time.Millisecond,
 		MaxDelay:     time.Millisecond,
@@ -289,7 +289,7 @@ func TestPublicClientRoutingAndRetryPort(t *testing.T) {
 func TestRetryableErrorClassificationPort(t *testing.T) {
 	t.Parallel()
 
-	_, err := codex.RetryOnOverload(t.Context(), codex.RetryConfig{MaxAttempts: 1}, func() (string, error) {
+	_, err := codex.RetryOnOverload(t.Context(), llm.RetryConfig{MaxAttempts: 1}, func() (string, error) {
 		return "", context.Canceled
 	})
 	if !errors.Is(err, context.Canceled) {
