@@ -82,6 +82,6 @@ func TestReadJSONLineCanceled(t *testing.T) {
 	cancel()
 	_, err := ReadJSONLine(ctx, bufio.NewReader(bytes.NewBuffer(nil)), func() error { return errClosed })
 	if !errors.Is(err, context.Canceled) {
-		t.Fatalf("ReadJSONLineContext() error = %v, want context.Canceled", err)
+		t.Fatalf("ReadJSONLine() error = %v, want context.Canceled", err)
 	}
 }
