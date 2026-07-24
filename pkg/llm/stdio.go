@@ -62,10 +62,17 @@ func readJSONLine(stdout *bufio.Reader) ([]byte, error) {
 // ReadJSONLine reads one JSON line and returns ctx.Err if ctx is
 // cancelled before the line is available.
 //
+// A context that is already cancelled on entry returns ctx.Err without
+// consuming a line; both channels being ready would otherwise let select
+// pick the read result over the cancellation nondeterministically.
+//
 // The read goroutine exits naturally when the underlying reader is closed.
 func ReadJSONLine(ctx context.Context, stdout *bufio.Reader, closedErr ErrorFunc) ([]byte, error) {
 	if stdout == nil {
 		return nil, closedErr()
+	}
+	if err := ctx.Err(); err != nil {
+		return nil, err
 	}
 	type result struct {
 		data []byte
